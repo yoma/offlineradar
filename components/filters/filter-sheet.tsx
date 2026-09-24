@@ -28,8 +28,8 @@ const WHEN_OPTIONS: WhenFilter[] = [
 
 const CATEGORIES: { id: EventCategory; label: string }[] = [
   { id: "dating", label: "Dating" },
-  { id: "meet_new_people", label: "Meet new people" },
-  { id: "social", label: "Social" },
+  { id: "meet_new_people", label: "Nieuwe mensen" },
+  { id: "social", label: "Sociaal" },
 ];
 
 export function FilterSheet({

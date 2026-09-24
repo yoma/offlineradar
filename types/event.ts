@@ -2,7 +2,30 @@ export type EventCategory = "dating" | "meet_new_people" | "social";
 
 export type EligibilityAgeRule = "strict" | "guideline" | "unknown";
 
-export type GenderRule = "any" | "women" | "men" | "mixed" | "unknown";
+/** User identity gender for eligibility checks. */
+export type UserGender = "man" | "woman" | "other" | "prefer_not";
+
+/** Optional preference: who the user hopes to meet. Never a hard filter. */
+export type PreferredMeetGender = "women" | "men" | "anyone";
+
+export type ParticipantGender = "man" | "woman";
+
+export type AgeEligibilityBand = {
+  ageMin: number | null;
+  ageMax: number | null;
+  ageRule: EligibilityAgeRule;
+};
+
+/**
+ * Structured participation rules from the source.
+ * Bounds are never invented; unknown stays unknown.
+ */
+export type EventEligibility = {
+  default: AgeEligibilityBand | null;
+  byGender: Partial<Record<ParticipantGender, AgeEligibilityBand>> | null;
+  /** null = no gender restriction known / everyone welcome */
+  allowedGenders: ParticipantGender[] | null;
+};
 
 export type CapacityStatus =
   | "available"
@@ -56,13 +79,27 @@ export type Event = {
   endTime: string | null;
   price: number | null;
   currency: "EUR";
+  eligibility: EventEligibility;
+  /**
+   * Display fallback when no gender-specific band applies.
+   * Derived from eligibility.default or a summary of byGender.
+   */
   eligibilityAgeMin: number | null;
   eligibilityAgeMax: number | null;
   eligibilityAgeRule: EligibilityAgeRule;
+  /**
+   * Typical / expected audience age from the source only.
+   * Used for preference ranking. Shown in UI only when audienceAgeFromSource.
+   */
   preferredAudienceAgeMin: number | null;
   preferredAudienceAgeMax: number | null;
+  audienceAgeFromSource: boolean;
+  /**
+   * Known audience gender mix from the source.
+   * null = source says nothing reliable; never invent a match.
+   */
+  knownAudienceGenders: ParticipantGender[] | null;
   singlesOnly: boolean | null;
-  genderRule: GenderRule | null;
   genderAvailability: string | null;
   capacityStatus: CapacityStatus;
   spotsRemaining: number | null;
@@ -80,3 +117,11 @@ export type Event = {
   activities: ActivityId[];
   practicalInfo: string[];
 };
+
+export function band(
+  ageMin: number | null,
+  ageMax: number | null,
+  ageRule: EligibilityAgeRule,
+): AgeEligibilityBand {
+  return { ageMin, ageMax, ageRule };
+}

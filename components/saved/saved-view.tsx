@@ -5,12 +5,13 @@ import { EventCard } from "@/components/events/event-card";
 import { withUserDistance } from "@/lib/distance";
 import { isEligibleForEvent } from "@/lib/eligibility";
 import { readFavorites, readProfile } from "@/lib/storage";
-import type { Event } from "@/types/event";
+import type { Event, UserGender } from "@/types/event";
 
 export function SavedView({ events }: { events: Event[] }) {
   const [ids, setIds] = useState<string[] | null>(null);
   const [placeId, setPlaceId] = useState("antwerpen");
   const [age, setAge] = useState<number | null>(null);
+  const [gender, setGender] = useState<UserGender | null>(null);
 
   useEffect(() => {
     const sync = () => {
@@ -18,6 +19,7 @@ export function SavedView({ events }: { events: Event[] }) {
       const profile = readProfile();
       setPlaceId(profile.placeId);
       setAge(profile.age);
+      setGender(profile.gender);
     };
     sync();
     window.addEventListener("offlineradar-store", sync);
@@ -38,7 +40,7 @@ export function SavedView({ events }: { events: Event[] }) {
       const placed = withUserDistance(event, placeId);
       return {
         ...placed,
-        eligibility: isEligibleForEvent({ age }, placed),
+        participation: isEligibleForEvent({ age, gender }, placed),
       };
     });
 
@@ -58,7 +60,7 @@ export function SavedView({ events }: { events: Event[] }) {
       ) : (
         <div className="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
           {saved.map((event) => (
-            <EventCard key={event.id} event={event} />
+            <EventCard key={event.id} event={event} gender={gender} />
           ))}
         </div>
       )}

@@ -11,7 +11,8 @@ import type { Event } from "@/types/event";
 import type { SearchState } from "@/types/search";
 
 export type PreparedEvent = Event & {
-  eligibility: ReturnType<typeof isEligibleForEvent>;
+  /** Hard participation check result. Separate from event.eligibility (source rules). */
+  participation: ReturnType<typeof isEligibleForEvent>;
 };
 
 function eventEnd(event: Event): string {
@@ -40,7 +41,10 @@ function matchesWhen(event: Event, state: SearchState, today: string): boolean {
     return overlaps(event, next.start, next.end);
   }
   if (state.when === "month") {
-    return event.startDate.slice(0, 7) === today.slice(0, 7) && eventEnd(event) >= today;
+    return (
+      event.startDate.slice(0, 7) === today.slice(0, 7) &&
+      eventEnd(event) >= today
+    );
   }
   if (state.when === "date" && state.date) {
     return overlaps(event, state.date, state.date);
@@ -60,7 +64,9 @@ function matchesPrice(event: Event, state: SearchState): boolean {
 function matchesAvailability(event: Event, state: SearchState): boolean {
   if (state.availability === "any") return true;
   if (state.availability === "open") {
-    return event.capacityStatus === "available" || event.capacityStatus === "limited";
+    return (
+      event.capacityStatus === "available" || event.capacityStatus === "limited"
+    );
   }
   if (state.availability === "almost_full") {
     return event.capacityStatus === "almost_full";
@@ -68,16 +74,26 @@ function matchesAvailability(event: Event, state: SearchState): boolean {
   return event.capacityStatus === "waitlist";
 }
 
-export function prepareEvents(events: Event[], state: SearchState): PreparedEvent[] {
+export function prepareEvents(
+  events: Event[],
+  state: SearchState,
+): PreparedEvent[] {
   return events.map((event) => {
     const placed = withUserDistance(event, state.placeId);
     return {
       ...placed,
-      eligibility: isEligibleForEvent({ age: state.age }, placed),
+      participation: isEligibleForEvent(
+        { age: state.age, gender: state.gender },
+        placed,
+      ),
     };
   });
 }
 
+/**
+ * Soft filters (when, distance, category…) then hard eligibility.
+ * Preference never removes events here.
+ */
 export function matchingEvents(
   events: Event[],
   state: SearchState,
@@ -106,16 +122,19 @@ export function matchingEvents(
   });
 
   const hiddenStrict = prepared.filter(
-    (event) => event.eligibility.status === "ineligible",
+    (event) => event.participation.status === "ineligible",
   ).length;
 
   const guidelineHidden = state.strictOnly
-    ? prepared.filter((event) => event.eligibility.status === "guideline").length
+    ? prepared.filter((event) => event.participation.status === "guideline")
+        .length
     : 0;
 
   const visible = prepared.filter((event) => {
-    if (!event.eligibility.includedByDefault) return false;
-    if (state.strictOnly && event.eligibility.status === "guideline") return false;
+    if (!event.participation.includedByDefault) return false;
+    if (state.strictOnly && event.participation.status === "guideline") {
+      return false;
+    }
     return true;
   });
 

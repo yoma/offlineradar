@@ -10,13 +10,17 @@ import {
 import { distanceKmBetween } from "@/lib/distance";
 import type {
   ActivityId,
+  AgeEligibilityBand,
   CapacityStatus,
   EligibilityAgeRule,
   Event,
   EventCategory,
+  EventEligibility,
+  ParticipantGender,
   SocialSuitability,
   SourceType,
 } from "@/types/event";
+import { band } from "@/types/event";
 
 /**
  * Fictional events for the prototype.
@@ -43,8 +47,13 @@ type Draft = {
   ageMin: number | null;
   ageMax: number | null;
   ageRule: EligibilityAgeRule;
+  byGender?: Partial<Record<ParticipantGender, AgeEligibilityBand>>;
+  allowedGenders?: ParticipantGender[] | null;
   audienceMin?: number | null;
   audienceMax?: number | null;
+  /** Only true when the mock source explicitly states a typical audience age. */
+  audienceFromSource?: boolean;
+  knownAudienceGenders?: ParticipantGender[] | null;
   singlesOnly?: boolean | null;
   genderAvailability?: string | null;
   capacity: CapacityStatus;
@@ -59,6 +68,24 @@ type Draft = {
   tags: string[];
   practical: string[];
 };
+
+function buildEligibility(draft: Draft): EventEligibility {
+  if (draft.byGender) {
+    return {
+      default:
+        draft.ageRule === "unknown" && draft.ageMin == null && draft.ageMax == null
+          ? null
+          : band(draft.ageMin, draft.ageMax, draft.ageRule),
+      byGender: draft.byGender,
+      allowedGenders: draft.allowedGenders ?? ["man", "woman"],
+    };
+  }
+  return {
+    default: band(draft.ageMin, draft.ageMax, draft.ageRule),
+    byGender: null,
+    allowedGenders: draft.allowedGenders ?? null,
+  };
+}
 
 function upcomingSaturday(today: string): string {
   const weekend = weekendRange(today);
@@ -84,7 +111,6 @@ export function buildMockEvents(now = new Date()): Event[] {
   const nextSaturday = addDays(next.start, 5);
   const nextSunday = addDays(next.start, 6);
   const laterSaturday = addDays(nextSaturday, 7);
-  const laterSunday = addDays(laterSaturday, 1);
   const citytripStart = addDays(laterSaturday, 5);
 
   const drafts: Draft[] = [
@@ -110,6 +136,7 @@ export function buildMockEvents(now = new Date()): Event[] {
       ageRule: "strict",
       audienceMin: 40,
       audienceMax: 55,
+      audienceFromSource: true,
       singlesOnly: true,
       capacity: "available",
       spots: 14,
@@ -184,6 +211,7 @@ export function buildMockEvents(now = new Date()): Event[] {
       ageRule: "strict",
       audienceMin: 35,
       audienceMax: 45,
+      audienceFromSource: true,
       singlesOnly: true,
       genderAvailability: "De organisator werkt met een even groep. Details staan op de site.",
       capacity: "available",
@@ -193,6 +221,48 @@ export function buildMockEvents(now = new Date()): Event[] {
       activities: ["drinken"],
       tags: ["Speeddate", "Singles", "35-45"],
       practical: ["Zeven minuten per gesprek", "Eén drankje inbegrepen", "Kom tien minuten op voorhand"],
+    },
+    {
+      title: "Lange tafel gemengd",
+      slug: "lange-tafel-gemengd",
+      shortDescription:
+        "Diner met genderspecifieke leeftijdsgrenzen: mannen 45–55, vrouwen 35–45.",
+      description:
+        "Een diner voor singles. De organisator laat mannen van 45 tot 55 en vrouwen van 35 tot 45 toe. Die grenzen zijn strikt. Iedereen zit aan één lange tafel.",
+      category: "dating",
+      subCategory: "Dinner",
+      organizerName: "De Lange Tafel",
+      city: "Antwerpen",
+      region: "Antwerpen",
+      venue: "Zaal Zuid",
+      geo: GEO.antwerpen,
+      start: nextFriday,
+      startTime: "19:00",
+      endTime: "22:30",
+      price: 49,
+      ageMin: null,
+      ageMax: null,
+      ageRule: "unknown",
+      byGender: {
+        man: band(45, 55, "strict"),
+        woman: band(35, 45, "strict"),
+      },
+      allowedGenders: ["man", "woman"],
+      audienceMin: 40,
+      audienceMax: 55,
+      audienceFromSource: true,
+      knownAudienceGenders: ["man", "woman"],
+      singlesOnly: true,
+      genderAvailability:
+        "Mannen 45–55 jaar en vrouwen 35–45 jaar. Grenzen zijn strikt volgens de organisator.",
+      capacity: "limited",
+      spots: 4,
+      deadline: addDays(nextFriday, -1),
+      checkedHoursAgo: 5,
+      addedDaysAgo: 1,
+      activities: ["eten"],
+      tags: ["Eten", "Singles", "Genderregels"],
+      practical: ["Menu inbegrepen", "Leeftijd wordt gecontroleerd", "Kom alleen"],
     },
     {
       title: "Singles party 40+",
@@ -963,6 +1033,12 @@ export function buildMockEvents(now = new Date()): Event[] {
   return drafts.map((draft, index) => {
     const distanceKm = distanceKmBetween(GEO.antwerpen, draft.geo);
     const officialUrl = `https://example.com/offlineradar/${draft.slug}`;
+    const eligibility = buildEligibility(draft);
+    const displayBand =
+      eligibility.default ??
+      eligibility.byGender?.man ??
+      eligibility.byGender?.woman ??
+      band(null, null, "unknown");
     return {
       id: `evt-${index + 1}`,
       title: draft.title,
@@ -984,13 +1060,15 @@ export function buildMockEvents(now = new Date()): Event[] {
       endTime: draft.endTime ?? null,
       price: draft.price,
       currency: "EUR" as const,
-      eligibilityAgeMin: draft.ageMin,
-      eligibilityAgeMax: draft.ageMax,
-      eligibilityAgeRule: draft.ageRule,
+      eligibility,
+      eligibilityAgeMin: displayBand.ageMin,
+      eligibilityAgeMax: displayBand.ageMax,
+      eligibilityAgeRule: displayBand.ageRule,
       preferredAudienceAgeMin: draft.audienceMin ?? null,
       preferredAudienceAgeMax: draft.audienceMax ?? null,
+      audienceAgeFromSource: draft.audienceFromSource === true,
+      knownAudienceGenders: draft.knownAudienceGenders ?? null,
       singlesOnly: draft.singlesOnly ?? null,
-      genderRule: draft.genderAvailability ? "mixed" : null,
       genderAvailability: draft.genderAvailability ?? null,
       capacityStatus: draft.capacity,
       spotsRemaining: draft.spots ?? null,

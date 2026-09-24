@@ -1,45 +1,71 @@
 import { ACTIVITY_FIT, CATEGORY_LABEL } from "@/lib/format";
 import type { PreparedEvent } from "@/lib/filters";
-import { preferenceOverlaps } from "@/lib/ranking";
+import {
+  calculatePreferenceScore,
+  preferenceOverlaps,
+} from "@/lib/ranking";
 import type { SearchState } from "@/types/search";
 
-export function whyThisFits(event: PreparedEvent, state: SearchState): string[] {
+export function whyThisFits(
+  event: PreparedEvent,
+  state: SearchState,
+): string[] {
   const reasons: string[] = [];
+  const preference = calculatePreferenceScore(event, state);
 
-  if (event.eligibility.status === "eligible") {
-    reasons.push("Je leeftijd voldoet aan de deelnamevoorwaarden");
+  if (event.participation.status === "eligible") {
+    reasons.push("Je voldoet aan de deelnamevoorwaarden");
   } else if (
-    event.eligibility.status === "guideline" &&
-    event.eligibility.inRange
+    event.participation.status === "guideline" &&
+    event.participation.inRange
   ) {
-    reasons.push("Dit event hanteert een richtleeftijd en jij valt daarbinnen");
-  } else if (event.eligibility.status === "guideline") {
-    reasons.push("De leeftijd is een richtlijn, geen harde voorwaarde");
-  } else if (event.eligibility.status === "unknown") {
+    reasons.push("Je valt binnen de richtleeftijd van dit event");
+  } else if (event.participation.status === "guideline") {
+    reasons.push(
+      "De leeftijd is een richtlijn, geen harde voorwaarde. Controleer bij de organisator",
+    );
+  } else if (event.participation.status === "unknown") {
     reasons.push(
       "Deelnamevoorwaarden zijn niet volledig bekend. Controleer ze bij de organisator",
     );
+  } else if (event.participation.status === "needs_gender") {
+    reasons.push(
+      "Geef je gender op om de deelnamevoorwaarden exact te controleren",
+    );
   }
 
-  reasons.push(`${event.distanceKm} km van jou`);
+  reasons.push(`Slechts ${event.distanceKm} km van je zoeklocatie`);
 
   const matchedActivity = state.activities.find((activity) =>
     event.activities.includes(activity),
   );
-  if (matchedActivity) reasons.push(ACTIVITY_FIT[matchedActivity]);
-
-  const overlap = preferenceOverlaps(event, state);
-  if (overlap === true) {
-    reasons.push("De leeftijdsgroep sluit aan bij je voorkeur");
-  }
-
-  if (state.categories.includes(event.category)) {
+  if (matchedActivity) {
+    reasons.push(ACTIVITY_FIT[matchedActivity]);
+  } else if (state.categories.includes(event.category)) {
     reasons.push(`Dit sluit aan bij ${CATEGORY_LABEL[event.category]}`);
   }
 
-  if (state.singlesOnly && event.singlesOnly) {
-    reasons.push("Dit is expliciet voor singles");
+  if (preferenceOverlaps(event, state) === true) {
+    reasons.push("De verwachte leeftijdsgroep sluit aan bij je voorkeur");
   }
 
-  return reasons.slice(0, 4);
+  if (preference.preferredGenderMatch === true) {
+    reasons.push(
+      "De bron vermeldt een publiek dat aansluit bij wie je graag ontmoet",
+    );
+  }
+
+  if (event.singlesOnly === true) {
+    reasons.push("Dit event is expliciet voor singles");
+  }
+
+  if (
+    event.practicalInfo.some((item) =>
+      /alleen|solo|kom alleen/i.test(item),
+    )
+  ) {
+    reasons.push("Solo deelnemen is mogelijk");
+  }
+
+  return [...new Set(reasons)].slice(0, 5);
 }

@@ -1,13 +1,14 @@
-import type { EligibilityAgeRule } from "@/types/event";
+import type {
+  AgeEligibilityBand,
+  Event,
+  EventEligibility,
+  ParticipantGender,
+  UserGender,
+} from "@/types/event";
 
 export type EligibilityUser = {
   age: number | null;
-};
-
-export type EligibilityEvent = {
-  eligibilityAgeMin: number | null;
-  eligibilityAgeMax: number | null;
-  eligibilityAgeRule: EligibilityAgeRule;
+  gender: UserGender | null;
 };
 
 export type EligibilityStatus =
@@ -15,7 +16,8 @@ export type EligibilityStatus =
   | "guideline"
   | "unknown"
   | "ineligible"
-  | "needs_age";
+  | "needs_age"
+  | "needs_gender";
 
 export type EligibilityResult = {
   status: EligibilityStatus;
@@ -23,11 +25,9 @@ export type EligibilityResult = {
   inRange: boolean | null;
   title: string;
   detail: string;
+  /** Band that was applied for this user, if any. */
+  appliedBand: AgeEligibilityBand | null;
 };
-
-function hasKnownBounds(event: EligibilityEvent): boolean {
-  return event.eligibilityAgeMin != null || event.eligibilityAgeMax != null;
-}
 
 export function isInAgeRange(
   age: number,
@@ -39,24 +39,119 @@ export function isInAgeRange(
   return true;
 }
 
+function bandHasBounds(band: AgeEligibilityBand | null | undefined): boolean {
+  if (!band) return false;
+  if (band.ageRule === "unknown") return false;
+  return band.ageMin != null || band.ageMax != null;
+}
+
+function toParticipantGender(gender: UserGender | null): ParticipantGender | null {
+  if (gender === "man" || gender === "woman") return gender;
+  return null;
+}
+
+/**
+ * Resolve the age band that applies to this user.
+ * Never invents bounds.
+ */
+export function resolveEligibilityBand(
+  eligibility: EventEligibility,
+  gender: UserGender | null,
+): { band: AgeEligibilityBand | null; reason: "gender" | "default" | "none" | "needs_gender" } {
+  const participant = toParticipantGender(gender);
+  const byGender = eligibility.byGender;
+
+  if (byGender && (byGender.man || byGender.woman)) {
+    if (participant && byGender[participant]) {
+      return { band: byGender[participant] ?? null, reason: "gender" };
+    }
+    if (participant && !byGender[participant] && eligibility.default) {
+      return { band: eligibility.default, reason: "default" };
+    }
+    if (!participant) {
+      if (eligibility.default) {
+        return { band: eligibility.default, reason: "default" };
+      }
+      return { band: null, reason: "needs_gender" };
+    }
+  }
+
+  if (eligibility.default) {
+    return { band: eligibility.default, reason: "default" };
+  }
+
+  return { band: null, reason: "none" };
+}
+
+function isGenderAllowed(
+  eligibility: EventEligibility,
+  gender: UserGender | null,
+): boolean | null {
+  if (!eligibility.allowedGenders || eligibility.allowedGenders.length === 0) {
+    return null;
+  }
+  const participant = toParticipantGender(gender);
+  if (!participant) return null;
+  return eligibility.allowedGenders.includes(participant);
+}
+
+function formatBandLabel(band: AgeEligibilityBand): string {
+  if (band.ageMin != null && band.ageMax != null) {
+    return `${band.ageMin}–${band.ageMax}`;
+  }
+  if (band.ageMin != null) return `${band.ageMin}+`;
+  if (band.ageMax != null) return `tot ${band.ageMax}`;
+  return "onbekend";
+}
+
 /**
  * Hard participation check.
- * strict + outside the known range => hidden.
- * guideline is not a hard bar.
- * unknown stays visible. Bounds are never invented.
+ * Preference (who you want to meet, preferred ages) must NEVER be applied here.
  */
 export function isEligibleForEvent(
   user: EligibilityUser,
-  event: EligibilityEvent,
+  event: Pick<Event, "eligibility">,
 ): EligibilityResult {
-  if (event.eligibilityAgeRule === "unknown" || !hasKnownBounds(event)) {
+  const { eligibility } = event;
+
+  const genderAllowed = isGenderAllowed(eligibility, user.gender);
+  if (genderAllowed === false) {
     return {
-      status: "unknown",
+      status: "ineligible",
+      includedByDefault: false,
+      inRange: null,
+      title: "Je kunt niet deelnemen",
+      detail:
+        "Dit event is volgens de bron niet open voor jouw gender. Daarom tonen we het niet in je resultaten.",
+      appliedBand: null,
+    };
+  }
+
+  const resolved = resolveEligibilityBand(eligibility, user.gender);
+
+  if (resolved.reason === "needs_gender") {
+    return {
+      status: "needs_gender",
       includedByDefault: true,
       inRange: null,
       title: "Controleer deelnamevoorwaarden",
       detail:
-        "De bron vermeldt geen duidelijke leeftijdsgrenzen. OfflineRadar verzint die niet.",
+        "Dit event heeft genderspecifieke leeftijdsvoorwaarden. Geef je gender op onder Meer opties voor een exacte check, of controleer de officiële bron.",
+      appliedBand: null,
+    };
+  }
+
+  const applied = resolved.band;
+
+  if (!applied || applied.ageRule === "unknown" || !bandHasBounds(applied)) {
+    return {
+      status: "unknown",
+      includedByDefault: true,
+      inRange: null,
+      title: "Deelnamevoorwaarden niet volledig bekend",
+      detail:
+        "De bron vermeldt geen duidelijke deelnamevoorwaarden. OfflineRadar verzint die niet. Controleer ze bij de organisator.",
+      appliedBand: applied,
     };
   }
 
@@ -67,24 +162,22 @@ export function isEligibleForEvent(
       inRange: null,
       title: "Leeftijd nodig",
       detail: "Vul je leeftijd in om te controleren of je mag deelnemen.",
+      appliedBand: applied,
     };
   }
 
-  const inRange = isInAgeRange(
-    user.age,
-    event.eligibilityAgeMin,
-    event.eligibilityAgeMax,
-  );
+  const inRange = isInAgeRange(user.age, applied.ageMin, applied.ageMax);
+  const label = formatBandLabel(applied);
 
-  if (event.eligibilityAgeRule === "strict") {
+  if (applied.ageRule === "strict") {
     if (!inRange) {
       return {
         status: "ineligible",
         includedByDefault: false,
         inRange: false,
         title: "Je kunt niet deelnemen",
-        detail:
-          "Je leeftijd valt buiten de strikte deelnamevoorwaarden. Daarom tonen we dit event niet in je resultaten.",
+        detail: `Je leeftijd valt buiten de strikte deelnamevoorwaarden (${label}). Daarom tonen we dit event niet in je resultaten.`,
+        appliedBand: applied,
       };
     }
     return {
@@ -92,18 +185,21 @@ export function isEligibleForEvent(
       includedByDefault: true,
       inRange: true,
       title: "Je kunt deelnemen",
-      detail: "Je leeftijd valt binnen de strikte deelnamevoorwaarden.",
+      detail: `Je leeftijd valt binnen de strikte deelnamevoorwaarden (${label}).`,
+      appliedBand: applied,
     };
   }
 
+  // guideline: never a hard bar
   if (inRange) {
     return {
       status: "guideline",
       includedByDefault: true,
       inRange: true,
-      title: "Richtleeftijd · je kunt deelnemen",
+      title: `Richtleeftijd ${label}`,
       detail:
         "De organisator vermeldt een richtleeftijd, geen harde grens. Jij valt binnen die richtlijn.",
+      appliedBand: applied,
     };
   }
 
@@ -111,8 +207,36 @@ export function isEligibleForEvent(
     status: "guideline",
     includedByDefault: true,
     inRange: false,
-    title: "Richtleeftijd · geen harde grens",
+    title: `Richtleeftijd ${label}`,
     detail:
-      "Je valt buiten de genoemde richtleeftijd. Dat is geen strikte voorwaarde, dus het event blijft zichtbaar.",
+      "Je valt buiten de genoemde richtleeftijd. Dat is geen strikte voorwaarde. Controleer deelnamevoorwaarden bij de organisator.",
+    appliedBand: applied,
+  };
+}
+
+/** Display age line for cards, gender-aware when possible. */
+export function displayEligibilityAge(
+  event: Pick<Event, "eligibility" | "eligibilityAgeMin" | "eligibilityAgeMax" | "eligibilityAgeRule">,
+  gender: UserGender | null,
+): {
+  min: number | null;
+  max: number | null;
+  rule: import("@/types/event").EligibilityAgeRule;
+  gendered: boolean;
+} {
+  const resolved = resolveEligibilityBand(event.eligibility, gender);
+  if (resolved.band && bandHasBounds(resolved.band)) {
+    return {
+      min: resolved.band.ageMin,
+      max: resolved.band.ageMax,
+      rule: resolved.band.ageRule,
+      gendered: resolved.reason === "gender",
+    };
+  }
+  return {
+    min: event.eligibilityAgeMin,
+    max: event.eligibilityAgeMax,
+    rule: event.eligibilityAgeRule,
+    gendered: false,
   };
 }

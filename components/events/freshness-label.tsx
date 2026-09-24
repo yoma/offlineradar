@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { formatFreshness, type FreshnessTone } from "@/lib/freshness";
 import { cn } from "@/lib/utils";
 
@@ -17,24 +16,29 @@ export function FreshnessLabel({
   lastCheckedAt: string;
   compact?: boolean;
 }) {
-  const [label, setLabel] = useState<string | null>(null);
-  const [tone, setTone] = useState<FreshnessTone>("stale");
-  const [caution, setCaution] = useState<string | null>(null);
+  const freshness = formatFreshness(lastCheckedAt);
+  const { label, tone, caution } = freshness;
 
-  useEffect(() => {
-    const freshness = formatFreshness(lastCheckedAt);
-    setLabel(freshness.label);
-    setTone(freshness.tone);
-    setCaution(freshness.caution);
-  }, [lastCheckedAt]);
+  const display =
+    label && tone === "fresh" && !compact
+      ? label.toLowerCase().startsWith("vandaag")
+        ? label
+        : `Vandaag gecontroleerd · ${label}`
+      : label;
 
   return (
     <div className="space-y-1">
-      <p className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span className={cn("size-1.5 rounded-full", toneClass[tone])} />
+      <p
+        className={cn(
+          "flex items-center gap-2",
+          compact ? "text-xs text-muted-foreground" : "text-sm font-medium",
+        )}
+      >
+        <span className={cn("size-2 rounded-full", toneClass[tone])} />
         <span>
-          Gecontroleerd
-          {label ? ` ${compact ? label.toLowerCase() : label}` : ""}
+          {compact
+            ? `Gecontroleerd${label ? ` ${label.toLowerCase()}` : ""}`
+            : display}
         </span>
       </p>
       {caution && !compact ? (

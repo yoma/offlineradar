@@ -9,19 +9,22 @@ import { SaveButton } from "@/components/events/save-button";
 import { Button } from "@/components/ui/button";
 import { findPlace } from "@/data/places";
 import { track } from "@/lib/analytics";
-import { formatLongDate } from "@/lib/dates";
 import { withUserDistance } from "@/lib/distance";
-import { isEligibleForEvent } from "@/lib/eligibility";
+import {
+  displayEligibilityAge,
+  isEligibleForEvent,
+} from "@/lib/eligibility";
 import {
   CATEGORY_LABEL,
   formatAgeRange,
+  formatDeadlineDetail,
   formatPrice,
   formatSchedule,
 } from "@/lib/format";
 import { defaultSearchState } from "@/lib/search-state";
 import { readProfile } from "@/lib/storage";
 import { whyThisFits } from "@/lib/why";
-import type { Event } from "@/types/event";
+import type { Event, UserGender } from "@/types/event";
 import type { SearchState } from "@/types/search";
 
 export function EventDetail({ event }: { event: Event }) {
@@ -32,33 +35,46 @@ export function EventDetail({ event }: { event: Event }) {
     const profile = readProfile();
     const params = new URLSearchParams(window.location.search);
     const ageFromQuery = Number(params.get("age"));
-    setState({
-      ...defaultSearchState(),
-      age:
-        Number.isFinite(ageFromQuery) && ageFromQuery >= 18
-          ? ageFromQuery
-          : profile.age,
-      placeId: params.get("place") || profile.placeId,
-      maxDistanceKm: profile.maxDistanceKm,
-      preferredAgeMin: profile.preferredAgeMin,
-      preferredAgeMax: profile.preferredAgeMax,
-      activities: profile.interests,
+    const genderParam = params.get("gender") as UserGender | null;
+    queueMicrotask(() => {
+      setState({
+        ...defaultSearchState(),
+        age:
+          Number.isFinite(ageFromQuery) && ageFromQuery >= 18
+            ? ageFromQuery
+            : profile.age,
+        gender: genderParam || profile.gender,
+        placeId: params.get("place") || profile.placeId,
+        maxDistanceKm: profile.maxDistanceKm,
+        preferredAgeMin: profile.preferredAgeMin,
+        preferredAgeMax: profile.preferredAgeMax,
+        preferredMeetGender: profile.preferredMeetGender,
+        activities: profile.interests,
+      });
     });
   }, [event.id, event.slug]);
 
   const place = findPlace(state.placeId);
   const placed = withUserDistance(event, state.placeId);
-  const eligibility = isEligibleForEvent({ age: state.age }, placed);
-  const prepared = { ...placed, eligibility };
-  const reasons = whyThisFits(prepared, state);
-  const ageLabel = formatAgeRange(
-    event.eligibilityAgeMin,
-    event.eligibilityAgeMax,
+  const eligibility = isEligibleForEvent(
+    { age: state.age, gender: state.gender },
+    placed,
   );
+  const prepared = { ...placed, participation: eligibility };
+  const reasons = whyThisFits(prepared, state);
+  const ageInfo = displayEligibilityAge(event, state.gender);
+  const ageLabel = formatAgeRange(ageInfo.min, ageInfo.max);
   const ticketHref = event.ticketUrl ?? event.officialUrl;
   const preference =
     state.preferredAgeMin != null || state.preferredAgeMax != null
       ? formatAgeRange(state.preferredAgeMin, state.preferredAgeMax)
+      : null;
+  const expectedAudience =
+    event.audienceAgeFromSource
+      ? formatAgeRange(
+          event.preferredAudienceAgeMin,
+          event.preferredAudienceAgeMax,
+        )
       : null;
 
   return (
@@ -92,8 +108,8 @@ export function EventDetail({ event }: { event: Event }) {
               {event.city} · {placed.distanceKm} km van {place.label}
             </p>
             <p className="text-[15px]">
-              {formatSchedule(event)} · {formatPrice(event.price, event.currency)} ·{" "}
-              {event.organizerName}
+              {formatSchedule(event)} ·{" "}
+              {formatPrice(event.price, event.currency)} · {event.organizerName}
             </p>
           </header>
 
@@ -102,7 +118,10 @@ export function EventDetail({ event }: { event: Event }) {
               eligibility.status === "ineligible"
                 ? "border-red-200 bg-red-50"
                 : eligibility.status === "unknown" ||
-                    eligibility.status === "needs_age"
+                    eligibility.status === "needs_age" ||
+                    eligibility.status === "needs_gender" ||
+                    (eligibility.status === "guideline" &&
+                      eligibility.inRange === false)
                   ? "border-amber-200 bg-amber-50"
                   : "border-emerald-200 bg-emerald-50"
             }`}
@@ -155,36 +174,6 @@ export function EventDetail({ event }: { event: Event }) {
               </ul>
             </section>
           ) : null}
-
-          <section className="space-y-4 border-t border-border pt-8">
-            <h2 className="text-xl font-semibold tracking-tight">
-              Bron & actualiteit
-            </h2>
-            <FreshnessLabel lastCheckedAt={event.lastCheckedAt} />
-            <p className="text-sm">
-              Bron:{" "}
-              <span className="text-muted-foreground">{event.sourceName}</span>
-            </p>
-            <p className="text-sm text-muted-foreground">
-              In dit prototype opent de knop een voorbeeldlink.
-            </p>
-            <a
-              href={event.officialUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() =>
-                track("organizer_clicked", {
-                  eventId: event.id,
-                  slug: event.slug,
-                  source: "detail",
-                })
-              }
-              className="inline-flex items-center gap-1 text-sm font-semibold underline-offset-4 hover:underline"
-            >
-              Bekijk actuele info bij organisator
-              <ArrowUpRight className="size-4" />
-            </a>
-          </section>
         </div>
 
         <aside className="lg:pt-2">
@@ -193,13 +182,29 @@ export function EventDetail({ event }: { event: Event }) {
               <p className="text-2xl font-semibold">
                 {formatPrice(event.price, event.currency)}
               </p>
-              <CapacityStatus
-                status={event.capacityStatus}
-                spotsRemaining={event.spotsRemaining}
-              />
+              {event.capacityStatus === "unknown" ? (
+                <p className="text-sm text-muted-foreground">
+                  Beschikbaarheid onbekend
+                </p>
+              ) : (
+                <CapacityStatus
+                  status={event.capacityStatus}
+                  spotsRemaining={event.spotsRemaining}
+                />
+              )}
             </div>
-            <dl className="space-y-3 text-sm">
-              <Meta label="Leeftijd" value={ageRuleText(event, ageLabel)} />
+
+            <dl className="space-y-3 border-t border-border pt-4 text-sm">
+              <Meta
+                label="Deelnamevoorwaarden"
+                value={ageRuleText(ageInfo.rule, ageLabel, event)}
+              />
+              {expectedAudience ? (
+                <Meta
+                  label="Verwachte leeftijdsgroep"
+                  value={expectedAudience}
+                />
+              ) : null}
               <Meta
                 label="Singles only"
                 value={
@@ -212,28 +217,20 @@ export function EventDetail({ event }: { event: Event }) {
               />
               <Meta
                 label="Deadline"
-                value={
-                  event.registrationDeadline
-                    ? formatLongDate(event.registrationDeadline)
-                    : "Niet vermeld"
-                }
-              />
-              <Meta
-                label="Publiek"
-                value={
-                  formatAgeRange(
-                    event.preferredAudienceAgeMin,
-                    event.preferredAudienceAgeMax,
-                  ) ?? "Niet vermeld"
-                }
+                value={formatDeadlineDetail(event.registrationDeadline)}
               />
             </dl>
+
             {event.genderAvailability ? (
               <p className="text-sm text-muted-foreground">
                 {event.genderAvailability}
               </p>
             ) : null}
-            <Button asChild className="hidden h-12 w-full rounded-full text-base md:inline-flex">
+
+            <Button
+              asChild
+              className="hidden h-12 w-full rounded-full text-base md:inline-flex"
+            >
               <a
                 href={ticketHref}
                 target="_blank"
@@ -245,10 +242,33 @@ export function EventDetail({ event }: { event: Event }) {
                   })
                 }
               >
-                Tickets bij organisator
+                Tickets / inschrijven bij organisator
                 <ArrowUpRight className="size-4" />
               </a>
             </Button>
+
+            <div className="space-y-2 border-t border-border pt-4">
+              <FreshnessLabel lastCheckedAt={event.lastCheckedAt} />
+              <p className="text-sm text-muted-foreground">
+                Bron: {event.sourceName}
+              </p>
+              <a
+                href={event.officialUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() =>
+                  track("organizer_clicked", {
+                    eventId: event.id,
+                    slug: event.slug,
+                    source: "detail",
+                  })
+                }
+                className="inline-flex items-center gap-1 text-sm font-semibold underline-offset-4 hover:underline"
+              >
+                Bekijk officiële bron
+                <ArrowUpRight className="size-4" />
+              </a>
+            </div>
           </div>
         </aside>
       </div>
@@ -263,7 +283,7 @@ export function EventDetail({ event }: { event: Event }) {
               track("ticket_clicked", { eventId: event.id, slug: event.slug })
             }
           >
-            Tickets bij organisator
+            Tickets / inschrijven bij organisator
             <ArrowUpRight className="size-4" />
           </a>
         </Button>
@@ -272,13 +292,37 @@ export function EventDetail({ event }: { event: Event }) {
   );
 }
 
-function ageRuleText(event: Event, ageLabel: string | null): string {
-  if (event.eligibilityAgeRule === "unknown" || !ageLabel) {
+function ageRuleText(
+  rule: Event["eligibilityAgeRule"],
+  ageLabel: string | null,
+  event: Event,
+): string {
+  if (event.eligibility.byGender) {
+    const parts: string[] = [];
+    if (event.eligibility.byGender.man) {
+      const band = event.eligibility.byGender.man;
+      const label = formatAgeRange(band.ageMin, band.ageMax);
+      if (label) {
+        parts.push(
+          `mannen ${label}${band.ageRule === "guideline" ? " (richtlijn)" : ""}`,
+        );
+      }
+    }
+    if (event.eligibility.byGender.woman) {
+      const band = event.eligibility.byGender.woman;
+      const label = formatAgeRange(band.ageMin, band.ageMax);
+      if (label) {
+        parts.push(
+          `vrouwen ${label}${band.ageRule === "guideline" ? " (richtlijn)" : ""}`,
+        );
+      }
+    }
+    if (parts.length) return parts.join(" · ");
+  }
+  if (rule === "unknown" || !ageLabel) {
     return "Niet vermeld door de bron";
   }
-  if (event.eligibilityAgeRule === "guideline") {
-    return `${ageLabel} · richtleeftijd`;
-  }
+  if (rule === "guideline") return `${ageLabel} · richtleeftijd`;
   return `${ageLabel} · strikte voorwaarde`;
 }
 

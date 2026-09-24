@@ -5,22 +5,33 @@ import { CapacityStatus } from "@/components/events/capacity-status";
 import { EventVisual } from "@/components/events/event-visual";
 import { FreshnessLabel } from "@/components/events/freshness-label";
 import { SaveButton } from "@/components/events/save-button";
+import { displayEligibilityAge } from "@/lib/eligibility";
 import {
   formatAgeRange,
+  formatDeadlineLabel,
   formatEventWhen,
   formatPrice,
 } from "@/lib/format";
 import type { PreparedEvent } from "@/lib/filters";
+import type { UserGender } from "@/types/event";
 
-export function EventCard({ event }: { event: PreparedEvent }) {
+export function EventCard({
+  event,
+  gender = null,
+}: {
+  event: PreparedEvent;
+  gender?: UserGender | null;
+}) {
+  const ageInfo = displayEligibilityAge(event, gender);
   const age =
-    event.eligibilityAgeRule === "unknown"
+    ageInfo.rule === "unknown"
       ? null
-      : formatAgeRange(event.eligibilityAgeMin, event.eligibilityAgeMax);
+      : formatAgeRange(ageInfo.min, ageInfo.max);
   const ageLine =
-    age && event.eligibilityAgeRule === "guideline"
+    age && ageInfo.rule === "guideline"
       ? `${age} · richtleeftijd`
       : age;
+  const deadline = formatDeadlineLabel(event.registrationDeadline);
 
   return (
     <article className="group">
@@ -62,7 +73,10 @@ export function EventCard({ event }: { event: PreparedEvent }) {
           <CapacityStatus status={event.capacityStatus} />
         </div>
 
-        <p className="text-sm font-medium">{event.eligibility.title}</p>
+        <p className="text-sm font-medium">{event.participation.title}</p>
+        {deadline ? (
+          <p className="text-sm text-muted-foreground">⏳ {deadline}</p>
+        ) : null}
         <FreshnessLabel lastCheckedAt={event.lastCheckedAt} compact />
       </div>
     </article>

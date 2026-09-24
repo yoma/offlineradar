@@ -6,20 +6,25 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { USER_PLACES, placeFromPostcode } from "@/data/places";
 import { track } from "@/lib/analytics";
-import { DISTANCES, WHEN_LABEL } from "@/lib/format";
+import { DISTANCES, GENDER_LABEL, MEET_GENDER_LABEL, WHEN_LABEL } from "@/lib/format";
 import { heroImageUrl } from "@/lib/images";
 import { profileFromSearch, serializeSearchState } from "@/lib/search-state";
 import { readProfile, writeProfile } from "@/lib/storage";
-import type { ActivityId, EventCategory } from "@/types/event";
+import type {
+  ActivityId,
+  EventCategory,
+  PreferredMeetGender,
+  UserGender,
+} from "@/types/event";
 import type { SearchState, WhenFilter } from "@/types/search";
 
 const QUICK: { label: string; patch: Partial<SearchState> }[] = [
   { label: "Dit weekend", patch: { when: "weekend" } },
   { label: "Dating", patch: { categories: ["dating"] } },
-  { label: "Meet new people", patch: { categories: ["meet_new_people"] } },
+  { label: "Nieuwe mensen", patch: { categories: ["meet_new_people"] } },
   { label: "Sport", patch: { activities: ["sport"] } },
   { label: "Eten & drinken", patch: { activities: ["eten", "drinken"] } },
-  { label: "Party", patch: { activities: ["party"] } },
+  { label: "Uitgaan", patch: { activities: ["party"] } },
   { label: "Wandelen", patch: { activities: ["wandelen"] } },
   { label: "Reizen", patch: { activities: ["reizen"] } },
 ];
@@ -27,6 +32,7 @@ const QUICK: { label: string; patch: Partial<SearchState> }[] = [
 export function HomeHero() {
   const router = useRouter();
   const [age, setAge] = useState("");
+  const [gender, setGender] = useState<UserGender | "">("");
   const [placeId, setPlaceId] = useState("antwerpen");
   const [postcode, setPostcode] = useState("");
   const [distance, setDistance] = useState(25);
@@ -36,18 +42,24 @@ export function HomeHero() {
   const [categories, setCategories] = useState<EventCategory[]>([]);
   const [prefMin, setPrefMin] = useState("");
   const [prefMax, setPrefMax] = useState("");
+  const [meetGender, setMeetGender] =
+    useState<PreferredMeetGender>("anyone");
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
   const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
     const profile = readProfile();
-    if (profile.age) setAge(String(profile.age));
-    if (profile.placeId) setPlaceId(profile.placeId);
-    if (profile.maxDistanceKm) setDistance(profile.maxDistanceKm);
-    if (profile.interests.length) setActivities(profile.interests);
-    if (profile.preferredAgeMin) setPrefMin(String(profile.preferredAgeMin));
-    if (profile.preferredAgeMax) setPrefMax(String(profile.preferredAgeMax));
+    queueMicrotask(() => {
+      if (profile.age) setAge(String(profile.age));
+      if (profile.gender) setGender(profile.gender);
+      if (profile.placeId) setPlaceId(profile.placeId);
+      if (profile.maxDistanceKm) setDistance(profile.maxDistanceKm);
+      if (profile.interests.length) setActivities(profile.interests);
+      if (profile.preferredAgeMin) setPrefMin(String(profile.preferredAgeMin));
+      if (profile.preferredAgeMax) setPrefMax(String(profile.preferredAgeMax));
+      if (profile.preferredMeetGender) setMeetGender(profile.preferredMeetGender);
+    });
   }, []);
 
   function go(extra?: Partial<SearchState>) {
@@ -63,10 +75,12 @@ export function HomeHero() {
     }
     const state: SearchState = {
       age: parsedAge,
+      gender: gender || null,
       placeId: known?.id ?? placeId,
       maxDistanceKm: distance,
       preferredAgeMin: prefMin ? Number(prefMin) : null,
       preferredAgeMax: prefMax ? Number(prefMax) : null,
+      preferredMeetGender: meetGender,
       when,
       date: when === "date" ? date || null : null,
       categories,
@@ -151,7 +165,7 @@ export function HomeHero() {
                   <option value="date">Datum kiezen</option>
                 </select>
               </Field>
-              <Field label="Leeftijd" divide>
+              <Field label="Mijn leeftijd" divide>
                 <input
                   type="number"
                   min={18}
@@ -231,20 +245,94 @@ export function HomeHero() {
           </div>
 
           {moreOpen ? (
-            <div className="mt-4 space-y-3 rounded-2xl bg-white/95 p-4 text-foreground backdrop-blur">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="text-sm">
-                  <span className="mb-1 block font-medium">Postcode</span>
-                  <input
-                    value={postcode}
-                    onChange={(event) => setPostcode(event.target.value)}
-                    placeholder="2000"
-                    className="h-11 w-full rounded-xl border border-border px-3"
-                  />
-                </label>
+            <div className="mt-4 space-y-5 rounded-2xl bg-white/95 p-4 text-foreground backdrop-blur sm:p-5">
+              <section className="space-y-3">
+                <h2 className="text-sm font-semibold tracking-wide uppercase">
+                  Over mij
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Je leeftijd en gender bepalen of je volgens de bron mag deelnemen.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="text-sm">
+                    <span className="mb-1 block font-medium">Mijn leeftijd</span>
+                    <input
+                      type="number"
+                      min={18}
+                      max={99}
+                      value={age}
+                      onChange={(event) => setAge(event.target.value)}
+                      className="h-11 w-full rounded-xl border border-border px-3"
+                    />
+                  </label>
+                  <label className="text-sm">
+                    <span className="mb-1 block font-medium">Mijn gender</span>
+                    <select
+                      value={gender}
+                      onChange={(event) =>
+                        setGender(event.target.value as UserGender | "")
+                      }
+                      className="h-11 w-full rounded-xl border border-border px-3"
+                    >
+                      <option value="">Kies (optioneel)</option>
+                      {(Object.keys(GENDER_LABEL) as UserGender[]).map((key) => (
+                        <option key={key} value={key}>
+                          {GENDER_LABEL[key]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm sm:col-span-2">
+                    <span className="mb-1 block font-medium">Postcode</span>
+                    <input
+                      value={postcode}
+                      onChange={(event) => setPostcode(event.target.value)}
+                      placeholder="2000"
+                      className="h-11 w-full rounded-xl border border-border px-3"
+                    />
+                  </label>
+                </div>
+              </section>
+
+              <section className="space-y-3 border-t border-border pt-4">
+                <h2 className="text-sm font-semibold tracking-wide uppercase">
+                  Wie wil je graag ontmoeten?
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Optioneel. Dit rangschikt resultaten, het verbergt geen activiteiten.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {(Object.keys(MEET_GENDER_LABEL) as PreferredMeetGender[]).map(
+                    (key) => (
+                      <button
+                        key={key}
+                        type="button"
+                        aria-pressed={meetGender === key}
+                        onClick={() => setMeetGender(key)}
+                        className={`rounded-full border px-3 py-1.5 text-sm ${
+                          meetGender === key
+                            ? "border-foreground bg-foreground text-white"
+                            : "border-border bg-white"
+                        }`}
+                      >
+                        {MEET_GENDER_LABEL[key]}
+                      </button>
+                    ),
+                  )}
+                </div>
+              </section>
+
+              <section className="space-y-3 border-t border-border pt-4">
+                <h2 className="text-sm font-semibold tracking-wide uppercase">
+                  Gewenste leeftijd
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Dit is een voorkeur. We tonen ook andere activiteiten waarvoor je
+                  kunt deelnemen.
+                </p>
                 <div className="grid grid-cols-2 gap-3">
                   <label className="text-sm">
-                    <span className="mb-1 block font-medium">Ontmoeten vanaf</span>
+                    <span className="mb-1 block font-medium">Van</span>
                     <input
                       type="number"
                       min={18}
@@ -256,7 +344,7 @@ export function HomeHero() {
                     />
                   </label>
                   <label className="text-sm">
-                    <span className="mb-1 block font-medium">tot</span>
+                    <span className="mb-1 block font-medium">Tot</span>
                     <input
                       type="number"
                       min={18}
@@ -268,10 +356,7 @@ export function HomeHero() {
                     />
                   </label>
                 </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Ontmoetingsleeftijd is een voorkeur, geen deelnamevoorwaarde.
-              </p>
+              </section>
             </div>
           ) : null}
         </form>

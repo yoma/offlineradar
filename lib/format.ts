@@ -1,12 +1,18 @@
 import type { CapacityStatus, Event } from "@/types/event";
-import { formatLongDate, formatWeekday } from "@/lib/dates";
+import {
+  brusselsToday,
+  diffDays,
+  formatDayMonth,
+  formatLongDate,
+  formatWeekday,
+} from "@/lib/dates";
 
 export function formatAgeRange(
   min: number | null,
   max: number | null,
 ): string | null {
   if (min == null && max == null) return null;
-  if (min != null && max != null) return `${min}-${max} jaar`;
+  if (min != null && max != null) return `${min}–${max} jaar`;
   if (min != null) return `${min}+ jaar`;
   return `tot ${max} jaar`;
 }
@@ -21,10 +27,9 @@ export function formatPrice(price: number | null, currency = "EUR"): string {
   }).format(price);
 }
 
-export function formatEventWhen(event: Pick<
-  Event,
-  "startDate" | "endDate" | "startTime"
->): string {
+export function formatEventWhen(
+  event: Pick<Event, "startDate" | "endDate" | "startTime">,
+): string {
   if (event.endDate && event.endDate !== event.startDate) {
     return `${formatLongDate(event.startDate)} - ${formatLongDate(event.endDate)}`;
   }
@@ -32,10 +37,9 @@ export function formatEventWhen(event: Pick<
   return event.startTime ? `${day} ${event.startTime}` : day;
 }
 
-export function formatSchedule(event: Pick<
-  Event,
-  "startDate" | "endDate" | "startTime" | "endTime"
->): string {
+export function formatSchedule(
+  event: Pick<Event, "startDate" | "endDate" | "startTime" | "endTime">,
+): string {
   const when = formatLongDate(event.startDate);
   const time =
     event.startTime && event.endTime
@@ -46,6 +50,26 @@ export function formatSchedule(event: Pick<
     return time ? `${range}, vertrek ${time}` : range;
   }
   return time ? `${when}, ${time}` : when;
+}
+
+/** Card/detail deadline line. Only when a real deadline exists. */
+export function formatDeadlineLabel(
+  deadline: string | null,
+  now = new Date(),
+): string | null {
+  if (!deadline) return null;
+  const today = brusselsToday(now);
+  const days = diffDays(today, deadline);
+  if (days < 0) return `Inschrijving gesloten`;
+  if (days === 0) return "Inschrijving sluit vandaag";
+  if (days === 1) return "Inschrijving sluit morgen";
+  if (days <= 3) return `Inschrijving sluit over ${days} dagen`;
+  return `Inschrijven t.e.m. ${formatDayMonth(deadline)}`;
+}
+
+export function formatDeadlineDetail(deadline: string | null): string {
+  if (!deadline) return "niet vermeld";
+  return formatLongDate(deadline);
 }
 
 const CAPACITY_LABEL: Record<CapacityStatus, string> = {
@@ -63,8 +87,8 @@ export function capacityLabel(status: CapacityStatus): string {
 
 export const CATEGORY_LABEL = {
   dating: "Dating",
-  meet_new_people: "Meet new people",
-  social: "Social",
+  meet_new_people: "Nieuwe mensen",
+  social: "Sociaal",
 } as const;
 
 export const ACTIVITY_LABEL = {
@@ -74,27 +98,27 @@ export const ACTIVITY_LABEL = {
   lopen: "Lopen",
   sport: "Sport",
   padel: "Padel",
-  party: "Party",
+  party: "Uitgaan",
   dans: "Dans",
   workshop: "Workshop",
   reizen: "Reizen",
   weekend: "Weekend",
-  outdoor: "Outdoor",
+  outdoor: "Buiten",
 } as const;
 
 export const ACTIVITY_FIT = {
-  eten: "Je zoekt iets rond eten",
-  drinken: "Je zoekt iets rond drinken",
-  wandelen: "Je zoekt een wandeling",
-  lopen: "Je zoekt een loopactiviteit",
-  sport: "Je zoekt sportieve activiteiten",
-  padel: "Je zoekt padel",
-  party: "Je zoekt een feestje",
-  dans: "Je zoekt een dansavond",
-  workshop: "Je zoekt een workshop",
-  reizen: "Je zoekt een reis of uitstap",
-  weekend: "Je zoekt een weekendactiviteit",
-  outdoor: "Je zoekt iets buiten",
+  eten: "Dit is een activiteit rond eten",
+  drinken: "Dit is een activiteit rond drinken",
+  wandelen: "Dit is een wandeling",
+  lopen: "Dit is een loopactiviteit",
+  sport: "Dit is een sportieve activiteit",
+  padel: "Dit is padel",
+  party: "Dit is een uitgaansactiviteit",
+  dans: "Dit is een dansavond",
+  workshop: "Dit is een workshop",
+  reizen: "Dit is een reis of uitstap",
+  weekend: "Dit is een weekendactiviteit",
+  outdoor: "Dit is een buitenactiviteit",
 } as const;
 
 export const WHEN_LABEL = {
@@ -127,6 +151,19 @@ export const SORT_LABEL = {
   soon: "Binnenkort",
   distance: "Dichtstbij",
   newest: "Nieuw toegevoegd",
+} as const;
+
+export const GENDER_LABEL = {
+  man: "Man",
+  woman: "Vrouw",
+  other: "Anders / geen van beide",
+  prefer_not: "Zeg ik liever niet",
+} as const;
+
+export const MEET_GENDER_LABEL = {
+  women: "Vrouwen",
+  men: "Mannen",
+  anyone: "Iedereen / geen voorkeur",
 } as const;
 
 export const DISTANCES = [10, 25, 50, 100] as const;

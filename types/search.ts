@@ -1,4 +1,4 @@
-import type { ActivityId, EventCategory } from "@/types/event";
+import type { ActivityId, EventCategory, PreferredMeetGender, UserGender } from "@/types/event";
 
 export type WhenFilter =
   | "any"
@@ -17,10 +17,12 @@ export type SortKey = "match" | "soon" | "distance" | "newest";
 
 export type SearchState = {
   age: number | null;
+  gender: UserGender | null;
   placeId: string;
   maxDistanceKm: number;
   preferredAgeMin: number | null;
   preferredAgeMax: number | null;
+  preferredMeetGender: PreferredMeetGender;
   when: WhenFilter;
   date: string | null;
   categories: EventCategory[];
@@ -34,9 +36,11 @@ export type SearchState = {
 
 export type StoredProfile = {
   age: number | null;
+  gender: UserGender | null;
   placeId: string;
   maxDistanceKm: number;
   preferredAgeMin: number | null;
   preferredAgeMax: number | null;
+  preferredMeetGender: PreferredMeetGender;
   interests: ActivityId[];
 };

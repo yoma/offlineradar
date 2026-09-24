@@ -11,8 +11,8 @@ import { Label } from "@/components/ui/label";
 import { USER_PLACES } from "@/data/places";
 import { track } from "@/lib/analytics";
 import { matchingEvents, placeLabel } from "@/lib/filters";
-import { ACTIVITY_LABEL, AVAILABILITY_LABEL, formatAgeRange, PRICE_LABEL, SORT_LABEL, WHEN_LABEL } from "@/lib/format";
-import { sortEvents } from "@/lib/ranking";
+import { ACTIVITY_LABEL, AVAILABILITY_LABEL, CATEGORY_LABEL, formatAgeRange, PRICE_LABEL, SORT_LABEL, WHEN_LABEL } from "@/lib/format";
+import { hasAnyPreferredAgeMatch, sortEvents } from "@/lib/ranking";
 import {
   applyStoredProfile,
   profileFromSearch,
@@ -38,9 +38,11 @@ export function DiscoverView({
 
   useEffect(() => {
     const stored = readProfile();
-    setState((current) => applyStoredProfile(current, stored));
-    setAgeDraft((current) => current || (stored.age ? String(stored.age) : ""));
-    setBooted(true);
+    queueMicrotask(() => {
+      setState((current) => applyStoredProfile(current, stored));
+      setAgeDraft((current) => current || (stored.age ? String(stored.age) : ""));
+      setBooted(true);
+    });
   }, []);
 
   useEffect(() => {
@@ -55,6 +57,10 @@ export function DiscoverView({
 
   const result = useMemo(() => matchingEvents(events, state), [events, state]);
   const visible = useMemo(() => sortEvents(result.visible, state), [result.visible, state]);
+  const preferredAgeMiss =
+    (state.preferredAgeMin != null || state.preferredAgeMax != null) &&
+    visible.length > 0 &&
+    !hasAnyPreferredAgeMatch(visible, state);
 
   useEffect(() => {
     if (!booted || state.age == null || visible.length > 0) return;
@@ -172,17 +178,41 @@ export function DiscoverView({
             </div>
           ) : null}
 
-          {(state.preferredAgeMin != null || state.preferredAgeMax != null) && (
-            <p className="mt-4 text-sm text-muted-foreground">
-              Je ontmoet liefst {formatAgeRange(state.preferredAgeMin, state.preferredAgeMax)}. Dat gebruiken we om te sorteren, niet om events te verbergen.
-            </p>
-          )}
-
           {result.hiddenStrict > 0 ? (
-            <p className="mt-3 text-sm text-muted-foreground">
-              {result.hiddenStrict}{" "}
-              {result.hiddenStrict === 1 ? "activiteit valt" : "activiteiten vallen"} buiten de strikte deelnamevoorwaarden en{" "}
-              {result.hiddenStrict === 1 ? "wordt" : "worden"} niet getoond.
+            <div className="mt-4 rounded-xl border border-border bg-secondary/60 px-4 py-3 text-sm">
+              <p>
+                {result.hiddenStrict}{" "}
+                {result.hiddenStrict === 1
+                  ? "activiteit verborgen omdat je niet aan de deelnamevoorwaarden voldoet."
+                  : "activiteiten verborgen omdat je niet aan de deelnamevoorwaarden voldoet."}
+              </p>
+              <details className="mt-1">
+                <summary className="cursor-pointer font-medium">Waarom?</summary>
+                <p className="mt-1 text-muted-foreground">
+                  OfflineRadar controleert bekende leeftijds- en andere
+                  deelnamevoorwaarden voordat activiteiten worden getoond.
+                </p>
+              </details>
+            </div>
+          ) : null}
+
+          {preferredAgeMiss ? (
+            <div className="mt-4 space-y-1 text-sm">
+              <p className="font-medium">
+                Geen activiteiten sluiten exact aan bij je voorkeursleeftijd.
+              </p>
+              <p className="text-muted-foreground">
+                Deze activiteiten passen wel bij jouw deelnamevoorwaarden:
+              </p>
+            </div>
+          ) : null}
+
+          {(state.preferredAgeMin != null || state.preferredAgeMax != null) &&
+          !preferredAgeMiss ? (
+            <p className="mt-4 text-sm text-muted-foreground">
+              Je ontmoet liefst{" "}
+              {formatAgeRange(state.preferredAgeMin, state.preferredAgeMax)}. Dat
+              gebruiken we om te sorteren, niet om events te verbergen.
             </p>
           ) : null}
 
@@ -225,7 +255,7 @@ export function DiscoverView({
           ) : (
             <div className="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
               {visible.map((event) => (
-                <EventCard key={event.id} event={event} />
+                <EventCard key={event.id} event={event} gender={state.gender} />
               ))}
             </div>
           )}
@@ -270,7 +300,7 @@ function activeChips(state: SearchState): { id: string; label: string; patch: Pa
   for (const category of state.categories) {
     chips.push({
       id: `cat-${category}`,
-      label: category === "meet_new_people" ? "Meet new people" : category === "dating" ? "Dating" : "Social",
+      label: CATEGORY_LABEL[category],
       patch: { categories: state.categories.filter((item) => item !== category) },
     });
   }
@@ -285,7 +315,7 @@ function activeChips(state: SearchState): { id: string; label: string; patch: Pa
     chips.push({ id: "price", label: PRICE_LABEL[state.price], patch: { price: "any" } });
   }
   if (state.singlesOnly) {
-    chips.push({ id: "singles", label: "Singles only", patch: { singlesOnly: false } });
+    chips.push({ id: "singles", label: "Alleen singles", patch: { singlesOnly: false } });
   }
   if (state.availability !== "any") {
     chips.push({
@@ -325,7 +355,7 @@ function suggestions(state: SearchState): { id: string; label: string; patch: Pa
   if (state.categories.length > 0 && !state.categories.includes("meet_new_people")) {
     items.push({
       id: "people",
-      label: "Toon Meet new people",
+      label: "Toon Nieuwe mensen",
       patch: { categories: [...state.categories, "meet_new_people"] },
     });
   }

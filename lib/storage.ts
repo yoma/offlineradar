@@ -1,27 +1,33 @@
 import type { StoredProfile } from "@/types/search";
 
-const PROFILE_KEY = "offlineradar.profile.v1";
+const PROFILE_KEY = "offlineradar.profile.v2";
 const FAVORITES_KEY = "offlineradar.favorites.v1";
 
 export const emptyProfile: StoredProfile = {
   age: null,
+  gender: null,
   placeId: "antwerpen",
   maxDistanceKm: 25,
   preferredAgeMin: null,
   preferredAgeMax: null,
+  preferredMeetGender: "anyone",
   interests: [],
 };
 
 export function readProfile(): StoredProfile {
   if (typeof window === "undefined") return emptyProfile;
   try {
-    const raw = window.localStorage.getItem(PROFILE_KEY);
+    const raw =
+      window.localStorage.getItem(PROFILE_KEY) ??
+      window.localStorage.getItem("offlineradar.profile.v1");
     if (!raw) return emptyProfile;
     const parsed = JSON.parse(raw) as Partial<StoredProfile>;
     return {
       ...emptyProfile,
       ...parsed,
       interests: Array.isArray(parsed.interests) ? parsed.interests : [],
+      preferredMeetGender: parsed.preferredMeetGender ?? "anyone",
+      gender: parsed.gender ?? null,
     };
   } catch {
     return emptyProfile;
