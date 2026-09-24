@@ -144,7 +144,6 @@ export function HomeHero() {
   }
 
   const extraFilterCount = [
-    Boolean(gender),
     meetGender !== "anyone",
     Boolean(prefMin || prefMax),
     Boolean(postcode.trim()),
@@ -181,7 +180,7 @@ export function HomeHero() {
           }}
         >
           <div className="search-divider overflow-hidden rounded-[40px] bg-white">
-            <div className="grid lg:grid-cols-[1.2fr_1fr_0.7fr_0.85fr_auto]">
+            <div className="grid lg:grid-cols-[1.1fr_0.95fr_0.65fr_0.8fr_0.7fr_auto]">
               <Field label="Waar">
                 <select
                   value={placeId}
@@ -221,6 +220,22 @@ export function HomeHero() {
                   onChange={(event) => setAge(event.target.value)}
                   className="w-full bg-transparent text-[15px] font-semibold outline-none placeholder:font-normal placeholder:text-muted-foreground"
                 />
+              </Field>
+              <Field label="Mijn gender" divide>
+                <select
+                  value={gender}
+                  onChange={(event) =>
+                    setGender(event.target.value as UserGender | "")
+                  }
+                  className="w-full bg-transparent text-[15px] font-semibold outline-none"
+                >
+                  <option value="">Kies</option>
+                  {(Object.keys(GENDER_LABEL) as UserGender[]).map((key) => (
+                    <option key={key} value={key}>
+                      {GENDER_LABEL[key]}
+                    </option>
+                  ))}
+                </select>
               </Field>
               <Field label="Afstand" divide>
                 <select
@@ -283,7 +298,7 @@ export function HomeHero() {
               />
             </button>
             <p className="hidden text-sm text-white/75 sm:block">
-              Gender, voorkeuren en meer
+              Postcode, voorkeuren en meer
             </p>
           </div>
 
@@ -291,50 +306,20 @@ export function HomeHero() {
             <div className="mt-3 space-y-5 rounded-2xl bg-white p-4 text-foreground shadow-lg sm:p-5">
               <section className="space-y-3">
                 <h2 className="text-sm font-semibold tracking-wide uppercase">
-                  Over mij
+                  Locatie verfijnen
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                  Je leeftijd en gender bepalen of je volgens de bron mag deelnemen.
+                  Optioneel. Met een postcode zoeken we gerichter rond jouw buurt.
                 </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="text-sm">
-                    <span className="mb-1 block font-medium">Mijn leeftijd</span>
-                    <input
-                      type="number"
-                      min={18}
-                      max={99}
-                      value={age}
-                      onChange={(event) => setAge(event.target.value)}
-                      className="h-11 w-full rounded-xl border border-border px-3"
-                    />
-                  </label>
-                  <label className="text-sm">
-                    <span className="mb-1 block font-medium">Mijn gender</span>
-                    <select
-                      value={gender}
-                      onChange={(event) =>
-                        setGender(event.target.value as UserGender | "")
-                      }
-                      className="h-11 w-full rounded-xl border border-border px-3"
-                    >
-                      <option value="">Kies (optioneel)</option>
-                      {(Object.keys(GENDER_LABEL) as UserGender[]).map((key) => (
-                        <option key={key} value={key}>
-                          {GENDER_LABEL[key]}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="text-sm sm:col-span-2">
-                    <span className="mb-1 block font-medium">Postcode</span>
-                    <input
-                      value={postcode}
-                      onChange={(event) => setPostcode(event.target.value)}
-                      placeholder="2000"
-                      className="h-11 w-full rounded-xl border border-border px-3"
-                    />
-                  </label>
-                </div>
+                <label className="block text-sm">
+                  <span className="mb-1 block font-medium">Postcode</span>
+                  <input
+                    value={postcode}
+                    onChange={(event) => setPostcode(event.target.value)}
+                    placeholder="2000"
+                    className="h-11 w-full rounded-xl border border-border px-3"
+                  />
+                </label>
               </section>
 
               <section className="space-y-3 border-t border-border pt-4">
