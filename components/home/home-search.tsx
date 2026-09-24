@@ -180,7 +180,7 @@ export function HomeHero() {
           }}
         >
           <div className="search-divider overflow-hidden rounded-[40px] bg-white">
-            <div className="grid lg:grid-cols-[1.1fr_0.95fr_0.65fr_0.8fr_0.7fr_auto]">
+            <div className="grid lg:grid-cols-[1.15fr_1fr_0.7fr_0.85fr_0.75fr]">
               <Field label="Waar">
                 <select
                   value={placeId}
@@ -250,15 +250,6 @@ export function HomeHero() {
                   ))}
                 </select>
               </Field>
-              <div className="flex items-center justify-end p-2">
-                <button
-                  type="submit"
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#e61e4d] px-5 text-sm font-semibold text-white transition hover:bg-[#d70466] lg:w-12 lg:px-0"
-                >
-                  <Search className="size-4" />
-                  <span className="lg:sr-only">Vind activiteiten</span>
-                </button>
-              </div>
             </div>
             {when === "date" ? (
               <div className="border-t border-border px-6 py-3">
@@ -272,12 +263,6 @@ export function HomeHero() {
               </div>
             ) : null}
           </div>
-
-          {(error || note) && (
-            <p className="mt-3 text-sm font-medium text-white">
-              {error || note}
-            </p>
-          )}
 
           <div className="mt-3 flex items-center justify-between gap-3">
             <button
@@ -412,9 +397,21 @@ export function HomeHero() {
                 );
               })}
             </div>
-            <p className="mt-2 text-xs text-white/65">
-              Kies er gerust meerdere. Zoeken doe je met de knop hierboven.
-            </p>
+          </div>
+
+          <div className="mt-6">
+            {(error || note) && (
+              <p className="mb-3 text-sm font-medium text-white">
+                {error || note}
+              </p>
+            )}
+            <button
+              type="submit"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#e61e4d] px-6 py-3.5 text-base font-semibold text-white shadow-lg transition hover:bg-[#d70466] sm:w-auto sm:min-w-[240px]"
+            >
+              <Search className="size-4" />
+              Vind activiteiten
+            </button>
           </div>
         </form>
       </div>
