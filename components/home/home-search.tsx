@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Search } from "lucide-react";
+import { ChevronDown, Search, SlidersHorizontal } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { USER_PLACES, placeFromPostcode } from "@/data/places";
@@ -104,6 +104,13 @@ export function HomeHero() {
     const query = serializeSearchState(state);
     router.push(query ? `/ontdek?${query}` : "/ontdek");
   }
+
+  const extraFilterCount = [
+    Boolean(gender),
+    meetGender !== "anyone",
+    Boolean(prefMin || prefMax),
+    Boolean(postcode.trim()),
+  ].filter(Boolean).length;
 
   return (
     <section className="relative -mt-16 min-h-[100svh] overflow-hidden">
@@ -219,33 +226,31 @@ export function HomeHero() {
             </p>
           )}
 
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            {QUICK.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                onClick={() => {
-                  if (item.patch.when) setWhen(item.patch.when);
-                  if (item.patch.categories) setCategories(item.patch.categories);
-                  if (item.patch.activities) setActivities(item.patch.activities);
-                  go(item.patch);
-                }}
-                className="rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white backdrop-blur-sm transition hover:bg-white/20"
-              >
-                {item.label}
-              </button>
-            ))}
+          <div className="mt-3 flex items-center justify-between gap-3">
             <button
               type="button"
+              aria-expanded={moreOpen}
               onClick={() => setMoreOpen((value) => !value)}
-              className="rounded-full border border-white/25 bg-transparent px-3.5 py-1.5 text-sm font-medium text-white/90"
+              className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20"
             >
-              Meer opties
+              <SlidersHorizontal className="size-4" />
+              Meer filters
+              {extraFilterCount > 0 ? (
+                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-xs font-bold text-[#e61e4d]">
+                  {extraFilterCount}
+                </span>
+              ) : null}
+              <ChevronDown
+                className={`size-4 transition ${moreOpen ? "rotate-180" : ""}`}
+              />
             </button>
+            <p className="hidden text-sm text-white/75 sm:block">
+              Gender, voorkeuren en meer
+            </p>
           </div>
 
           {moreOpen ? (
-            <div className="mt-4 space-y-5 rounded-2xl bg-white/95 p-4 text-foreground backdrop-blur sm:p-5">
+            <div className="mt-3 space-y-5 rounded-2xl bg-white p-4 text-foreground shadow-lg sm:p-5">
               <section className="space-y-3">
                 <h2 className="text-sm font-semibold tracking-wide uppercase">
                   Over mij
@@ -359,6 +364,29 @@ export function HomeHero() {
               </section>
             </div>
           ) : null}
+
+          <div className="mt-5">
+            <p className="mb-2 text-xs font-semibold tracking-wide text-white/70 uppercase">
+              Snel zoeken
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {QUICK.map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => {
+                    if (item.patch.when) setWhen(item.patch.when);
+                    if (item.patch.categories) setCategories(item.patch.categories);
+                    if (item.patch.activities) setActivities(item.patch.activities);
+                    go(item.patch);
+                  }}
+                  className="rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white backdrop-blur-sm transition hover:bg-white/20"
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </form>
       </div>
     </section>
