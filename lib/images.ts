@@ -1,7 +1,7 @@
 import type { ActivityId, EventCategory } from "@/types/event";
 
 const HERO =
-  "https://images.unsplash.com/photo-1515169067868-5387ec356754?auto=format&fit=crop&w=2400&q=80";
+  "https://images.unsplash.com/photo-1621112904887-419379ce6824?auto=format&fit=crop&w=2400&q=80";
 
 const BY_ACTIVITY: Partial<Record<ActivityId, string>> = {
   eten: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1200&q=80",
