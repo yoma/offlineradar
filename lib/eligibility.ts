@@ -97,10 +97,10 @@ function isGenderAllowed(
 
 function formatBandLabel(band: AgeEligibilityBand): string {
   if (band.ageMin != null && band.ageMax != null) {
-    return `${band.ageMin}–${band.ageMax}`;
+    return `${band.ageMin}–${band.ageMax} jaar`;
   }
-  if (band.ageMin != null) return `${band.ageMin}+`;
-  if (band.ageMax != null) return `tot ${band.ageMax}`;
+  if (band.ageMin != null) return `${band.ageMin}+ jaar`;
+  if (band.ageMax != null) return `tot ${band.ageMax} jaar`;
   return "onbekend";
 }
 
@@ -136,7 +136,7 @@ export function isEligibleForEvent(
       inRange: null,
       title: "Controleer deelnamevoorwaarden",
       detail:
-        "Dit event heeft genderspecifieke leeftijdsvoorwaarden. Geef je gender op onder Meer opties voor een exacte check, of controleer de officiële bron.",
+        "Dit event heeft genderspecifieke leeftijdsvoorwaarden. Geef je gender op om de deelnamevoorwaarden te controleren, of check de officiële bron.",
       appliedBand: null,
     };
   }
@@ -196,7 +196,7 @@ export function isEligibleForEvent(
       status: "guideline",
       includedByDefault: true,
       inRange: true,
-      title: `Richtleeftijd ${label}`,
+      title: `Richtleeftijd: ${label}`,
       detail:
         "De organisator vermeldt een richtleeftijd, geen harde grens. Jij valt binnen die richtlijn.",
       appliedBand: applied,
@@ -207,7 +207,7 @@ export function isEligibleForEvent(
     status: "guideline",
     includedByDefault: true,
     inRange: false,
-    title: `Richtleeftijd ${label}`,
+    title: `Richtleeftijd: ${label}`,
     detail:
       "Je valt buiten de genoemde richtleeftijd. Dat is geen strikte voorwaarde. Controleer deelnamevoorwaarden bij de organisator.",
     appliedBand: applied,

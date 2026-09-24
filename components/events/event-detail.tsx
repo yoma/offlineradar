@@ -18,6 +18,7 @@ import {
   CATEGORY_LABEL,
   formatAgeRange,
   formatDeadlineDetail,
+  formatMeetPreferenceSentence,
   formatPrice,
   formatSchedule,
 } from "@/lib/format";
@@ -65,10 +66,11 @@ export function EventDetail({ event }: { event: Event }) {
   const ageInfo = displayEligibilityAge(event, state.gender);
   const ageLabel = formatAgeRange(ageInfo.min, ageInfo.max);
   const ticketHref = event.ticketUrl ?? event.officialUrl;
-  const preference =
-    state.preferredAgeMin != null || state.preferredAgeMax != null
-      ? formatAgeRange(state.preferredAgeMin, state.preferredAgeMax)
-      : null;
+  const preferenceSentence = formatMeetPreferenceSentence(
+    state.preferredMeetGender,
+    state.preferredAgeMin,
+    state.preferredAgeMax,
+  );
   const expectedAudience =
     event.audienceAgeFromSource
       ? formatAgeRange(
@@ -144,9 +146,9 @@ export function EventDetail({ event }: { event: Event }) {
                 </li>
               ))}
             </ul>
-            {preference ? (
+            {preferenceSentence ? (
               <p className="text-sm text-muted-foreground">
-                Je ontmoet liefst {preference}. Dat is een voorkeur, geen
+                {preferenceSentence} Dat is een voorkeur, geen
                 deelnamevoorwaarde.
               </p>
             ) : null}
@@ -322,8 +324,8 @@ function ageRuleText(
   if (rule === "unknown" || !ageLabel) {
     return "Niet vermeld door de bron";
   }
-  if (rule === "guideline") return `${ageLabel} · richtleeftijd`;
-  return `${ageLabel} · strikte voorwaarde`;
+  if (rule === "guideline") return `Richtleeftijd: ${ageLabel}`;
+  return `Deelnamevoorwaarde: ${ageLabel}`;
 }
 
 function Meta({ label, value }: { label: string; value: string }) {

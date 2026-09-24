@@ -1,9 +1,6 @@
 import { ACTIVITY_FIT, CATEGORY_LABEL } from "@/lib/format";
 import type { PreparedEvent } from "@/lib/filters";
-import {
-  calculatePreferenceScore,
-  preferenceOverlaps,
-} from "@/lib/ranking";
+import { calculatePreferenceScore } from "@/lib/ranking";
 import type { SearchState } from "@/types/search";
 
 export function whyThisFits(
@@ -30,7 +27,7 @@ export function whyThisFits(
     );
   } else if (event.participation.status === "needs_gender") {
     reasons.push(
-      "Geef je gender op om de deelnamevoorwaarden exact te controleren",
+      "Geef je gender op om de deelnamevoorwaarden te controleren",
     );
   }
 
@@ -45,8 +42,10 @@ export function whyThisFits(
     reasons.push(`Dit sluit aan bij ${CATEGORY_LABEL[event.category]}`);
   }
 
-  if (preferenceOverlaps(event, state) === true) {
-    reasons.push("De verwachte leeftijdsgroep sluit aan bij je voorkeur");
+  if (preference.ageOverlap === "strong") {
+    reasons.push("De leeftijdsgroep sluit goed aan bij je voorkeur");
+  } else if (preference.ageOverlap === "partial") {
+    reasons.push("De leeftijdsgroep sluit deels aan bij je voorkeur");
   }
 
   if (preference.preferredGenderMatch === true) {

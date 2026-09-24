@@ -219,6 +219,148 @@ function main() {
     assert("H no invented gender match", score.preferredGenderMatch === null);
   }
 
+  // Case I: narrow preference 18-20 never hides eligible events; overlap grades
+  {
+    const state: SearchState = {
+      ...defaultSearchState(),
+      age: 49,
+      gender: "man",
+      preferredMeetGender: "women",
+      preferredAgeMin: 18,
+      preferredAgeMax: 20,
+      sort: "match",
+    };
+
+    const A = prepared(
+      stubEvent({
+        id: "A",
+        eligibility: {
+          default: band(40, 55, "strict"),
+          byGender: null,
+          allowedGenders: null,
+        },
+        preferredAudienceAgeMin: 40,
+        preferredAudienceAgeMax: 55,
+        audienceAgeFromSource: true,
+        knownAudienceGenders: null,
+        distanceKm: 12,
+      }),
+      state,
+    );
+    const B = prepared(
+      stubEvent({
+        id: "B",
+        eligibility: {
+          default: band(25, 50, "guideline"),
+          byGender: null,
+          allowedGenders: null,
+        },
+        preferredAudienceAgeMin: 25,
+        preferredAudienceAgeMax: 50,
+        audienceAgeFromSource: true,
+        knownAudienceGenders: null,
+        distanceKm: 10,
+      }),
+      state,
+    );
+    const C = prepared(
+      stubEvent({
+        id: "C",
+        eligibility: {
+          default: band(30, 55, "guideline"),
+          byGender: null,
+          allowedGenders: null,
+        },
+        preferredAudienceAgeMin: 30,
+        preferredAudienceAgeMax: 55,
+        audienceAgeFromSource: true,
+        knownAudienceGenders: null,
+        distanceKm: 9,
+      }),
+      state,
+    );
+    const D = prepared(
+      stubEvent({
+        id: "D",
+        eligibility: {
+          default: band(18, null, "guideline"),
+          byGender: null,
+          allowedGenders: null,
+        },
+        preferredAudienceAgeMin: 18,
+        preferredAudienceAgeMax: 99,
+        audienceAgeFromSource: true,
+        knownAudienceGenders: null,
+        distanceKm: 8,
+      }),
+      state,
+    );
+    const strongYoung = prepared(
+      stubEvent({
+        id: "young",
+        eligibility: {
+          default: band(18, 99, "guideline"),
+          byGender: null,
+          allowedGenders: null,
+        },
+        preferredAudienceAgeMin: 18,
+        preferredAudienceAgeMax: 25,
+        audienceAgeFromSource: true,
+        knownAudienceGenders: ["woman"],
+        distanceKm: 7,
+      }),
+      state,
+    );
+
+    for (const event of [A, B, C, D]) {
+      assert(
+        `I ${event.id} still visible`,
+        event.participation.includedByDefault,
+      );
+    }
+
+    assert("I A no age overlap", calculatePreferenceScore(A, state).ageOverlap === "none");
+    assert("I B no age overlap", calculatePreferenceScore(B, state).ageOverlap === "none");
+    assert("I C no age overlap", calculatePreferenceScore(C, state).ageOverlap === "none");
+    assert("I D strong age (all ages covers 18-20)", calculatePreferenceScore(D, state).ageOverlap === "strong");
+    assert(
+      "I young strong age overlap 18-25",
+      calculatePreferenceScore(strongYoung, state).ageOverlap === "strong",
+    );
+    assert(
+      "I young gender match when source known",
+      calculatePreferenceScore(strongYoung, state).preferredGenderMatch === true,
+    );
+    assert(
+      "I A no gender boost without data",
+      calculatePreferenceScore(A, state).preferredGenderMatch === null,
+    );
+
+    const scoreD = calculatePreferenceScore(D, state).score;
+    const scoreA = calculatePreferenceScore(A, state).score;
+    assert("I D ranks above A on preference", scoreD > scoreA);
+
+    const partial = prepared(
+      stubEvent({
+        id: "partial",
+        eligibility: {
+          default: band(18, 99, "guideline"),
+          byGender: null,
+          allowedGenders: null,
+        },
+        preferredAudienceAgeMin: 20,
+        preferredAudienceAgeMax: 30,
+        audienceAgeFromSource: true,
+        distanceKm: 6,
+      }),
+      state,
+    );
+    assert(
+      "I 20-30 vs 18-20 is partial",
+      calculatePreferenceScore(partial, state).ageOverlap === "partial",
+    );
+  }
+
   console.log("\nAll product-rule cases passed.");
 }
 

@@ -13,8 +13,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { ACTIVITY_LABEL, AVAILABILITY_LABEL, DISTANCES, PRICE_LABEL, WHEN_LABEL } from "@/lib/format";
-import type { ActivityId, EventCategory } from "@/types/event";
+import { ACTIVITY_LABEL, AVAILABILITY_LABEL, DISTANCES, MEET_GENDER_LABEL, PRICE_LABEL, WHEN_LABEL } from "@/lib/format";
+import type { ActivityId, EventCategory, PreferredMeetGender } from "@/types/event";
 import type { AvailabilityFilter, PriceFilter, SearchState, WhenFilter } from "@/types/search";
 
 const WHEN_OPTIONS: WhenFilter[] = [
@@ -206,9 +206,35 @@ export function FilterSheet({
             />
           </label>
 
+          <div className="space-y-2">
+            <Label>Wie wil je graag ontmoeten?</Label>
+            <p className="text-xs text-muted-foreground">
+              Voorkeur voor sorteren. Verbergt geen activiteiten.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(MEET_GENDER_LABEL) as PreferredMeetGender[]).map(
+                (key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    aria-pressed={state.preferredMeetGender === key}
+                    onClick={() => onChange({ preferredMeetGender: key })}
+                    className={`rounded-full border px-3 py-1.5 text-sm ${
+                      state.preferredMeetGender === key
+                        ? "border-foreground bg-foreground text-white"
+                        : "border-border bg-white"
+                    }`}
+                  >
+                    {MEET_GENDER_LABEL[key]}
+                  </button>
+                ),
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="pref-min">Ontmoeten vanaf</Label>
+              <Label htmlFor="pref-min">Gewenste leeftijd vanaf</Label>
               <Input
                 id="pref-min"
                 type="number"

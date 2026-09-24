@@ -4,10 +4,17 @@ import type { PreparedEvent } from "@/lib/filters";
 import type { PreferredMeetGender, UserGender } from "@/types/event";
 import type { SearchState } from "@/types/search";
 
+export type AgeOverlapStrength = "strong" | "partial" | "none";
+
 export type PreferenceScore = {
   /** Total soft score. Never used to hide events. */
   score: number;
-  /** True when preferred audience age overlaps source audience ages. */
+  /**
+   * Graded age overlap with source audience ages.
+   * null = no user preference or no reliable audience data.
+   */
+  ageOverlap: AgeOverlapStrength | null;
+  /** @deprecated Prefer ageOverlap; true when strong or partial. */
   preferredAgeMatch: boolean | null;
   /**
    * True only when source has knownAudienceGenders AND user preference matches.
@@ -16,23 +23,37 @@ export type PreferenceScore = {
   preferredGenderMatch: boolean | null;
 };
 
-function rangesOverlap(
-  aMin: number | null,
-  aMax: number | null,
-  bMin: number | null,
-  bMax: number | null,
-): boolean {
-  const leftMin = aMin ?? 18;
-  const leftMax = aMax ?? 99;
-  const rightMin = bMin ?? 18;
-  const rightMax = bMax ?? 99;
-  return leftMin <= rightMax && rightMin <= leftMax;
+function inclusiveWidth(min: number, max: number): number {
+  return Math.max(1, max - min + 1);
+}
+
+/** Share of the user's preferred age range that overlaps the event audience. */
+export function preferenceAgeOverlapRatio(
+  prefMin: number | null,
+  prefMax: number | null,
+  audienceMin: number | null,
+  audienceMax: number | null,
+): number {
+  const leftMin = prefMin ?? 18;
+  const leftMax = prefMax ?? 99;
+  const rightMin = audienceMin ?? 18;
+  const rightMax = audienceMax ?? 99;
+  const start = Math.max(leftMin, rightMin);
+  const end = Math.min(leftMax, rightMax);
+  if (end < start) return 0;
+  return inclusiveWidth(start, end) / inclusiveWidth(leftMin, leftMax);
+}
+
+export function classifyAgeOverlap(ratio: number): AgeOverlapStrength {
+  if (ratio <= 0) return "none";
+  if (ratio >= 0.6) return "strong";
+  return "partial";
 }
 
 function preferredAgeOverlap(
   event: PreparedEvent,
   state: SearchState,
-): boolean | null {
+): AgeOverlapStrength | null {
   const userHasPreference =
     state.preferredAgeMin != null || state.preferredAgeMax != null;
   const eventHasAudience =
@@ -40,12 +61,13 @@ function preferredAgeOverlap(
     (event.preferredAudienceAgeMin != null ||
       event.preferredAudienceAgeMax != null);
   if (!userHasPreference || !eventHasAudience) return null;
-  return rangesOverlap(
+  const ratio = preferenceAgeOverlapRatio(
     state.preferredAgeMin,
     state.preferredAgeMax,
     event.preferredAudienceAgeMin,
     event.preferredAudienceAgeMax,
   );
+  return classifyAgeOverlap(ratio);
 }
 
 function preferredGenderOverlap(
@@ -88,9 +110,13 @@ export function calculatePreferenceScore(
     score += 12;
   }
 
-  const preferredAgeMatch = preferredAgeOverlap(event, state);
-  if (preferredAgeMatch === true) score += 22;
-  if (preferredAgeMatch === false) score -= 4;
+  const ageOverlap = preferredAgeOverlap(event, state);
+  if (ageOverlap === "strong") score += 22;
+  else if (ageOverlap === "partial") score += 10;
+  else if (ageOverlap === "none") score -= 4;
+
+  const preferredAgeMatch =
+    ageOverlap == null ? null : ageOverlap === "strong" || ageOverlap === "partial";
 
   const preferredGenderMatch = preferredGenderOverlap(
     event,
@@ -123,7 +149,7 @@ export function calculatePreferenceScore(
     score += 2;
   }
 
-  return { score, preferredAgeMatch, preferredGenderMatch };
+  return { score, ageOverlap, preferredAgeMatch, preferredGenderMatch };
 }
 
 export function sortEvents(
@@ -156,17 +182,47 @@ export function preferenceOverlaps(
   event: PreparedEvent,
   state: SearchState,
 ): boolean | null {
-  return preferredAgeOverlap(event, state);
+  const overlap = preferredAgeOverlap(event, state);
+  if (overlap == null) return null;
+  return overlap === "strong" || overlap === "partial";
 }
 
+export function hasStrongPreferenceMatch(
+  event: PreparedEvent,
+  state: SearchState,
+): boolean {
+  const score = calculatePreferenceScore(event, state);
+  return (
+    score.ageOverlap === "strong" || score.preferredGenderMatch === true
+  );
+}
+
+/** True when at least one visible event is a strong preference match. */
+export function hasAnyStrongPreferenceMatch(
+  events: PreparedEvent[],
+  state: SearchState,
+): boolean {
+  const hasAgePref =
+    state.preferredAgeMin != null || state.preferredAgeMax != null;
+  const hasGenderPref = state.preferredMeetGender !== "anyone";
+  if (!hasAgePref && !hasGenderPref) return true;
+  return events.some((event) => hasStrongPreferenceMatch(event, state));
+}
+
+/** @deprecated Use hasAnyStrongPreferenceMatch */
 export function hasAnyPreferredAgeMatch(
   events: PreparedEvent[],
   state: SearchState,
 ): boolean {
-  if (state.preferredAgeMin == null && state.preferredAgeMax == null) {
-    return true;
-  }
-  return events.some((event) => preferredAgeOverlap(event, state) === true);
+  return hasAnyStrongPreferenceMatch(events, state);
+}
+
+export function userHasMeetPreference(state: SearchState): boolean {
+  return (
+    state.preferredMeetGender !== "anyone" ||
+    state.preferredAgeMin != null ||
+    state.preferredAgeMax != null
+  );
 }
 
 export function userForEligibility(state: {

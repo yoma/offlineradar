@@ -29,8 +29,10 @@ export function EventCard({
       : formatAgeRange(ageInfo.min, ageInfo.max);
   const ageLine =
     age && ageInfo.rule === "guideline"
-      ? `${age} · richtleeftijd`
-      : age;
+      ? `Richtleeftijd: ${age}`
+      : age && ageInfo.rule === "strict"
+        ? `${age} · strikt`
+        : age;
   const deadline = formatDeadlineLabel(event.registrationDeadline);
 
   return (

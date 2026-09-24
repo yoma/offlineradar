@@ -28,6 +28,10 @@ function brusselsDateParts(date: Date): { day: number; month: string } {
   return { day, month };
 }
 
+/**
+ * Single consistent freshness label for cards and detail.
+ * Examples: "2 uur geleden gecontroleerd", "Gisteren om 18:20 gecontroleerd"
+ */
 export function formatFreshness(
   lastCheckedAt: string,
   now = new Date(),
@@ -49,16 +53,20 @@ export function formatFreshness(
   const minutes = Math.floor((now.getTime() - checked.getTime()) / 60_000);
 
   let label: string;
-  if (dayGap <= 0 && minutes < 1) label = "Zojuist";
-  else if (dayGap <= 0 && minutes < 60) label = `${minutes} min geleden`;
-  else if (dayGap <= 0 && hours < 8) {
-    label = hours <= 1 ? "1 uur geleden" : `${hours} uur geleden`;
-  } else if (dayGap <= 0) label = `Vandaag om ${time}`;
-  else if (dayGap === 1) label = `Gisteren om ${time}`;
-  else if (dayGap <= 3) label = `${dayGap} dagen geleden`;
+  if (dayGap <= 0 && minutes < 1) label = "Zojuist gecontroleerd";
+  else if (dayGap <= 0 && minutes < 60) {
+    label = `${minutes} min geleden gecontroleerd`;
+  } else if (dayGap <= 0 && hours < 8) {
+    label =
+      hours <= 1
+        ? "1 uur geleden gecontroleerd"
+        : `${hours} uur geleden gecontroleerd`;
+  } else if (dayGap <= 0) label = `Vandaag om ${time} gecontroleerd`;
+  else if (dayGap === 1) label = `Gisteren om ${time} gecontroleerd`;
+  else if (dayGap <= 3) label = `${dayGap} dagen geleden gecontroleerd`;
   else {
     const { day, month } = brusselsDateParts(checked);
-    label = `${day} ${month} om ${time}`;
+    label = `${day} ${month} om ${time} gecontroleerd`;
   }
 
   const tone: FreshnessTone =

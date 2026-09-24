@@ -16,15 +16,7 @@ export function FreshnessLabel({
   lastCheckedAt: string;
   compact?: boolean;
 }) {
-  const freshness = formatFreshness(lastCheckedAt);
-  const { label, tone, caution } = freshness;
-
-  const display =
-    label && tone === "fresh" && !compact
-      ? label.toLowerCase().startsWith("vandaag")
-        ? label
-        : `Vandaag gecontroleerd · ${label}`
-      : label;
+  const { label, tone, caution } = formatFreshness(lastCheckedAt);
 
   return (
     <div className="space-y-1">
@@ -35,11 +27,7 @@ export function FreshnessLabel({
         )}
       >
         <span className={cn("size-2 rounded-full", toneClass[tone])} />
-        <span>
-          {compact
-            ? `Gecontroleerd${label ? ` ${label.toLowerCase()}` : ""}`
-            : display}
-        </span>
+        <span>{label}</span>
       </p>
       {caution && !compact ? (
         <p className="text-sm text-amber-800">{caution}</p>

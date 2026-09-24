@@ -11,8 +11,12 @@ import { Label } from "@/components/ui/label";
 import { USER_PLACES } from "@/data/places";
 import { track } from "@/lib/analytics";
 import { matchingEvents, placeLabel } from "@/lib/filters";
-import { ACTIVITY_LABEL, AVAILABILITY_LABEL, CATEGORY_LABEL, formatAgeRange, PRICE_LABEL, SORT_LABEL, WHEN_LABEL } from "@/lib/format";
-import { hasAnyPreferredAgeMatch, sortEvents } from "@/lib/ranking";
+import { ACTIVITY_LABEL, AVAILABILITY_LABEL, CATEGORY_LABEL, formatAgeRange, formatMeetPreference, MEET_GENDER_LABEL, PRICE_LABEL, SORT_LABEL, WHEN_LABEL } from "@/lib/format";
+import {
+  hasAnyStrongPreferenceMatch,
+  sortEvents,
+  userHasMeetPreference,
+} from "@/lib/ranking";
 import {
   applyStoredProfile,
   profileFromSearch,
@@ -57,10 +61,15 @@ export function DiscoverView({
 
   const result = useMemo(() => matchingEvents(events, state), [events, state]);
   const visible = useMemo(() => sortEvents(result.visible, state), [result.visible, state]);
-  const preferredAgeMiss =
-    (state.preferredAgeMin != null || state.preferredAgeMax != null) &&
+  const preferenceMiss =
+    userHasMeetPreference(state) &&
     visible.length > 0 &&
-    !hasAnyPreferredAgeMatch(visible, state);
+    !hasAnyStrongPreferenceMatch(visible, state);
+  const preferenceLabel = formatMeetPreference(
+    state.preferredMeetGender,
+    state.preferredAgeMin,
+    state.preferredAgeMax,
+  );
 
   useEffect(() => {
     if (!booted || state.age == null || visible.length > 0) return;
@@ -168,7 +177,16 @@ export function DiscoverView({
                   key={chip.id}
                   type="button"
                   onClick={() => update(chip.patch)}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1.5 text-sm hover:border-foreground"
+                  title={
+                    chip.kind === "preference"
+                      ? "Voorkeur – beïnvloedt volgorde, niet zichtbaarheid"
+                      : undefined
+                  }
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm hover:border-foreground ${
+                    chip.kind === "preference"
+                      ? "border-dashed border-foreground/35 bg-secondary/50"
+                      : "border-border bg-white"
+                  }`}
                 >
                   {chip.label}
                   <X className="size-3.5" />
@@ -189,30 +207,40 @@ export function DiscoverView({
               <details className="mt-1">
                 <summary className="cursor-pointer font-medium">Waarom?</summary>
                 <p className="mt-1 text-muted-foreground">
-                  OfflineRadar controleert bekende leeftijds- en andere
+                  OfflineRadar controleert bekende leeftijds-, gender- en andere
                   deelnamevoorwaarden voordat activiteiten worden getoond.
+                  Persoonlijke ontmoetingsvoorkeuren verbergen geen activiteiten.
                 </p>
               </details>
             </div>
           ) : null}
 
-          {preferredAgeMiss ? (
-            <div className="mt-4 space-y-1 text-sm">
+          {preferenceMiss && preferenceLabel ? (
+            <div className="mt-4 rounded-xl border border-border bg-white px-4 py-4 text-sm">
               <p className="font-medium">
-                Geen activiteiten sluiten exact aan bij je voorkeursleeftijd.
+                Geen sterke matches voor jouw ontmoetingsvoorkeur.
               </p>
-              <p className="text-muted-foreground">
-                Deze activiteiten passen wel bij jouw deelnamevoorwaarden:
+              <p className="mt-1.5 text-muted-foreground">
+                Je wil liefst {preferenceLabel} ontmoeten. Daar vonden we
+                momenteel geen duidelijke match voor.
               </p>
+              <p className="mt-1.5 text-muted-foreground">
+                Hieronder tonen we wel activiteiten waarvoor je kunt deelnemen.
+              </p>
+              <button
+                type="button"
+                className="mt-3 text-sm font-semibold underline-offset-4 hover:underline"
+                onClick={() => setFiltersOpen(true)}
+              >
+                Voorkeur aanpassen
+              </button>
             </div>
           ) : null}
 
-          {(state.preferredAgeMin != null || state.preferredAgeMax != null) &&
-          !preferredAgeMiss ? (
+          {preferenceLabel && !preferenceMiss ? (
             <p className="mt-4 text-sm text-muted-foreground">
-              Je ontmoet liefst{" "}
-              {formatAgeRange(state.preferredAgeMin, state.preferredAgeMax)}. Dat
-              gebruiken we om te sorteren, niet om events te verbergen.
+              Je ontmoet liefst {preferenceLabel}. Dat gebruiken we om te
+              sorteren, niet om events te verbergen.
             </p>
           ) : null}
 
@@ -234,7 +262,7 @@ export function DiscoverView({
           {visible.length === 0 ? (
             <div className="mt-12 max-w-xl">
               <h2 className="text-2xl font-semibold tracking-tight">
-                Geen activiteiten gevonden die exact aan deze filters voldoen.
+                Geen activiteiten gevonden die bij deze zoekfilters passen.
               </h2>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
                 Events waar je volgens een strikte leeftijdsgrens niet mag deelnemen, blijven verborgen.
@@ -274,13 +302,24 @@ export function DiscoverView({
   );
 }
 
-function activeChips(state: SearchState): { id: string; label: string; patch: Partial<SearchState> }[] {
-  const chips: { id: string; label: string; patch: Partial<SearchState> }[] = [];
+function activeChips(state: SearchState): {
+  id: string;
+  label: string;
+  patch: Partial<SearchState>;
+  kind: "filter" | "preference";
+}[] {
+  const chips: {
+    id: string;
+    label: string;
+    patch: Partial<SearchState>;
+    kind: "filter" | "preference";
+  }[] = [];
   if (state.when !== "any") {
     chips.push({
       id: "when",
       label: state.when === "date" && state.date ? state.date : WHEN_LABEL[state.when],
       patch: { when: "any", date: null },
+      kind: "filter",
     });
   }
   if (state.maxDistanceKm !== 25) {
@@ -288,13 +327,23 @@ function activeChips(state: SearchState): { id: string; label: string; patch: Pa
       id: "distance",
       label: `Binnen ${state.maxDistanceKm} km`,
       patch: { maxDistanceKm: 25 },
+      kind: "filter",
+    });
+  }
+  if (state.preferredMeetGender !== "anyone") {
+    chips.push({
+      id: "meet-gender",
+      label: `Ontmoet ${MEET_GENDER_LABEL[state.preferredMeetGender].toLowerCase()}`,
+      patch: { preferredMeetGender: "anyone" },
+      kind: "preference",
     });
   }
   if (state.preferredAgeMin != null || state.preferredAgeMax != null) {
     chips.push({
-      id: "pref",
-      label: `Ontmoeten ${formatAgeRange(state.preferredAgeMin, state.preferredAgeMax)}`,
+      id: "pref-age",
+      label: formatAgeRange(state.preferredAgeMin, state.preferredAgeMax) ?? "Leeftijd",
       patch: { preferredAgeMin: null, preferredAgeMax: null },
+      kind: "preference",
     });
   }
   for (const category of state.categories) {
@@ -302,6 +351,7 @@ function activeChips(state: SearchState): { id: string; label: string; patch: Pa
       id: `cat-${category}`,
       label: CATEGORY_LABEL[category],
       patch: { categories: state.categories.filter((item) => item !== category) },
+      kind: "filter",
     });
   }
   for (const activity of state.activities) {
@@ -309,23 +359,40 @@ function activeChips(state: SearchState): { id: string; label: string; patch: Pa
       id: `act-${activity}`,
       label: ACTIVITY_LABEL[activity],
       patch: { activities: state.activities.filter((item) => item !== activity) },
+      kind: "filter",
     });
   }
   if (state.price !== "any") {
-    chips.push({ id: "price", label: PRICE_LABEL[state.price], patch: { price: "any" } });
+    chips.push({
+      id: "price",
+      label: PRICE_LABEL[state.price],
+      patch: { price: "any" },
+      kind: "filter",
+    });
   }
   if (state.singlesOnly) {
-    chips.push({ id: "singles", label: "Alleen singles", patch: { singlesOnly: false } });
+    chips.push({
+      id: "singles",
+      label: "Alleen singles",
+      patch: { singlesOnly: false },
+      kind: "filter",
+    });
   }
   if (state.availability !== "any") {
     chips.push({
       id: "avail",
       label: AVAILABILITY_LABEL[state.availability],
       patch: { availability: "any" },
+      kind: "filter",
     });
   }
   if (state.strictOnly) {
-    chips.push({ id: "strict", label: "Alleen strikte leeftijd", patch: { strictOnly: false } });
+    chips.push({
+      id: "strict",
+      label: "Alleen strikte leeftijd",
+      patch: { strictOnly: false },
+      kind: "filter",
+    });
   }
   return chips;
 }

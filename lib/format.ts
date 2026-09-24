@@ -166,4 +166,44 @@ export const MEET_GENDER_LABEL = {
   anyone: "Iedereen / geen voorkeur",
 } as const;
 
+/** Short chip / sentence fragment for meet-gender preference. */
+export const MEET_GENDER_SHORT = {
+  women: "vrouwen",
+  men: "mannen",
+  anyone: null,
+} as const;
+
+/**
+ * Active meet preference as natural Dutch, e.g.
+ * "vrouwen van 18–20 jaar", "mensen van 25–55 jaar", "vrouwen".
+ * Null when nothing is set.
+ */
+export function formatMeetPreference(
+  preferredMeetGender: "women" | "men" | "anyone",
+  preferredAgeMin: number | null,
+  preferredAgeMax: number | null,
+): string | null {
+  const age = formatAgeRange(preferredAgeMin, preferredAgeMax);
+  const who = MEET_GENDER_SHORT[preferredMeetGender];
+  if (who && age) return `${who} van ${age}`;
+  if (who) return who;
+  if (age) return `mensen van ${age}`;
+  return null;
+}
+
+/** Sentence for detail / results: "Je ontmoet liefst …" */
+export function formatMeetPreferenceSentence(
+  preferredMeetGender: "women" | "men" | "anyone",
+  preferredAgeMin: number | null,
+  preferredAgeMax: number | null,
+): string | null {
+  const preference = formatMeetPreference(
+    preferredMeetGender,
+    preferredAgeMin,
+    preferredAgeMax,
+  );
+  if (!preference) return null;
+  return `Je ontmoet liefst ${preference}.`;
+}
+
 export const DISTANCES = [10, 25, 50, 100] as const;
