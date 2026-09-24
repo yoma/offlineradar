@@ -18,16 +18,34 @@ import type {
 } from "@/types/event";
 import type { SearchState, WhenFilter } from "@/types/search";
 
-const QUICK: { label: string; patch: Partial<SearchState> }[] = [
-  { label: "Dit weekend", patch: { when: "weekend" } },
-  { label: "Dating", patch: { categories: ["dating"] } },
-  { label: "Nieuwe mensen", patch: { categories: ["meet_new_people"] } },
-  { label: "Sport", patch: { activities: ["sport"] } },
-  { label: "Eten & drinken", patch: { activities: ["eten", "drinken"] } },
-  { label: "Uitgaan", patch: { activities: ["party"] } },
-  { label: "Wandelen", patch: { activities: ["wandelen"] } },
-  { label: "Reizen", patch: { activities: ["reizen"] } },
+type QuickChip = {
+  label: string;
+  when?: WhenFilter;
+  categories?: EventCategory[];
+  activities?: ActivityId[];
+};
+
+const QUICK: QuickChip[] = [
+  { label: "Dit weekend", when: "weekend" },
+  { label: "Dating", categories: ["dating"] },
+  { label: "Nieuwe mensen", categories: ["meet_new_people"] },
+  { label: "Sport", activities: ["sport"] },
+  { label: "Eten & drinken", activities: ["eten", "drinken"] },
+  { label: "Uitgaan", activities: ["party"] },
+  { label: "Wandelen", activities: ["wandelen"] },
+  { label: "Reizen", activities: ["reizen"] },
 ];
+
+function includesAll<T>(haystack: T[], needles: T[]) {
+  return needles.every((item) => haystack.includes(item));
+}
+
+function toggleList<T>(current: T[], next: T[]) {
+  if (includesAll(current, next)) {
+    return current.filter((item) => !next.includes(item));
+  }
+  return [...new Set([...current, ...next])];
+}
 
 export function HomeHero() {
   const router = useRouter();
@@ -62,7 +80,28 @@ export function HomeHero() {
     });
   }, []);
 
-  function go(extra?: Partial<SearchState>) {
+  function isChipActive(chip: QuickChip) {
+    if (chip.when) return when === chip.when;
+    if (chip.categories) return includesAll(categories, chip.categories);
+    if (chip.activities) return includesAll(activities, chip.activities);
+    return false;
+  }
+
+  function toggleChip(chip: QuickChip) {
+    if (chip.when) {
+      setWhen((current) => (current === chip.when ? "any" : chip.when!));
+      return;
+    }
+    if (chip.categories) {
+      setCategories((current) => toggleList(current, chip.categories!));
+      return;
+    }
+    if (chip.activities) {
+      setActivities((current) => toggleList(current, chip.activities!));
+    }
+  }
+
+  function go() {
     const parsedAge = Number(age);
     if (!Number.isFinite(parsedAge) || parsedAge < 18 || parsedAge > 99) {
       setError("Vul je leeftijd in.");
@@ -90,7 +129,6 @@ export function HomeHero() {
       availability: "any",
       strictOnly: false,
       sort: "match",
-      ...extra,
     };
     setError("");
     setNote("");
@@ -367,25 +405,31 @@ export function HomeHero() {
 
           <div className="mt-5">
             <p className="mb-2 text-xs font-semibold tracking-wide text-white/70 uppercase">
-              Snel zoeken
+              Waar heb je zin in?
             </p>
             <div className="flex flex-wrap items-center gap-2">
-              {QUICK.map((item) => (
-                <button
-                  key={item.label}
-                  type="button"
-                  onClick={() => {
-                    if (item.patch.when) setWhen(item.patch.when);
-                    if (item.patch.categories) setCategories(item.patch.categories);
-                    if (item.patch.activities) setActivities(item.patch.activities);
-                    go(item.patch);
-                  }}
-                  className="rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white backdrop-blur-sm transition hover:bg-white/20"
-                >
-                  {item.label}
-                </button>
-              ))}
+              {QUICK.map((item) => {
+                const active = isChipActive(item);
+                return (
+                  <button
+                    key={item.label}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => toggleChip(item)}
+                    className={`rounded-full border px-3.5 py-1.5 text-sm font-medium backdrop-blur-sm transition ${
+                      active
+                        ? "border-white bg-white text-foreground"
+                        : "border-white/25 bg-white/10 text-white hover:bg-white/20"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
             </div>
+            <p className="mt-2 text-xs text-white/65">
+              Kies er gerust meerdere. Zoeken doe je met de knop hierboven.
+            </p>
           </div>
         </form>
       </div>
