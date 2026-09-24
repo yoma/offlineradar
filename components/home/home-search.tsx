@@ -4,7 +4,7 @@ import Image from "next/image";
 import { ChevronDown, Search, SlidersHorizontal } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { USER_PLACES, placeFromPostcode } from "@/data/places";
+import { USER_PLACES, findPlace } from "@/data/places";
 import { track } from "@/lib/analytics";
 import { DISTANCES, GENDER_LABEL, MEET_GENDER_LABEL, WHEN_LABEL } from "@/lib/format";
 import { heroImageUrl } from "@/lib/images";
@@ -60,7 +60,6 @@ export function HomeHero() {
   const [age, setAge] = useState("");
   const [gender, setGender] = useState<UserGender | "">("");
   const [placeId, setPlaceId] = useState("antwerpen");
-  const [postcode, setPostcode] = useState("");
   const [distance, setDistance] = useState(25);
   const [when, setWhen] = useState<WhenFilter>("weekend");
   const [date, setDate] = useState("");
@@ -71,7 +70,6 @@ export function HomeHero() {
   const [meetGender, setMeetGender] =
     useState<PreferredMeetGender>("anyone");
   const [error, setError] = useState("");
-  const [note, setNote] = useState("");
   const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
@@ -79,7 +77,7 @@ export function HomeHero() {
     queueMicrotask(() => {
       if (profile.age) setAge(String(profile.age));
       if (profile.gender) setGender(profile.gender);
-      if (profile.placeId) setPlaceId(profile.placeId);
+      if (profile.placeId) setPlaceId(findPlace(profile.placeId).id);
       if (profile.maxDistanceKm) setDistance(profile.maxDistanceKm);
       if (profile.interests.length) setActivities(profile.interests);
       if (profile.preferredAgeMin) setPrefMin(String(profile.preferredAgeMin));
@@ -129,15 +127,10 @@ export function HomeHero() {
       setError("Vul je leeftijd in.");
       return;
     }
-    const known = placeFromPostcode(postcode);
-    if (postcode.trim() && !known) {
-      setNote("Postcode niet herkend. Kies een regio.");
-      return;
-    }
     const state: SearchState = {
       age: parsedAge,
       gender: gender || null,
-      placeId: known?.id ?? placeId,
+      placeId: findPlace(placeId).id,
       maxDistanceKm: distance,
       preferredAgeMin: prefMin ? Number(prefMin) : null,
       preferredAgeMax: prefMax ? Number(prefMax) : null,
@@ -153,7 +146,6 @@ export function HomeHero() {
       sort: "match",
     };
     setError("");
-    setNote("");
     writeProfile(profileFromSearch(state));
     track("search_performed", {
       age: state.age,
@@ -168,7 +160,6 @@ export function HomeHero() {
   const extraFilterCount = [
     meetGender !== "anyone",
     Boolean(prefMin || prefMax),
-    Boolean(postcode.trim()),
   ].filter(Boolean).length;
 
   return (
@@ -305,31 +296,13 @@ export function HomeHero() {
               />
             </button>
             <p className="hidden text-sm text-white/75 sm:block">
-              Postcode, voorkeuren en meer
+              Voorkeuren voor wie je wilt ontmoeten
             </p>
           </div>
 
           {moreOpen ? (
             <div className="mt-3 space-y-5 rounded-2xl bg-white p-4 text-foreground shadow-lg sm:p-5">
               <section className="space-y-3">
-                <h2 className="text-sm font-semibold tracking-wide uppercase">
-                  Locatie verfijnen
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  Optioneel. Met een postcode zoeken we gerichter rond jouw buurt.
-                </p>
-                <label className="block text-sm">
-                  <span className="mb-1 block font-medium">Postcode</span>
-                  <input
-                    value={postcode}
-                    onChange={(event) => setPostcode(event.target.value)}
-                    placeholder="2000"
-                    className="h-11 w-full rounded-xl border border-border px-3"
-                  />
-                </label>
-              </section>
-
-              <section className="space-y-3 border-t border-border pt-4">
                 <h2 className="text-sm font-semibold tracking-wide uppercase">
                   Wie wil je graag ontmoeten?
                 </h2>
@@ -434,11 +407,9 @@ export function HomeHero() {
           </div>
 
           <div className="mt-6">
-            {(error || note) && (
-              <p className="mb-3 text-sm font-medium text-white">
-                {error || note}
-              </p>
-            )}
+            {error ? (
+              <p className="mb-3 text-sm font-medium text-white">{error}</p>
+            ) : null}
             <button
               type="submit"
               className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#e61e4d] px-6 py-3.5 text-base font-semibold text-white shadow-lg transition hover:bg-[#d70466] sm:w-auto sm:min-w-[240px]"
