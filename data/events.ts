@@ -16,11 +16,14 @@ import type {
   Event,
   EventCategory,
   EventEligibility,
+  EventMeetActivation,
+  ListingPath,
   ParticipantGender,
   SocialSuitability,
   SourceType,
 } from "@/types/event";
 import { band } from "@/types/event";
+import { slugId } from "@/types/domain";
 
 /**
  * Fictional events for the prototype.
@@ -55,6 +58,10 @@ type Draft = {
   audienceFromSource?: boolean;
   knownAudienceGenders?: ParticipantGender[] | null;
   singlesOnly?: boolean | null;
+  /** Lighter welcome label; never a listing bypass. */
+  singlesFriendly?: boolean;
+  listingPath?: ListingPath;
+  meetActivation?: EventMeetActivation | null;
   genderAvailability?: string | null;
   capacity: CapacityStatus;
   spots?: number | null;
@@ -1001,6 +1008,67 @@ export function buildMockEvents(now = new Date()): Event[] {
       practical: ["Ongeveer 18 km per dag", "Overnachting in een gedeelde kamer", "Bagagevervoer inbegrepen"],
     },
     {
+      title: "Afterwork op het dak · OfflineRadar Meet",
+      slug: "afterwork-dak-meet",
+      shortDescription:
+        "Dakterras-afterwork met een echte Meet-opzet: host, welkomsmoment en opt-in herkenning.",
+      description:
+        "Dit is een gewone afterwork die via OfflineRadar Meet een sociale laag krijgt. Er is een host, een kort welkomsmoment om 18:30, en wie wil kan een discreet polsbandje dragen om andere Meet-deelnemers te herkennen. Niemand is verplicht zichtbaar als single. Dit is geen datinggarantie.",
+      category: "meet_new_people",
+      subCategory: "Afterwork Meet",
+      organizerName: "Dakterras Zuid",
+      city: "Antwerpen",
+      region: "Antwerpen",
+      venue: "Dakterras Zuid",
+      geo: GEO.antwerpen,
+      start: nextThursday,
+      startTime: "18:00",
+      endTime: "22:00",
+      price: 0,
+      ageMin: 28,
+      ageMax: 55,
+      ageRule: "guideline",
+      audienceMin: 30,
+      audienceMax: 50,
+      audienceFromSource: true,
+      singlesOnly: false,
+      singlesFriendly: true,
+      listingPath: "meet_activation",
+      suitability: "low",
+      meetActivation: {
+        id: "meet-afterwork-dak",
+        organizerId: slugId("org", "Dakterras Zuid"),
+        status: "active",
+        hostProvided: true,
+        meetZoneProvided: true,
+        meetMoment: "Welkomsmoment om 18:30 bij de Meet-tafel naast de bar",
+        soloWelcome: true,
+        recognitionProvided: true,
+        recognitionMethod: "wristband",
+        recognitionDescription:
+          "Optioneel discreet polsbandje bij aankomst. Alleen voor wie dat wil.",
+        interactionMethod: "welcome_moment",
+        interactionDescription:
+          "Korte introductie door de host en conversation starters op tafel.",
+        responsiblePersonName: "Sara Peeters",
+        responsiblePersonRole: "Host / venue manager",
+        commitmentAcceptedAt: daysAgoIso(3, now),
+        termsVersion: "meet-standard-2026.1",
+        verificationStatus: "none",
+      },
+      capacity: "available",
+      spots: 40,
+      checkedHoursAgo: 5,
+      addedDaysAgo: 1,
+      activities: ["drinken"],
+      tags: ["Afterwork", "OfflineRadar Meet"],
+      practical: [
+        "Host aanwezig vanaf 18:00",
+        "Meet-tafel naast de bar",
+        "Opt-in polsbandje bij aankomst",
+      ],
+    },
+    {
       title: "Clubnacht zonder gesprek",
       slug: "clubnacht-zonder-gesprek",
       shortDescription: "Gewone clubavond. Weinig ruimte om iemand echt te leren kennen.",
@@ -1039,6 +1107,8 @@ export function buildMockEvents(now = new Date()): Event[] {
       eligibility.byGender?.man ??
       eligibility.byGender?.woman ??
       band(null, null, "unknown");
+    const organizerId = slugId("org", draft.organizerName);
+    const venueId = draft.venue ? slugId("venue", draft.venue) : null;
     return {
       id: `evt-${index + 1}`,
       title: draft.title,
@@ -1048,9 +1118,11 @@ export function buildMockEvents(now = new Date()): Event[] {
       category: draft.category,
       subCategory: draft.subCategory,
       organizerName: draft.organizerName,
+      organizerId,
       city: draft.city,
       region: draft.region,
       venue: draft.venue,
+      venueId,
       latitude: draft.geo.lat,
       longitude: draft.geo.lng,
       distanceKm,
@@ -1069,6 +1141,14 @@ export function buildMockEvents(now = new Date()): Event[] {
       audienceAgeFromSource: draft.audienceFromSource === true,
       knownAudienceGenders: draft.knownAudienceGenders ?? null,
       singlesOnly: draft.singlesOnly ?? null,
+      singlesFriendly: draft.singlesFriendly === true,
+      listingPath: draft.listingPath ?? "organic",
+      meetActivation: draft.meetActivation
+        ? {
+            ...draft.meetActivation,
+            organizerId: draft.meetActivation.organizerId ?? organizerId,
+          }
+        : null,
       genderAvailability: draft.genderAvailability ?? null,
       capacityStatus: draft.capacity,
       spotsRemaining: draft.spots ?? null,

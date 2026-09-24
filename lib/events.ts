@@ -1,4 +1,5 @@
 import { buildMockEvents } from "@/data/events";
+import { isActiveMeetActivation } from "@/types/domain";
 import type { Event } from "@/types/event";
 
 /**
@@ -10,8 +11,23 @@ async function loadSourceEvents(): Promise<Event[]> {
   return buildMockEvents(new Date());
 }
 
+/**
+ * Catalog listing gate (content only).
+ *
+ * An event is listable when:
+ * - it is organically socially suitable (high/medium), OR
+ * - it has an active OfflineRadar Meet activation (meet_activation path)
+ *
+ * PAYMENT DOES NOT CREATE ELIGIBILITY.
+ * Promotions / boosts never enter this function.
+ */
 function isListed(event: Event): boolean {
-  return event.socialSuitability === "high" || event.socialSuitability === "medium";
+  if (event.listingPath === "meet_activation") {
+    return isActiveMeetActivation(event.meetActivation);
+  }
+  return (
+    event.socialSuitability === "high" || event.socialSuitability === "medium"
+  );
 }
 
 export async function listEvents(): Promise<Event[]> {

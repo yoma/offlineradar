@@ -1,3 +1,7 @@
+import type { EventMeetActivation, ListingPath } from "@/types/domain";
+
+export type { EventMeetActivation, ListingPath } from "@/types/domain";
+
 export type EventCategory = "dating" | "meet_new_people" | "social";
 
 export type EligibilityAgeRule = "strict" | "guideline" | "unknown";
@@ -66,9 +70,16 @@ export type Event = {
   category: EventCategory;
   subCategory: string;
   organizerName: string;
+  /**
+   * Stable organizer reference for future business ownership.
+   * Display name stays in organizerName.
+   */
+  organizerId: string | null;
   city: string;
   region: string;
   venue: string | null;
+  /** Stable venue reference for future venue claiming. */
+  venueId: string | null;
   latitude: number;
   longitude: number;
   /** Distance from Antwerp. Replaced in the UI with distance from the chosen place. */
@@ -99,7 +110,28 @@ export type Event = {
    * null = source says nothing reliable; never invent a match.
    */
   knownAudienceGenders: ParticipantGender[] | null;
+  /**
+   * Explicit singles-only event (participation policy from source).
+   * Not the same as singlesFriendly or OfflineRadar Meet.
+   */
   singlesOnly: boolean | null;
+  /**
+   * Lighter label: solo/singles visitors are welcome.
+   * Never a bypass for OfflineRadar listing eligibility.
+   * PAYMENT DOES NOT CREATE ELIGIBILITY.
+   */
+  singlesFriendly: boolean;
+  /**
+   * Why this event is on OfflineRadar (content path, never payment).
+   * organic = inherently social / singles-suitable
+   * meet_activation = becomes listable via an active Meet commitment
+   */
+  listingPath: ListingPath;
+  /**
+   * OfflineRadar Meet commitment for this event, if any.
+   * Null for organic listings without a Meet layer.
+   */
+  meetActivation: EventMeetActivation | null;
   genderAvailability: string | null;
   capacityStatus: CapacityStatus;
   spotsRemaining: number | null;

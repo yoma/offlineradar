@@ -24,9 +24,11 @@ function stubEvent(
     category: "dating",
     subCategory: "Test",
     organizerName: "Test",
+    organizerId: "org-test",
     city: "Antwerpen",
     region: "Antwerpen",
     venue: null,
+    venueId: null,
     latitude: 51.2,
     longitude: 4.4,
     distanceKm: 8,
@@ -44,6 +46,9 @@ function stubEvent(
     audienceAgeFromSource: false,
     knownAudienceGenders: null,
     singlesOnly: true,
+    singlesFriendly: false,
+    listingPath: "organic",
+    meetActivation: null,
     genderAvailability: null,
     capacityStatus: "available",
     spotsRemaining: 5,
@@ -358,6 +363,67 @@ function main() {
     assert(
       "I 20-30 vs 18-20 is partial",
       calculatePreferenceScore(partial, state).ageOverlap === "partial",
+    );
+  }
+
+  // Case J: Meet activation is organic signal; promotion stays 0
+  {
+    const state: SearchState = {
+      ...defaultSearchState(),
+      age: 35,
+      gender: "woman",
+    };
+    const base = {
+      eligibility: {
+        default: band(25, 55, "guideline"),
+        byGender: null,
+        allowedGenders: null,
+      },
+      socialSuitability: "medium" as const,
+      distanceKm: 5,
+    };
+    const organic = prepared(
+      stubEvent({
+        id: "org",
+        ...base,
+        listingPath: "organic",
+        meetActivation: null,
+      }),
+      state,
+    );
+    const meet = prepared(
+      stubEvent({
+        id: "meet",
+        ...base,
+        listingPath: "meet_activation",
+        meetActivation: {
+          id: "meet-1",
+          organizerId: "org-test",
+          status: "active",
+          hostProvided: true,
+          meetZoneProvided: true,
+          meetMoment: "18:30",
+          soloWelcome: true,
+          recognitionProvided: true,
+          recognitionMethod: "wristband",
+          recognitionDescription: "Opt-in band",
+          interactionMethod: "welcome_moment",
+          interactionDescription: "Host welcome",
+          responsiblePersonName: "Host",
+          responsiblePersonRole: "Host",
+          commitmentAcceptedAt: new Date().toISOString(),
+          termsVersion: "meet-standard-2026.1",
+          verificationStatus: "none",
+        },
+      }),
+      state,
+    );
+    const scoreOrganic = calculatePreferenceScore(organic, state);
+    const scoreMeet = calculatePreferenceScore(meet, state);
+    assert("J promotion always 0", scoreMeet.promotionScore === 0);
+    assert(
+      "J Meet raises organic score",
+      scoreMeet.organicScore > scoreOrganic.organicScore,
     );
   }
 

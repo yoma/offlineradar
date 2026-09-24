@@ -3,6 +3,7 @@
 import { ArrowUpRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { CapacityStatus } from "@/components/events/capacity-status";
+import { EventLabels } from "@/components/events/event-labels";
 import { EventVisual } from "@/components/events/event-visual";
 import { FreshnessLabel } from "@/components/events/freshness-label";
 import { SaveButton } from "@/components/events/save-button";
@@ -25,6 +26,7 @@ import {
 import { defaultSearchState } from "@/lib/search-state";
 import { readProfile } from "@/lib/storage";
 import { whyThisFits } from "@/lib/why";
+import { isActiveMeetActivation } from "@/types/domain";
 import type { Event, UserGender } from "@/types/event";
 import type { SearchState } from "@/types/search";
 
@@ -105,6 +107,7 @@ export function EventDetail({ event }: { event: Event }) {
             <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
               {event.title}
             </h1>
+            <EventLabels event={event} />
             <p className="text-[15px] text-muted-foreground">
               {event.venue ? `${event.venue}, ` : ""}
               {event.city} · {placed.distanceKm} km van {place.label}
@@ -133,6 +136,31 @@ export function EventDetail({ event }: { event: Event }) {
               {eligibility.detail}
             </p>
           </section>
+
+          {isActiveMeetActivation(event.meetActivation) && event.meetActivation ? (
+            <section className="space-y-2 rounded-2xl border border-border bg-secondary/40 px-5 py-4">
+              <h2 className="text-lg font-semibold tracking-tight">
+                OfflineRadar Meet
+              </h2>
+              <p className="text-sm leading-6 text-muted-foreground">
+                De organisator heeft maatregelen voorzien zodat bezoekers die
+                openstaan voor nieuwe contacten elkaar makkelijker kunnen vinden.
+                Dat betekent niet dat iedereen single is, dat iedereen wil daten,
+                of dat OfflineRadar een match garandeert.
+              </p>
+              {event.meetActivation.meetMoment ? (
+                <p className="text-sm leading-6">
+                  Meet-moment: {event.meetActivation.meetMoment}
+                </p>
+              ) : null}
+              {event.meetActivation.recognitionProvided &&
+              event.meetActivation.recognitionDescription ? (
+                <p className="text-sm leading-6">
+                  Herkenning (opt-in): {event.meetActivation.recognitionDescription}
+                </p>
+              ) : null}
+            </section>
+          ) : null}
 
           <section className="space-y-3">
             <h2 className="text-xl font-semibold tracking-tight">
@@ -217,6 +245,12 @@ export function EventDetail({ event }: { event: Event }) {
                       : "Nee"
                 }
               />
+              {event.singlesFriendly && event.singlesOnly !== true ? (
+                <Meta label="Singles Friendly" value="Ja" />
+              ) : null}
+              {isActiveMeetActivation(event.meetActivation) ? (
+                <Meta label="OfflineRadar Meet" value="Actief" />
+              ) : null}
               <Meta
                 label="Deadline"
                 value={formatDeadlineDetail(event.registrationDeadline)}

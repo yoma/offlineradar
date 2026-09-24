@@ -58,6 +58,12 @@ export function whyThisFits(
     reasons.push("Dit event is expliciet voor singles");
   }
 
+  if (event.meetActivation?.status === "active") {
+    reasons.push(
+      "De organisator voorziet een OfflineRadar Meet-opzet om openstaande bezoekers te helpen elkaar te vinden",
+    );
+  }
+
   if (
     event.practicalInfo.some((item) =>
       /alleen|solo|kom alleen/i.test(item),

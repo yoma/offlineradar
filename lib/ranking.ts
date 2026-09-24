@@ -1,13 +1,24 @@
 import { brusselsToday, diffDays } from "@/lib/dates";
 import { formatFreshness } from "@/lib/freshness";
 import type { PreparedEvent } from "@/lib/filters";
+import { isActiveMeetActivation } from "@/types/domain";
 import type { PreferredMeetGender, UserGender } from "@/types/event";
 import type { SearchState } from "@/types/search";
 
 export type AgeOverlapStrength = "strong" | "partial" | "none";
 
 export type PreferenceScore = {
-  /** Total soft score. Never used to hide events. */
+  /**
+   * Organic soft score only (relevance, distance, Meet signal, etc.).
+   * Never used to hide events. Never includes paid promotion.
+   */
+  organicScore: number;
+  /**
+   * Paid boost. Always 0 in the consumer MVP.
+   * Must never invent eligibility or social suitability.
+   */
+  promotionScore: number;
+  /** organicScore + promotionScore. Prefer reading the split fields. */
   score: number;
   /**
    * Graded age overlap with source audience ages.
@@ -149,7 +160,22 @@ export function calculatePreferenceScore(
     score += 2;
   }
 
-  return { score, ageOverlap, preferredAgeMatch, preferredGenderMatch };
+  // Active Meet is an organic relevance signal for meeting people, not a paid boost.
+  if (isActiveMeetActivation(event.meetActivation)) {
+    score += 5;
+  }
+
+  const organicScore = score;
+  const promotionScore = 0;
+
+  return {
+    organicScore,
+    promotionScore,
+    score: organicScore + promotionScore,
+    ageOverlap,
+    preferredAgeMatch,
+    preferredGenderMatch,
+  };
 }
 
 export function sortEvents(

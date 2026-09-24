@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { CapacityStatus } from "@/components/events/capacity-status";
+import { EventLabels } from "@/components/events/event-labels";
 import { EventVisual } from "@/components/events/event-visual";
 import { FreshnessLabel } from "@/components/events/freshness-label";
 import { SaveButton } from "@/components/events/save-button";
 import { displayEligibilityAge } from "@/lib/eligibility";
+import { isActiveMeetActivation } from "@/types/domain";
 import {
   formatAgeRange,
   formatDeadlineLabel,
@@ -68,6 +70,8 @@ export function EventCard({
           </p>
         </div>
 
+        <EventLabels event={event} />
+
         <p className="text-sm text-muted-foreground">{formatEventWhen(event)}</p>
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
@@ -76,6 +80,11 @@ export function EventCard({
         </div>
 
         <p className="text-sm font-medium">{event.participation.title}</p>
+        {isActiveMeetActivation(event.meetActivation) ? (
+          <p className="text-sm text-muted-foreground">
+            Meet-opzet: host helpt openstaande bezoekers elkaar te vinden.
+          </p>
+        ) : null}
         {deadline ? (
           <p className="text-sm text-muted-foreground">⏳ {deadline}</p>
         ) : null}
