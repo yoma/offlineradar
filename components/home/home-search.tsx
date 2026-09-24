@@ -36,6 +36,14 @@ const QUICK: QuickChip[] = [
   { label: "Reizen", activities: ["reizen"] },
 ];
 
+const ALL_CATEGORIES = [
+  ...new Set(QUICK.flatMap((chip) => chip.categories ?? [])),
+] as EventCategory[];
+
+const ALL_ACTIVITIES = [
+  ...new Set(QUICK.flatMap((chip) => chip.activities ?? [])),
+] as ActivityId[];
+
 function includesAll<T>(haystack: T[], needles: T[]) {
   return needles.every((item) => haystack.includes(item));
 }
@@ -99,6 +107,20 @@ export function HomeHero() {
     if (chip.activities) {
       setActivities((current) => toggleList(current, chip.activities!));
     }
+  }
+
+  const allCategoriesActive =
+    includesAll(categories, ALL_CATEGORIES) &&
+    includesAll(activities, ALL_ACTIVITIES);
+
+  function toggleAllCategories() {
+    if (allCategoriesActive) {
+      setCategories([]);
+      setActivities([]);
+      return;
+    }
+    setCategories(ALL_CATEGORIES);
+    setActivities(ALL_ACTIVITIES);
   }
 
   function go() {
@@ -378,6 +400,18 @@ export function HomeHero() {
               Waar heb je zin in?
             </p>
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                aria-pressed={allCategoriesActive}
+                onClick={toggleAllCategories}
+                className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold backdrop-blur-sm transition ${
+                  allCategoriesActive
+                    ? "border-white bg-white text-foreground"
+                    : "border-white/40 bg-white/15 text-white hover:bg-white/25"
+                }`}
+              >
+                Alle categorieën
+              </button>
               {QUICK.map((item) => {
                 const active = isChipActive(item);
                 return (
