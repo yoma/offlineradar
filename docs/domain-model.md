@@ -1,17 +1,13 @@
 # OfflineRadar domain model (MVP + future Business)
 
-## What changed in this pass
+## Current MVP shape
 
-1. Event gained `listingPath`, `singlesFriendly`, `organizerId`, `venueId`, and optional `meetActivation`.
-2. New [`types/domain.ts`](../types/domain.ts) holds Meet / Organizer / Venue / Trust / Promotion stubs.
+1. Event has `listingPath`, `singlesFriendly`, `organizerId`, `venueId`, and optional `meetActivation`.
+2. [`types/domain.ts`](../types/domain.ts) holds Meet / Organizer / Venue / Trust / Promotion stubs.
 3. Ranking exposes `organicScore` and `promotionScore` (always `0` in MVP).
 4. Catalog listing allows organic social suitability **or** an active Meet activation.
 5. Consumer badges appear only when data exists (Singles only / Singles Friendly / OfflineRadar Meet).
 6. One mock Meet demo event: `afterwork-dak-meet`.
-
-## Why
-
-So OfflineRadar can later grow **OfflineRadar for Business**, claimed organizers/venues, Meet commitments, trust and paid boosts **without rebuilding** the Event core or mixing payment into eligibility.
 
 ## Domain concepts
 
@@ -19,36 +15,98 @@ So OfflineRadar can later grow **OfflineRadar for Business**, claimed organizers
 |---|---|
 | **Organic social event** | Inherently suitable to meet people (`listingPath: "organic"` + medium/high `socialSuitability`). |
 | **Singles only** | Source policy: event is explicitly for singles (`singlesOnly: true`). |
-| **Singles Friendly** | Lighter welcome for solo/singles visitors. **Not** a listing bypass. |
-| **OfflineRadar Meet** | Concrete organizer commitment (`EventMeetActivation`) so people who opt in can actually find each other. |
+| **Singles Friendly** | Informative lighter welcome for solo/singles visitors. **Not** a listing bypass, eligibility, or ranking/promotion effect. |
+| **OfflineRadar Meet** | Concrete organizer commitment so people who opt in can actually find each other. |
 | **Promotion** | Paid placement. Separate from organic relevance. Never creates eligibility. |
 
 ## Hard rules
 
-1. OfflineRadar is **not** a general event calendar.
+1. OfflineRadar is **not** a general event calendar or directory of shops/cinemas/markets.
 2. **PAYMENT DOES NOT CREATE ELIGIBILITY.**
 3. `singlesOnly` ≠ `singlesFriendly` ≠ Meet activation.
 4. Sending singles to the same room without a way to find each other is not enough for Meet.
 5. Recognition is always **opt-in**; nobody is forced to be labelled as single.
 6. Organic ranking and paid promotion stay separate (`organicScore` vs `promotionScore`).
+7. Meet ranking bonus applies only when the user's search intent is social/meet-oriented (MVP heuristic).
+
+## Listing gate
+
+An item is listable when:
+
+- **A.** it is organically socially suitable (`high` / `medium`), **or**
+- **B.** it has a valid **active** Meet activation (`listingPath: "meet_activation"`)
+
+Payment and promotion never enter this gate. The same content rule must hold later if Meet becomes standalone: a supermarket is not on OfflineRadar, but “Singles Shopping · Thursday 19–21” can be if Meet Standard is fulfilled.
+
+## EventMeetActivation today (MVP)
+
+`Event.meetActivation` nests `EventMeetActivation` on Event. That is correct for the consumer MVP.
+
+This does **not** mean Meet must forever be a child of Event only.
+
+Most Meet fields are already generic (host, zone, moment, recognition, interaction, responsible person, commitment timestamp, terms version, verification). Little of the Meet shape is intrinsically Event-only; the coupling is mainly nesting + listing/ranking reading Meet via Event.
+
+## Future hypothesis: standalone MeetActivation
+
+Later, domain direction may evolve to a first-class `MeetActivation` that can optionally relate to:
+
+- `eventId` (Meet on top of an existing event)
+- `venueId` / location
+- `organizerId` / partner
+- concrete start/end time slot
+
+Examples:
+
+| Pattern | Example |
+|---|---|
+| Event + Meet layer | Party, comedy, afterwork with host + opt-in recognition |
+| Venue time slot | Singles Shopping · Thursday 19:00–21:00 |
+| Shared public context | Meet start + route during a jaarmarkt (market itself is not listed) |
+| Activity lanes | Bowling Meet lanes with host and rotation |
+| Pre/post activity | Cinema: welcome drink → film → afterdrink |
+
+Some Meet activations sit **on top of** an existing event. Others **are** the social moment inside a place/context.
+
+Migration path if needed: extract Meet rows, keep Event as a projected listing card for consumers, keep access behind [`lib/events.ts`](../lib/events.ts). No premature refactor in MVP.
+
+## Meet Standard (also for location activations)
+
+The same standard applies whether Meet sits on an event or a venue time slot:
+
+- concrete organizer/partner
+- responsible person
+- host / contact point
+- Meet moment / start point
+- real interaction possibility
+- optional opt-in recognition
+- solo visitors welcome
+- no dating guarantee
+- no claim that everyone is single
+- no guaranteed gender balance
+- fulfilment later verifiable
+
+For shared/public locations, **venue/organizer authorization** may later be required so a random person cannot claim “OfflineRadar Meet at municipality fair X” without the entitled organizer. Approval workflow is not built yet.
+
+## Commitment auditability (later)
+
+We need to reconstruct: “What did this organizer explicitly declare before this Meet moment?”
+
+`commitmentAcceptedAt` / `termsVersion` / responsible person are a start. A future persistence layer may need an **immutable commitment record** or activation version/history.
+
+Do **not** build event sourcing or an audit log in MVP. Do not forget the requirement.
 
 ## How business ownership can attach later
 
 - `organizerId` / `venueId` already exist on Event.
 - Future tables: `Organizer`, `Venue`, `BusinessAccount`, claim links.
-- Meet commitments stay on `EventMeetActivation` (child of Event), not as ad-hoc Event booleans.
 - Organizer trust / sanctions attach to Organizer, affecting **future** Meet activations and promotions.
 
-## How Meet Commitment attaches later
+## Ranking notes
 
-`EventMeetActivation` already models host, zone, moment, solo welcome, recognition, interaction, responsible person, `commitmentAcceptedAt`, `termsVersion`, and `verificationStatus`.
-
-Later flows (not built):
-
-- Organizer fills Meet elements + signs commitment for that event.
-- Optional review → `status: active`.
-- Post-event fulfilment checks update `verificationStatus`.
-- Repeated failures → organizer trust status (warning / suspended).
+- `organicScore` = relevance (distance, time, preferences, eligibility soft signals, intent-gated Meet bonus).
+- `promotionScore` = always `0` in MVP; never invents eligibility.
+- Active Meet `+5` only when search intent is social/meet-oriented (categories dating/meet_new_people, singles filter, meet-gender preference, or preferred age). Temporary MVP heuristic until richer intent data exists.
+- `singlesFriendly` does **not** affect ranking or listing.
 
 ## Consciously NOT built
 
@@ -57,11 +115,14 @@ Later flows (not built):
 - Boost checkout, pay-per-footfall
 - Digital signature UX, post-event surveys, reputation engine
 - Consumer “activate Meet” controls
+- Standalone MeetActivation entity / location scheduler
 - URL rename of search param `meet` → preferred meet gender (breaking; revisit later)
 
 ## Re-evaluate later
 
 - Persist mock data in Postgres/Neon.
+- Extract standalone `MeetActivation` when venue time-slot products need it.
 - Rename URL `meet` to `meetGender` before a public API freeze.
 - Split `socialSuitability` listing gate from quality score if product needs clearer semantics.
 - Whether `PromotionPlacement` lives in its own table vs Edge Config / campaign service.
+- Immutable Meet commitment records for dispute/trust flows.

@@ -19,9 +19,9 @@ async function loadSourceEvents(): Promise<Event[]> {
  * - it has an active OfflineRadar Meet activation (meet_activation path)
  *
  * PAYMENT DOES NOT CREATE ELIGIBILITY.
- * Promotions / boosts never enter this function.
+ * Promotions / boosts and singlesFriendly never enter this function.
  */
-function isListed(event: Event): boolean {
+export function isEventListable(event: Event): boolean {
   if (event.listingPath === "meet_activation") {
     return isActiveMeetActivation(event.meetActivation);
   }
@@ -32,7 +32,7 @@ function isListed(event: Event): boolean {
 
 export async function listEvents(): Promise<Event[]> {
   const events = await loadSourceEvents();
-  return events.filter(isListed);
+  return events.filter(isEventListable);
 }
 
 export async function getEventBySlug(slug: string): Promise<Event | null> {

@@ -160,10 +160,17 @@ export function calculatePreferenceScore(
     score += 2;
   }
 
-  // Active Meet is an organic relevance signal for meeting people, not a paid boost.
-  if (isActiveMeetActivation(event.meetActivation)) {
+  // Meet bonus is intentional organic signal, never paid promotion.
+  // Temporary MVP heuristic: only when search intent is social/meet-oriented.
+  // Do not treat “Meet = always +5” as a permanent domain rule.
+  if (
+    isActiveMeetActivation(event.meetActivation) &&
+    hasSocialMeetIntent(state)
+  ) {
     score += 5;
   }
+
+  // singlesFriendly is informational only: no ranking effect.
 
   const organicScore = score;
   const promotionScore = 0;
@@ -176,6 +183,23 @@ export function calculatePreferenceScore(
     preferredAgeMatch,
     preferredGenderMatch,
   };
+}
+
+/**
+ * Whether the user's current search expresses social / meeting intent.
+ * Used to gate Meet ranking bonus so a Meet label cannot beat a better
+ * activity match for a user who is not looking to meet people.
+ */
+export function hasSocialMeetIntent(state: SearchState): boolean {
+  if (state.categories.some((c) => c === "dating" || c === "meet_new_people")) {
+    return true;
+  }
+  if (state.singlesOnly) return true;
+  if (state.preferredMeetGender !== "anyone") return true;
+  if (state.preferredAgeMin != null || state.preferredAgeMax != null) {
+    return true;
+  }
+  return false;
 }
 
 export function sortEvents(
