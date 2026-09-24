@@ -1,5 +1,6 @@
 import { band } from "@/types/event";
 import { isEligibleForEvent } from "@/lib/eligibility";
+import { isEventListable } from "@/lib/events";
 import { calculatePreferenceScore } from "@/lib/ranking";
 import type { Event } from "@/types/event";
 import type { SearchState } from "@/types/search";
@@ -366,12 +367,13 @@ function main() {
     );
   }
 
-  // Case J: Meet activation is organic signal; promotion stays 0
+  // Case J: Meet activation is organic signal when intent matches; promotion stays 0
   {
     const state: SearchState = {
       ...defaultSearchState(),
       age: 35,
       gender: "woman",
+      categories: ["meet_new_people"],
     };
     const base = {
       eligibility: {
@@ -422,8 +424,143 @@ function main() {
     const scoreMeet = calculatePreferenceScore(meet, state);
     assert("J promotion always 0", scoreMeet.promotionScore === 0);
     assert(
-      "J Meet raises organic score",
+      "J Meet raises organic score with social intent",
       scoreMeet.organicScore > scoreOrganic.organicScore,
+    );
+  }
+
+  // Case K: singlesFriendly / Meet / listing / intent independence
+  {
+    const lowFriendly = stubEvent({
+      id: "friendly-low",
+      eligibility: {
+        default: band(21, null, "strict"),
+        byGender: null,
+        allowedGenders: null,
+      },
+      socialSuitability: "low",
+      singlesOnly: false,
+      singlesFriendly: true,
+      listingPath: "organic",
+      meetActivation: null,
+    });
+    assert(
+      "K singlesFriendly does not create listing",
+      !isEventListable(lowFriendly),
+    );
+
+    const meetActive = stubEvent({
+      id: "meet-list",
+      eligibility: {
+        default: band(21, null, "guideline"),
+        byGender: null,
+        allowedGenders: null,
+      },
+      socialSuitability: "low",
+      singlesOnly: false,
+      singlesFriendly: false,
+      listingPath: "meet_activation",
+      meetActivation: {
+        id: "meet-list-1",
+        organizerId: "org-test",
+        status: "active",
+        hostProvided: true,
+        meetZoneProvided: true,
+        meetMoment: "19:00",
+        soloWelcome: true,
+        recognitionProvided: true,
+        recognitionMethod: "badge",
+        recognitionDescription: "Opt-in badge",
+        interactionMethod: "short_intro",
+        interactionDescription: "Host intro",
+        responsiblePersonName: "Host",
+        responsiblePersonRole: "Host",
+        commitmentAcceptedAt: new Date().toISOString(),
+        termsVersion: "meet-standard-2026.1",
+        verificationStatus: "none",
+      },
+    });
+    assert(
+      "K active Meet creates listing eligibility",
+      isEventListable(meetActive),
+    );
+
+    const meetInactive = stubEvent({
+      ...meetActive,
+      id: "meet-draft",
+      meetActivation: {
+        ...meetActive.meetActivation!,
+        status: "draft",
+      },
+    });
+    assert(
+      "K inactive Meet does not list",
+      !isEventListable(meetInactive),
+    );
+
+    const noIntent: SearchState = {
+      ...defaultSearchState(),
+      age: 40,
+      gender: "man",
+      activities: ["wandelen"],
+    };
+    const withIntent: SearchState = {
+      ...noIntent,
+      categories: ["dating"],
+    };
+    const prepMeet = prepared(meetActive, withIntent);
+    const scoreNoIntent = calculatePreferenceScore(prepMeet, noIntent);
+    const scoreWithIntent = calculatePreferenceScore(prepMeet, withIntent);
+    assert(
+      "K Meet bonus absent without social intent",
+      scoreNoIntent.organicScore < scoreWithIntent.organicScore,
+    );
+    assert(
+      "K promotion never creates listing (score stays 0)",
+      scoreWithIntent.promotionScore === 0 &&
+        scoreNoIntent.promotionScore === 0,
+    );
+
+    const singlesOnlyEvent = stubEvent({
+      id: "so",
+      eligibility: {
+        default: band(30, 50, "strict"),
+        byGender: null,
+        allowedGenders: null,
+      },
+      singlesOnly: true,
+      singlesFriendly: false,
+      listingPath: "organic",
+      socialSuitability: "high",
+      meetActivation: null,
+    });
+    const friendlyOnly = stubEvent({
+      id: "sf",
+      eligibility: {
+        default: band(30, 50, "guideline"),
+        byGender: null,
+        allowedGenders: null,
+      },
+      singlesOnly: false,
+      singlesFriendly: true,
+      listingPath: "organic",
+      socialSuitability: "high",
+      meetActivation: null,
+    });
+    assert(
+      "K singlesOnly independent of singlesFriendly",
+      singlesOnlyEvent.singlesOnly === true &&
+        singlesOnlyEvent.singlesFriendly === false,
+    );
+    assert(
+      "K singlesFriendly independent of Meet",
+      friendlyOnly.singlesFriendly === true &&
+        friendlyOnly.meetActivation === null,
+    );
+    assert(
+      "K Meet independent of singlesOnly",
+      meetActive.singlesOnly === false &&
+        meetActive.meetActivation?.status === "active",
     );
   }
 
