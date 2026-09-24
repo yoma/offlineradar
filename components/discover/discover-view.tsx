@@ -85,10 +85,10 @@ export function DiscoverView({
   const chips = activeChips(state);
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-6">
-      <div className="flex items-end justify-between gap-3">
+    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-6">
         <div>
-          <h1 className="font-heading text-3xl">
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             {state.age == null
               ? "Activiteiten"
               : `${visible.length} ${visible.length === 1 ? "activiteit" : "activiteiten"} voor jou`}
@@ -98,19 +98,37 @@ export function DiscoverView({
             {state.age != null ? ` · ${state.age} jaar` : ""}
           </p>
         </div>
-        <Button
-          variant="outline"
-          className="h-11 rounded-xl"
-          onClick={() => setFiltersOpen(true)}
-        >
-          <SlidersHorizontal className="size-4" />
-          Filters
-        </Button>
+        <div className="flex items-center gap-2">
+          {state.age != null ? (
+            <label className="hidden items-center gap-2 text-sm sm:flex">
+              <span className="text-muted-foreground">Sorteren</span>
+              <select
+                value={state.sort}
+                onChange={(event) => update({ sort: event.target.value as SortKey })}
+                className="h-10 rounded-full border border-border bg-white px-3"
+              >
+                {(Object.keys(SORT_LABEL) as SortKey[]).map((sort) => (
+                  <option key={sort} value={sort}>
+                    {SORT_LABEL[sort]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <Button
+            variant="outline"
+            className="h-10 rounded-full px-4"
+            onClick={() => setFiltersOpen(true)}
+          >
+            <SlidersHorizontal className="size-4" />
+            Filters
+          </Button>
+        </div>
       </div>
 
       {state.age == null ? (
         <form
-          className="mt-6 max-w-sm space-y-3 rounded-2xl border bg-card p-4"
+          className="mt-10 max-w-md space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
             const age = Number(ageDraft);
@@ -129,31 +147,33 @@ export function DiscoverView({
             required
             value={ageDraft}
             onChange={(event) => setAgeDraft(event.target.value)}
-            className="h-12 text-base"
+            className="h-12 rounded-xl text-base"
           />
-          <Button type="submit" className="h-11 rounded-xl">
+          <Button type="submit" className="h-11 rounded-full px-6">
             Toon activiteiten
           </Button>
         </form>
       ) : (
         <>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {chips.map((chip) => (
-              <button
-                key={chip.id}
-                type="button"
-                onClick={() => update(chip.patch)}
-                className="inline-flex items-center gap-1 rounded-full border bg-card px-3 py-1.5 text-sm"
-              >
-                {chip.label}
-                <X className="size-3" />
-                <span className="sr-only">Verwijder filter {chip.label}</span>
-              </button>
-            ))}
-          </div>
+          {chips.length > 0 ? (
+            <div className="mt-5 flex flex-wrap gap-2">
+              {chips.map((chip) => (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={() => update(chip.patch)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1.5 text-sm hover:border-foreground"
+                >
+                  {chip.label}
+                  <X className="size-3.5" />
+                  <span className="sr-only">Verwijder filter {chip.label}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           {(state.preferredAgeMin != null || state.preferredAgeMax != null) && (
-            <p className="mt-3 text-sm text-muted-foreground">
+            <p className="mt-4 text-sm text-muted-foreground">
               Je ontmoet liefst {formatAgeRange(state.preferredAgeMin, state.preferredAgeMax)}. Dat gebruiken we om te sorteren, niet om events te verbergen.
             </p>
           )}
@@ -166,12 +186,12 @@ export function DiscoverView({
             </p>
           ) : null}
 
-          <label className="mt-4 flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Sortering</span>
+          <label className="mt-4 flex items-center gap-2 text-sm sm:hidden">
+            <span className="text-muted-foreground">Sorteren</span>
             <select
               value={state.sort}
               onChange={(event) => update({ sort: event.target.value as SortKey })}
-              className="h-10 rounded-lg border bg-card px-2"
+              className="h-10 rounded-full border border-border bg-white px-3"
             >
               {(Object.keys(SORT_LABEL) as SortKey[]).map((sort) => (
                 <option key={sort} value={sort}>
@@ -182,28 +202,28 @@ export function DiscoverView({
           </label>
 
           {visible.length === 0 ? (
-            <div className="mt-8 rounded-2xl border bg-card p-5">
-              <h2 className="font-heading text-2xl">
+            <div className="mt-12 max-w-xl">
+              <h2 className="text-2xl font-semibold tracking-tight">
                 Geen activiteiten gevonden die exact aan deze filters voldoen.
               </h2>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
                 Events waar je volgens een strikte leeftijdsgrens niet mag deelnemen, blijven verborgen.
               </p>
-              <div className="mt-4 flex flex-col gap-2">
+              <div className="mt-6 flex flex-col gap-2">
                 {suggestions(state).map((suggestion) => (
-                  <Button
+                  <button
                     key={suggestion.id}
-                    variant="outline"
-                    className="h-11 justify-start rounded-xl"
+                    type="button"
+                    className="h-11 rounded-full border border-border px-4 text-left text-sm font-medium hover:border-foreground"
                     onClick={() => update(suggestion.patch)}
                   >
                     {suggestion.label}
-                  </Button>
+                  </button>
                 ))}
               </div>
             </div>
           ) : (
-            <div className="mt-6 space-y-4">
+            <div className="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
               {visible.map((event) => (
                 <EventCard key={event.id} event={event} />
               ))}

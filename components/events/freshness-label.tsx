@@ -5,9 +5,9 @@ import { formatFreshness, type FreshnessTone } from "@/lib/freshness";
 import { cn } from "@/lib/utils";
 
 const toneClass: Record<FreshnessTone, string> = {
-  fresh: "bg-emerald-600",
-  recent: "bg-amber-500",
-  stale: "bg-stone-400",
+  fresh: "bg-emerald-500",
+  recent: "bg-amber-400",
+  stale: "bg-stone-300",
 };
 
 export function FreshnessLabel({
@@ -30,14 +30,14 @@ export function FreshnessLabel({
 
   return (
     <div className="space-y-1">
-      <p className="flex items-center gap-2 text-sm text-muted-foreground">
-        <span className={cn("size-2 rounded-full", toneClass[tone])} />
+      <p className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span className={cn("size-1.5 rounded-full", toneClass[tone])} />
         <span>
-          Laatst gecontroleerd
-          {label ? `: ${compact ? label.toLowerCase() : label}` : ""}
+          Gecontroleerd
+          {label ? ` ${compact ? label.toLowerCase() : label}` : ""}
         </span>
       </p>
-      {caution ? (
+      {caution && !compact ? (
         <p className="text-sm text-amber-800">{caution}</p>
       ) : null}
     </div>

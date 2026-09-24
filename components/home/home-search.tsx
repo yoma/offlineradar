@@ -1,22 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Image from "next/image";
+import { Search } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { USER_PLACES, placeFromPostcode } from "@/data/places";
 import { track } from "@/lib/analytics";
-import { ACTIVITY_LABEL, DISTANCES, WHEN_LABEL } from "@/lib/format";
+import { DISTANCES, WHEN_LABEL } from "@/lib/format";
+import { heroImageUrl } from "@/lib/images";
 import { profileFromSearch, serializeSearchState } from "@/lib/search-state";
 import { readProfile, writeProfile } from "@/lib/storage";
 import type { ActivityId, EventCategory } from "@/types/event";
 import type { SearchState, WhenFilter } from "@/types/search";
 
-const QUICK: {
-  label: string;
-  patch: Partial<SearchState>;
-}[] = [
+const QUICK: { label: string; patch: Partial<SearchState> }[] = [
   { label: "Dit weekend", patch: { when: "weekend" } },
   { label: "Dating", patch: { categories: ["dating"] } },
   { label: "Meet new people", patch: { categories: ["meet_new_people"] } },
@@ -27,20 +24,21 @@ const QUICK: {
   { label: "Reizen", patch: { activities: ["reizen"] } },
 ];
 
-export function HomeSearch() {
+export function HomeHero() {
   const router = useRouter();
   const [age, setAge] = useState("");
   const [placeId, setPlaceId] = useState("antwerpen");
   const [postcode, setPostcode] = useState("");
-  const [postcodeNote, setPostcodeNote] = useState("");
   const [distance, setDistance] = useState(25);
-  const [when, setWhen] = useState<WhenFilter>("any");
+  const [when, setWhen] = useState<WhenFilter>("weekend");
   const [date, setDate] = useState("");
   const [activities, setActivities] = useState<ActivityId[]>([]);
   const [categories, setCategories] = useState<EventCategory[]>([]);
   const [prefMin, setPrefMin] = useState("");
   const [prefMax, setPrefMax] = useState("");
   const [error, setError] = useState("");
+  const [note, setNote] = useState("");
+  const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
     const profile = readProfile();
@@ -52,28 +50,20 @@ export function HomeSearch() {
     if (profile.preferredAgeMax) setPrefMax(String(profile.preferredAgeMax));
   }, []);
 
-  function toggleActivity(id: ActivityId) {
-    setActivities((current) =>
-      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
-    );
-  }
-
   function go(extra?: Partial<SearchState>) {
     const parsedAge = Number(age);
     if (!Number.isFinite(parsedAge) || parsedAge < 18 || parsedAge > 99) {
-      setError("Vul je leeftijd in. We gebruiken die alleen om te zien of je mag deelnemen.");
-      document.getElementById("age")?.focus();
+      setError("Vul je leeftijd in.");
       return;
     }
-    const knownPlace = placeFromPostcode(postcode);
-    if (postcode.trim() && !knownPlace) {
-      setPostcodeNote("Die postcode kennen we in dit prototype nog niet. Kies een gemeente.");
+    const known = placeFromPostcode(postcode);
+    if (postcode.trim() && !known) {
+      setNote("Postcode niet herkend. Kies een regio.");
       return;
     }
-    const nextPlace = knownPlace?.id ?? placeId;
     const state: SearchState = {
       age: parsedAge,
-      placeId: nextPlace,
+      placeId: known?.id ?? placeId,
       maxDistanceKm: distance,
       preferredAgeMin: prefMin ? Number(prefMin) : null,
       preferredAgeMax: prefMax ? Number(prefMax) : null,
@@ -88,207 +78,227 @@ export function HomeSearch() {
       sort: "match",
       ...extra,
     };
-    if (
-      state.preferredAgeMin != null &&
-      state.preferredAgeMax != null &&
-      state.preferredAgeMin > state.preferredAgeMax
-    ) {
-      setError("De minimumleeftijd van je voorkeur moet lager zijn dan de maximumleeftijd.");
-      return;
-    }
     setError("");
+    setNote("");
     writeProfile(profileFromSearch(state));
     track("search_performed", {
       age: state.age,
       placeId: state.placeId,
       distance: state.maxDistanceKm,
       when: state.when,
-      activities: state.activities.join(","),
-      categories: state.categories.join(","),
     });
     const query = serializeSearchState(state);
     router.push(query ? `/ontdek?${query}` : "/ontdek");
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4">
-      <form
-        className="space-y-5 rounded-3xl border bg-card p-4 shadow-sm sm:p-6"
-        onSubmit={(event) => {
-          event.preventDefault();
-          go();
-        }}
-      >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="when">Wanneer</Label>
-            <select
-              id="when"
-              value={when}
-              onChange={(event) => setWhen(event.target.value as WhenFilter)}
-              className="h-12 w-full rounded-xl border bg-background px-3 text-base"
-            >
-              <option value="any">{WHEN_LABEL.any}</option>
-              <option value="today">Vandaag</option>
-              <option value="tomorrow">Morgen</option>
-              <option value="weekend">Dit weekend</option>
-              <option value="next_week">Volgende week</option>
-              <option value="month">Deze maand</option>
-              <option value="date">Datum kiezen</option>
-            </select>
+    <section className="relative -mt-16 min-h-[100svh] overflow-hidden">
+      <Image
+        src={heroImageUrl()}
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover"
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/60" />
+
+      <div className="relative mx-auto flex min-h-[100svh] w-full max-w-6xl flex-col justify-center px-4 pb-16 pt-28 sm:px-6">
+        <p className="text-sm font-semibold tracking-[0.18em] text-white/90 uppercase">
+          OfflineRadar
+        </p>
+        <h1 className="mt-4 max-w-2xl text-4xl font-semibold tracking-tight text-white sm:text-6xl sm:leading-[1.05]">
+          Ga offline. Ontmoet mensen.
+        </h1>
+        <p className="mt-4 max-w-xl text-base leading-7 text-white/85 sm:text-lg">
+          Singles-events, diners, wandelingen, sport en meer, op één plek.
+        </p>
+
+        <form
+          className="mt-8 w-full max-w-4xl"
+          onSubmit={(event) => {
+            event.preventDefault();
+            go();
+          }}
+        >
+          <div className="search-divider overflow-hidden rounded-[40px] bg-white">
+            <div className="grid lg:grid-cols-[1.2fr_1fr_0.7fr_0.85fr_auto]">
+              <Field label="Waar">
+                <select
+                  value={placeId}
+                  onChange={(event) => setPlaceId(event.target.value)}
+                  className="w-full bg-transparent text-[15px] font-semibold outline-none"
+                >
+                  {USER_PLACES.map((place) => (
+                    <option key={place.id} value={place.id}>
+                      {place.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Wanneer" divide>
+                <select
+                  value={when}
+                  onChange={(event) => setWhen(event.target.value as WhenFilter)}
+                  className="w-full bg-transparent text-[15px] font-semibold outline-none"
+                >
+                  <option value="any">{WHEN_LABEL.any}</option>
+                  <option value="today">Vandaag</option>
+                  <option value="tomorrow">Morgen</option>
+                  <option value="weekend">Dit weekend</option>
+                  <option value="next_week">Volgende week</option>
+                  <option value="month">Deze maand</option>
+                  <option value="date">Datum kiezen</option>
+                </select>
+              </Field>
+              <Field label="Leeftijd" divide>
+                <input
+                  type="number"
+                  min={18}
+                  max={99}
+                  inputMode="numeric"
+                  placeholder="bv. 49"
+                  value={age}
+                  onChange={(event) => setAge(event.target.value)}
+                  className="w-full bg-transparent text-[15px] font-semibold outline-none placeholder:font-normal placeholder:text-muted-foreground"
+                />
+              </Field>
+              <Field label="Afstand" divide>
+                <select
+                  value={distance}
+                  onChange={(event) => setDistance(Number(event.target.value))}
+                  className="w-full bg-transparent text-[15px] font-semibold outline-none"
+                >
+                  {DISTANCES.map((km) => (
+                    <option key={km} value={km}>
+                      {km} km
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <div className="flex items-center justify-end p-2">
+                <button
+                  type="submit"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#e61e4d] px-5 text-sm font-semibold text-white transition hover:bg-[#d70466] lg:w-12 lg:px-0"
+                >
+                  <Search className="size-4" />
+                  <span className="lg:sr-only">Vind activiteiten</span>
+                </button>
+              </div>
+            </div>
             {when === "date" ? (
-              <Input
-                type="date"
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
-                className="h-12 text-base"
-                required
-              />
+              <div className="border-t border-border px-6 py-3">
+                <input
+                  type="date"
+                  required
+                  value={date}
+                  onChange={(event) => setDate(event.target.value)}
+                  className="text-sm font-semibold outline-none"
+                />
+              </div>
             ) : null}
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="place">Regio</Label>
-            <select
-              id="place"
-              value={placeId}
-              onChange={(event) => setPlaceId(event.target.value)}
-              className="h-12 w-full rounded-xl border bg-background px-3 text-base"
+
+          {(error || note) && (
+            <p className="mt-3 text-sm font-medium text-white">
+              {error || note}
+            </p>
+          )}
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {QUICK.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => {
+                  if (item.patch.when) setWhen(item.patch.when);
+                  if (item.patch.categories) setCategories(item.patch.categories);
+                  if (item.patch.activities) setActivities(item.patch.activities);
+                  go(item.patch);
+                }}
+                className="rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-sm font-medium text-white backdrop-blur-sm transition hover:bg-white/20"
+              >
+                {item.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setMoreOpen((value) => !value)}
+              className="rounded-full border border-white/25 bg-transparent px-3.5 py-1.5 text-sm font-medium text-white/90"
             >
-              {USER_PLACES.map((place) => (
-                <option key={place.id} value={place.id}>
-                  {place.label}
-                </option>
-              ))}
-            </select>
+              Meer opties
+            </button>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="postcode">Of postcode</Label>
-            <Input
-              id="postcode"
-              inputMode="numeric"
-              placeholder="2000"
-              value={postcode}
-              onChange={(event) => {
-                setPostcode(event.target.value);
-                setPostcodeNote("");
-              }}
-              className="h-12 text-base"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="age">Mijn leeftijd</Label>
-            <Input
-              id="age"
-              type="number"
-              min={18}
-              max={99}
-              required
-              value={age}
-              onChange={(event) => setAge(event.target.value)}
-              className="h-12 text-base"
-            />
-          </div>
-        </div>
 
-        <div className="space-y-2">
-          <p className="text-sm font-medium">Maximale afstand</p>
-          <div className="grid grid-cols-4 gap-2">
-            {DISTANCES.map((km) => (
-              <button
-                key={km}
-                type="button"
-                aria-pressed={distance === km}
-                onClick={() => setDistance(km)}
-                className={`h-11 rounded-xl border text-sm ${
-                  distance === km ? "border-primary bg-primary text-primary-foreground" : "bg-background"
-                }`}
-              >
-                {km} km
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-sm font-medium">Wat wil ik doen?</p>
-          <div className="flex flex-wrap gap-2">
-            {(Object.keys(ACTIVITY_LABEL) as ActivityId[]).map((activity) => (
-              <button
-                key={activity}
-                type="button"
-                aria-pressed={activities.includes(activity)}
-                onClick={() => toggleActivity(activity)}
-                className={`rounded-full border px-3 py-2 text-sm ${
-                  activities.includes(activity)
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "bg-background"
-                }`}
-              >
-                {ACTIVITY_LABEL[activity]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <details className="rounded-xl border p-3">
-          <summary className="cursor-pointer text-sm font-medium">
-            Welke leeftijdsgroep wil je liefst ontmoeten?
-          </summary>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Dit is een voorkeur. Het bepaalt niet of je mag deelnemen.
-          </p>
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <Input
-              type="number"
-              min={18}
-              max={99}
-              placeholder="40"
-              aria-label="Voorkeur vanaf"
-              value={prefMin}
-              onChange={(event) => setPrefMin(event.target.value)}
-              className="h-11"
-            />
-            <Input
-              type="number"
-              min={18}
-              max={99}
-              placeholder="52"
-              aria-label="Voorkeur tot"
-              value={prefMax}
-              onChange={(event) => setPrefMax(event.target.value)}
-              className="h-11"
-            />
-          </div>
-        </details>
-
-        {postcodeNote ? <p className="text-sm text-amber-800">{postcodeNote}</p> : null}
-        {error ? <p className="text-sm text-red-700">{error}</p> : null}
-
-        <Button type="submit" className="h-12 w-full rounded-xl text-base">
-          Vind activiteiten
-        </Button>
-        <p className="text-center text-sm text-muted-foreground">
-          Geen account. Tickets altijd bij de organisator.
-        </p>
-      </form>
-
-      <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
-        {QUICK.map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            onClick={() => {
-              if (item.patch.when) setWhen(item.patch.when);
-              if (item.patch.categories) setCategories(item.patch.categories);
-              if (item.patch.activities) setActivities(item.patch.activities);
-              go(item.patch);
-            }}
-            className="shrink-0 rounded-full border bg-card px-3 py-2 text-sm"
-          >
-            {item.label}
-          </button>
-        ))}
+          {moreOpen ? (
+            <div className="mt-4 space-y-3 rounded-2xl bg-white/95 p-4 text-foreground backdrop-blur">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-sm">
+                  <span className="mb-1 block font-medium">Postcode</span>
+                  <input
+                    value={postcode}
+                    onChange={(event) => setPostcode(event.target.value)}
+                    placeholder="2000"
+                    className="h-11 w-full rounded-xl border border-border px-3"
+                  />
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm">
+                    <span className="mb-1 block font-medium">Ontmoeten vanaf</span>
+                    <input
+                      type="number"
+                      min={18}
+                      max={99}
+                      value={prefMin}
+                      onChange={(event) => setPrefMin(event.target.value)}
+                      placeholder="40"
+                      className="h-11 w-full rounded-xl border border-border px-3"
+                    />
+                  </label>
+                  <label className="text-sm">
+                    <span className="mb-1 block font-medium">tot</span>
+                    <input
+                      type="number"
+                      min={18}
+                      max={99}
+                      value={prefMax}
+                      onChange={(event) => setPrefMax(event.target.value)}
+                      placeholder="52"
+                      className="h-11 w-full rounded-xl border border-border px-3"
+                    />
+                  </label>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Ontmoetingsleeftijd is een voorkeur, geen deelnamevoorwaarde.
+              </p>
+            </div>
+          ) : null}
+        </form>
       </div>
-    </div>
+    </section>
+  );
+}
+
+function Field({
+  label,
+  children,
+  divide = false,
+}: {
+  label: string;
+  children: ReactNode;
+  divide?: boolean;
+}) {
+  return (
+    <label
+      className={`block cursor-pointer px-6 py-3.5 transition hover:bg-black/[0.03] ${
+        divide ? "lg:border-l lg:border-border" : ""
+      }`}
+    >
+      <span className="mb-0.5 block text-[12px] font-semibold tracking-wide uppercase">
+        {label}
+      </span>
+      {children}
+    </label>
   );
 }

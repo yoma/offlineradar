@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
-import { Fraunces, Outfit } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { MobileNav, SiteHeader } from "@/components/layout/site-nav";
 import "./globals.css";
 
-const outfit = Outfit({
+const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-outfit",
-});
-
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-fraunces",
+  variable: "--font-jakarta",
 });
 
 export const metadata: Metadata = {
@@ -23,13 +18,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="nl"
-      className={`${outfit.variable} ${fraunces.variable} h-full antialiased`}
-    >
+    <html lang="nl" className={`${jakarta.variable} h-full`}>
       <body className="min-h-full bg-background font-sans text-foreground">
         <SiteHeader />
-        <main className="pb-20 md:pb-0">{children}</main>
+        <main className="pb-20 md:pb-8">{children}</main>
         <MobileNav />
       </body>
     </html>

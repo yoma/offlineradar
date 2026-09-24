@@ -1,30 +1,42 @@
-import type { EventCategory } from "@/types/event";
-import { CATEGORY_LABEL } from "@/lib/format";
-
-const wash: Record<EventCategory, string> = {
-  dating: "from-stone-800 via-emerald-900 to-stone-700",
-  meet_new_people: "from-amber-900 via-stone-800 to-emerald-950",
-  social: "from-emerald-950 via-teal-900 to-stone-800",
-};
+import Image from "next/image";
+import { eventImageUrl } from "@/lib/images";
+import type { ActivityId, EventCategory } from "@/types/event";
+import { cn } from "@/lib/utils";
 
 export function EventVisual({
   category,
   city,
+  activities = [],
+  imageUrl,
   className = "",
+  label = true,
+  priority = false,
 }: {
   category: EventCategory;
   city: string;
+  activities?: ActivityId[];
+  imageUrl?: string | null;
   className?: string;
+  label?: boolean;
+  priority?: boolean;
 }) {
+  const src = eventImageUrl({ imageUrl, category, activities });
   return (
-    <div
-      className={`relative overflow-hidden bg-gradient-to-br ${wash[category]} ${className}`}
-    >
-      <div className="absolute -right-6 -top-8 size-32 rounded-full border border-white/20" />
-      <div className="absolute right-6 top-6 size-16 rounded-full border border-white/25" />
-      <div className="absolute bottom-4 left-4 text-sm font-medium text-white/90">
-        {CATEGORY_LABEL[category]} · {city}
-      </div>
+    <div className={cn("relative overflow-hidden bg-stone-200", className)}>
+      <Image
+        src={src}
+        alt=""
+        fill
+        priority={priority}
+        sizes="(max-width: 768px) 100vw, 33vw"
+        className="object-cover transition duration-500 group-hover:scale-[1.03]"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+      {label ? (
+        <p className="absolute bottom-3 left-3 text-xs font-semibold tracking-wide text-white uppercase">
+          {city}
+        </p>
+      ) : null}
     </div>
   );
 }
