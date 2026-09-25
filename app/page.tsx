@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Lock } from "lucide-react";
 import { HomeHero } from "@/components/home/home-search";
 import { TipSection } from "@/components/tips/tip-section";
 
@@ -21,6 +23,17 @@ export default function HomePage() {
           <Step n="03" title="Ga erheen" text="Tickets en reservatie blijven bij de organisator." />
         </ol>
       </section>
+      <div className="mx-auto flex w-full max-w-6xl justify-end px-4 pb-10 sm:px-6">
+        <Link
+          href="/interne-tips"
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground/70 transition-colors hover:text-muted-foreground"
+          aria-label="Interne tipwachtrij (beheerder)"
+          title="Beheer"
+        >
+          <Lock className="size-3.5" aria-hidden />
+          <span className="sr-only">Beheer</span>
+        </Link>
+      </div>
     </div>
   );
 }
