@@ -5,6 +5,7 @@ import {
   formatDayMonth,
   formatLongDate,
   formatWeekday,
+  weekdayIndex,
 } from "@/lib/dates";
 
 export function formatAgeRange(
@@ -20,36 +21,73 @@ export function formatAgeRange(
 export function formatPrice(price: number | null, currency = "EUR"): string {
   if (price == null) return "Prijs onbekend";
   if (price === 0) return "Gratis";
+  const hasCents = Math.round(price * 100) % 100 !== 0;
   return new Intl.NumberFormat("nl-BE", {
     style: "currency",
     currency,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: hasCents ? 2 : 0,
+    maximumFractionDigits: hasCents ? 2 : 0,
   }).format(price);
 }
 
+/** When the source shows a lowest known ticket price among several types. */
+export function formatPriceFrom(price: number | null, currency = "EUR"): string {
+  if (price == null) return "Prijs onbekend";
+  return `v.a. ${formatPrice(price, currency)}`;
+}
+
+const WEEKDAY_SHORT = ["zo", "ma", "di", "wo", "do", "vr", "za"] as const;
+
+/**
+ * Card date line: "wo 7 okt · 19:00"
+ * Does not invent end times. When startTime is missing, say so explicitly.
+ */
+export function formatCardWhen(
+  event: Pick<Event, "startDate" | "startTime"> & {
+    startTimeDisplayNote?: string | null;
+  },
+): string {
+  const day = WEEKDAY_SHORT[weekdayIndex(event.startDate)];
+  const datePart = `${day} ${formatDayMonth(event.startDate)}`;
+  if (event.startTimeDisplayNote) {
+    return `${datePart} · ${event.startTimeDisplayNote}`;
+  }
+  if (!event.startTime) {
+    return `${datePart} · startuur nog te bevestigen`;
+  }
+  return `${datePart} · ${event.startTime}`;
+}
+
 export function formatEventWhen(
-  event: Pick<Event, "startDate" | "endDate" | "startTime">,
+  event: Pick<Event, "startDate" | "endDate" | "startTime"> & {
+    startTimeDisplayNote?: string | null;
+  },
 ): string {
   if (event.endDate && event.endDate !== event.startDate) {
     return `${formatLongDate(event.startDate)} - ${formatLongDate(event.endDate)}`;
   }
-  const day = formatWeekday(event.startDate);
-  return event.startTime ? `${day} ${event.startTime}` : day;
+  return formatCardWhen(event);
 }
 
 export function formatSchedule(
-  event: Pick<Event, "startDate" | "endDate" | "startTime" | "endTime">,
+  event: Pick<Event, "startDate" | "endDate" | "startTime" | "endTime"> & {
+    startTimeDisplayNote?: string | null;
+  },
 ): string {
   const when = formatLongDate(event.startDate);
-  const time =
-    event.startTime && event.endTime
-      ? `${event.startTime}-${event.endTime}`
-      : event.startTime;
   if (event.endDate && event.endDate !== event.startDate) {
     const range = `${formatLongDate(event.startDate)} - ${formatLongDate(event.endDate)}`;
-    return time ? `${range}, vertrek ${time}` : range;
+    if (event.startTimeDisplayNote) return `${range}, ${event.startTimeDisplayNote}`;
+    return event.startTime ? `${range}, vertrek ${event.startTime}` : range;
   }
-  return time ? `${when}, ${time}` : when;
+  if (event.startTimeDisplayNote) {
+    return `${when}, ${event.startTimeDisplayNote}`;
+  }
+  if (event.startTime && event.endTime) {
+    return `${when}, ${event.startTime}-${event.endTime}`;
+  }
+  if (event.startTime) return `${when}, ${event.startTime}`;
+  return when;
 }
 
 /** Card/detail deadline line. Only when a real deadline exists. */

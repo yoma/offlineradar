@@ -12,11 +12,15 @@ async function loadSourceEvents(): Promise<Event[]> {
 }
 
 /**
- * Catalog listing gate (content only).
+ * Catalog listing gate (MVP consumer helper).
  *
- * An event is listable when:
- * - it is organically socially suitable (high/medium), OR
- * - it has an active OfflineRadar Meet activation (meet_activation path)
+ * CONFLICT (documented 2026-09-25): this helper still admits organic events
+ * with socialSuitability medium/high, which is broader than the restored
+ * product rule (Route A singles-oriented OR Route B confirmed Meet).
+ * The public mock feed still uses this helper so existing mock data keeps
+ * working. The internal real-events preview uses
+ * `isInternalPreviewListable` in `lib/events-preview.ts` instead and must
+ * NOT fall back to “generally social is enough”.
  *
  * PAYMENT DOES NOT CREATE ELIGIBILITY.
  * Promotions / boosts and singlesFriendly never enter this function.

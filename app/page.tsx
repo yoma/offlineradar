@@ -1,9 +1,13 @@
 import { HomeHero } from "@/components/home/home-search";
+import { TipSection } from "@/components/tips/tip-section";
 
 export default function HomePage() {
   return (
     <div>
       <HomeHero />
+      {/* Tip section sits where the first discovery strip would continue:
+          visible after the hero, before the product explainer. */}
+      <TipSection />
       <section className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
         <h2 className="text-2xl font-semibold tracking-tight">
           Zo werkt OfflineRadar

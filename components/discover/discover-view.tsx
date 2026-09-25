@@ -1,7 +1,7 @@
 "use client";
 
 import { SlidersHorizontal, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { EventCard } from "@/components/events/event-card";
 import { FilterSheet } from "@/components/filters/filter-sheet";
@@ -29,9 +29,21 @@ import type { SearchState, SortKey } from "@/types/search";
 export function DiscoverView({
   events,
   initial,
+  listPath = "/ontdek",
+  eventBasePath = "/event",
+  banner = null,
+  showInternalPreviewBanner = false,
 }: {
   events: Event[];
   initial: SearchState;
+  /** Discover URL path for filter sync (internal preview uses /interne-preview). */
+  listPath?: string;
+  /** Detail URL prefix without trailing slash. */
+  eventBasePath?: string;
+  /** Optional internal-only banner above results. */
+  banner?: ReactNode;
+  /** Show the Fase 5 internal-preview notice (local only). */
+  showInternalPreviewBanner?: boolean;
 }) {
   const router = useRouter();
   const [state, setState] = useState(initial);
@@ -39,6 +51,20 @@ export function DiscoverView({
   const [booted, setBooted] = useState(false);
   const [ageDraft, setAgeDraft] = useState(initial.age ? String(initial.age) : "");
   const zeroTracked = useRef("");
+
+  const previewBanner = showInternalPreviewBanner ? (
+    <div className="mt-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+      <p className="font-semibold">Interne preview (niet publiek)</p>
+      <p className="mt-1 leading-6">
+        Handmatig samengestelde singlesevents (Fase 4B, gecontroleerd
+        2026-09-25). Listing volgt Route A/B. Geen productiefeed. Mingle Night
+        heeft een starttijd-conflict; Singles Night Out moet vóór publicatie
+        opnieuw gecontroleerd worden.
+      </p>
+    </div>
+  ) : (
+    banner
+  );
 
   useEffect(() => {
     const stored = readProfile();
@@ -55,9 +81,9 @@ export function DiscoverView({
     const next = serializeSearchState(state);
     const current = window.location.search.replace(/^\?/, "");
     if (next !== current) {
-      router.replace(next ? `/ontdek?${next}` : "/ontdek", { scroll: false });
+      router.replace(next ? `${listPath}?${next}` : listPath, { scroll: false });
     }
-  }, [booted, router, state]);
+  }, [booted, listPath, router, state]);
 
   const result = useMemo(() => matchingEvents(events, state), [events, state]);
   const visible = useMemo(() => sortEvents(result.visible, state), [result.visible, state]);
@@ -170,6 +196,8 @@ export function DiscoverView({
         </form>
       ) : (
         <>
+          {previewBanner}
+
           {chips.length > 0 ? (
             <div className="mt-5 flex flex-wrap gap-2">
               {chips.map((chip) => (
@@ -283,7 +311,12 @@ export function DiscoverView({
           ) : (
             <div className="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
               {visible.map((event) => (
-                <EventCard key={event.id} event={event} gender={state.gender} />
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  gender={state.gender}
+                  hrefBase={eventBasePath}
+                />
               ))}
             </div>
           )}

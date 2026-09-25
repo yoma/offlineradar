@@ -1,7 +1,11 @@
 import { isActiveMeetActivation } from "@/types/domain";
 import type { Event } from "@/types/event";
 
-export type EventLabelKind = "singles_only" | "singles_friendly" | "meet";
+export type EventLabelKind =
+  | "singles_only"
+  | "singles_oriented"
+  | "singles_friendly"
+  | "meet";
 
 export type EventLabel = {
   kind: EventLabelKind;
@@ -10,14 +14,20 @@ export type EventLabel = {
 
 /**
  * Consumer-facing labels only when backing data exists.
- * No fake buttons; no empty placeholders.
+ * Singles only ≠ singles-oriented ≠ Singles Friendly ≠ Meet.
+ * Singles Friendly alone never creates listing eligibility.
  */
 export function eventLabels(
-  event: Pick<Event, "singlesOnly" | "singlesFriendly" | "meetActivation">,
+  event: Pick<
+    Event,
+    "singlesOnly" | "singlesFriendly" | "singlesOriented" | "meetActivation"
+  >,
 ): EventLabel[] {
   const labels: EventLabel[] = [];
   if (event.singlesOnly === true) {
     labels.push({ kind: "singles_only", text: "Singles only" });
+  } else if (event.singlesOriented === true) {
+    labels.push({ kind: "singles_oriented", text: "Singlesgericht" });
   } else if (event.singlesFriendly) {
     labels.push({ kind: "singles_friendly", text: "Singles Friendly" });
   }

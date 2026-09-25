@@ -1,0 +1,551 @@
+[
+  {
+    "candidateId": "tropenrooster-wolf",
+    "title": "Tropenrooster | After Dinner Riddims",
+    "sourceUrl": "https://festivalsbelgie.be/festival/tropenrooster-3-antwerpen-after-dinner-riddims-2026",
+    "neutralFacts": "Avond in Wolf Sharing Food Market (Antwerpen), 21:00-02:00: eerst eten en cocktails, daarna een dansvloer met latin, dancehall, afrobeats en reggaeton door dj's. Algemeen publiek. (Niet opnieuw live geverifieerd.)",
+    "interactionEvidence": "eten/cocktails + dansvloer met dj's",
+    "newcomerEvidence": "algemeen publiek",
+    "ruleConcept": "reject/low",
+    "claudeConcept": "social/medium",
+    "claudeReason": "Het gaat om een avond met eten/cocktails gevolgd door een dansvloer met dj-muziek in een …",
+    "claudeUncertainties": [
+      "Geen expliciete vermelding van interactie- of kennismakingselementen; Onduidelijk of er gedeelde tafels of andere struc…"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [],
+    "occurrenceB": "announced_edition; bevestigd=true; binnen venster=false",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
+    "humanConceptLabel": "REJECT",
+    "humanReviewNotes": "Producteigenaar: OfflineRadar is geen algemene eventwebsite; specifiek voor singles en singlesactiviteiten. Tropenrooster is een gewone uitgaansavond zonder aantoonbare singlesgerichte formule."
+  },
+  {
+    "candidateId": "samen-koken-gravenhof",
+    "title": "Samen koken, samen eten",
+    "sourceUrl": "https://gravenhof.antwerpen.be/samen-koken-samen-eten-najaar",
+    "neutralFacts": "Maandelijkse activiteit waarbij een groep onder begeleiding samen een driegangenmenu bereidt en daarna samen aan tafel eet. Je kunt individueel je plaats reserveren. Doelgroep volwassenen en ouderen. De organisator omschrijft het type als 'workshop, les of cursus' en 'ontmoeten en feesten'. 13:30-19:00, prijs EUR 20.",
+    "interactionEvidence": "samen een menu bereiden + samen aan tafel eten",
+    "newcomerEvidence": "individueel reserveren",
+    "ruleConcept": "social/low",
+    "claudeConcept": "social/high",
+    "claudeReason": "Individuele reservatie is mogelijk en het format vereist actieve samenwerking (samen koke…",
+    "claudeUncertainties": [
+      "Mogelijk bestaat er een vaste kern van terugkerende deelnemers, wat de drempel voor nieuwkomers kan verhogen;…"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [
+      "Kookclub met mogelijk terugkerende deelnemers; individuele reservatie bevestigd via de bron."
+    ],
+    "occurrenceB": "announced_edition; bevestigd=true; binnen venster=true",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "social-run-club-confraters",
+    "title": "Sport | Social Run Club",
+    "sourceUrl": "https://www.deconferentie.be/events/sport-social-run-club",
+    "neutralFacts": "Loopclub die 5-7 km loopt aan rustig tempo en telkens van een andere locatie in Antwerpen vertrekt; onderweg en bij het napraten leren deelnemers elkaar kennen. De tekst richt zich tot 'confraters' (juristen). Ticket met leden- en niet-ledenprijs. Eerste run op 28 september, 19:00-20:00.",
+    "interactionEvidence": "samen lopen + napraten",
+    "newcomerEvidence": "leden/niet-ledenticket; doelgroep 'confraters' (juristen)",
+    "ruleConcept": "social/low",
+    "claudeConcept": "social/medium",
+    "claudeReason": "Het format van een loopclub met wisselend startpunt en napraten biedt inherent gelegenhei…",
+    "claudeUncertainties": [
+      "Onduidelijk of externen (niet-juristen) effectief mogen aansluiten; Officiële deelnamevoorwaarden niet vermeld; Onbeken…"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [
+      "Gericht op 'confraters' (juristen); of externen mogen aansluiten is niet bevestigd.",
+      "open voor nieuwe deelnemers onduidelijk"
+    ],
+    "occurrenceB": "announced_edition; bevestigd=true; binnen venster=true",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=confraters (juristen)",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "loopclub-orion-hoboken",
+    "title": "Loopclub Orion (inclusieve loopclub)",
+    "sourceUrl": "https://kannet.be/kalender/loopclub-orion-01-09-2026-5011/",
+    "neutralFacts": "Inclusieve loopclub in Hoboken, elke dinsdag 19:00-20:00, reeks van 12 begeleide loopmomenten. Iedereen welkom met of zonder ervaring; nieuwe deelnemers mogen eerst 2 gratis proeflessen volgen. Bij controle stond de aangehaalde sessie gemarkeerd als 'voorbij'; een concreet volgend loopmoment was via deze bron niet bevestigd.",
+    "interactionEvidence": "begeleide groepsloop",
+    "newcomerEvidence": "2 gratis proeflessen; aangehaalde sessie 'voorbij'",
+    "ruleConcept": "social/low",
+    "claudeConcept": "social/medium",
+    "claudeReason": "Een terugkerende loopclub met begeleide sessies waarbij nieuwe deelnemers gratis proefles…",
+    "claudeUncertainties": [
+      "Geen bevestigde toekomstige datum voor een loopmoment; Onduidelijk of de reeks van 12 sessies nog doorloopt of herstart…"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [
+      "Aangehaalde sessie staat als 'voorbij'; geen bevestigd toekomstig loopmoment via deze bron."
+    ],
+    "occurrenceB": "historical_only; bevestigd=false; binnen venster=false",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "nou-social-running-club-heist",
+    "title": "Nóu Social Running Club",
+    "sourceUrl": "https://nsrc.be/",
+    "neutralFacts": "Social running club met twee wekelijkse momenten (woensdagavond en zaterdagochtend) die vertrekken bij de Nóu Concept Store in Heist-op-den-Berg; tempo waarbij deelnemers kunnen praten; achteraf koffie of een drankje; meelopen is gratis. (Niet opnieuw live geverifieerd.)",
+    "interactionEvidence": "samen lopen op praattempo + koffie achteraf",
+    "newcomerEvidence": "gratis meelopen (Heist-op-den-Berg)",
+    "ruleConcept": "social/low",
+    "claudeConcept": "social/high",
+    "claudeReason": "Een social running club met vaste wekelijkse momenten waarbij iedereen gratis kan aanslui…",
+    "claudeUncertainties": [
+      "Geen concrete datum vermeld, enkel algemeen wekelijks patroon; Deelnamevoorwaarden niet officieel vermeld; Bronfeiten n…"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [
+      "Buiten de pilotregio Antwerpen (Heist-op-den-Berg).",
+      "concrete datum afgeleid uit vast schema (niet expliciet aangekondigd); controleer annuleringen/uitzonderingen vóór publicatie"
+    ],
+    "occurrenceB": "derived_from_schedule; bevestigd=true; binnen venster=true",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
+    "publicationD": "REJECT (out_of_region); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "spel-2660-gravenhof",
+    "title": "Spel 2660 - spelavond",
+    "sourceUrl": "https://gravenhof.antwerpen.be/spel-2660",
+    "neutralFacts": "Maandelijkse spelavond (elke derde dinsdag, 19:00-23:00) in het Gravenhof (Hoboken); door de organisator omschreven als type 'ontmoeten en feesten'. Gratis; wie geïnteresseerd is kan zonder inschrijven aansluiten; er wordt gespeeld aan drie tot vier tafels met bordspellen; deelnemers gaan van studenten tot gepensioneerden, beginners en ervaren spelers.",
+    "interactionEvidence": "spellen aan 3-4 tafels",
+    "newcomerEvidence": "zonder inschrijven aansluiten; gratis",
+    "ruleConcept": "social/low",
+    "claudeConcept": "social/high",
+    "claudeReason": "Een maandelijkse spelavond waar men zonder inschrijving kan aansluiten aan tafels met bor…",
+    "claudeUncertainties": [],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [],
+    "occurrenceB": "announced_edition; bevestigd=true; binnen venster=false",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "embodied-dating-club",
+    "title": "Embodied Dating Club | Antwerp",
+    "sourceUrl": "https://hipsy.nl/event/241718-embodied-dating-club-antwerp",
+    "neutralFacts": "Evenement voor singles ('a club for singles only'). Deelnemers doen begeleide, speelse relationele oefeningen met ademhaling, beweging, oogcontact en zintuiglijke aandacht; er zijn twee facilitators. Kleding blijft aan en deelname aan oefeningen is optioneel. Inloop 15 minuten vooraf, 19:00-22:00. Er zijn aparte tickets voor mannen en vrouwen.",
+    "interactionEvidence": "begeleide relationele oefeningen (ademhaling, beweging, oogcontact)",
+    "newcomerEvidence": "losse tickets (m/v), inloop 15 min vooraf",
+    "ruleConcept": "dating/high",
+    "claudeConcept": "dating/high",
+    "claudeReason": "Het format is expliciet een singles-evenement ('a club for singles only') waarbij deelnem…",
+    "claudeUncertainties": [
+      "Genderbalans wordt niet vooraf gedeeld door organisator, wat de daadwerkelijke interactiemogelijkheden kan be…"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [
+      "Genderbalans wordt door de organisator niet vooraf gedeeld."
+    ],
+    "occurrenceB": "announced_edition; bevestigd=true; binnen venster=true",
+    "eligibilityC": "leeftijd=30-60 (strict); doelgroep=geen",
+    "publicationD": "ACCEPT (publication_ready); publicatieklaar=true",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "speeddate-antwerpen-40-50",
+    "title": "Speeddating Antwerpen (40-50 jaar)",
+    "sourceUrl": "https://happeningnext.com/event/speeddating-antwerpen-40-50-jaar-eid3a0dw90h0t",
+    "neutralFacts": "Georganiseerde speeddate-avond voor de leeftijdsgroep 40-50 jaar bij Quotes (Melkmarkt 33, Antwerpen). Een host verwelkomt de deelnemers; deelnemers ontmoeten meerdere singles via korte gesprekken; achteraf is er een afterdrink. Individuele inschrijving. (Via aggregatorpagina; niet opnieuw live geverifieerd.)",
+    "interactionEvidence": "korte 1-op-1 gesprekken met meerdere singles + afterdrink",
+    "newcomerEvidence": "individuele inschrijving",
+    "ruleConcept": "dating/high",
+    "claudeConcept": "dating/high",
+    "claudeReason": null,
+    "claudeUncertainties": null,
+    "claudeCapture": "category_only",
+    "ruleUncertainties": [
+      "Prijs niet op deze pagina vermeld."
+    ],
+    "occurrenceB": "announced_edition; bevestigd=true; binnen venster=false",
+    "eligibilityC": "leeftijd=40-50 (guideline); doelgroep=geen",
+    "publicationD": "REVIEW (outside_window); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "speeddate-hogeropgeleiden-25-35",
+    "title": "Hogeropgeleiden Speeddaten Antwerpen (25-35 jaar)",
+    "sourceUrl": "https://hoptodate.com/nl-be/speed-dating/antwerpen/",
+    "neutralFacts": "Speeddate-avond voor hogeropgeleiden 25-35 jaar bij Fidèle (Wapenstraat 18, Antwerpen). Vaste rondes van ongeveer 7 minuten; minstens 7 mannen en 7 vrouwen per avond; een host begeleidt en geeft aan wanneer door te schuiven; individuele inschrijving; achteraf napraten aan de bar en online matchopvolging.",
+    "interactionEvidence": "vaste rondes van ~7 min, minstens 7 m / 7 v",
+    "newcomerEvidence": "individuele inschrijving",
+    "ruleConcept": "dating/high",
+    "claudeConcept": "dating/high",
+    "claudeReason": null,
+    "claudeUncertainties": null,
+    "claudeCapture": "category_only",
+    "ruleUncertainties": [],
+    "occurrenceB": "announced_edition; bevestigd=true; binnen venster=false",
+    "eligibilityC": "leeftijd=25-35 (guideline); doelgroep=geen",
+    "publicationD": "REVIEW (outside_window); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "speeddate-antwerpen-53-65",
+    "title": "Speeddaten Antwerpen (53-65 jaar)",
+    "sourceUrl": "https://hoptodate.com/nl-be/speed-dating/antwerpen/",
+    "neutralFacts": "Speeddate-avond voor 53-65 jaar bij Fidèle (Wapenstraat 18, Antwerpen), met host-begeleiding en vaste rondes; individuele inschrijving. Bij controle stond de vrouwenlijst op 'voorlopig vol / reservelijst' en waren er beperkte plaatsen voor mannen.",
+    "interactionEvidence": "vaste rondes met host-begeleiding",
+    "newcomerEvidence": "individuele inschrijving (vrouwenlijst vol bij controle)",
+    "ruleConcept": "dating/high",
+    "claudeConcept": "dating/high",
+    "claudeReason": null,
+    "claudeUncertainties": null,
+    "claudeCapture": "category_only",
+    "ruleUncertainties": [
+      "Beschikbaarheid onzeker: vrouwen op reservelijst bij controle."
+    ],
+    "occurrenceB": "announced_edition; bevestigd=true; binnen venster=false",
+    "eligibilityC": "leeftijd=53-65 (guideline); doelgroep=geen",
+    "publicationD": "REVIEW (outside_window); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "mingle-night-how-to-be-single",
+    "title": "Mingle Night by How to be Single",
+    "sourceUrl": "https://www.houseofentertainment.be/events/mingle-night-by-how-to-be-single",
+    "neutralFacts": "Groot singles-evenement in Antwerp Expo. De organisator omschrijft het als een avond waar live ontmoeten en plezier centraal staan, met muziek en entertainment; er zijn mingle- en wing(wo)man-tickets en op het event is zichtbaar wie single is. Ook niet-singles zijn welkom. Algemene ticketverkoop.",
+    "interactionEvidence": "mingle-opzet; op event zichtbaar wie single is",
+    "newcomerEvidence": "algemene ticketverkoop; ook niet-singles welkom",
+    "ruleConcept": "dating/high",
+    "claudeConcept": "dating/high",
+    "claudeReason": "Het event is expliciet opgezet rond singles en daten: er zijn specifieke mingle- en wing(…",
+    "claudeUncertainties": [
+      "Grootschaligheid (Antwerp Expo) kan de daadwerkelijke ontmoetingskans per individu verminderen; Niet-singles zijn ook w…"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [
+      "Grootschalig feest; ook niet-singles welkom, dus reële ontmoetingskans hangt af van opzet ter plaatse."
+    ],
+    "occurrenceB": "announced_edition; bevestigd=true; binnen venster=false",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
+    "publicationD": "REVIEW (outside_window); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "uantwerpen-running-club",
+    "title": "UAntwerpen Running Club",
+    "sourceUrl": "https://sportsticker.be/lopen/",
+    "neutralFacts": "Wekelijkse loopsessie (dinsdag 19:00-20:00) op de UAntwerpen Stadscampus, begeleid door een coach en rekening houdend met verschillende snelheden. De tekst richt zich tot medestudenten; toegang via studentensport (Sportsticker); inschrijven niet verplicht. (Niet opnieuw live geverifieerd.)",
+    "interactionEvidence": "begeleide groepsloop met coach",
+    "newcomerEvidence": "toegang enkel voor studenten",
+    "ruleConcept": "social/low",
+    "claudeConcept": "social/medium",
+    "claudeReason": "Een wekelijkse begeleide loopsessie met een coach, waarbij deelnemers met verschillende s…",
+    "claudeUncertainties": [
+      "Enkel toegankelijk voor studenten, wat de doelgroep beperkt (eligibility wordt elders bepaald); Geen concrete datum ver…"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [
+      "Enkel voor studenten; personal eligibility bepaalt later voor wie zichtbaar.",
+      "reële interactie onduidelijk",
+      "concrete datum afgeleid uit vast schema (niet expliciet aangekondigd); controleer annuleringen/uitzonderingen vóór publicatie"
+    ],
+    "occurrenceB": "derived_from_schedule; bevestigd=true; binnen venster=true",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=studenten",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "antwerp-athletics-club",
+    "title": "Antwerp Athletics recreatieve trainingen",
+    "sourceUrl": "http://antwerpathletics.be/club/",
+    "neutralFacts": "Recreatieve atletiek-/loopclub met groepstrainingen op vaste dagen in Sportpark Ruggeveld (Deurne), met begeleiding per niveau; zowel beginnende joggers als ervaren lopers zijn welkom. Aangesloten bij een atletiekfederatie (werking met lidmaatschap). (Niet opnieuw live geverifieerd.)",
+    "interactionEvidence": "groepstraining per niveau",
+    "newcomerEvidence": "clublidmaatschap; beginners welkom",
+    "ruleConcept": "social/low",
+    "claudeConcept": "social/medium",
+    "claudeReason": "Recreatieve groepstrainingen bij een atletiekclub waarbij zowel beginnende als ervaren lo…",
+    "claudeUncertainties": [
+      "Onduidelijk of er expliciete sociale/kennismakingsmomenten zijn naast de training zelf; Lidmaatschapsvereiste kan dremp…"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [
+      "Sportclub met lidmaatschap; of er een sociale kennismaking is naast de training is onduidelijk.",
+      "reële interactie onduidelijk",
+      "concrete datum afgeleid uit vast schema (niet expliciet aangekondigd); controleer annuleringen/uitzonderingen vóór publicatie"
+    ],
+    "occurrenceB": "derived_from_schedule; bevestigd=true; binnen venster=true",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "boardnado-antwerp",
+    "title": "Boardnado wekelijkse bordspellenavond",
+    "sourceUrl": "https://boardnado.be/",
+    "neutralFacts": "Bordspellengemeenschap die elke zaterdag 19:00-02:00 speelt in de kelder van Outpost Gamecenter (Antwerpen). De tekst nodigt nieuwkomers expliciet uit: wie niemand kent, kan aanschuiven aan een tafel en meespelen; leden brengen spellen mee. Drop-in mogelijk, later komen of vroeger weg kan.",
+    "interactionEvidence": "samen bordspellen aan gedeelde tafels",
+    "newcomerEvidence": "expliciet: schuif aan aan een tafel; drop-in",
+    "ruleConcept": "social/low",
+    "claudeConcept": "meet_new_people/high",
+    "claudeReason": "De bronfeiten beschrijven een wekelijkse bordspellenavond waarbij nieuwkomers expliciet w…",
+    "claudeUncertainties": [
+      "Geen concrete datum vermeld voor een specifieke editie, maar dit betreft datum/planning en niet het format zelf; Geen o…"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [
+      "concrete datum afgeleid uit vast schema (niet expliciet aangekondigd); controleer annuleringen/uitzonderingen vóór publicatie"
+    ],
+    "occurrenceB": "derived_from_schedule; bevestigd=true; binnen venster=true",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "antwerp-language-exchange-meetup",
+    "title": "Antwerp Language Exchange",
+    "sourceUrl": "https://www.meetup.com/antwerp-language-exchange-meetup-group/",
+    "neutralFacts": "Meetup-groep (ruim 2.500 leden) die informele bijeenkomsten houdt om vreemde talen te spreken; niet-moedertaalsprekers praten met moedertaalsprekers, in een bar of park. Gratis; alle talen en niveaus. Bij controle stonden er op de events-pagina geen aankomende bijeenkomsten; recent zichtbare events dateerden uit 2025.",
+    "interactionEvidence": "gesprekken tussen native/non-native sprekers",
+    "newcomerEvidence": "gratis, alle niveaus (geen aangekondigd event)",
+    "ruleConcept": "social/low",
+    "claudeConcept": "meet_new_people/high",
+    "claudeReason": "Language exchange bijeenkomsten zijn qua format inherent gericht op het ontmoeten van nie…",
+    "claudeUncertainties": [
+      "Geen concrete aankomende datum bevestigd; laatst zichtbare events dateren van 2025; Onduidelijk of de groep nog actief …"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [
+      "Laatst zichtbare events dateren van 2025; eerstvolgende concrete datum ter bevestiging."
+    ],
+    "occurrenceB": "community_no_next; bevestigd=false; binnen venster=false",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "antwerp-social-language-exchange-eventbrite",
+    "title": "Antwerp Social and Language Exchange (Make New Friends)",
+    "sourceUrl": "https://www.eventbrite.com/e/antwerp-social-and-language-exchange-make-new-friends-tickets-1992611682181",
+    "neutralFacts": "Wekelijkse social mixer (vrijdag vanaf 18:00) bij Bier Central (De Keyserlei 25, Antwerpen) om nieuwe mensen te ontmoeten en talen te oefenen; gericht op onder meer internationale studenten, expats en locals; RSVP via de website. De bron was bij controle niet betrouwbaar op te halen (429); de feiten komen uit een eerdere weergave en zijn niet opnieuw live geverifieerd; een concreet aankomend event is niet bevestigd.",
+    "interactionEvidence": "social/language mixer",
+    "newcomerEvidence": "RSVP via website (bron 429; geen bevestigd event)",
+    "ruleConcept": "social/low",
+    "claudeConcept": "meet_new_people/high",
+    "claudeReason": "Het format is een wekelijkse social/language exchange mixer expliciet gericht op het ontm…",
+    "claudeUncertainties": [
+      "Bron was bij controle niet betrouwbaar op te halen (429), gegevens niet opnieuw live geverifieerd; Geen concreet aankom…"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [],
+    "occurrenceB": "unverifiable; bevestigd=false; binnen venster=false",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "board-game-tavern-meetup",
+    "title": "The Board Game Tavern (Antwerp)",
+    "sourceUrl": "https://www.meetup.com/theboardgametavern/",
+    "neutralFacts": "Meetup-groep met wekelijkse bordspellenavond (zaterdag 19:00-23:00) in Youth Hostel Pulcinella (Antwerpen); Engelstalig met veel expat-leden; toegankelijke spellen; nieuwkomers expliciet welkom; deelname gratis, RSVP gewenst. Bij controle toonde de events-pagina geen aangekondigd volgend event.",
+    "interactionEvidence": "toegankelijke bordspellen samen",
+    "newcomerEvidence": "nieuwkomers expliciet welkom, RSVP (geen aangekondigd event)",
+    "ruleConcept": "social/low",
+    "claudeConcept": "meet_new_people/high",
+    "claudeReason": "Het format is een wekelijkse bordspellenavond in een hostel, expliciet gericht op nieuwko…",
+    "claudeUncertainties": [
+      "Geen concrete eerstvolgende datum vermeld; Events-pagina toonde bij controle geen aangekondigd volgend event, wat kan w…"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [],
+    "occurrenceB": "community_no_next; bevestigd=false; binnen venster=false",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "concert-sixpence-de-roma",
+    "title": "Sixpence None The Richer in De Roma",
+    "sourceUrl": "https://happeningnext.com/event/sixpence-none-the-richer-in-de-roma-eid3a0d8bmfa3",
+    "neutralFacts": "Concert van Sixpence None The Richer in De Roma (Borgerhout), met support en dj. Publiek koopt tickets voor een podiumoptreden; deuren om 19:15, aanvang 20:00. (Niet opnieuw live geverifieerd.)",
+    "interactionEvidence": "podiumoptreden (passief)",
+    "newcomerEvidence": "algemene ticketverkoop",
+    "ruleConcept": "reject/low",
+    "claudeConcept": "reject/low",
+    "claudeReason": "Dit is een concert: bezoekers kopen een ticket voor een podiumoptreden en zitten/staan gr…",
+    "claudeUncertainties": [
+      "Onbekend of er voor/na het concert een informele foyer- of barsetting is die uitnodigt tot gesprek, maar dit is niet ve…"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [],
+    "occurrenceB": "announced_edition; bevestigd=true; binnen venster=true",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "concert-the-opposites-de-roma",
+    "title": "The Opposites in De Roma",
+    "sourceUrl": "https://www.podiuminfo.nl/concert/493133/The-Opposites/De-Roma/",
+    "neutralFacts": "Hiphopconcert van The Opposites in De Roma (Antwerpen), 20:00; publiek koopt tickets voor een podiumoptreden. (Niet opnieuw live geverifieerd.)",
+    "interactionEvidence": "podiumoptreden (passief)",
+    "newcomerEvidence": "algemene ticketverkoop",
+    "ruleConcept": "reject/low",
+    "claudeConcept": "reject/low",
+    "claudeReason": "Dit is een regulier concert (hiphopoptreden) waarbij bezoekers passief naar een podiumact…",
+    "claudeUncertainties": [
+      "Geen informatie over eventuele nevenactiviteiten (bv. borrel, meet & greet) die interactie zouden kunnen bevorderen"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [],
+    "occurrenceB": "announced_edition; bevestigd=true; binnen venster=false",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "concert-alela-diane-de-roma",
+    "title": "Alela Diane in De Roma",
+    "sourceUrl": "https://www.podiuminfo.nl/concert/454101/Alela-Diane/De-Roma/",
+    "neutralFacts": "Concert van singer-songwriter Alela Diane in De Roma (Antwerpen), 20:00; publiek koopt tickets voor een podiumoptreden. (Niet opnieuw live geverifieerd.)",
+    "interactionEvidence": "podiumoptreden (passief)",
+    "newcomerEvidence": "algemene ticketverkoop",
+    "ruleConcept": "reject/low",
+    "claudeConcept": "reject/low",
+    "claudeReason": "Dit is een regulier concert: bezoekers zitten/staan passief naar een podiumoptreden te ki…",
+    "claudeUncertainties": [
+      "Geen informatie over eventuele nevenactiviteiten (bijv. borrel, meet&greet) die interactie zouden kunnen bevorderen"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [],
+    "occurrenceB": "announced_edition; bevestigd=true; binnen venster=false",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "najaarsfoor-antwerpen",
+    "title": "Najaarsfoor Antwerpen",
+    "sourceUrl": "https://kermis.nu/kermis/2906/antwerpen/najaarsfoor/",
+    "neutralFacts": "Kermis/foor op de Dageraadplaats in Antwerpen (3-18 oktober), met kermisattracties op een openbaar plein. Geen inschrijving; het publiek bezoekt vrij. (Niet opnieuw live geverifieerd.)",
+    "interactionEvidence": "vrij rondwandelen tussen attracties",
+    "newcomerEvidence": "vrij toegankelijk",
+    "ruleConcept": "reject/low",
+    "claudeConcept": "reject/low",
+    "claudeReason": "Een kermis/foor is een passieve publieksactiviteit: bezoekers wandelen vrij rond tussen a…",
+    "claudeUncertainties": [
+      "Geen informatie over eventuele nevenactiviteiten die interactie zouden kunnen stimuleren"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [],
+    "occurrenceB": "announced_edition; bevestigd=true; binnen venster=true",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "jaarmarkt-boom",
+    "title": "Jaarmarkt Boom",
+    "sourceUrl": "https://www.alleavondmarkten.be/avondmarkt/jaarmarkt-boom/",
+    "neutralFacts": "Jaarmarkt in Boom (Grote Markt en omliggende straten), 9:00-15:00; publieke marktactiviteit met kramen, georganiseerd door de gemeente. (Niet opnieuw live geverifieerd.)",
+    "interactionEvidence": "marktkramen bekijken",
+    "newcomerEvidence": "vrij toegankelijk (Boom)",
+    "ruleConcept": "reject/low",
+    "claudeConcept": "reject/low",
+    "claudeReason": "Een jaarmarkt is een publieke marktactiviteit met kramen waarbij bezoekers voornamelijk i…",
+    "claudeUncertainties": [
+      "Geen informatie over eventuele nevenactiviteiten (bv. workshops, activiteiten) die interactie zouden kunnen stimuleren"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [],
+    "occurrenceB": "announced_edition; bevestigd=true; binnen venster=false",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
+    "publicationD": "REJECT (out_of_region); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "terug-naar-toen-plein-publiek",
+    "title": "Terug Naar Toen | Plein Publiek",
+    "sourceUrl": "https://www.sway.events/event/4310",
+    "neutralFacts": "Clubavond op een rooftop waarbij dj's 90's/00's hits en classics draaien (o.a. Backstreet Boys, Britney Spears, ABBA). De tekst omschrijft het als het clubseizoen aftrappen, feesten en dansen. Algemene ticketverkoop voor het publiek. Tijd 18:00-23:00 (de tekst noemt ook 20:00-01:00).",
+    "interactionEvidence": "dansen op 90s/00s hits",
+    "newcomerEvidence": "algemene ticketverkoop",
+    "ruleConcept": "reject/low",
+    "claudeConcept": "reject/low",
+    "claudeReason": "Dit is een reguliere clubavond/feest met dj's die 90's/00's hits draaien, met algemene ti…",
+    "claudeUncertainties": [
+      "Geen informatie over eventuele interactieve elementen zoals workshops, spelletjes of georganiseerde kennismak…"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [],
+    "occurrenceB": "announced_edition; bevestigd=true; binnen venster=true",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "coco-loco-halloween-rave",
+    "title": "COCO LOCO x Halloween Rave",
+    "sourceUrl": "https://festivalsbelgie.be/festival/coco-loco-halloween-rave-o-sat-31-10-26-o-waagnatie-antwerp-2026",
+    "neutralFacts": "Grote Halloween-rave in de Waagnatie (Antwerpen), 20:30-04:30, met een technoprogramma; algemene ticketverkoop met regular- en VIP-tickets. (Niet opnieuw live geverifieerd.)",
+    "interactionEvidence": "dansen op techno",
+    "newcomerEvidence": "algemene ticketverkoop",
+    "ruleConcept": "reject/low",
+    "claudeConcept": "reject/low",
+    "claudeReason": "Dit is een grootschalige rave/technofeest met algemene ticketverkoop (regular/VIP). Het f…",
+    "claudeUncertainties": [
+      "Geen informatie over eventuele randactiviteiten, meet-ups of sociale opzet naast de muziek; Officiële deelnamevoorwaard…"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [],
+    "occurrenceB": "announced_edition; bevestigd=true; binnen venster=false",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  },
+  {
+    "candidateId": "fiesta-de-la-memoria-roularta",
+    "title": "Fiesta de la Memoria Antwerpen",
+    "sourceUrl": "https://party.roularta.com/party-antwerpen/",
+    "neutralFacts": "Avond in Mexicaanse sfeer in Café Local (Antwerpen), met mariachiband, dansfeest, open bar en Latijns-Amerikaanse streetfood; programma met onthaal, welkomstwoord door de CEO en dansen. Inschrijven op uitnodiging met een deadline; georganiseerd door Roularta als relatie-/bedrijfsevenement. (Niet opnieuw live geverifieerd.)",
+    "interactionEvidence": "dansfeest + open bar",
+    "newcomerEvidence": "op uitnodiging (besloten)",
+    "ruleConcept": "reject/low",
+    "claudeConcept": "reject/low",
+    "claudeReason": "Dit is een besloten relatie-/bedrijfsevenement van Roularta, uitsluitend toegankelijk op …",
+    "claudeUncertainties": [
+      "Niet duidelijk of ook externen/nieuwe relaties zonder bestaande band met Roularta kunnen deelnemen; Bron niet opnieuw l…"
+    ],
+    "claudeCapture": "truncated",
+    "ruleUncertainties": [
+      "Besloten evenement op uitnodiging (Roularta-relatiedag)."
+    ],
+    "occurrenceB": "announced_edition; bevestigd=true; binnen venster=true",
+    "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
+    "publicationD": "REJECT (restricted_audience); publicatieklaar=false",
+    "humanConceptLabel": "",
+    "humanReviewNotes": ""
+  }
+]
