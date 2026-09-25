@@ -5,7 +5,10 @@ export function EventLabels({
   event,
   compact = false,
 }: {
-  event: Pick<Event, "singlesOnly" | "singlesFriendly" | "meetActivation">;
+  event: Pick<
+    Event,
+    "singlesOnly" | "singlesFriendly" | "singlesOriented" | "meetActivation"
+  >;
   compact?: boolean;
 }) {
   const labels = eventLabels(event);
@@ -19,7 +22,9 @@ export function EventLabels({
           className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${
             label.kind === "meet"
               ? "border-foreground/20 bg-foreground text-white"
-              : "border-border bg-white text-foreground"
+              : label.kind === "singles_oriented"
+                ? "border-[#e61e4d]/30 bg-[#e61e4d]/8 text-foreground"
+                : "border-border bg-white text-foreground"
           }`}
         >
           {label.text}

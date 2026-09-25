@@ -21,6 +21,7 @@ import {
   formatDeadlineDetail,
   formatMeetPreferenceSentence,
   formatPrice,
+  formatPriceFrom,
   formatSchedule,
 } from "@/lib/format";
 import { defaultSearchState } from "@/lib/search-state";
@@ -30,7 +31,14 @@ import { isActiveMeetActivation } from "@/types/domain";
 import type { Event, UserGender } from "@/types/event";
 import type { SearchState } from "@/types/search";
 
-export function EventDetail({ event }: { event: Event }) {
+export function EventDetail({
+  event,
+  backHref = "/ontdek",
+}: {
+  event: Event;
+  /** List path for internal preview back navigation. */
+  backHref?: string;
+}) {
   const [state, setState] = useState<SearchState>(defaultSearchState());
 
   useEffect(() => {
@@ -68,6 +76,9 @@ export function EventDetail({ event }: { event: Event }) {
   const ageInfo = displayEligibilityAge(event, state.gender);
   const ageLabel = formatAgeRange(ageInfo.min, ageInfo.max);
   const ticketHref = event.ticketUrl ?? event.officialUrl;
+  const priceLabel = event.priceIsFrom
+    ? formatPriceFrom(event.price, event.currency)
+    : formatPrice(event.price, event.currency);
   const preferenceSentence = formatMeetPreferenceSentence(
     state.preferredMeetGender,
     state.preferredAgeMin,
@@ -84,11 +95,21 @@ export function EventDetail({ event }: { event: Event }) {
   return (
     <article className="pb-32 md:pb-16">
       <div className="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6">
+        <p className="mb-3 text-sm">
+          <a
+            href={backHref}
+            className="font-medium text-muted-foreground underline-offset-4 hover:underline"
+          >
+            ← Terug naar overzicht
+          </a>
+        </p>
         <EventVisual
           category={event.category}
           city={event.city}
           activities={event.activities}
           imageUrl={event.imageUrl}
+          imageAlt={event.imageAlt}
+          imageIsAtmosphere={event.imageIsAtmosphere === true}
           className="aspect-[16/10] rounded-2xl sm:aspect-[21/9]"
           label={false}
           priority
@@ -113,10 +134,35 @@ export function EventDetail({ event }: { event: Event }) {
               {event.city} · {placed.distanceKm} km van {place.label}
             </p>
             <p className="text-[15px]">
-              {formatSchedule(event)} ·{" "}
-              {formatPrice(event.price, event.currency)} · {event.organizerName}
+              {formatSchedule(event)} · {priceLabel} · {event.organizerName}
             </p>
           </header>
+
+          {(event.internalPreviewWarnings?.length ||
+            event.internalSourceConflicts?.length) ? (
+            <section className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-950">
+              <h2 className="text-base font-semibold tracking-tight">
+                Intern controlepaneel
+              </h2>
+              {event.internalPreviewWarnings?.length ? (
+                <ul className="list-disc space-y-1 pl-5">
+                  {event.internalPreviewWarnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              ) : null}
+              {event.internalSourceConflicts?.length ? (
+                <div className="space-y-1">
+                  <p className="font-medium">Bronconflicten</p>
+                  <ul className="list-disc space-y-1 pl-5">
+                    {event.internalSourceConflicts.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
 
           <section
             className={`rounded-2xl border px-5 py-4 ${
@@ -209,10 +255,12 @@ export function EventDetail({ event }: { event: Event }) {
         <aside className="lg:pt-2">
           <div className="listing-shadow sticky top-24 space-y-4 rounded-2xl border border-border bg-white p-5">
             <div className="flex items-end justify-between gap-3">
-              <p className="text-2xl font-semibold">
-                {formatPrice(event.price, event.currency)}
-              </p>
-              {event.capacityStatus === "unknown" ? (
+              <p className="text-2xl font-semibold">{priceLabel}</p>
+              {event.availabilityNote ? (
+                <p className="max-w-[14rem] text-right text-sm text-muted-foreground">
+                  {event.availabilityNote}
+                </p>
+              ) : event.capacityStatus === "unknown" ? (
                 <p className="text-sm text-muted-foreground">
                   Beschikbaarheid onbekend
                 </p>

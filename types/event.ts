@@ -116,6 +116,13 @@ export type Event = {
    */
   singlesOnly: boolean | null;
   /**
+   * Route A evidence: the activity is demonstrably organised for singles to
+   * meet other singles. Separate from singlesOnly (venue need not be
+   * singles-only). Required for the internal preview listing gate.
+   * Optional on legacy mock events.
+   */
+  singlesOriented?: boolean;
+  /**
    * Lighter label: solo/singles visitors are welcome.
    * Never a bypass for OfflineRadar listing eligibility.
    * PAYMENT DOES NOT CREATE ELIGIBILITY.
@@ -123,10 +130,15 @@ export type Event = {
   singlesFriendly: boolean;
   /**
    * Why this event is on OfflineRadar (content path, never payment).
-   * organic = inherently social / singles-suitable
-   * meet_activation = becomes listable via an active Meet commitment
+   * organic = Route A singles-oriented activity (intended)
+   * meet_activation = becomes listable via an active Meet commitment (Route B)
    */
   listingPath: ListingPath;
+  /**
+   * Internal-only warnings for the local pilot preview (never invent facts).
+   * Not shown on the public consumer feed.
+   */
+  internalPreviewWarnings?: string[];
   /**
    * OfflineRadar Meet commitment for this event, if any.
    * Null for organic listings without a Meet layer.
@@ -145,9 +157,37 @@ export type Event = {
   lastCheckedAt: string;
   addedAt: string;
   imageUrl: string | null;
+  /**
+   * Accessible description of the card/detail image.
+   * Required when imageUrl is set.
+   */
+  imageAlt?: string | null;
+  /**
+   * True when imageUrl is an atmosphere / mood image, not an official
+   * photo of this specific edition. UI may show a subtle “Sfeerbeeld” label.
+   */
+  imageIsAtmosphere?: boolean;
   tags: string[];
   activities: ActivityId[];
   practicalInfo: string[];
+  /**
+   * Short consumer-facing availability note when category-specific status
+   * is known (e.g. one gender sold out). Never invent “plaats genoeg”.
+   */
+  availabilityNote?: string | null;
+  /**
+   * Conflicting source facts retained for internal review (preview only).
+   */
+  internalSourceConflicts?: string[];
+  /**
+   * When startTime is unknown/conflicting, short consumer-safe note for cards.
+   * Example: "startuur nog te bevestigen"
+   */
+  startTimeDisplayNote?: string | null;
+  /**
+   * When true, price is a lowest known ticket (“v.a.”), not a single fixed price.
+   */
+  priceIsFrom?: boolean;
 };
 
 export function band(
