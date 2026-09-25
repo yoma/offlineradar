@@ -17,8 +17,8 @@
     "occurrenceB": "announced_edition; bevestigd=true; binnen venster=false",
     "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
     "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
-    "humanConceptLabel": "",
-    "humanReviewNotes": ""
+    "humanConceptLabel": "REJECT",
+    "humanReviewNotes": "Producteigenaar: OfflineRadar is geen algemene eventwebsite; specifiek voor singles en singlesactiviteiten. Tropenrooster is een gewone uitgaansavond zonder aantoonbare singlesgerichte formule."
   },
   {
     "candidateId": "samen-koken-gravenhof",
@@ -27,7 +27,7 @@
     "neutralFacts": "Maandelijkse activiteit waarbij een groep onder begeleiding samen een driegangenmenu bereidt en daarna samen aan tafel eet. Je kunt individueel je plaats reserveren. Doelgroep volwassenen en ouderen. De organisator omschrijft het type als 'workshop, les of cursus' en 'ontmoeten en feesten'. 13:30-19:00, prijs EUR 20.",
     "interactionEvidence": "samen een menu bereiden + samen aan tafel eten",
     "newcomerEvidence": "individueel reserveren",
-    "ruleConcept": "social/medium",
+    "ruleConcept": "social/low",
     "claudeConcept": "social/high",
     "claudeReason": "Individuele reservatie is mogelijk en het format vereist actieve samenwerking (samen koke…",
     "claudeUncertainties": [
@@ -39,7 +39,7 @@
     ],
     "occurrenceB": "announced_edition; bevestigd=true; binnen venster=true",
     "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
-    "publicationD": "ACCEPT (publication_ready); publicatieklaar=true",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
     "humanConceptLabel": "",
     "humanReviewNotes": ""
   },
@@ -50,7 +50,7 @@
     "neutralFacts": "Loopclub die 5-7 km loopt aan rustig tempo en telkens van een andere locatie in Antwerpen vertrekt; onderweg en bij het napraten leren deelnemers elkaar kennen. De tekst richt zich tot 'confraters' (juristen). Ticket met leden- en niet-ledenprijs. Eerste run op 28 september, 19:00-20:00.",
     "interactionEvidence": "samen lopen + napraten",
     "newcomerEvidence": "leden/niet-ledenticket; doelgroep 'confraters' (juristen)",
-    "ruleConcept": "meet_new_people/high",
+    "ruleConcept": "social/low",
     "claudeConcept": "social/medium",
     "claudeReason": "Het format van een loopclub met wisselend startpunt en napraten biedt inherent gelegenhei…",
     "claudeUncertainties": [
@@ -63,7 +63,7 @@
     ],
     "occurrenceB": "announced_edition; bevestigd=true; binnen venster=true",
     "eligibilityC": "leeftijd=?-? (unknown); doelgroep=confraters (juristen)",
-    "publicationD": "REVIEW (restricted_audience); publicatieklaar=false",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
     "humanConceptLabel": "",
     "humanReviewNotes": ""
   },
@@ -74,7 +74,7 @@
     "neutralFacts": "Inclusieve loopclub in Hoboken, elke dinsdag 19:00-20:00, reeks van 12 begeleide loopmomenten. Iedereen welkom met of zonder ervaring; nieuwe deelnemers mogen eerst 2 gratis proeflessen volgen. Bij controle stond de aangehaalde sessie gemarkeerd als 'voorbij'; een concreet volgend loopmoment was via deze bron niet bevestigd.",
     "interactionEvidence": "begeleide groepsloop",
     "newcomerEvidence": "2 gratis proeflessen; aangehaalde sessie 'voorbij'",
-    "ruleConcept": "meet_new_people/high",
+    "ruleConcept": "social/low",
     "claudeConcept": "social/medium",
     "claudeReason": "Een terugkerende loopclub met begeleide sessies waarbij nieuwe deelnemers gratis proefles…",
     "claudeUncertainties": [
@@ -82,12 +82,11 @@
     ],
     "claudeCapture": "truncated",
     "ruleUncertainties": [
-      "Aangehaalde sessie staat als 'voorbij'; geen bevestigd toekomstig loopmoment via deze bron.",
-      "geen bevestigd toekomstig moment (enkel historische editie)"
+      "Aangehaalde sessie staat als 'voorbij'; geen bevestigd toekomstig loopmoment via deze bron."
     ],
     "occurrenceB": "historical_only; bevestigd=false; binnen venster=false",
     "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
-    "publicationD": "REVIEW (insufficiently_confirmed); publicatieklaar=false",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
     "humanConceptLabel": "",
     "humanReviewNotes": ""
   },
@@ -98,7 +97,7 @@
     "neutralFacts": "Social running club met twee wekelijkse momenten (woensdagavond en zaterdagochtend) die vertrekken bij de Nóu Concept Store in Heist-op-den-Berg; tempo waarbij deelnemers kunnen praten; achteraf koffie of een drankje; meelopen is gratis. (Niet opnieuw live geverifieerd.)",
     "interactionEvidence": "samen lopen op praattempo + koffie achteraf",
     "newcomerEvidence": "gratis meelopen (Heist-op-den-Berg)",
-    "ruleConcept": "meet_new_people/high",
+    "ruleConcept": "social/low",
     "claudeConcept": "social/high",
     "claudeReason": "Een social running club met vaste wekelijkse momenten waarbij iedereen gratis kan aanslui…",
     "claudeUncertainties": [
@@ -122,7 +121,7 @@
     "neutralFacts": "Maandelijkse spelavond (elke derde dinsdag, 19:00-23:00) in het Gravenhof (Hoboken); door de organisator omschreven als type 'ontmoeten en feesten'. Gratis; wie geïnteresseerd is kan zonder inschrijven aansluiten; er wordt gespeeld aan drie tot vier tafels met bordspellen; deelnemers gaan van studenten tot gepensioneerden, beginners en ervaren spelers.",
     "interactionEvidence": "spellen aan 3-4 tafels",
     "newcomerEvidence": "zonder inschrijven aansluiten; gratis",
-    "ruleConcept": "meet_new_people/high",
+    "ruleConcept": "social/low",
     "claudeConcept": "social/high",
     "claudeReason": "Een maandelijkse spelavond waar men zonder inschrijving kan aansluiten aan tafels met bor…",
     "claudeUncertainties": [],
@@ -130,7 +129,7 @@
     "ruleUncertainties": [],
     "occurrenceB": "announced_edition; bevestigd=true; binnen venster=false",
     "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
-    "publicationD": "REVIEW (outside_window); publicatieklaar=false",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
     "humanConceptLabel": "",
     "humanReviewNotes": ""
   },
@@ -248,7 +247,7 @@
     "neutralFacts": "Wekelijkse loopsessie (dinsdag 19:00-20:00) op de UAntwerpen Stadscampus, begeleid door een coach en rekening houdend met verschillende snelheden. De tekst richt zich tot medestudenten; toegang via studentensport (Sportsticker); inschrijven niet verplicht. (Niet opnieuw live geverifieerd.)",
     "interactionEvidence": "begeleide groepsloop met coach",
     "newcomerEvidence": "toegang enkel voor studenten",
-    "ruleConcept": "social/medium",
+    "ruleConcept": "social/low",
     "claudeConcept": "social/medium",
     "claudeReason": "Een wekelijkse begeleide loopsessie met een coach, waarbij deelnemers met verschillende s…",
     "claudeUncertainties": [
@@ -262,7 +261,7 @@
     ],
     "occurrenceB": "derived_from_schedule; bevestigd=true; binnen venster=true",
     "eligibilityC": "leeftijd=?-? (unknown); doelgroep=studenten",
-    "publicationD": "REVIEW (restricted_audience); publicatieklaar=false",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
     "humanConceptLabel": "",
     "humanReviewNotes": ""
   },
@@ -273,7 +272,7 @@
     "neutralFacts": "Recreatieve atletiek-/loopclub met groepstrainingen op vaste dagen in Sportpark Ruggeveld (Deurne), met begeleiding per niveau; zowel beginnende joggers als ervaren lopers zijn welkom. Aangesloten bij een atletiekfederatie (werking met lidmaatschap). (Niet opnieuw live geverifieerd.)",
     "interactionEvidence": "groepstraining per niveau",
     "newcomerEvidence": "clublidmaatschap; beginners welkom",
-    "ruleConcept": "social/medium",
+    "ruleConcept": "social/low",
     "claudeConcept": "social/medium",
     "claudeReason": "Recreatieve groepstrainingen bij een atletiekclub waarbij zowel beginnende als ervaren lo…",
     "claudeUncertainties": [
@@ -287,7 +286,7 @@
     ],
     "occurrenceB": "derived_from_schedule; bevestigd=true; binnen venster=true",
     "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
-    "publicationD": "REVIEW (needs_review); publicatieklaar=false",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
     "humanConceptLabel": "",
     "humanReviewNotes": ""
   },
@@ -298,7 +297,7 @@
     "neutralFacts": "Bordspellengemeenschap die elke zaterdag 19:00-02:00 speelt in de kelder van Outpost Gamecenter (Antwerpen). De tekst nodigt nieuwkomers expliciet uit: wie niemand kent, kan aanschuiven aan een tafel en meespelen; leden brengen spellen mee. Drop-in mogelijk, later komen of vroeger weg kan.",
     "interactionEvidence": "samen bordspellen aan gedeelde tafels",
     "newcomerEvidence": "expliciet: schuif aan aan een tafel; drop-in",
-    "ruleConcept": "meet_new_people/high",
+    "ruleConcept": "social/low",
     "claudeConcept": "meet_new_people/high",
     "claudeReason": "De bronfeiten beschrijven een wekelijkse bordspellenavond waarbij nieuwkomers expliciet w…",
     "claudeUncertainties": [
@@ -310,7 +309,7 @@
     ],
     "occurrenceB": "derived_from_schedule; bevestigd=true; binnen venster=true",
     "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
-    "publicationD": "ACCEPT (publication_ready); publicatieklaar=true",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
     "humanConceptLabel": "",
     "humanReviewNotes": ""
   },
@@ -321,7 +320,7 @@
     "neutralFacts": "Meetup-groep (ruim 2.500 leden) die informele bijeenkomsten houdt om vreemde talen te spreken; niet-moedertaalsprekers praten met moedertaalsprekers, in een bar of park. Gratis; alle talen en niveaus. Bij controle stonden er op de events-pagina geen aankomende bijeenkomsten; recent zichtbare events dateerden uit 2025.",
     "interactionEvidence": "gesprekken tussen native/non-native sprekers",
     "newcomerEvidence": "gratis, alle niveaus (geen aangekondigd event)",
-    "ruleConcept": "meet_new_people/high",
+    "ruleConcept": "social/low",
     "claudeConcept": "meet_new_people/high",
     "claudeReason": "Language exchange bijeenkomsten zijn qua format inherent gericht op het ontmoeten van nie…",
     "claudeUncertainties": [
@@ -329,12 +328,11 @@
     ],
     "claudeCapture": "truncated",
     "ruleUncertainties": [
-      "Laatst zichtbare events dateren van 2025; eerstvolgende concrete datum ter bevestiging.",
-      "geen bevestigd toekomstig moment (community zonder aangekondigd volgend event)"
+      "Laatst zichtbare events dateren van 2025; eerstvolgende concrete datum ter bevestiging."
     ],
     "occurrenceB": "community_no_next; bevestigd=false; binnen venster=false",
     "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
-    "publicationD": "REVIEW (insufficiently_confirmed); publicatieklaar=false",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
     "humanConceptLabel": "",
     "humanReviewNotes": ""
   },
@@ -345,19 +343,17 @@
     "neutralFacts": "Wekelijkse social mixer (vrijdag vanaf 18:00) bij Bier Central (De Keyserlei 25, Antwerpen) om nieuwe mensen te ontmoeten en talen te oefenen; gericht op onder meer internationale studenten, expats en locals; RSVP via de website. De bron was bij controle niet betrouwbaar op te halen (429); de feiten komen uit een eerdere weergave en zijn niet opnieuw live geverifieerd; een concreet aankomend event is niet bevestigd.",
     "interactionEvidence": "social/language mixer",
     "newcomerEvidence": "RSVP via website (bron 429; geen bevestigd event)",
-    "ruleConcept": "meet_new_people/high",
+    "ruleConcept": "social/low",
     "claudeConcept": "meet_new_people/high",
     "claudeReason": "Het format is een wekelijkse social/language exchange mixer expliciet gericht op het ontm…",
     "claudeUncertainties": [
       "Bron was bij controle niet betrouwbaar op te halen (429), gegevens niet opnieuw live geverifieerd; Geen concreet aankom…"
     ],
     "claudeCapture": "truncated",
-    "ruleUncertainties": [
-      "geen bevestigd toekomstig moment (bron niet verifieerbaar)"
-    ],
+    "ruleUncertainties": [],
     "occurrenceB": "unverifiable; bevestigd=false; binnen venster=false",
     "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
-    "publicationD": "REVIEW (insufficiently_confirmed); publicatieklaar=false",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
     "humanConceptLabel": "",
     "humanReviewNotes": ""
   },
@@ -368,19 +364,17 @@
     "neutralFacts": "Meetup-groep met wekelijkse bordspellenavond (zaterdag 19:00-23:00) in Youth Hostel Pulcinella (Antwerpen); Engelstalig met veel expat-leden; toegankelijke spellen; nieuwkomers expliciet welkom; deelname gratis, RSVP gewenst. Bij controle toonde de events-pagina geen aangekondigd volgend event.",
     "interactionEvidence": "toegankelijke bordspellen samen",
     "newcomerEvidence": "nieuwkomers expliciet welkom, RSVP (geen aangekondigd event)",
-    "ruleConcept": "meet_new_people/high",
+    "ruleConcept": "social/low",
     "claudeConcept": "meet_new_people/high",
     "claudeReason": "Het format is een wekelijkse bordspellenavond in een hostel, expliciet gericht op nieuwko…",
     "claudeUncertainties": [
       "Geen concrete eerstvolgende datum vermeld; Events-pagina toonde bij controle geen aangekondigd volgend event, wat kan w…"
     ],
     "claudeCapture": "truncated",
-    "ruleUncertainties": [
-      "geen bevestigd toekomstig moment (community zonder aangekondigd volgend event)"
-    ],
+    "ruleUncertainties": [],
     "occurrenceB": "community_no_next; bevestigd=false; binnen venster=false",
     "eligibilityC": "leeftijd=?-? (unknown); doelgroep=geen",
-    "publicationD": "REVIEW (insufficiently_confirmed); publicatieklaar=false",
+    "publicationD": "REJECT (concept_unsuitable); publicatieklaar=false",
     "humanConceptLabel": "",
     "humanReviewNotes": ""
   },

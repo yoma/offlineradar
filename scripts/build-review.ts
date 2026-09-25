@@ -11,9 +11,18 @@ import type { CapturedClaudeResult } from "@/types/screening";
  *
  * Assembles a human-review overview from the deterministic pipeline (rule
  * concept, occurrence, eligibility, publication) + the neutral source facts +
- * the captured Claude results. Writes empty humanConceptLabel / humanReviewNotes
- * for a reviewer to fill in later. Does NOT fill human labels itself.
+ * the captured Claude results. Preserves recorded independent human concept
+ * decisions; does NOT invent human labels for other candidates.
  */
+
+/** Independent human concept reviews already recorded (product owner). */
+const HUMAN_CONCEPT: Record<string, { label: string; notes: string }> = {
+  "tropenrooster-wolf": {
+    label: "REJECT",
+    notes:
+      "Producteigenaar: OfflineRadar is geen algemene eventwebsite; specifiek voor singles en singlesactiviteiten. Tropenrooster is een gewone uitgaansavond zonder aantoonbare singlesgerichte formule.",
+  },
+};
 const PILOT_NOW = new Date("2026-09-25T08:00:00+02:00");
 
 /** The six content differences, shown first. */
@@ -101,6 +110,7 @@ function main() {
     else if (claude.capture === "category_only") missing.push(`${id}: Claude-onderbouwing niet bewaard (enkel categorie/suitability)`);
     else if (claude.capture === "truncated") missing.push(`${id}: Claude-onderbouwing afgekapt in console-capture`);
 
+    const human = HUMAN_CONCEPT[id];
     review.push({
       candidateId: id,
       title: raw.statedTitle,
@@ -117,8 +127,8 @@ function main() {
       occurrenceB: `${r.occurrence.status}; bevestigd=${r.occurrence.confirmed}; binnen venster=${r.occurrence.withinPilotWindow}`,
       eligibilityC: `leeftijd=${r.eligibility.ageMin ?? "?"}-${r.eligibility.ageMax ?? "?"} (${r.eligibility.ageRule}); doelgroep=${r.eligibility.restrictedAudience ?? "geen"}`,
       publicationD: `${r.decision} (${r.statusReason}); publicatieklaar=${r.publicationReady}`,
-      humanConceptLabel: "",
-      humanReviewNotes: "",
+      humanConceptLabel: human?.label ?? "",
+      humanReviewNotes: human?.notes ?? "",
     });
   }
 
@@ -127,8 +137,15 @@ function main() {
 
   const md: string[] = [];
   md.push("# OfflineRadar - menselijk reviewoverzicht (Fase 3)\n");
-  md.push("humanConceptLabel en humanReviewNotes zijn bewust leeg; in te vullen door de reviewer.\n");
-  md.push("De zes inhoudelijke verschillen staan bovenaan.\n");
+  md.push(
+    "Concepttoelating vereist singles Route A of B. Categorie `social` zonder Route A/B is geen toelating.",
+  );
+  md.push(
+    "humanConceptLabel/humanReviewNotes: alleen in te vullen door de reviewer (behalve reeds vastgelegde producteigenaar-beslissingen).\n",
+  );
+  md.push(
+    "Historische Claude-captures blijven ongewijzigd; verschillen t.o.v. de nieuwe regels zijn verwacht.\n",
+  );
   for (const [i, row] of review.entries()) {
     md.push(`\n## ${i + 1}. ${row.title} (${row.candidateId})`);
     md.push(`- Bron-URL: ${row.sourceUrl}`);
@@ -143,8 +160,8 @@ function main() {
     md.push(`- B. Concreet toekomstig moment: ${row.occurrenceB}`);
     md.push(`- C. Deelnamevoorwaarden: ${row.eligibilityC}`);
     md.push(`- D. Publicatie (los van A): ${row.publicationD}`);
-    md.push("- humanConceptLabel: ");
-    md.push("- humanReviewNotes: ");
+    md.push(`- humanConceptLabel: ${row.humanConceptLabel}`);
+    md.push(`- humanReviewNotes: ${row.humanReviewNotes}`);
   }
   writeFileSync("review/pilot-review.md", md.join("\n"));
 

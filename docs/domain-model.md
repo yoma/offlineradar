@@ -5,38 +5,66 @@
 1. Event has `listingPath`, `singlesFriendly`, `organizerId`, `venueId`, and optional `meetActivation`.
 2. [`types/domain.ts`](../types/domain.ts) holds Meet / Organizer / Venue / Trust / Promotion stubs.
 3. Ranking exposes `organicScore` and `promotionScore` (always `0` in MVP).
-4. Catalog listing allows organic social suitability **or** an active Meet activation.
+4. Catalog listing (intended): Route A singles-oriented organic **or** active Meet (Route B). MVP helper still uses socialSuitability|Meet until consumer alignment.
 5. Consumer badges appear only when data exists (Singles only / Singles Friendly / OfflineRadar Meet).
 6. One mock Meet demo event: `afterwork-dak-meet`.
+
+## Product definition
+
+OfflineRadar helps **singles** find offline activities and organised moments to
+meet **other singles**. It is not a general event calendar, not a friendship or
+“any social activity” directory, and not a swipe/chat dating app.
+
+Content belongs on OfflineRadar only via:
+
+- **Route A** — Source shows a concrete singles-oriented meeting activity
+  (speeddate, singles dinner/party, singles walk, etc.).
+- **Route B** — An ordinary place/activity has a real, confirmed singles meeting
+  formula (typically a valid OfflineRadar Meet). Marketing badges and unconfirmed
+  Meet claims do not count.
+
+A generally social activity (open run club, cooking workshop, board-game night,
+language exchange, ordinary party) is **not** enough on its own.
+Singles-oriented ≠ `singlesOnly`: the whole venue need not be singles-only.
+
+The screening pilot (`lib/screening/`, `docs/screening-pilot.md`) enforces Route
+A/B for concept admission. Consumer mock listing still uses the MVP helper below
+until a later consumer-alignment pass; do not treat old mock `social` events as
+proof of the product rule.
 
 ## Domain concepts
 
 | Concept | Meaning |
 |---|---|
-| **Organic social event** | Inherently suitable to meet people (`listingPath: "organic"` + medium/high `socialSuitability`). |
-| **Singles only** | Source policy: event is explicitly for singles (`singlesOnly: true`). |
+| **Organic (Route A)** | Singles-oriented activity from source (`listingPath: "organic"`). Not “any social format”. |
+| **Singles only** | Source policy: event admits singles only (`singlesOnly: true`). Separate from Route A evidence. |
 | **Singles Friendly** | Informative lighter welcome for solo/singles visitors. **Not** a listing bypass, eligibility, or ranking/promotion effect. |
-| **OfflineRadar Meet** | Concrete organizer commitment so people who opt in can actually find each other. |
+| **OfflineRadar Meet (Route B)** | Concrete organizer commitment so singles who opt in can actually find each other. |
 | **Promotion** | Paid placement. Separate from organic relevance. Never creates eligibility. |
 
 ## Hard rules
 
-1. OfflineRadar is **not** a general event calendar or directory of shops/cinemas/markets.
+1. OfflineRadar is for singles meeting singles (Route A or B), **not** a general event calendar or directory of shops/cinemas/markets.
 2. **PAYMENT DOES NOT CREATE ELIGIBILITY.**
 3. `singlesOnly` ≠ `singlesFriendly` ≠ Meet activation.
 4. Sending singles to the same room without a way to find each other is not enough for Meet.
 5. Recognition is always **opt-in**; nobody is forced to be labelled as single.
 6. Organic ranking and paid promotion stay separate (`organicScore` vs `promotionScore`).
 7. Meet ranking bonus applies only when the user's search intent is social/meet-oriented (MVP heuristic).
+8. “Singles friendly” without a concrete singles formula never creates admission.
 
 ## Listing gate
 
-An item is listable when:
+**Intended content rule:** listable when Route A (singles-oriented organic) **or** Route B (valid **active** Meet, `listingPath: "meet_activation"`).
 
-- **A.** it is organically socially suitable (`high` / `medium`), **or**
-- **B.** it has a valid **active** Meet activation (`listingPath: "meet_activation"`)
+**MVP consumer helper** (`lib/events.isEventListable`) still keys off
+`socialSuitability` high/medium **or** active Meet so existing mock data keeps
+working until the consumer catalog is realigned. Screening publication checks
+already require Route A/B; payment and `singlesFriendly` never enter either gate.
 
-Payment and promotion never enter this gate. The same content rule must hold later if Meet becomes standalone: a supermarket is not on OfflineRadar, but “Singles Shopping · Thursday 19–21” can be if Meet Standard is fulfilled.
+Same content rule later if Meet becomes standalone: a supermarket is not on
+OfflineRadar, but “Singles Shopping · Thursday 19–21” can be if Meet Standard is
+fulfilled.
 
 ## EventMeetActivation today (MVP)
 

@@ -9,7 +9,7 @@
  *   C. Personal eligibility   - constraints (age / group) for a specific user.
  *
  * Hard rules (see docs/screening-pilot.md and docs/domain-model.md):
- * - OfflineRadar is not a general event calendar.
+ * - OfflineRadar is for singles meeting singles (Route A or B), not a general social calendar.
  * - PAYMENT DOES NOT CREATE ELIGIBILITY.
  * - Unknown facts stay unknown; never invented (no favourable defaults).
  * - A recurring concept is not proof of a confirmed next occurrence.
@@ -263,9 +263,9 @@ export type CapturedClaudeResult = {
 /**
  * Provisional expected outcome.
  *
- * IMPORTANT: the current labels were authored by the same AI as the screener,
- * so they are test fixtures, NOT an independent accuracy measurement. Every
- * label still needs independent human review (`needsHumanReview`).
+ * IMPORTANT: many early labels assumed a too-broad “organic social” definition.
+ * Those are marked `outdated` and still need independent human review. Do not
+ * treat screener agreement with outdated fixtures as accuracy.
  */
 export type GoldenLabel = {
   candidateId: string;
@@ -276,4 +276,15 @@ export type GoldenLabel = {
   /** True while these remain AI-authored fixtures, not independent labels. */
   provisional: boolean;
   needsHumanReview: boolean;
+  /**
+   * True when the provisional label was based on the superseded broad social
+   * definition and must not be treated as the target outcome.
+   */
+  outdated: boolean;
+  outdatedReason?: string;
+  /**
+   * Independent human concept decision when recorded (never invented by scripts).
+   * Separate from provisional expectedDecision fixtures.
+   */
+  humanConceptDecision?: ScreeningDecision | null;
 };

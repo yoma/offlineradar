@@ -1,8 +1,9 @@
 # OfflineRadar - menselijk reviewoverzicht (Fase 3)
 
-humanConceptLabel en humanReviewNotes zijn bewust leeg; in te vullen door de reviewer.
+Concepttoelating vereist singles Route A of B. Categorie `social` zonder Route A/B is geen toelating.
+humanConceptLabel/humanReviewNotes: alleen in te vullen door de reviewer (behalve reeds vastgelegde producteigenaar-beslissingen).
 
-De zes inhoudelijke verschillen staan bovenaan.
+Historische Claude-captures blijven ongewijzigd; verschillen t.o.v. de nieuwe regels zijn verwacht.
 
 
 ## 1. Tropenrooster | After Dinner Riddims (tropenrooster-wolf)
@@ -18,22 +19,22 @@ De zes inhoudelijke verschillen staan bovenaan.
 - B. Concreet toekomstig moment: announced_edition; bevestigd=true; binnen venster=false
 - C. Deelnamevoorwaarden: leeftijd=?-? (unknown); doelgroep=geen
 - D. Publicatie (los van A): REJECT (concept_unsuitable); publicatieklaar=false
-- humanConceptLabel: 
-- humanReviewNotes: 
+- humanConceptLabel: REJECT
+- humanReviewNotes: Producteigenaar: OfflineRadar is geen algemene eventwebsite; specifiek voor singles en singlesactiviteiten. Tropenrooster is een gewone uitgaansavond zonder aantoonbare singlesgerichte formule.
 
 ## 2. Samen koken, samen eten (samen-koken-gravenhof)
 - Bron-URL: https://gravenhof.antwerpen.be/samen-koken-samen-eten-najaar
 - Neutrale bronfeiten: Maandelijkse activiteit waarbij een groep onder begeleiding samen een driegangenmenu bereidt en daarna samen aan tafel eet. Je kunt individueel je plaats reserveren. Doelgroep volwassenen en ouderen. De organisator omschrijft het type als 'workshop, les of cursus' en 'ontmoeten en feesten'. 13:30-19:00, prijs EUR 20.
 - Interactie-bewijs (uit bron): samen een menu bereiden + samen aan tafel eten
 - Nieuwkomer-bewijs (uit bron): individueel reserveren
-- A. Regel-conceptbeoordeling: social/medium
+- A. Regel-conceptbeoordeling: social/low
 - A. Claude-conceptbeoordeling: social/high (capture: truncated)
 - Claude-onderbouwing: Individuele reservatie is mogelijk en het format vereist actieve samenwerking (samen koke…
 - Claude-onzekerheden: Mogelijk bestaat er een vaste kern van terugkerende deelnemers, wat de drempel voor nieuwkomers kan verhogen;…
 - Regel-onzekerheden: Kookclub met mogelijk terugkerende deelnemers; individuele reservatie bevestigd via de bron.
 - B. Concreet toekomstig moment: announced_edition; bevestigd=true; binnen venster=true
 - C. Deelnamevoorwaarden: leeftijd=?-? (unknown); doelgroep=geen
-- D. Publicatie (los van A): ACCEPT (publication_ready); publicatieklaar=true
+- D. Publicatie (los van A): REJECT (concept_unsuitable); publicatieklaar=false
 - humanConceptLabel: 
 - humanReviewNotes: 
 
@@ -42,14 +43,14 @@ De zes inhoudelijke verschillen staan bovenaan.
 - Neutrale bronfeiten: Loopclub die 5-7 km loopt aan rustig tempo en telkens van een andere locatie in Antwerpen vertrekt; onderweg en bij het napraten leren deelnemers elkaar kennen. De tekst richt zich tot 'confraters' (juristen). Ticket met leden- en niet-ledenprijs. Eerste run op 28 september, 19:00-20:00.
 - Interactie-bewijs (uit bron): samen lopen + napraten
 - Nieuwkomer-bewijs (uit bron): leden/niet-ledenticket; doelgroep 'confraters' (juristen)
-- A. Regel-conceptbeoordeling: meet_new_people/high
+- A. Regel-conceptbeoordeling: social/low
 - A. Claude-conceptbeoordeling: social/medium (capture: truncated)
 - Claude-onderbouwing: Het format van een loopclub met wisselend startpunt en napraten biedt inherent gelegenhei…
 - Claude-onzekerheden: Onduidelijk of externen (niet-juristen) effectief mogen aansluiten; Officiële deelnamevoorwaarden niet vermeld; Onbeken…
 - Regel-onzekerheden: Gericht op 'confraters' (juristen); of externen mogen aansluiten is niet bevestigd. | open voor nieuwe deelnemers onduidelijk
 - B. Concreet toekomstig moment: announced_edition; bevestigd=true; binnen venster=true
 - C. Deelnamevoorwaarden: leeftijd=?-? (unknown); doelgroep=confraters (juristen)
-- D. Publicatie (los van A): REVIEW (restricted_audience); publicatieklaar=false
+- D. Publicatie (los van A): REJECT (concept_unsuitable); publicatieklaar=false
 - humanConceptLabel: 
 - humanReviewNotes: 
 
@@ -58,14 +59,14 @@ De zes inhoudelijke verschillen staan bovenaan.
 - Neutrale bronfeiten: Inclusieve loopclub in Hoboken, elke dinsdag 19:00-20:00, reeks van 12 begeleide loopmomenten. Iedereen welkom met of zonder ervaring; nieuwe deelnemers mogen eerst 2 gratis proeflessen volgen. Bij controle stond de aangehaalde sessie gemarkeerd als 'voorbij'; een concreet volgend loopmoment was via deze bron niet bevestigd.
 - Interactie-bewijs (uit bron): begeleide groepsloop
 - Nieuwkomer-bewijs (uit bron): 2 gratis proeflessen; aangehaalde sessie 'voorbij'
-- A. Regel-conceptbeoordeling: meet_new_people/high
+- A. Regel-conceptbeoordeling: social/low
 - A. Claude-conceptbeoordeling: social/medium (capture: truncated)
 - Claude-onderbouwing: Een terugkerende loopclub met begeleide sessies waarbij nieuwe deelnemers gratis proefles…
 - Claude-onzekerheden: Geen bevestigde toekomstige datum voor een loopmoment; Onduidelijk of de reeks van 12 sessies nog doorloopt of herstart…
-- Regel-onzekerheden: Aangehaalde sessie staat als 'voorbij'; geen bevestigd toekomstig loopmoment via deze bron. | geen bevestigd toekomstig moment (enkel historische editie)
+- Regel-onzekerheden: Aangehaalde sessie staat als 'voorbij'; geen bevestigd toekomstig loopmoment via deze bron.
 - B. Concreet toekomstig moment: historical_only; bevestigd=false; binnen venster=false
 - C. Deelnamevoorwaarden: leeftijd=?-? (unknown); doelgroep=geen
-- D. Publicatie (los van A): REVIEW (insufficiently_confirmed); publicatieklaar=false
+- D. Publicatie (los van A): REJECT (concept_unsuitable); publicatieklaar=false
 - humanConceptLabel: 
 - humanReviewNotes: 
 
@@ -74,7 +75,7 @@ De zes inhoudelijke verschillen staan bovenaan.
 - Neutrale bronfeiten: Social running club met twee wekelijkse momenten (woensdagavond en zaterdagochtend) die vertrekken bij de Nóu Concept Store in Heist-op-den-Berg; tempo waarbij deelnemers kunnen praten; achteraf koffie of een drankje; meelopen is gratis. (Niet opnieuw live geverifieerd.)
 - Interactie-bewijs (uit bron): samen lopen op praattempo + koffie achteraf
 - Nieuwkomer-bewijs (uit bron): gratis meelopen (Heist-op-den-Berg)
-- A. Regel-conceptbeoordeling: meet_new_people/high
+- A. Regel-conceptbeoordeling: social/low
 - A. Claude-conceptbeoordeling: social/high (capture: truncated)
 - Claude-onderbouwing: Een social running club met vaste wekelijkse momenten waarbij iedereen gratis kan aanslui…
 - Claude-onzekerheden: Geen concrete datum vermeld, enkel algemeen wekelijks patroon; Deelnamevoorwaarden niet officieel vermeld; Bronfeiten n…
@@ -90,14 +91,14 @@ De zes inhoudelijke verschillen staan bovenaan.
 - Neutrale bronfeiten: Maandelijkse spelavond (elke derde dinsdag, 19:00-23:00) in het Gravenhof (Hoboken); door de organisator omschreven als type 'ontmoeten en feesten'. Gratis; wie geïnteresseerd is kan zonder inschrijven aansluiten; er wordt gespeeld aan drie tot vier tafels met bordspellen; deelnemers gaan van studenten tot gepensioneerden, beginners en ervaren spelers.
 - Interactie-bewijs (uit bron): spellen aan 3-4 tafels
 - Nieuwkomer-bewijs (uit bron): zonder inschrijven aansluiten; gratis
-- A. Regel-conceptbeoordeling: meet_new_people/high
+- A. Regel-conceptbeoordeling: social/low
 - A. Claude-conceptbeoordeling: social/high (capture: truncated)
 - Claude-onderbouwing: Een maandelijkse spelavond waar men zonder inschrijving kan aansluiten aan tafels met bor…
 - Claude-onzekerheden: 
 - Regel-onzekerheden: geen
 - B. Concreet toekomstig moment: announced_edition; bevestigd=true; binnen venster=false
 - C. Deelnamevoorwaarden: leeftijd=?-? (unknown); doelgroep=geen
-- D. Publicatie (los van A): REVIEW (outside_window); publicatieklaar=false
+- D. Publicatie (los van A): REJECT (concept_unsuitable); publicatieklaar=false
 - humanConceptLabel: 
 - humanReviewNotes: 
 
@@ -186,14 +187,14 @@ De zes inhoudelijke verschillen staan bovenaan.
 - Neutrale bronfeiten: Wekelijkse loopsessie (dinsdag 19:00-20:00) op de UAntwerpen Stadscampus, begeleid door een coach en rekening houdend met verschillende snelheden. De tekst richt zich tot medestudenten; toegang via studentensport (Sportsticker); inschrijven niet verplicht. (Niet opnieuw live geverifieerd.)
 - Interactie-bewijs (uit bron): begeleide groepsloop met coach
 - Nieuwkomer-bewijs (uit bron): toegang enkel voor studenten
-- A. Regel-conceptbeoordeling: social/medium
+- A. Regel-conceptbeoordeling: social/low
 - A. Claude-conceptbeoordeling: social/medium (capture: truncated)
 - Claude-onderbouwing: Een wekelijkse begeleide loopsessie met een coach, waarbij deelnemers met verschillende s…
 - Claude-onzekerheden: Enkel toegankelijk voor studenten, wat de doelgroep beperkt (eligibility wordt elders bepaald); Geen concrete datum ver…
 - Regel-onzekerheden: Enkel voor studenten; personal eligibility bepaalt later voor wie zichtbaar. | reële interactie onduidelijk | concrete datum afgeleid uit vast schema (niet expliciet aangekondigd); controleer annuleringen/uitzonderingen vóór publicatie
 - B. Concreet toekomstig moment: derived_from_schedule; bevestigd=true; binnen venster=true
 - C. Deelnamevoorwaarden: leeftijd=?-? (unknown); doelgroep=studenten
-- D. Publicatie (los van A): REVIEW (restricted_audience); publicatieklaar=false
+- D. Publicatie (los van A): REJECT (concept_unsuitable); publicatieklaar=false
 - humanConceptLabel: 
 - humanReviewNotes: 
 
@@ -202,14 +203,14 @@ De zes inhoudelijke verschillen staan bovenaan.
 - Neutrale bronfeiten: Recreatieve atletiek-/loopclub met groepstrainingen op vaste dagen in Sportpark Ruggeveld (Deurne), met begeleiding per niveau; zowel beginnende joggers als ervaren lopers zijn welkom. Aangesloten bij een atletiekfederatie (werking met lidmaatschap). (Niet opnieuw live geverifieerd.)
 - Interactie-bewijs (uit bron): groepstraining per niveau
 - Nieuwkomer-bewijs (uit bron): clublidmaatschap; beginners welkom
-- A. Regel-conceptbeoordeling: social/medium
+- A. Regel-conceptbeoordeling: social/low
 - A. Claude-conceptbeoordeling: social/medium (capture: truncated)
 - Claude-onderbouwing: Recreatieve groepstrainingen bij een atletiekclub waarbij zowel beginnende als ervaren lo…
 - Claude-onzekerheden: Onduidelijk of er expliciete sociale/kennismakingsmomenten zijn naast de training zelf; Lidmaatschapsvereiste kan dremp…
 - Regel-onzekerheden: Sportclub met lidmaatschap; of er een sociale kennismaking is naast de training is onduidelijk. | reële interactie onduidelijk | concrete datum afgeleid uit vast schema (niet expliciet aangekondigd); controleer annuleringen/uitzonderingen vóór publicatie
 - B. Concreet toekomstig moment: derived_from_schedule; bevestigd=true; binnen venster=true
 - C. Deelnamevoorwaarden: leeftijd=?-? (unknown); doelgroep=geen
-- D. Publicatie (los van A): REVIEW (needs_review); publicatieklaar=false
+- D. Publicatie (los van A): REJECT (concept_unsuitable); publicatieklaar=false
 - humanConceptLabel: 
 - humanReviewNotes: 
 
@@ -218,14 +219,14 @@ De zes inhoudelijke verschillen staan bovenaan.
 - Neutrale bronfeiten: Bordspellengemeenschap die elke zaterdag 19:00-02:00 speelt in de kelder van Outpost Gamecenter (Antwerpen). De tekst nodigt nieuwkomers expliciet uit: wie niemand kent, kan aanschuiven aan een tafel en meespelen; leden brengen spellen mee. Drop-in mogelijk, later komen of vroeger weg kan.
 - Interactie-bewijs (uit bron): samen bordspellen aan gedeelde tafels
 - Nieuwkomer-bewijs (uit bron): expliciet: schuif aan aan een tafel; drop-in
-- A. Regel-conceptbeoordeling: meet_new_people/high
+- A. Regel-conceptbeoordeling: social/low
 - A. Claude-conceptbeoordeling: meet_new_people/high (capture: truncated)
 - Claude-onderbouwing: De bronfeiten beschrijven een wekelijkse bordspellenavond waarbij nieuwkomers expliciet w…
 - Claude-onzekerheden: Geen concrete datum vermeld voor een specifieke editie, maar dit betreft datum/planning en niet het format zelf; Geen o…
 - Regel-onzekerheden: concrete datum afgeleid uit vast schema (niet expliciet aangekondigd); controleer annuleringen/uitzonderingen vóór publicatie
 - B. Concreet toekomstig moment: derived_from_schedule; bevestigd=true; binnen venster=true
 - C. Deelnamevoorwaarden: leeftijd=?-? (unknown); doelgroep=geen
-- D. Publicatie (los van A): ACCEPT (publication_ready); publicatieklaar=true
+- D. Publicatie (los van A): REJECT (concept_unsuitable); publicatieklaar=false
 - humanConceptLabel: 
 - humanReviewNotes: 
 
@@ -234,14 +235,14 @@ De zes inhoudelijke verschillen staan bovenaan.
 - Neutrale bronfeiten: Meetup-groep (ruim 2.500 leden) die informele bijeenkomsten houdt om vreemde talen te spreken; niet-moedertaalsprekers praten met moedertaalsprekers, in een bar of park. Gratis; alle talen en niveaus. Bij controle stonden er op de events-pagina geen aankomende bijeenkomsten; recent zichtbare events dateerden uit 2025.
 - Interactie-bewijs (uit bron): gesprekken tussen native/non-native sprekers
 - Nieuwkomer-bewijs (uit bron): gratis, alle niveaus (geen aangekondigd event)
-- A. Regel-conceptbeoordeling: meet_new_people/high
+- A. Regel-conceptbeoordeling: social/low
 - A. Claude-conceptbeoordeling: meet_new_people/high (capture: truncated)
 - Claude-onderbouwing: Language exchange bijeenkomsten zijn qua format inherent gericht op het ontmoeten van nie…
 - Claude-onzekerheden: Geen concrete aankomende datum bevestigd; laatst zichtbare events dateren van 2025; Onduidelijk of de groep nog actief …
-- Regel-onzekerheden: Laatst zichtbare events dateren van 2025; eerstvolgende concrete datum ter bevestiging. | geen bevestigd toekomstig moment (community zonder aangekondigd volgend event)
+- Regel-onzekerheden: Laatst zichtbare events dateren van 2025; eerstvolgende concrete datum ter bevestiging.
 - B. Concreet toekomstig moment: community_no_next; bevestigd=false; binnen venster=false
 - C. Deelnamevoorwaarden: leeftijd=?-? (unknown); doelgroep=geen
-- D. Publicatie (los van A): REVIEW (insufficiently_confirmed); publicatieklaar=false
+- D. Publicatie (los van A): REJECT (concept_unsuitable); publicatieklaar=false
 - humanConceptLabel: 
 - humanReviewNotes: 
 
@@ -250,14 +251,14 @@ De zes inhoudelijke verschillen staan bovenaan.
 - Neutrale bronfeiten: Wekelijkse social mixer (vrijdag vanaf 18:00) bij Bier Central (De Keyserlei 25, Antwerpen) om nieuwe mensen te ontmoeten en talen te oefenen; gericht op onder meer internationale studenten, expats en locals; RSVP via de website. De bron was bij controle niet betrouwbaar op te halen (429); de feiten komen uit een eerdere weergave en zijn niet opnieuw live geverifieerd; een concreet aankomend event is niet bevestigd.
 - Interactie-bewijs (uit bron): social/language mixer
 - Nieuwkomer-bewijs (uit bron): RSVP via website (bron 429; geen bevestigd event)
-- A. Regel-conceptbeoordeling: meet_new_people/high
+- A. Regel-conceptbeoordeling: social/low
 - A. Claude-conceptbeoordeling: meet_new_people/high (capture: truncated)
 - Claude-onderbouwing: Het format is een wekelijkse social/language exchange mixer expliciet gericht op het ontm…
 - Claude-onzekerheden: Bron was bij controle niet betrouwbaar op te halen (429), gegevens niet opnieuw live geverifieerd; Geen concreet aankom…
-- Regel-onzekerheden: geen bevestigd toekomstig moment (bron niet verifieerbaar)
+- Regel-onzekerheden: geen
 - B. Concreet toekomstig moment: unverifiable; bevestigd=false; binnen venster=false
 - C. Deelnamevoorwaarden: leeftijd=?-? (unknown); doelgroep=geen
-- D. Publicatie (los van A): REVIEW (insufficiently_confirmed); publicatieklaar=false
+- D. Publicatie (los van A): REJECT (concept_unsuitable); publicatieklaar=false
 - humanConceptLabel: 
 - humanReviewNotes: 
 
@@ -266,14 +267,14 @@ De zes inhoudelijke verschillen staan bovenaan.
 - Neutrale bronfeiten: Meetup-groep met wekelijkse bordspellenavond (zaterdag 19:00-23:00) in Youth Hostel Pulcinella (Antwerpen); Engelstalig met veel expat-leden; toegankelijke spellen; nieuwkomers expliciet welkom; deelname gratis, RSVP gewenst. Bij controle toonde de events-pagina geen aangekondigd volgend event.
 - Interactie-bewijs (uit bron): toegankelijke bordspellen samen
 - Nieuwkomer-bewijs (uit bron): nieuwkomers expliciet welkom, RSVP (geen aangekondigd event)
-- A. Regel-conceptbeoordeling: meet_new_people/high
+- A. Regel-conceptbeoordeling: social/low
 - A. Claude-conceptbeoordeling: meet_new_people/high (capture: truncated)
 - Claude-onderbouwing: Het format is een wekelijkse bordspellenavond in een hostel, expliciet gericht op nieuwko…
 - Claude-onzekerheden: Geen concrete eerstvolgende datum vermeld; Events-pagina toonde bij controle geen aangekondigd volgend event, wat kan w…
-- Regel-onzekerheden: geen bevestigd toekomstig moment (community zonder aangekondigd volgend event)
+- Regel-onzekerheden: geen
 - B. Concreet toekomstig moment: community_no_next; bevestigd=false; binnen venster=false
 - C. Deelnamevoorwaarden: leeftijd=?-? (unknown); doelgroep=geen
-- D. Publicatie (los van A): REVIEW (insufficiently_confirmed); publicatieklaar=false
+- D. Publicatie (los van A): REJECT (concept_unsuitable); publicatieklaar=false
 - humanConceptLabel: 
 - humanReviewNotes: 
 

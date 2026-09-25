@@ -79,14 +79,29 @@ type ContentVerdict = {
   rejectKind: RejectKind | null;
 };
 
-/** A. Concept social screening: is there a real chance to meet new people? */
+/**
+ * A. Concept suitability for OfflineRadar.
+ *
+ * OfflineRadar is for singles meeting other singles offline — not a general
+ * social calendar. Concept admission requires Route A or Route B:
+ * - Route A: source shows a concrete singles-/dating-oriented activity
+ * - Route B: confirmed singles-oriented OfflineRadar Meet on a place/activity
+ *
+ * Category `social` may describe a generally social format, but without Route A/B
+ * it never makes the concept eligible (`rejectKind` set).
+ * Singles-oriented ≠ singles-only (whole venue need not be singles-only).
+ * "Singles friendly" marketing and payment never create admission.
+ */
 export function classifyContent(candidate: NormalizedCandidate): ContentVerdict {
   const s = candidate.signals;
   const usedFacts: string[] = [];
   const blockingUnknowns: string[] = [];
 
+  // Route B: confirmed singles-oriented Meet (signal means real Meet, not a badge).
   if (s.confirmedMeetActivation === true) {
-    usedFacts.push("bevestigde, georganiseerde Meet-opzet");
+    usedFacts.push(
+      "Route B: bevestigde singlesgerichte OfflineRadar Meet-opzet",
+    );
     return {
       category: "meet_new_people",
       suitability: "high",
@@ -96,8 +111,11 @@ export function classifyContent(candidate: NormalizedCandidate): ContentVerdict 
     };
   }
 
+  // Route A: explicit singles / dating activity from the source.
   if (s.explicitSinglesOrDating === true) {
-    usedFacts.push("bron richt zich expliciet op singles/dating");
+    usedFacts.push(
+      "Route A: bron richt zich expliciet op singles die andere singles ontmoeten",
+    );
     return {
       category: "dating",
       suitability: "high",
@@ -108,7 +126,7 @@ export function classifyContent(candidate: NormalizedCandidate): ContentVerdict 
   }
 
   if (s.passivePublicActivity === true) {
-    usedFacts.push("passieve publieksactiviteit zonder ontmoetingsopzet");
+    usedFacts.push("passieve publieksactiviteit zonder singlesgerichte formule");
     return {
       category: "reject",
       suitability: "low",
@@ -129,17 +147,11 @@ export function classifyContent(candidate: NormalizedCandidate): ContentVerdict 
     };
   }
 
+  // General "meet new people" / friendship social — descriptive only, not Route A/B.
   if (s.explicitMeetNewPeople === true) {
-    usedFacts.push("bron richt zich expliciet op nieuwe mensen ontmoeten");
-    if (s.individualParticipationNormal === false) {
-      return {
-        category: "reject",
-        suitability: "low",
-        usedFacts,
-        blockingUnknowns,
-        rejectKind: "insufficient",
-      };
-    }
+    usedFacts.push(
+      "algemene kennismaking/vriendschap; geen aantoonbare singlesgerichte formule (geen Route A/B)",
+    );
     if (s.individualParticipationNormal == null) {
       blockingUnknowns.push("solo deelnemen onduidelijk");
     }
@@ -147,11 +159,11 @@ export function classifyContent(candidate: NormalizedCandidate): ContentVerdict 
       blockingUnknowns.push("open voor nieuwe deelnemers onduidelijk");
     }
     return {
-      category: "meet_new_people",
-      suitability: "high",
+      category: "social",
+      suitability: "low",
       usedFacts,
       blockingUnknowns,
-      rejectKind: null,
+      rejectKind: "insufficient",
     };
   }
 
@@ -172,17 +184,16 @@ export function classifyContent(candidate: NormalizedCandidate): ContentVerdict 
   }
 
   if (solo === true && open === true && interaction === true) {
-    usedFacts.push("individuele deelname mogelijk, open groep, reële interactie");
-    if (grouped === true) usedFacts.push("groepsvorm / begeleide kennismaking");
-    // Organic social WITHOUT explicit meet/dating intent is capped at "medium":
-    // a natural interaction opportunity is enough to accept, but we never assert
-    // "high" social suitability (nor guarantee meeting strangers) from that alone.
+    usedFacts.push(
+      "gewone sociale activiteit (solo/open/interactie); onvoldoende zonder singles Route A/B",
+    );
+    if (grouped === true) usedFacts.push("groepsvorm aanwezig maar geen singlesformule");
     return {
       category: "social",
-      suitability: "medium",
+      suitability: "low",
       usedFacts,
       blockingUnknowns,
-      rejectKind: null,
+      rejectKind: "insufficient",
     };
   }
 
@@ -191,17 +202,19 @@ export function classifyContent(candidate: NormalizedCandidate): ContentVerdict 
   if (interaction == null) blockingUnknowns.push("reële interactie onduidelijk");
 
   if (solo === true || open === true || interaction === true) {
-    usedFacts.push("gedeeltelijke sociale signalen, cruciale info ontbreekt");
+    usedFacts.push(
+      "gedeeltelijke sociale signalen; geen aantoonbare singlesgerichte Route A/B",
+    );
     return {
       category: "social",
-      suitability: "medium",
+      suitability: "low",
       usedFacts,
       blockingUnknowns,
-      rejectKind: null,
+      rejectKind: "insufficient",
     };
   }
 
-  usedFacts.push("onvoldoende sociale signalen");
+  usedFacts.push("geen Route A (singlesgericht) en geen Route B (bevestigde Meet)");
   return {
     category: "reject",
     suitability: "low",
@@ -307,7 +320,11 @@ export function screenCandidate(
   const content = classifyContent(candidate);
   const occurrence = assessOccurrence(candidate, window);
   const eligibility = eligibilityConstraints(candidate);
-  const conceptSuitable = content.category !== "reject";
+  // Concept admission: Route A (dating) or Route B (confirmed Meet → meet_new_people).
+  // Category `social` alone is never concept-suitable.
+  const conceptSuitable =
+    content.rejectKind === null &&
+    (content.category === "dating" || content.category === "meet_new_people");
   const confirmedMeet = candidate.signals.confirmedMeetActivation === true;
 
   let decision: ScreeningDecision;

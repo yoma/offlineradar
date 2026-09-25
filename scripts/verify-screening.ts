@@ -5,12 +5,11 @@ import { DEFAULT_PILOT_WINDOW, screenCandidate } from "@/lib/screening/screen";
 import type { CandidateSignals, NormalizedCandidate } from "@/types/screening";
 
 /**
- * Regression / divergence check against the PROVISIONAL golden labels.
+ * Regression / divergence check against provisional golden labels + Route A/B
+ * calibration invariants.
  *
- * The golden labels are AI-authored fixtures (not independent). We therefore do
- * NOT fail the build on label divergence; instead we report divergences so a
- * human can relabel. The build only fails on a real invariant violation: the
- * listing-gate cross-check (lib/events) must always agree with publish/reject.
+ * Outdated golden labels (broad social era) are reported, not treated as the
+ * target. The build fails only on listing-gate or calibration invariant failure.
  */
 const PILOT_NOW = new Date("2026-09-25T08:00:00+02:00");
 
@@ -27,6 +26,18 @@ const NO_SIGNALS: CandidateSignals = {
   recurring: null,
 };
 
+const SOCIAL_OPEN: Partial<CandidateSignals> = {
+  individualParticipationNormal: true,
+  openToNewcomers: true,
+  interactionOpportunity: true,
+  guidedOrGroupFormat: true,
+  passivePublicActivity: false,
+  membersOrPrivateOnly: false,
+  explicitSinglesOrDating: false,
+  explicitMeetNewPeople: false,
+  confirmedMeetActivation: false,
+};
+
 function mkCandidate(
   id: string,
   signals: Partial<CandidateSignals>,
@@ -34,7 +45,11 @@ function mkCandidate(
 ): NormalizedCandidate {
   return {
     id,
-    provenance: { sourceName: "test", sourceUrl: "https://example.com", checkedAtIso: "2026-09-25" },
+    provenance: {
+      sourceName: "test",
+      sourceUrl: "https://example.com",
+      checkedAtIso: "2026-09-25",
+    },
     title: id,
     startDate: "2026-10-05",
     startTime: "19:00",
@@ -57,10 +72,7 @@ function mkCandidate(
 }
 
 /**
- * Calibration invariants (locks the Fase 1.7 product decisions):
- * - not too lenient: a mere group/recurring/reservation is not auto-suitable;
- * - not too strict: no literal "meet new people" phrase is required;
- * - organic social (no explicit intent) is ACCEPT-eligible but only "medium".
+ * Calibration invariants for the restored singles Route A/B definition.
  */
 function calibrationChecks(): number {
   let failures = 0;
@@ -69,44 +81,119 @@ function calibrationChecks(): number {
     if (!ok) failures += 1;
   };
 
-  // A. Open social group, no explicit intent -> ACCEPT with medium (not high).
-  const a = screenCandidate(
-    mkCandidate("cal-open-social", {
+  const ordinaryCases: Array<[string, Partial<CandidateSignals>]> = [
+    ["cal-kookworkshop", { ...SOCIAL_OPEN, guidedOrGroupFormat: true }],
+    ["cal-loopclub", { ...SOCIAL_OPEN, explicitMeetNewPeople: true }],
+    ["cal-bordspel", { ...SOCIAL_OPEN, explicitMeetNewPeople: true }],
+    ["cal-taalavond", { ...SOCIAL_OPEN, explicitMeetNewPeople: true }],
+    [
+      "cal-fuif",
+      {
+        ...SOCIAL_OPEN,
+        guidedOrGroupFormat: false,
+        passivePublicActivity: true,
+      },
+    ],
+  ];
+
+  for (const [id, signals] of ordinaryCases) {
+    const r = screenCandidate(mkCandidate(id, signals), null, DEFAULT_PILOT_WINDOW, PILOT_NOW);
+    check(
+      `${id}: gewone sociale/passieve activiteit zonder singlesformule -> concept ongeschikt`,
+      r.conceptSuitable === false && r.decision === "REJECT",
+    );
+  }
+
+  const routeA = screenCandidate(
+    mkCandidate("cal-singles-speeddate", {
+      explicitSinglesOrDating: true,
+      explicitMeetNewPeople: true,
       individualParticipationNormal: true,
       openToNewcomers: true,
       interactionOpportunity: true,
-      guidedOrGroupFormat: true,
       passivePublicActivity: false,
       membersOrPrivateOnly: false,
+      confirmedMeetActivation: false,
     }),
     null,
     DEFAULT_PILOT_WINDOW,
     PILOT_NOW,
   );
   check(
-    "open sociale groep zonder expliciete intentie -> ACCEPT + medium",
-    a.decision === "ACCEPT" && a.socialSuitability === "medium",
+    "Route A singles-speeddate -> concept geschikt (dating) + publicatieklaar mogelijk",
+    routeA.conceptSuitable === true &&
+      routeA.category === "dating" &&
+      routeA.decision === "ACCEPT",
   );
 
-  // B. Only solo attendance, no proof of openness/interaction -> not ACCEPT.
-  const b = screenCandidate(
-    mkCandidate("cal-solo-only", {
-      individualParticipationNormal: true,
-      passivePublicActivity: false,
-      membersOrPrivateOnly: false,
+  const routeB = screenCandidate(
+    mkCandidate("cal-meet-route-b", {
+      ...SOCIAL_OPEN,
+      confirmedMeetActivation: true,
+      explicitSinglesOrDating: false,
     }),
     null,
     DEFAULT_PILOT_WINDOW,
     PILOT_NOW,
   );
-  check("enkel solo deelnemen (geen open/interactie) -> geen ACCEPT", b.decision !== "ACCEPT");
+  check(
+    "Route B bevestigde singles-Meet op gewone activiteit -> concept geschikt",
+    routeB.conceptSuitable === true &&
+      routeB.category === "meet_new_people" &&
+      routeB.decision === "ACCEPT",
+  );
 
-  // C. Suitable concept but no confirmed occurrence -> REVIEW, not ACCEPT.
-  const c = screenCandidate(
+  const friendlyOnly = screenCandidate(
+    mkCandidate("cal-singles-friendly-claim", {
+      ...SOCIAL_OPEN,
+      explicitSinglesOrDating: false,
+      confirmedMeetActivation: false,
+    }),
+    null,
+    DEFAULT_PILOT_WINDOW,
+    PILOT_NOW,
+  );
+  check(
+    "vrijblijvende sociale/open activiteit (geen singlesformule) -> geen toelating",
+    friendlyOnly.conceptSuitable === false,
+  );
+
+  const unconfirmedMeet = screenCandidate(
+    mkCandidate("cal-unconfirmed-meet", {
+      ...SOCIAL_OPEN,
+      confirmedMeetActivation: false,
+      explicitSinglesOrDating: false,
+    }),
+    null,
+    DEFAULT_PILOT_WINDOW,
+    PILOT_NOW,
+  );
+  check(
+    "onbevestigde Meet (false) -> geen Route B-toelating",
+    unconfirmedMeet.conceptSuitable === false,
+  );
+
+  // Payment is never a CandidateSignals field; paid ordinary social still rejects.
+  const paidOrdinary = screenCandidate(
     mkCandidate(
-      "cal-no-occurrence",
+      "cal-paid-ordinary",
+      { ...SOCIAL_OPEN },
+      { price: 45, priceKnown: true },
+    ),
+    null,
+    DEFAULT_PILOT_WINDOW,
+    PILOT_NOW,
+  );
+  check(
+    "betaling op gewone sociale activiteit creëert geen toelating",
+    paidOrdinary.conceptSuitable === false && paidOrdinary.decision === "REJECT",
+  );
+
+  const noOccurrence = screenCandidate(
+    mkCandidate(
+      "cal-singles-no-occurrence",
       {
-        explicitMeetNewPeople: true,
+        explicitSinglesOrDating: true,
         individualParticipationNormal: true,
         openToNewcomers: true,
         interactionOpportunity: true,
@@ -121,8 +208,11 @@ function calibrationChecks(): number {
     PILOT_NOW,
   );
   check(
-    "geschikt concept zonder bevestigd moment -> REVIEW (insufficiently_confirmed)",
-    c.decision === "REVIEW" && c.statusReason === "insufficiently_confirmed",
+    "geschikt singlesconcept zonder bevestigd moment -> REVIEW (insufficiently_confirmed)",
+    noOccurrence.conceptSuitable === true &&
+      noOccurrence.decision === "REVIEW" &&
+      noOccurrence.statusReason === "insufficiently_confirmed" &&
+      noOccurrence.publicationReady === false,
   );
 
   return failures;
@@ -133,12 +223,14 @@ function main() {
   const byId = new Map(rows.map((r) => [r.result.candidateId, r]));
 
   let divergences = 0;
+  let outdatedCount = 0;
   let gateDisagreements = 0;
   const needsHumanReview: string[] = [];
 
   console.log("Vergelijking screener vs voorlopige golden labels:\n");
   for (const label of GOLDEN_LABELS) {
     if (label.needsHumanReview) needsHumanReview.push(label.candidateId);
+    if (label.outdated) outdatedCount += 1;
     const row = byId.get(label.candidateId);
     if (!row) {
       console.log(`MISSING  ${label.candidateId}`);
@@ -146,13 +238,20 @@ function main() {
       continue;
     }
     const { result } = row;
+    const tag = label.outdated ? "OUTDATED" : "fixture ";
     if (result.decision !== label.expectedDecision) {
       divergences += 1;
       console.log(
-        `DIVERGE  ${label.candidateId}: voorlopig ${label.expectedDecision} -> nu ${result.decision} (${result.statusReason})`,
+        `DIVERGE  [${tag}] ${label.candidateId}: voorlopig ${label.expectedDecision} -> nu ${result.decision} (${result.statusReason})` +
+          (label.outdatedReason ? ` — ${label.outdatedReason}` : ""),
       );
     } else {
-      console.log(`ok       ${label.candidateId} (${result.decision})`);
+      console.log(`ok       [${tag}] ${label.candidateId} (${result.decision})`);
+    }
+    if (label.humanConceptDecision) {
+      console.log(
+        `HUMAN    ${label.candidateId}: concept=${label.humanConceptDecision} (onafhankelijke producteigenaar)`,
+      );
     }
   }
 
@@ -166,14 +265,14 @@ function main() {
   }
 
   console.log(
-    `\nGolden: ${GOLDEN_LABELS.length} voorlopige labels, ${divergences} divergentie(s) t.o.v. de nieuwe screening.`,
+    `\nGolden: ${GOLDEN_LABELS.length} labels (${outdatedCount} achterhaald), ${divergences} divergentie(s) t.o.v. historische fixtures.`,
   );
   console.log(
-    `Onafhankelijke menselijke review vereist: ${needsHumanReview.length}/${GOLDEN_LABELS.length} (alle labels zijn AI-opgesteld).`,
+    `Onafhankelijke menselijke review nog open: ${needsHumanReview.length}/${GOLDEN_LABELS.length}.`,
   );
   console.log(`Listing-gate afwijkingen: ${gateDisagreements}.`);
 
-  console.log("\nKalibratie-invarianten:");
+  console.log("\nKalibratie-invarianten (Route A/B):");
   const calibrationFailures = calibrationChecks();
 
   if (gateDisagreements > 0 || calibrationFailures > 0) {
@@ -181,7 +280,7 @@ function main() {
     process.exit(1);
   }
   console.log(
-    "\nOK: geen invariant-schendingen. Divergenties t.o.v. voorlopige labels zijn verwacht (geen onafhankelijke meting).",
+    "\nOK: geen invariant-schendingen. Divergenties t.o.v. achterhaalde fixtures zijn verwacht.",
   );
 }
 

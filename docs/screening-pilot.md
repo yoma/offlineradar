@@ -1,19 +1,39 @@
 # Real Data Screening Pilot
 
-Small, isolated pilot to test the core OfflineRadar hypothesis: can we find,
-normalize and screen real activities so only genuine chances to meet new people
-or singles would appear? This pilot proves selection quality; it does not build
+Small, isolated pilot to test whether we can find, normalize and screen real
+activities so **only singles-oriented offline meeting opportunities** would
+appear on OfflineRadar. This pilot proves selection quality; it does not build
 import infrastructure, a database, or a publication pipeline.
+
+## Product definition (restored)
+
+OfflineRadar helps **singles** discover offline activities and organised moments
+to meet **other singles**. It is not a general event calendar, not a friendship
+directory, and not a swipe/chat dating app.
+
+Concept admission requires **Route A** or **Route B**:
+
+- **Route A** — Source shows a concrete activity specifically for singles meeting
+  singles (speeddate, singles dinner/party, singles walk/run, singles workshop).
+- **Route B** — An ordinary place/activity has a real, confirmed, organised
+  singles meeting formula (e.g. a valid OfflineRadar Meet). A badge, “singles
+  friendly” claim, or unconfirmed Meet is never enough.
+
+A generally social activity (cooking together, run club, board games, language
+exchange, party) is **not** enough on its own, even if newcomers can join and
+talk. Singles-oriented ≠ singles-only: the whole venue need not be singles-only.
+
+**PAYMENT DOES NOT CREATE ELIGIBILITY.**
 
 ## What this pilot is (and is not)
 
 - It is a local developer tool: a candidate dataset + a deterministic screener +
-  two `tsx` scripts.
+  `tsx` scripts.
 - It is fully isolated: it does not import into `app/`, does not change
   `data/events.ts`, the consumer flow, ranking, eligibility, or the Meet demo.
 - It does not publish anything to the consumer feed. No route, no DB, no auth.
-- There is no AI in this pilot (no key available). The screener is a deterministic
-  rule engine plus a mandatory human review step (the golden labels).
+- Historical Claude captures in `data/pilot/claude-results.ts` are frozen test
+  material; do not rewrite them or re-run paid calls to “fix” history.
 
 ## Pipeline
 
@@ -34,8 +54,9 @@ RawCandidate  ->  NormalizedCandidate  ->  Screening  ->  Decision
 
 ## Three separated assessments (A / B / C)
 
-- **A. Concept suitability** - does this kind of activity fit OfflineRadar?
-  A speeddate is conceptually suitable even if its next edition is weeks away.
+- **A. Concept suitability** - Route A or Route B demonstrated?
+  Category `social` may describe a generally social format but does **not** make
+  the concept eligible without Route A/B.
 - **B. Concrete occurrence** - is there a confirmed, dated future moment?
   Tracked via `occurrenceStatus`:
   - `announced_edition` - source explicitly announces a dated next edition.
@@ -45,6 +66,8 @@ RawCandidate  ->  NormalizedCandidate  ->  Screening  ->  Decision
   - `community_no_next` - general community/group page, no announced next event.
   - `unverifiable` - source could not be verified.
   A recurring concept is NOT proof of a confirmed next occurrence.
+  Being outside the temporary pilot window is `outside_window` (REVIEW), not
+  concept unsuitable.
 - **C. Personal eligibility** - constraints (age, restricted audience) evaluated
   per user later, not here. No test user is invented. An age-restricted event is
   still valid; the existing eligibility logic decides who may see it.
@@ -64,19 +87,20 @@ Headline `decision` is `ACCEPT` / `REVIEW` / `REJECT`, but the precise
 `outside_window`, `restricted_audience`, `expired`, `out_of_region`,
 `duplicate`, `needs_review`.
 
-`publicationReady` (ACCEPT) requires ALL of: concept suitable, a confirmed
-future occurrence within the window, reliable/current source, needed event data
-known, evidence new participants can join, and any Meet activation meeting the
-product rules. Publication readiness is a pre-check only; it is NOT permission
-to publish.
+`publicationReady` (ACCEPT) requires ALL of: concept suitable (Route A/B), a
+confirmed future occurrence within the window, reliable/current source, needed
+event data known, evidence new participants can join, and any Meet activation
+meeting the product rules. Publication readiness is a pre-check only; it is NOT
+permission to publish.
 
 Product rules enforced (see `docs/domain-model.md`):
 
-- OfflineRadar is not a general event calendar.
+- OfflineRadar is for singles meeting singles (Route A or B), not a general
+  social calendar.
 - PAYMENT DOES NOT CREATE ELIGIBILITY.
-- Solo attendance is not the same as actually being able to meet new people.
+- Solo attendance / open group / chatting is not the same as a singles formula.
 - A passive public activity (concert, film, market, generic party) is not
-  automatically suitable.
+  suitable without a singles Route A/B formula.
 - An unconfirmed Meet setup is never treated as a real Meet activation.
 - Unknown facts stay unknown; no favourable defaults.
 
@@ -88,75 +112,55 @@ URL, and our own factual summary are stored. No creative descriptions or images
 are copied. `signals` are read literally from each source; `null` means the
 source does not say (never guessed).
 
-The set intentionally mixes clear singles/dating events, genuine open social
-activities, borderline cases, and ordinary public activities that should be
-rejected, including out-of-region items and profession/members-only traps.
+The set mixes clear singles/dating events, ordinary social activities that must
+not pass on social signals alone, borderline cases, and public activities that
+should be rejected, including out-of-region items and profession/members-only
+traps.
 
-## Social-suitability calibration
+## Concept calibration (Route A / B)
 
-The concept check must be neither too lenient nor too strict:
+Locked by `calibrationChecks()` in `scripts/verify-screening.ts`:
 
-- Not too lenient: a mere reservation option, group format, or recurring
-  schedule does NOT make an activity socially suitable on its own.
-- Not too strict: an activity does NOT need to literally advertise "meeting new
-  people" to qualify.
+- Ordinary cooking / run club / board game / language / party formats without
+  singles Route A/B → concept **not** suitable.
+- Explicit singles-/dating-oriented activity (Route A) → concept suitable.
+- Confirmed singles Meet (Route B) → concept suitable.
+- “Singles friendly” marketing alone, unconfirmed Meet, or payment → never
+  creates concept admission (payment is never a screening signal).
+- Suitable singles concept without a confirmed next occurrence → REVIEW
+  (`insufficiently_confirmed`), not publication-ready.
 
-The deciding test is whether an individual newcomer can actually join AND the
-activity enables natural interaction with other participants. Organic social
-activities without explicit meet/dating intent are accepted at most at `medium`
-social suitability (never `high`, and without claiming that meeting strangers is
-guaranteed). Explicit singles/dating or explicit meet-new-people activities can
-reach `high`. These invariants are locked by `calibrationChecks()` in
-`scripts/verify-screening.ts`.
+## Golden set (provisional / partly outdated)
 
-## Golden set (provisional)
-
-`data/pilot/golden.ts` holds PROVISIONAL expected outcomes. They were authored
-by the same AI as the screener, so they are test fixtures, NOT an independent
-accuracy measurement. Every label is marked `provisional` and `needsHumanReview`.
-`scripts/verify-screening.ts` reports divergences between the screener and these
-provisional labels (it does not force a perfect score); it only fails the build
-on a listing-gate invariant violation. Independent human relabelling is still
-required before any accuracy claim.
+`data/pilot/golden.ts` holds provisional expected outcomes. Many early labels
+assumed a **too-broad** “organic social” definition and are marked `outdated`.
+They remain fixtures for divergence reporting, not independent accuracy claims.
+Independent human relabelling is still required. Do not rewrite historical
+Claude captures to match new rules.
 
 ## Run it
 
 ```bash
 npm run screen:pilot       # inspectable table + summary
-npm run verify:screening   # regression vs human golden labels
+npm run verify:screening   # regression + Route A/B calibration
+npm run review:build       # refresh review overview (no API calls)
 ```
 
 ## AI content layer (Claude) — isolated dev pilot
 
-An optional Claude layer judges ONE dimension only: how suitable the activity
-FORMAT is for an individual newcomer to naturally meet new people. It never
-decides publication readiness and never overrides the deterministic hard controls
-(date, region, source, occurrence, eligibility, Meet, listing gate).
+An optional Claude layer judges ONE dimension only: concept fit for OfflineRadar
+(Route A/B singles focus). It never decides publication readiness and never
+overrides the deterministic hard controls (date, region, source, occurrence,
+eligibility, Meet, listing gate).
 
-- `lib/screening/ai/anthropic-screener.ts` - `buildNeutralInput` (source-derived
-  facts only; never `signals`, `factualSummary`, the rule decision/score/category,
-  or golden labels), a provider-agnostic `ContentScreener` interface, the
-  Anthropic adapter (structured tool output + validation + typed error handling),
-  and `validateVerdict`.
-- `scripts/ai-screen-compare.ts` (`npm run ai:screen:compare`) - compares the
-  rule-based CONCEPT assessment vs Claude's CONCEPT assessment on the SAME
-  dimension for three selected candidates only. It never compares the publication
-  decision against Claude, and never runs all 25.
+- `lib/screening/ai/anthropic-screener.ts` - `buildNeutralInput`, Anthropic
+  adapter, `validateVerdict`. Prompt requires explicit singles Route A/B.
+- `scripts/ai-screen-compare.ts` (`npm run ai:screen:compare`) - compares rule
+  vs Claude concept on selected candidates. Never runs all 25 by default.
+- `data/pilot/claude-results.ts` - frozen historical captures; do not rewrite.
 
-Model: `ANTHROPIC_MODEL` (default `claude-3-5-haiku-latest`). Key: read only from
-the local env var `ANTHROPIC_API_KEY` (never hardcoded, logged, or committed;
-`.env*` is gitignored; never a `NEXT_PUBLIC_` var). Without a key the compare
-script runs a dry run (builds neutral input, self-tests the validator) and stops
-before any real API call. Invalid/missing/unvalidatable output is never treated
-as ACCEPT.
-
-Set the key locally (do not paste it into chat):
-
-```bash
-# .env.local (gitignored) OR shell export, local dev only
-export ANTHROPIC_API_KEY=...      # your key
-export ANTHROPIC_MODEL=claude-3-5-haiku-latest   # optional override
-```
+Model: `ANTHROPIC_MODEL` (default `claude-3-5-haiku-latest`). Key: local
+`ANTHROPIC_API_KEY` only (never hardcoded, logged, or committed).
 
 ## Providing more real candidates
 
