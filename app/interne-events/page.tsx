@@ -18,6 +18,7 @@ import {
   listEventReportSummaries,
 } from "@/lib/events/reports";
 import { assertOfflineRadarDbConfig } from "@/lib/events/db";
+import { CatalogSourcesBrowser } from "@/components/admin/catalog-sources-browser";
 
 export const dynamic = "force-dynamic";
 
@@ -201,75 +202,82 @@ export default async function InterneEventsPage() {
           </button>
         </form>
 
-        <ul className="space-y-3">
-          {catalogSources.map((source) => (
-            <li
-              key={source.id}
-              className="rounded-xl border border-border bg-background px-4 py-4"
-            >
-              <div className="space-y-2">
-                <p className="font-semibold">{source.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {source.sourceKind} · {source.sourceType} · {source.status}
-                  {source.editionCount != null
-                    ? ` · ${source.editionCount} editions`
-                    : null}
-                </p>
-                <a
-                  href={source.officialUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="break-all text-sm font-medium underline-offset-4 hover:underline"
+        <CatalogSourcesBrowser sources={catalogSources}>
+          {(filtered) => (
+            <ul className="space-y-3">
+              {filtered.map((source) => (
+                <li
+                  key={source.id}
+                  className="rounded-xl border border-border bg-background px-4 py-4"
                 >
-                  {source.officialUrl}
-                </a>
-                <p className="text-sm text-muted-foreground">
-                  Regio: {source.regions.join(", ") || "—"} · Formats:{" "}
-                  {source.formats.join(", ") || "—"}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Laatst gecontroleerd:{" "}
-                  {source.lastCheckedAt?.slice(0, 16) ?? "onbekend"}
-                </p>
-                {source.notes ? (
-                  <p className="text-sm text-muted-foreground">{source.notes}</p>
-                ) : null}
-                <form
-                  action={updateCatalogSourceAction}
-                  className="flex flex-wrap items-end gap-2 pt-1"
-                >
-                  <input type="hidden" name="sourceId" value={source.id} />
-                  <select
-                    name="status"
-                    defaultValue={source.status}
-                    className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
-                  >
-                    <option value="active">active</option>
-                    <option value="promising">promising</option>
-                    <option value="low_yield">low_yield</option>
-                    <option value="inactive">inactive</option>
-                  </select>
-                  <input
-                    name="notes"
-                    defaultValue={source.notes ?? ""}
-                    placeholder="Note"
-                    className="min-w-[12rem] flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm"
-                  />
-                  <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <input type="checkbox" name="touchChecked" value="1" />
-                    checked_at nu
-                  </label>
-                  <button
-                    type="submit"
-                    className="rounded-md border border-border px-3 py-1.5 text-sm"
-                  >
-                    Update
-                  </button>
-                </form>
-              </div>
-            </li>
-          ))}
-        </ul>
+                  <div className="space-y-2">
+                    <p className="font-semibold">{source.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {source.sourceKind} · {source.sourceType} ·{" "}
+                      {source.status}
+                      {source.editionCount != null
+                        ? ` · ${source.editionCount} editions`
+                        : null}
+                    </p>
+                    <a
+                      href={source.officialUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="break-all text-sm font-medium underline-offset-4 hover:underline"
+                    >
+                      {source.officialUrl}
+                    </a>
+                    <p className="text-sm text-muted-foreground">
+                      Regio: {source.regions.join(", ") || "—"} · Formats:{" "}
+                      {source.formats.join(", ") || "—"}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Laatst gecontroleerd:{" "}
+                      {source.lastCheckedAt?.slice(0, 16) ?? "onbekend"}
+                    </p>
+                    {source.notes ? (
+                      <p className="text-sm text-muted-foreground">
+                        {source.notes}
+                      </p>
+                    ) : null}
+                    <form
+                      action={updateCatalogSourceAction}
+                      className="flex flex-wrap items-end gap-2 pt-1"
+                    >
+                      <input type="hidden" name="sourceId" value={source.id} />
+                      <select
+                        name="status"
+                        defaultValue={source.status}
+                        className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                      >
+                        <option value="active">active</option>
+                        <option value="promising">promising</option>
+                        <option value="low_yield">low_yield</option>
+                        <option value="inactive">inactive</option>
+                      </select>
+                      <input
+                        name="notes"
+                        defaultValue={source.notes ?? ""}
+                        placeholder="Note"
+                        className="min-w-[12rem] flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                      />
+                      <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <input type="checkbox" name="touchChecked" value="1" />
+                        checked_at nu
+                      </label>
+                      <button
+                        type="submit"
+                        className="rounded-md border border-border px-3 py-1.5 text-sm"
+                      >
+                        Update
+                      </button>
+                    </form>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CatalogSourcesBrowser>
       </section>
 
       <section className="mb-10 space-y-4">

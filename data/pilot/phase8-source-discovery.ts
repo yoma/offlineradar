@@ -1,0 +1,892 @@
+/**
+ * Fase 8 Source Discovery Sprint België.
+ * Curated Source Map upserts only. No event import.
+ * Checked: 2026-09-26 (manual research + URL validation).
+ */
+import type { UpsertCatalogSourceInput } from "@/lib/events/catalog-sources";
+
+export const PHASE8_CHECKED_AT = "2026-09-26T18:00:00.000Z";
+
+/** Sources researched but not stored (irrelevant / wrong product fit). */
+export const PHASE8_REJECTED: Array<{
+  name: string;
+  url?: string;
+  reason: string;
+}> = [
+  {
+    name: "Nice People BXL / Brussels Social Group",
+    url: "https://www.meetup.com/brussels-social-group/",
+    reason: "Algemene social/expat community, geen singlesfocus.",
+  },
+  {
+    name: "Nomad Girls Club Brussels",
+    url: "https://nomadgirlsclub.com/chapter/brussels/",
+    reason: "Women-only social dinners, geen romantische singles-events.",
+  },
+  {
+    name: "Lauwers Singlereizen",
+    url: "https://www.lauwers.be/type/singlereizen",
+    reason: "Expliciet géén dating; alleenreizenden zonder romantische focus.",
+  },
+  {
+    name: "DisonsDemain",
+    url: "https://www.disonsdemain.fr/",
+    reason: "FR dating-app/outings; geen betrouwbare BE offline-agenda gevonden.",
+  },
+  {
+    name: "Waerbeke / Landschap / Compostelagenootschap",
+    reason: "Algemene wandelorganisaties zonder singles-eventproduct.",
+  },
+  {
+    name: "Elkaar Ontmoeten (NL)",
+    reason: "50+ activiteitendating NL-zwaartepunt; geen BE-primaire bron.",
+  },
+];
+
+/**
+ * Full Phase 8 Source Map upsert set (reviews + new candidates).
+ * Notes encode: channel / langs / yield / example evidence.
+ */
+export const PHASE8_SOURCE_MAP_UPSERTS: UpsertCatalogSourceInput[] = [
+  // ——— Existing reviewed ———
+  {
+    name: "SmartVibes / Speeddaten.be",
+    officialUrl: "https://www.speeddaten.be",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: [
+      "Antwerpen",
+      "Gent",
+      "Mechelen",
+      "Leuven",
+      "Brussel",
+      "Limburg",
+      "West-Vlaanderen",
+      "Vlaanderen",
+    ],
+    formats: ["speeddate"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=NL,FR yield=high | Kalender: Brugge/Kortrijk/Hasselt/Mechelen/Leuven/Gent + FR Brussel. Hoogste Vlaamse speeddate-yield.",
+  },
+  {
+    name: "HopToDate (SmartVibes FR)",
+    officialUrl: "https://hoptodate.com/fr-be/speed-dating/bruxelles/",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Brussel", "Wallonië", "Liège", "Namur", "Mons"],
+    formats: ["speeddate"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=FR yield=high | FR-brand SmartVibes: Brussel + Liège/Namur/Mons. Veel toekomstige edities.",
+  },
+  {
+    name: "LeSpeedDating",
+    officialUrl: "https://www.lespeeddating.com",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Brussel", "Wallonië", "Charleroi", "Liège", "België"],
+    formats: ["speeddate", "dinner"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=FR yield=high | Dîner dating + speeddate Brussel/Wallonië/Charleroi. Venue via SMS. FR high-yield.",
+  },
+  {
+    name: "Will You Date Me",
+    officialUrl: "https://willyoudateme.be",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Antwerpen", "West-Vlaanderen", "Vlaanderen"],
+    formats: ["bowling", "wandelen", "apero", "dinner"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=NL yield=high | Bowling Antwerpen 24/10; dinners Roeselare/Brugge. Sterke non-speeddate + West-VL dekking.",
+  },
+  {
+    name: "The Love Doctor",
+    officialUrl: "https://thelovedoctorevents.eventgoose.com",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Antwerpen", "Gent", "Nederland"],
+    formats: ["drinks", "borrel", "party"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=ticket_platform langs=NL,EN yield=high | Love On The Rooftop Antwerpen 21/10; City Night Gent 24/09. Tickets Eventgoose.",
+  },
+  {
+    name: "VillaVibes",
+    officialUrl: "https://www.villavibes.nl/single-weekend/",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Ardennen", "België", "Nederland"],
+    formats: ["weekend", "reizen"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=NL yield=high | Meerdere Ardennen weekends (Manoir/Vielsalm) doorheen najaar. Travel high-yield.",
+  },
+  {
+    name: "Ontvlam",
+    officialUrl: "https://www.ontvlam.be",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Gent"],
+    formats: ["workshop", "dating"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer+hipsy langs=NL yield=medium | Authentiek daten; tickets Hipsy. Women-only editie 11/10 Gent.",
+  },
+  {
+    name: "Lucky Lemon",
+    officialUrl: "https://www.luckylemon.be",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Gent"],
+    formats: ["party"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=NL yield=medium | Single's Kiss / Bloody Kiss partylijn Gent. Lagere frequentie dan speeddate.",
+  },
+  {
+    name: "Embodied Dating Club",
+    officialUrl: "https://hipsy.eu/event/242675-embodied-dating-club-antwerp",
+    sourceKind: "organizer_source",
+    sourceType: "event_series",
+    regions: ["Antwerpen"],
+    formats: ["workshop"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=hipsy+instagram langs=EN,NL yield=medium | @embodied_dating_club; edities via Hipsy. URL gecorrigeerd van hipsy.eu root.",
+  },
+  {
+    name: "Hipsy",
+    officialUrl: "https://hipsy.nl",
+    sourceKind: "discovery_platform",
+    sourceType: "discovery_platform",
+    regions: ["België", "Nederland"],
+    formats: ["workshop", "dating"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=ticket_platform langs=NL,EN yield=high | Discovery voor conscious/embodied/Ontvlam. Niet als organizer behandelen.",
+  },
+  {
+    name: "Eventgoose",
+    officialUrl: "https://eventgoose.com",
+    sourceKind: "discovery_platform",
+    sourceType: "ticket_platform",
+    regions: ["België", "Nederland"],
+    formats: ["ticket"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=ticket_platform yield=high | Ticketshop The Love Doctor e.a.",
+  },
+  {
+    name: "The Sircle",
+    officialUrl: "https://thesircle.be/events/",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Antwerpen"],
+    formats: ["sport", "apero", "outdoor"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=NL yield=medium | Padeldate blijft under_review (datumconflict). Sport/apero potentieel.",
+  },
+  {
+    name: "How to be Single / House of Entertainment",
+    officialUrl: "https://howtobesingle.be",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Antwerpen", "Vlaanderen"],
+    formats: ["party", "reizen"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer+ticket langs=NL yield=high | Mingle Night 17/10 Antwerp Expo (minglenight.be / HoE / IkWilEenTicket). Grote party + girlstrips.",
+  },
+  {
+    name: "S-Plus vzw",
+    officialUrl: "https://www.s-plusvzw.be",
+    sourceKind: "organizer_source",
+    sourceType: "community",
+    regions: ["Mechelen", "Antwerpen", "Vlaanderen"],
+    formats: ["apero", "wandelen", "workshop"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=NL yield=low | 50+ alleenstaanden; lagere frequentie, communitymodel.",
+  },
+  {
+    name: "Club Compagnon / KRUUL",
+    officialUrl: "https://www.kruul.be/eigen-events/singlediner",
+    sourceKind: "organizer_source",
+    sourceType: "venue_with_singles_program",
+    regions: ["Leuven"],
+    formats: ["dinner"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=venue langs=NL yield=low | Single & Thriving diner was verleden; monitor nieuwe edities Leuven.",
+  },
+  {
+    name: "Farm Date / AgriMatching",
+    officialUrl: "https://www.agrimatching.com/en",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Vlaanderen", "België"],
+    formats: ["outdoor", "meetup"],
+    status: "low_yield",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=EN yield=low | Geen concrete toekomstige BE-editie na hercontrole.",
+  },
+  {
+    name: "dare Events",
+    officialUrl: "https://dare-events.be",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Brussel", "Antwerpen", "Gent", "Leuven"],
+    formats: ["speeddate"],
+    status: "low_yield",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=NL,EN yield=low | Site live maar geen betrouwbare publieke editielijst; manuele follow-up.",
+  },
+
+  // ——— New organizers / communities ———
+  {
+    name: "SoloTogether",
+    officialUrl: "https://www.solotogether.be",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Antwerpen"],
+    formats: ["sport", "wandelen", "drinks", "activity"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=NL yield=high | Bootcamp, walk&talk, wijnproeven, minigolf Antwerpen. Sterke non-speeddate activity dating. example=singles-bootcamp-antwerpen.",
+  },
+  {
+    name: "Sportieve Singles",
+    officialUrl: "https://www.sportievesingles.be",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: [
+      "Vlaanderen",
+      "Limburg",
+      "West-Vlaanderen",
+      "Ardennen",
+      "België",
+    ],
+    formats: ["wandelen", "outdoor", "weekend", "reizen"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=NL yield=high | Dichte wandelkalender + Ardennen weekend 23-25/10 (Intersoc). Unieke outdoor dekking.",
+  },
+  {
+    name: "Singles.be",
+    officialUrl: "https://singles.be",
+    sourceKind: "organizer_source",
+    sourceType: "community",
+    regions: [
+      "Antwerpen",
+      "Gent",
+      "West-Vlaanderen",
+      "Limburg",
+      "België",
+    ],
+    formats: ["wandelen", "dinner", "party", "cultuur", "weekend"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=NL yield=high | ~5 activiteiten/week lidmaatschapmodel. Comedy nights + brunch/wandel BE-breed. Veel meer events dan publieke OR feed.",
+  },
+  {
+    name: "Cœur à Cœur",
+    officialUrl: "https://coeuracoeur.be",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Brussel", "Wallonië", "Huy"],
+    formats: ["speeddate", "party", "drinks"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer+instagram+partyfinder langs=FR yield=high | XXL speeddate 75/75 + afterparty; Instagram @coeuracoeur.be. Tickets Partyfinder. example=Fox Food Market.",
+  },
+  {
+    name: "Speed Dating Bruxelles",
+    officialUrl: "https://www.speed-dating-bruxelles.be",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Brussel"],
+    formats: ["speeddate", "dinner", "drinks"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=FR yield=medium | Wekelijkse claim Brussel; afterwork/classic/dîner formats. Verifieer of apart van andere FR-merken.",
+  },
+  {
+    name: "J'peux pas j'ai date",
+    officialUrl: "https://jpeuxpasjaidate.be/date",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Brussel", "Brabant wallon", "Wallonië"],
+    formats: ["party", "sport", "dinner"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer+eventbrite+facebook langs=FR yield=high | 40-65 party/apéro/danse + padel/sport. Binôme-inschrijving. Sterke FR Brussel/BW gap-filler.",
+  },
+  {
+    name: "Conscious Dating Gent (Wim Vandenbergh)",
+    officialUrl: "https://wimvandenbergh.com",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Gent"],
+    formats: ["workshop", "dating"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer+hipsy langs=EN,NL yield=medium | Meerdere Conscious Dating edities Loft 26 Gent (sep/okt/dec). Tickets Hipsy.",
+  },
+  {
+    name: "Sacred Healing Arts Gent",
+    officialUrl:
+      "https://www.sacredhealingarts.be/events/singlesboardgamenight-may26",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Gent"],
+    formats: ["activity", "workshop"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=EN yield=low | Singles Board Games Night (mei was); monitor nieuwe edities. Non-speeddate format.",
+  },
+  {
+    name: "The Mixer Brussels",
+    officialUrl: "https://www.meetup.com/the-mixer-brussels/",
+    sourceKind: "organizer_source",
+    sourceType: "community",
+    regions: ["Brussel"],
+    formats: ["dinner", "activity", "party", "outdoor"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=meetup+instagram langs=EN yield=medium | Singles community: sushi connections, pitch dating, outdoor. Mix social/dating; handmatig filteren.",
+  },
+  {
+    name: "Full Circle House (Singles Apero)",
+    officialUrl: "https://fullcircle.eu",
+    sourceKind: "organizer_source",
+    sourceType: "venue_with_singles_program",
+    regions: ["Brussel"],
+    formats: ["apero", "drinks"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=venue langs=EN yield=low | Maandelijkse Singles Apero Ixelles. Venueprogramma, geen pure dating-org.",
+  },
+  {
+    name: "Hellotravel / Leuke Single Reizen",
+    officialUrl: "https://hellotravel.be",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Vlaanderen", "België"],
+    formats: ["reizen", "weekend"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=NL yield=medium | Zeilreizen singles Athene jun/sep 2026. BE travel organizer naast VillaVibes.",
+  },
+  {
+    name: "Anders Reizen (singlereizen)",
+    officialUrl: "https://andersreizen.be/als-single-op-reis-in-groep",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["België"],
+    formats: ["reizen", "wandelen"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=NL yield=low | Wandelreizen voor singles; product note: geen datingfocus / geen genderbalans.",
+  },
+  {
+    name: "Looking4Love / Agape",
+    officialUrl: "https://linktr.ee/lookingforlovebyagape",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Leuven", "Vlaanderen"],
+    formats: ["party", "drinks"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=search+linktree langs=NL yield=low | Christelijke singlesavond Haacht 22/11. Niche, infrequent BE.",
+  },
+  {
+    name: "AYOP (Slow Dating Queer)",
+    officialUrl: "https://ayopasbl.wordpress.com",
+    sourceKind: "organizer_source",
+    sourceType: "community",
+    regions: ["Mons", "Wallonië"],
+    formats: ["drinks", "activity"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=eventbrite+facebook langs=FR yield=low | Slow Dating Queer Mons 26/09. Queer Wallonië niche.",
+  },
+  {
+    name: "ChristianEventsBelg",
+    officialUrl: "https://www.eventbrite.be/o/christianeventsbelg",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Brussel"],
+    formats: ["meetup", "drinks"],
+    status: "low_yield",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=eventbrite langs=EN yield=low | Christian Singles Event; infrequent tickets.",
+  },
+  {
+    name: "Soulspark",
+    officialUrl: "https://www.eventbrite.be/o/soulspark",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Dendermonde", "Vlaanderen"],
+    formats: ["meetup", "drinks"],
+    status: "low_yield",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=eventbrite langs=NL yield=low | Eerdere singles-avond Dendermonde; geen dichte agenda.",
+  },
+  {
+    name: "Expats in Antwerp (Singles Night Out)",
+    officialUrl: "https://www.meetup.com/expats-in-antwerp/",
+    sourceKind: "organizer_source",
+    sourceType: "community",
+    regions: ["Antwerpen"],
+    formats: ["drinks"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=meetup langs=EN yield=low | Maandelijkse Singles Night Out Irish Times. Borderline: singles drinks zonder matching; Route B-achtig.",
+  },
+  {
+    name: "House of the Beloved (Authentic Presence)",
+    officialUrl: "https://www.houseofthebeloved.eu/authentic-presence",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Brussel"],
+    formats: ["workshop"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=EN yield=low | Wekelijkse authentic presence Brussel; relating > expliciet dating. Monitor singles-fit.",
+  },
+  {
+    name: "Denise Kooij / Embodied facilitators",
+    officialUrl: "https://www.denisekooij.com",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Antwerpen", "Nederland"],
+    formats: ["workshop"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer+instagram langs=NL,EN yield=low | Facilitator Embodied Dating Club; social @denise_kooij. Canonical events via EDC/Hipsy.",
+  },
+  {
+    name: "Mingle Night (ticket hub)",
+    officialUrl: "https://www.ikwileenticket.be/mingle-night-by-how-to-be-single",
+    sourceKind: "discovery_platform",
+    sourceType: "ticket_platform",
+    regions: ["Antwerpen"],
+    formats: ["party"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=ticket_platform langs=NL yield=medium | IkWilEenTicket listing voor How to be Single Mingle Night. Discovery, niet organizer.",
+  },
+
+  // ——— Discovery / ticket platforms ———
+  {
+    name: "Partyfinder",
+    officialUrl: "https://partyfinder.com",
+    sourceKind: "discovery_platform",
+    sourceType: "ticket_platform",
+    regions: ["Brussel", "België"],
+    formats: ["party", "speeddate"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=ticket_platform langs=FR,EN yield=high | Primaire ticketing Cœur à Cœur e.a. Brussel party/speeddate discovery.",
+  },
+  {
+    name: "Eventbrite Belgium",
+    officialUrl: "https://www.eventbrite.be",
+    sourceKind: "discovery_platform",
+    sourceType: "discovery_platform",
+    regions: ["België"],
+    formats: ["ticket"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=ticket_platform langs=NL,FR,EN yield=medium | Discovery voor niche/occasionele singles (J'peux pas, queer, christelijk). Noise hoog.",
+  },
+  {
+    name: "IkWilEenTicket",
+    officialUrl: "https://www.ikwileenticket.be",
+    sourceKind: "discovery_platform",
+    sourceType: "ticket_platform",
+    regions: ["Vlaanderen", "België"],
+    formats: ["ticket", "party"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=ticket_platform langs=NL yield=medium | BE ticketshop; o.a. Mingle Night. Periodiek scannen op 'singles'.",
+  },
+  {
+    name: "StayHappening",
+    officialUrl: "https://stayhappening.com",
+    sourceKind: "discovery_platform",
+    sourceType: "discovery_platform",
+    regions: ["Brussel", "België"],
+    formats: ["ticket"],
+    status: "low_yield",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=aggregator langs=FR,EN yield=low | Aggregator; wijst naar Partyfinder/organizers. Niet authoritative.",
+  },
+  {
+    name: "Out.be",
+    officialUrl: "https://www.out.be",
+    sourceKind: "discovery_platform",
+    sourceType: "discovery_platform",
+    regions: ["Brussel", "België"],
+    formats: ["party", "speeddate"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=aggregator langs=FR,NL yield=medium | City listings (Cœur à Cœur e.a.). Discovery naar primaire bron.",
+  },
+  {
+    name: "Meetup (Belgium singles filter)",
+    officialUrl: "https://www.meetup.com/find/?keywords=singles&location=be--brussels",
+    sourceKind: "discovery_platform",
+    sourceType: "discovery_platform",
+    regions: ["Brussel", "Antwerpen", "België"],
+    formats: ["drinks", "activity"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=aggregator langs=EN yield=medium | EN Brussel/Antwerpen singles/social. Handmatig filteren vs algemene expat.",
+  },
+  {
+    name: "Facebook Events (singles BE discovery)",
+    officialUrl: "https://www.facebook.com/events/search/?q=singles%20Belgium",
+    sourceKind: "other",
+    sourceType: "discovery_platform",
+    regions: ["België"],
+    formats: ["party", "dinner"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=facebook langs=NL,FR yield=medium | Veel Occasionele/party listings; geen scraping. Manuele discovery-route.",
+  },
+  {
+    name: "Instagram discovery (singles BE)",
+    officialUrl: "https://www.instagram.com/explore/tags/singlesbelgium/",
+    sourceKind: "other",
+    sourceType: "other",
+    regions: ["België"],
+    formats: ["party", "dinner", "sport"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=instagram langs=NL,FR,EN yield=high | Veel smaller organizers enkel/vooral op IG (@coeuracoeur.be, @embodied_dating_club). Geen scraping; watchlist-accounts.",
+  },
+
+  // ——— Extra regional / format coverage ———
+  {
+    name: "House of Entertainment",
+    officialUrl: "https://www.houseofentertainment.be",
+    sourceKind: "organizer_source",
+    sourceType: "ticket_platform",
+    regions: ["Antwerpen", "Vlaanderen"],
+    formats: ["party"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=ticket_platform langs=NL yield=medium | Tickets Mingle Night e.a. Vlaamse party-events. Apart van How to be Single brand.",
+  },
+  {
+    name: "Intersoc (Sportieve Singles partner)",
+    officialUrl: "https://www.intersoc.be",
+    sourceKind: "organizer_source",
+    sourceType: "other",
+    regions: ["Ardennen", "België"],
+    formats: ["weekend", "reizen"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=NL yield=low | Reispartner Sportieve Singles weekends; niet zelf singles dating-brand.",
+  },
+  {
+    name: "Travel Experts (How to be Single Girlstrips)",
+    officialUrl: "https://howtobesingle.be/events/how-to-be-single-girlstrip/",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Vlaanderen", "België"],
+    formats: ["reizen"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=NL yield=low | Women-only girlstrips via Travel Experts; 2027 waitlist. Travel niche.",
+  },
+  {
+    name: "Hipsy.be (BE mirror)",
+    officialUrl: "https://hipsy.be",
+    sourceKind: "discovery_platform",
+    sourceType: "discovery_platform",
+    regions: ["België"],
+    formats: ["workshop", "dating"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=ticket_platform langs=NL,EN yield=high | BE mirror Hipsy.nl voor conscious dating listings.",
+  },
+  {
+    name: "SmartVibes HopToDate NL Vlaanderen",
+    officialUrl: "https://hoptodate.com/nl-be/single-events/",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Vlaanderen", "Mechelen", "Antwerpen"],
+    formats: ["speeddate"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=NL yield=high | NL single-events hub SmartVibes (zelfde netwerk speeddaten.be). Dedup: zelfde org, aparte discovery-URL.",
+  },
+  {
+    name: "LeSpeedDating Belgique hub",
+    officialUrl:
+      "https://www.lespeeddating.com/160-rencontres-en-belgique-celibataires-bruxelles-namur-charleroi-liege-speeddating",
+    sourceKind: "organizer_source",
+    sourceType: "event_series",
+    regions: ["Brussel", "Namur", "Charleroi", "Liège", "Wallonië"],
+    formats: ["speeddate", "dinner"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=FR yield=high | BE agenda-hub LeSpeedDating (zelfde org als lespeeddating.com). Wallonië dekking.",
+  },
+  {
+    name: "HopToDate Liège",
+    officialUrl: "https://hoptodate.com/fr-be/speed-dating/liege/",
+    sourceKind: "organizer_source",
+    sourceType: "event_series",
+    regions: ["Liège", "Wallonië"],
+    formats: ["speeddate"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=FR yield=medium | Liège agenda SmartVibes/HopToDate. Regionale entry voor Wallonië scans.",
+  },
+  {
+    name: "AbitMore (Singles Comedy partner)",
+    officialUrl: "https://www.abitmore.be",
+    sourceKind: "organizer_source",
+    sourceType: "other",
+    regions: ["Antwerpen", "Gent"],
+    formats: ["party"],
+    status: "low_yield",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=ticket_partner langs=NL yield=low | Ticketpartner Singles.be comedy nights; niet primaire singles-org.",
+  },
+  {
+    name: "Vrijzinnig Mechelen Kern Singles",
+    officialUrl: "http://vrijzinnigmechelen.be/kernen/kern-singles/",
+    sourceKind: "organizer_source",
+    sourceType: "community",
+    regions: ["Mechelen"],
+    formats: ["apero"],
+    status: "inactive",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=search langs=NL yield=low | Expliciet NIET MEER ACTIEF tot nieuwe initiatiefnemers.",
+  },
+  {
+    name: "noSun Reizen (Ardennen outdoor)",
+    officialUrl: "https://www.nosun.nl",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Ardennen", "België", "Nederland"],
+    formats: ["weekend", "outdoor"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=search langs=NL yield=low | NL outdoor singlereizen incl. Ardennen; focus avontuur niet dating.",
+  },
+  {
+    name: "TicketTailor (Nice People / Dance & Meet)",
+    officialUrl: "https://www.tickettailor.com",
+    sourceKind: "discovery_platform",
+    sourceType: "ticket_platform",
+    regions: ["Brussel"],
+    formats: ["ticket"],
+    status: "low_yield",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=ticket_platform yield=low | Soms Brussel social tickets; meestal geen singlesfocus.",
+  },
+  {
+    name: "Hipsy Embodied / Ontvlam search",
+    officialUrl: "https://hipsy.be/search?q=dating",
+    sourceKind: "discovery_platform",
+    sourceType: "discovery_platform",
+    regions: ["België"],
+    formats: ["workshop", "dating"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=ticket_platform langs=NL,EN yield=high | Search entry voor dating workshops BE. Semi-auto refresh kandidaat.",
+  },
+  {
+    name: "Speeddaten.be Hasselt hub",
+    officialUrl: "https://www.speeddaten.be/nl/hasselt-106.htm",
+    sourceKind: "organizer_source",
+    sourceType: "event_series",
+    regions: ["Limburg", "Hasselt"],
+    formats: ["speeddate"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=NL yield=medium | Limburg entry SmartVibes (El Bocado). Regionale scan-URL.",
+  },
+  {
+    name: "Speeddaten.be Brugge hub",
+    officialUrl: "https://www.speeddaten.be/nl/kalender-8.htm",
+    sourceKind: "organizer_source",
+    sourceType: "event_series",
+    regions: ["West-Vlaanderen", "Brugge", "Kortrijk"],
+    formats: ["speeddate"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=NL yield=high | West-VL via SmartVibes kalender (Brugge/Kortrijk). Canonical org blijft speeddaten.be.",
+  },
+  {
+    name: "Will You Date Me Singles Dinners hub",
+    officialUrl: "https://willyoudateme.be/singles-dinners/",
+    sourceKind: "organizer_source",
+    sourceType: "event_series",
+    regions: ["West-Vlaanderen", "Vlaanderen"],
+    formats: ["dinner"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=NL yield=medium | Dinner-hub WYDM (Roeselare/Brugge). Format-diversiteit food.",
+  },
+  {
+    name: "Sportieve Singles reizen hub",
+    officialUrl: "https://www.sportievesingles.be/reizenvoorsingles",
+    sourceKind: "organizer_source",
+    sourceType: "event_series",
+    regions: ["Ardennen", "België"],
+    formats: ["weekend", "reizen", "wandelen"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=NL yield=medium | Travel/weekend hub Sportieve Singles.",
+  },
+  {
+    name: "Singles.be activiteiten hub",
+    officialUrl: "https://singles.be/activiteiten-singles/",
+    sourceKind: "organizer_source",
+    sourceType: "event_series",
+    regions: ["België"],
+    formats: ["wandelen", "dinner", "cultuur", "sport"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=organizer langs=NL yield=high | Publieke sample + lidmaatschap-agenda. High volume activities BE-breed.",
+  },
+  {
+    name: "Cœur à Cœur Instagram",
+    officialUrl: "https://www.instagram.com/coeuracoeur.be/",
+    sourceKind: "other",
+    sourceType: "other",
+    regions: ["Brussel", "Wallonië"],
+    formats: ["speeddate", "party"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=instagram langs=FR yield=high | Social primary voor XXL soirées; canonical site coeuracoeur.be.",
+  },
+  {
+    name: "Embodied Dating Club Instagram",
+    officialUrl: "https://www.instagram.com/embodied_dating_club/",
+    sourceKind: "other",
+    sourceType: "other",
+    regions: ["Antwerpen"],
+    formats: ["workshop"],
+    status: "promising",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=instagram langs=EN,NL yield=medium | Social voor EDC; tickets Hipsy.",
+  },
+  {
+    name: "J'peux pas j'ai date Eventbrite",
+    officialUrl: "https://www.eventbrite.be/o/jpeux-pas-jai-date-81059048053",
+    sourceKind: "discovery_platform",
+    sourceType: "ticket_platform",
+    regions: ["Brussel", "Brabant wallon"],
+    formats: ["party", "sport"],
+    status: "active",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=eventbrite langs=FR yield=medium | Ticket/agenda mirror organizer jpeuxpasjaidate.be.",
+  },
+  {
+    name: "Eventbrite Belgium singles-party discovery",
+    officialUrl: "https://www.eventbrite.com/d/belgium/singles-party/",
+    sourceKind: "discovery_platform",
+    sourceType: "discovery_platform",
+    regions: ["Brussel", "België"],
+    formats: ["party"],
+    status: "low_yield",
+    lastCheckedAt: PHASE8_CHECKED_AT,
+    notes:
+      "[fase8] channel=eventbrite langs=EN,FR yield=low | Aggregator-listings (Ma Jolie Mirano, Fast Friending e.a.). Per editie singles-fit verifiëren; veel social noise.",
+  },
+];
+
+/** Qualitative high-yield shortlist for later semi-auto refresh. */
+export const PHASE8_HIGH_YIELD_REFRESH_CANDIDATES = [
+  "SmartVibes / Speeddaten.be",
+  "HopToDate (SmartVibes FR)",
+  "LeSpeedDating",
+  "Will You Date Me",
+  "The Love Doctor",
+  "VillaVibes",
+  "SoloTogether",
+  "Sportieve Singles",
+  "Singles.be",
+  "Cœur à Cœur",
+  "J'peux pas j'ai date",
+  "Hipsy",
+  "Partyfinder",
+  "How to be Single / House of Entertainment",
+  "Conscious Dating Gent (Wim Vandenbergh)",
+] as const;
