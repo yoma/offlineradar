@@ -129,9 +129,18 @@ export function TipSection() {
     }
   }
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash === "#tip-een-activiteit") {
+      setOpen(true);
+    }
+  }, []);
+
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">
-      <div className="rounded-2xl border border-border bg-secondary/40 px-5 py-8 sm:px-8">
+    <section
+      id="tip-een-activiteit"
+      className="mx-auto w-full max-w-6xl scroll-mt-24 px-4 py-12 sm:px-6"
+    >      <div className="rounded-2xl border border-border bg-secondary/40 px-5 py-8 sm:px-8">
         <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
           Ken jij een leuk singlesevent? 🎉
         </h2>

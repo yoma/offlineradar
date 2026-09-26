@@ -72,6 +72,17 @@ export function SiteHeader() {
               </Link>
             );
           })}
+          <Link
+            href="/#tip-een-activiteit"
+            className={cn(
+              "rounded-full px-3 py-1.5 text-sm font-semibold transition",
+              light
+                ? "bg-[#e61e4d] text-white hover:bg-[#d70466]"
+                : "bg-white text-[#e61e4d] hover:bg-white/90",
+            )}
+          >
+            Tip activiteit
+          </Link>
         </nav>
       </div>
     </header>

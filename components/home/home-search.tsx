@@ -406,17 +406,25 @@ export function HomeHero() {
             </div>
           </div>
 
-          <div className="mt-6">
+          <div className="mt-6 space-y-3">
             {error ? (
-              <p className="mb-3 text-sm font-medium text-white">{error}</p>
+              <p className="text-sm font-medium text-white">{error}</p>
             ) : null}
-            <button
-              type="submit"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#e61e4d] px-6 py-3.5 text-base font-semibold text-white shadow-lg transition hover:bg-[#d70466] sm:w-auto sm:min-w-[240px]"
-            >
-              <Search className="size-4" />
-              Vind activiteiten
-            </button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+              <button
+                type="submit"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#e61e4d] px-6 py-3.5 text-base font-semibold text-white shadow-lg transition hover:bg-[#d70466] sm:w-auto sm:min-w-[240px]"
+              >
+                <Search className="size-4" />
+                Vind activiteiten
+              </button>
+              <a
+                href="#tip-een-activiteit"
+                className="inline-flex w-full items-center justify-center rounded-full border border-white/40 bg-white/10 px-6 py-3.5 text-base font-semibold text-white backdrop-blur-sm transition hover:bg-white/20 sm:w-auto"
+              >
+                Tip een activiteit
+              </a>
+            </div>
           </div>
         </form>
       </div>
