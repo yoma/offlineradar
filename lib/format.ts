@@ -130,6 +130,7 @@ export const CATEGORY_LABEL = {
 } as const;
 
 export const ACTIVITY_LABEL = {
+  speeddate: "Speeddate",
   eten: "Eten",
   drinken: "Drinken",
   wandelen: "Wandelen",
@@ -145,6 +146,7 @@ export const ACTIVITY_LABEL = {
 } as const;
 
 export const ACTIVITY_FIT = {
+  speeddate: "Dit is een speeddate",
   eten: "Dit is een activiteit rond eten",
   drinken: "Dit is een activiteit rond drinken",
   wandelen: "Dit is een wandeling",

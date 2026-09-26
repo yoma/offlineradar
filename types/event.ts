@@ -48,6 +48,7 @@ export type SourceType =
   | "unknown";
 
 export type ActivityId =
+  | "speeddate"
   | "eten"
   | "drinken"
   | "wandelen"

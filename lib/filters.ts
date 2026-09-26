@@ -90,8 +90,13 @@ export function prepareEvents(
 }
 
 /**
- * Soft filters (when, distance, category…) then hard eligibility.
+ * Soft filters (when, distance, category, activity…) then hard eligibility.
  * Preference never removes events here.
+ *
+ * Activity semantics:
+ * - no activities selected → all formats (including speeddate)
+ * - one or more activities selected → only those formats
+ * Classic speeddates expose activity `speeddate` via normalizeEventActivities.
  */
 export function matchingEvents(
   events: Event[],

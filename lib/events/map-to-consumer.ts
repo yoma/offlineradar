@@ -5,6 +5,10 @@
 
 import { GEO } from "@/data/places";
 import { distanceKmBetween } from "@/lib/distance";
+import {
+  normalizeEventActivities,
+  normalizeSpeeddateSubCategory,
+} from "@/lib/event-category";
 import type { EventEditionBundle } from "@/types/event-catalog";
 import type { Event, EventEligibility, ListingPath } from "@/types/event";
 import { band } from "@/types/event";
@@ -143,7 +147,10 @@ export function mapEditionToConsumerEvent(
     shortDescription: edition.shortDescription ?? "",
     description: edition.description,
     category: edition.category,
-    subCategory: edition.subCategory ?? "",
+    subCategory: normalizeSpeeddateSubCategory(
+      edition.subCategory,
+      edition.title,
+    ),
     organizerName: organizer?.name ?? "Onbekende organisator",
     organizerId: organizer?.id ?? edition.organizerId,
     city: edition.city,
@@ -199,7 +206,12 @@ export function mapEditionToConsumerEvent(
           ? false
           : undefined,
     tags: edition.tags,
-    activities: edition.activities,
+    activities: normalizeEventActivities({
+      activities: edition.activities,
+      subCategory: edition.subCategory,
+      title: edition.title,
+      tags: edition.tags,
+    }),
     practicalInfo: edition.practicalInfo,
     availabilityNote: edition.availabilityNote,
     startTimeDisplayNote: edition.startTimeDisplayNote,

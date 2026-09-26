@@ -86,6 +86,7 @@ const MOOD_FILE_CATEGORY: Record<string, ImageCategory> = {
 };
 
 const ACTIVITY_TO_IMAGE: Partial<Record<ActivityId, ImageCategory>> = {
+  speeddate: "dating_social",
   wandelen: "outdoor",
   outdoor: "outdoor",
   lopen: "outdoor",

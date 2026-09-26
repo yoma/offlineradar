@@ -55,7 +55,7 @@ export async function createDraftFromRefreshCandidate(input: {
     ageRule: input.candidate.ageRule,
     category: isDating ? "dating" : "meet_new_people",
     subCategory: isDating ? "speeddate" : null,
-    activities: isDating ? [] : ["wandelen"],
+    activities: isDating ? ["speeddate"] : ["wandelen"],
     tags: ["source-refresh", "draft"],
     priceAmount: input.candidate.price,
     priceCurrency: "EUR",

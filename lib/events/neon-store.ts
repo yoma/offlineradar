@@ -5,6 +5,7 @@
 
 import { randomUUID } from "node:crypto";
 import { getEventsSql } from "@/lib/events/db";
+import { canonicalizeActivityId } from "@/lib/event-category";
 import type {
   AttachImageInput,
   AttachSourceInput,
@@ -44,7 +45,9 @@ function asStringArray(value: unknown): string[] {
 }
 
 function asActivities(value: unknown): ActivityId[] {
-  return asStringArray(value) as ActivityId[];
+  return asStringArray(value)
+    .map((item) => canonicalizeActivityId(item))
+    .filter((id): id is ActivityId => id != null);
 }
 
 function asGenders(value: unknown): ParticipantGender[] | null {

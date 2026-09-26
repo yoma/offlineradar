@@ -26,13 +26,15 @@ type QuickChip = {
 };
 
 const TYPE_QUICK: QuickChip[] = [
+  { label: "Speeddate", activities: ["speeddate"] },
   { label: "Dating", categories: ["dating"] },
   { label: "Nieuwe mensen", categories: ["meet_new_people"] },
   { label: "Sport", activities: ["sport"] },
   { label: "Eten & drinken", activities: ["eten", "drinken"] },
   { label: "Uitgaan", activities: ["party"] },
-  { label: "Wandelen", activities: ["wandelen"] },
-  { label: "Reizen", activities: ["reizen"] },
+  { label: "Wandelen", activities: ["wandelen", "outdoor"] },
+  { label: "Workshop", activities: ["workshop"] },
+  { label: "Reizen", activities: ["reizen", "weekend"] },
 ];
 
 function includesAll<T>(haystack: T[], needles: T[]) {

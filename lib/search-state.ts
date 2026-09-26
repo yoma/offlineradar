@@ -4,6 +4,7 @@ import type {
   PreferredMeetGender,
   UserGender,
 } from "@/types/event";
+import { canonicalizeActivityId } from "@/lib/event-category";
 import type {
   AvailabilityFilter,
   PriceFilter,
@@ -15,6 +16,7 @@ import type {
 
 const CATEGORIES: EventCategory[] = ["dating", "meet_new_people", "social"];
 const ACTIVITIES: ActivityId[] = [
+  "speeddate",
   "eten",
   "drinken",
   "wandelen",
@@ -132,6 +134,14 @@ function manyOf<T extends string>(
     .filter((item): item is T => allowed.includes(item as T));
 }
 
+function manyOfActivities(value: string | undefined): ActivityId[] {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((part) => canonicalizeActivityId(part))
+    .filter((id): id is ActivityId => id != null);
+}
+
 export function parseSearchState(
   raw: Record<string, string | string[] | undefined>,
 ): SearchState {
@@ -159,7 +169,7 @@ export function parseSearchState(
         ? one(raw.date) || null
         : null,
     categories: manyOf(one(raw.cat), CATEGORIES),
-    activities: manyOf(one(raw.act), ACTIVITIES),
+    activities: manyOfActivities(one(raw.act)),
     price: oneOf(one(raw.price), PRICES, "any"),
     singlesOnly: one(raw.singles) === "1",
     availability: oneOf(one(raw.avail), AVAILABILITY, "any"),
