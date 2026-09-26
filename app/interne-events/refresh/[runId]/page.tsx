@@ -174,11 +174,15 @@ export default async function RefreshRunPage({
               </a>
             ) : null}
             {item.changeSummary && item.changeSummary.length > 0 ? (
-              <ul className="mt-2 space-y-1 text-sm">
+              <ul className="mt-2 space-y-1 break-words text-sm">
                 {item.changeSummary.map((change) => (
-                  <li key={`${item.id}-${change.field}`}>
+                  <li key={`${item.id}-${change.field}`} className="min-w-0">
                     <span className="font-medium">{change.field}:</span>{" "}
-                    {String(change.before)} → {String(change.after)}
+                    <span className="text-muted-foreground">
+                      {String(change.before ?? "—")}
+                    </span>{" "}
+                    →{" "}
+                    <span>{String(change.after ?? "—")}</span>
                   </li>
                 ))}
               </ul>

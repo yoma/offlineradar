@@ -234,5 +234,5 @@ export function parseTomeetoHtml(
     warnings.push("Geen Tomeeto edities met datum+leeftijd gevonden.");
   }
 
-  return { candidates, warnings };
+  return { candidates, warnings, listingCoverage: "complete" };
 }

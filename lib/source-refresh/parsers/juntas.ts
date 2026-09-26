@@ -190,7 +190,7 @@ export function parseJuntasHtml(
   // Stable order
   candidates.sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
 
-  return { candidates, warnings };
+  return { candidates, warnings, listingCoverage: "complete" };
 }
 
 /** Exported for tests / city helpers. */

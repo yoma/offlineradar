@@ -136,17 +136,25 @@ export async function startSourceRefresh(input: {
     const parsed = runRefreshParser(pilot.parserKey, fetched.html);
     const future = await listFutureEditionsForOrganizerSlug(pilot.organizerSlug);
     const matchable = liteToMatchable(future);
+    const coverage = parsed.listingCoverage ?? "unknown";
+    const observedDays = parsed.candidates
+      .map((c) => c.date)
+      .filter(Boolean)
+      .sort();
+    const windowMin = observedDays[0] ?? null;
+    const windowMax = observedDays[observedDays.length - 1] ?? null;
 
     let newCount = 0;
     let unchangedCount = 0;
     let changedCount = 0;
     let removedCount = 0;
     const matchedEditionIds = new Set<string>();
+    let available = matchable;
 
     for (const candidate of parsed.candidates) {
       const match = matchCandidate(
         candidate,
-        matchable,
+        available,
         pilot.organizerSlug,
       );
 
@@ -164,6 +172,7 @@ export async function startSourceRefresh(input: {
       }
 
       matchedEditionIds.add(match.editionId);
+      available = available.filter((row) => row.edition.id !== match.editionId);
       if (match.changes.length === 0) {
         await insertRefreshItem({
           refreshRunId: run.id,
@@ -198,13 +207,22 @@ export async function startSourceRefresh(input: {
       }
     }
 
+    // possibly_removed only when listing is believed complete AND edition
+    // falls inside the observed calendar window (not expired / not out of range).
+    const allowRemovals = coverage === "complete" && windowMin && windowMax;
+
     for (const edition of future) {
+      if (!allowRemovals) break;
       if (matchedEditionIds.has(edition.id)) continue;
       if (
         !["published", "under_review", "draft", "approved"].includes(
           edition.publicationStatus,
         )
       ) {
+        continue;
+      }
+      const editionDay = edition.startsAt.slice(0, 10);
+      if (editionDay < windowMin! || editionDay > windowMax!) {
         continue;
       }
       const fetchHost = new URL(pilot.fetchUrl).hostname.replace(/^www\./, "");
@@ -228,6 +246,12 @@ export async function startSourceRefresh(input: {
         removedExternalKey: `removed:${edition.id}`,
       });
       removedCount++;
+    }
+
+    if (coverage !== "complete" && future.length > matchedEditionIds.size) {
+      parsed.warnings.push(
+        `possibly_removed overgeslagen (listingCoverage=${coverage})`,
+      );
     }
 
     const completed = await completeRefreshRun({

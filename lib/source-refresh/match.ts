@@ -2,7 +2,13 @@
  * Match refresh candidates against canonical event editions.
  * Reuses normalize helpers; no second dedupe engine.
  */
-import { normalizeRefreshUrl, normalizeText } from "@/lib/source-refresh/normalize";
+import {
+  calendarDayKey,
+  normalizeRefreshUrl,
+  normalizeText,
+  sameInstant,
+  titlesLooselyEqual,
+} from "@/lib/source-refresh/normalize";
 import type {
   RefreshFieldChange,
   RefreshNormalizedCandidate,
@@ -23,22 +29,7 @@ export type CandidateMatch = {
 };
 
 function dayKey(iso: string | null | undefined): string {
-  if (!iso) return "";
-  return iso.slice(0, 10);
-}
-
-function titleSimilar(a: string, b: string): boolean {
-  const na = normalizeText(a);
-  const nb = normalizeText(b);
-  if (!na || !nb) return false;
-  if (na === nb) return true;
-  if (na.includes(nb) || nb.includes(na)) return true;
-  const ta = new Set(na.split(" ").filter((w) => w.length > 2));
-  const tb = new Set(nb.split(" ").filter((w) => w.length > 2));
-  if (ta.size === 0 || tb.size === 0) return false;
-  let overlap = 0;
-  for (const w of ta) if (tb.has(w)) overlap++;
-  return overlap / Math.min(ta.size, tb.size) >= 0.6;
+  return calendarDayKey(iso);
 }
 
 function sameAge(
@@ -49,18 +40,60 @@ function sameAge(
   return c.minAge === e.minAge && c.maxAge === e.maxAge;
 }
 
-function diffCandidate(
+/**
+ * Meaningful field diffs only.
+ * Unknown/null source observations never erase richer canonical values.
+ */
+export function diffCandidate(
   c: RefreshNormalizedCandidate,
   e: EventEditionRecord,
 ): RefreshFieldChange[] {
   const changes: RefreshFieldChange[] = [];
-  // Travel/default wall times vary by offset formatting; compare calendar days.
-  if (dayKey(c.startsAt) !== dayKey(e.startsAt)) {
+
+  if (c.startsAt && e.startsAt && !sameInstant(c.startsAt, e.startsAt)) {
+    // Same calendar day + multi-hour drift still counts as real time change.
     changes.push({ field: "startsAt", before: e.startsAt, after: c.startsAt });
   }
-  if (c.city && normalizeText(c.city) !== normalizeText(e.city)) {
-    changes.push({ field: "city", before: e.city, after: c.city });
+
+  if (c.endsAt && e.endsAt && !sameInstant(c.endsAt, e.endsAt)) {
+    const listingSameDay =
+      dayKey(c.startsAt) !== "" && dayKey(c.startsAt) === dayKey(c.endsAt);
+    const canonicalMultiDay =
+      dayKey(e.startsAt) !== "" &&
+      dayKey(e.endsAt) !== "" &&
+      dayKey(e.startsAt) !== dayKey(e.endsAt);
+    const candidateMultiDay =
+      dayKey(c.startsAt) !== "" &&
+      dayKey(c.endsAt) !== "" &&
+      dayKey(c.startsAt) !== dayKey(c.endsAt);
+    // Listing often collapses weekend ranges to a single day slot → not a real change.
+    // When both are multi-day and end on the same calendar day, ignore wall-clock.
+    if (
+      (listingSameDay && canonicalMultiDay) ||
+      (candidateMultiDay &&
+        canonicalMultiDay &&
+        dayKey(c.endsAt) === dayKey(e.endsAt))
+    ) {
+      // no endsAt change
+    } else {
+      changes.push({ field: "endsAt", before: e.endsAt, after: c.endsAt });
+    }
   }
+
+  if (c.city && normalizeText(c.city) !== normalizeText(e.city)) {
+    const generic = ["belgie", "belgië", "belgium", "nederland", "netherlands"].includes(
+      normalizeText(c.city),
+    );
+    // When titles already identify the same edition, city spelling /
+    // gemeente-vs-streek differences are presentation, not real moves.
+    const sameEditionByTitle =
+      Boolean(c.title && e.title && titlesLooselyEqual(c.title, e.title));
+    if (!generic && !sameEditionByTitle) {
+      changes.push({ field: "city", before: e.city, after: c.city });
+    }
+  }
+
+  // Venue: only when source observed a concrete venue (null = unknown, not a wipe).
   if (
     c.venue &&
     e.venueName &&
@@ -68,9 +101,12 @@ function diffCandidate(
   ) {
     changes.push({ field: "venue", before: e.venueName, after: c.venue });
   }
+
+  // Price: both must be known; null source ≠ change.
   if (c.price != null && e.priceAmount != null && c.price !== Number(e.priceAmount)) {
     changes.push({ field: "price", before: e.priceAmount, after: c.price });
   }
+
   if (
     c.availability &&
     e.availabilityStatus &&
@@ -82,6 +118,8 @@ function diffCandidate(
       after: c.availability,
     });
   }
+
+  // Age: only when source observed an age band.
   if (
     (c.minAge != null || c.maxAge != null) &&
     (c.minAge !== e.minAge || c.maxAge !== e.maxAge)
@@ -92,9 +130,16 @@ function diffCandidate(
       after: `${c.minAge ?? "?"}-${c.maxAge ?? "?"}`,
     });
   }
-  if (c.endsAt && e.endsAt && dayKey(c.endsAt) !== dayKey(e.endsAt)) {
-    changes.push({ field: "endsAt", before: e.endsAt, after: c.endsAt });
+
+  // Title: only semantic diffs (not punctuation / & vs en).
+  if (c.title && e.title && !titlesLooselyEqual(c.title, e.title)) {
+    const na = normalizeText(c.title);
+    const nb = normalizeText(e.title);
+    if (na !== nb) {
+      changes.push({ field: "title", before: e.title, after: c.title });
+    }
   }
+
   return changes;
 }
 
@@ -108,6 +153,10 @@ export function bundlesToMatchable(
   }));
 }
 
+/**
+ * Shared listing URLs (one kalender for many editions) must not identity-match
+ * without title agreement. Unique product URLs still qualify with title check.
+ */
 export function matchCandidate(
   candidate: RefreshNormalizedCandidate,
   editions: MatchableEdition[],
@@ -119,52 +168,80 @@ export function matchCandidate(
     : null;
   const day = candidate.date;
 
-  // 1) Exact URL match (same calendar day; age when present)
+  // 1) Organizer + same day + title (preferred for outdoor calendars)
+  let bestTitle: { row: MatchableEdition; cityOk: boolean } | null = null;
   for (const row of editions) {
+    if (row.organizerSlug !== expectedOrganizerSlug) continue;
+    if (dayKey(row.edition.startsAt) !== day) continue;
+    if (!titlesLooselyEqual(candidate.title, row.edition.title)) continue;
     if (
-      row.sourceUrls.includes(candUrl) ||
-      (ticketUrl && row.sourceUrls.includes(ticketUrl))
+      (candidate.minAge != null || candidate.maxAge != null) &&
+      !sameAge(candidate, row.edition)
     ) {
-      if (dayKey(row.edition.startsAt) && dayKey(row.edition.startsAt) !== day) {
-        continue;
-      }
-      if (
-        (candidate.minAge != null || candidate.maxAge != null) &&
-        !sameAge(candidate, row.edition)
-      ) {
-        continue;
-      }
-      const changes = diffCandidate(candidate, row.edition);
+      continue;
+    }
+    const cityOk =
+      normalizeText(candidate.city) === normalizeText(row.edition.city);
+    if (cityOk) {
       return {
         editionId: row.edition.id,
         confidence: "exact",
-        changes,
+        changes: diffCandidate(candidate, row.edition),
       };
     }
+    if (!bestTitle) bestTitle = { row, cityOk };
+  }
+  if (bestTitle) {
+    return {
+      editionId: bestTitle.row.edition.id,
+      confidence: "exact",
+      changes: diffCandidate(candidate, bestTitle.row.edition),
+    };
   }
 
-  // 2) Same organizer + same day + (city or title) + age when present
+  // 2) Unique URL / ticket URL + same day + title similar
+  for (const row of editions) {
+    const urlHit =
+      row.sourceUrls.includes(candUrl) ||
+      (ticketUrl != null && row.sourceUrls.includes(ticketUrl));
+    if (!urlHit) continue;
+    if (dayKey(row.edition.startsAt) && dayKey(row.edition.startsAt) !== day) {
+      continue;
+    }
+    if (!titlesLooselyEqual(candidate.title, row.edition.title)) continue;
+    if (
+      (candidate.minAge != null || candidate.maxAge != null) &&
+      !sameAge(candidate, row.edition)
+    ) {
+      continue;
+    }
+    return {
+      editionId: row.edition.id,
+      confidence: "exact",
+      changes: diffCandidate(candidate, row.edition),
+    };
+  }
+
+  // 3) Organizer + day + city only → probable (weak; outdoor cities collide)
   let probable: MatchableEdition | null = null;
   for (const row of editions) {
     if (row.organizerSlug !== expectedOrganizerSlug) continue;
     if (dayKey(row.edition.startsAt) !== day) continue;
-    const cityOk =
-      normalizeText(candidate.city) === normalizeText(row.edition.city);
-    const titleOk = titleSimilar(candidate.title, row.edition.title);
-    if (!(cityOk || titleOk)) continue;
-    if (!sameAge(candidate, row.edition) && candidate.minAge != null) {
-      // Different age bands on same day/city are different editions
-      if (cityOk && !titleOk) continue;
+    if (normalizeText(candidate.city) !== normalizeText(row.edition.city)) {
+      continue;
     }
-    if (cityOk && titleOk && sameAge(candidate, row.edition)) {
-      const changes = diffCandidate(candidate, row.edition);
-      return {
-        editionId: row.edition.id,
-        confidence: "exact",
-        changes,
-      };
+    if (
+      (candidate.minAge != null || candidate.maxAge != null) &&
+      !sameAge(candidate, row.edition)
+    ) {
+      continue;
     }
     if (!probable) probable = row;
+    else {
+      // Ambiguous city collision → do not guess
+      probable = null;
+      break;
+    }
   }
 
   if (probable) {

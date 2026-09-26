@@ -179,5 +179,5 @@ export function parseHoptodateHtml(html: string): RefreshParserResult {
     }
   }
 
-  return { candidates, warnings };
+  return { candidates, warnings, listingCoverage: "complete" };
 }

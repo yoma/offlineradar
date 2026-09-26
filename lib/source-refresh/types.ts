@@ -122,4 +122,11 @@ export type SourceRefreshItemRecord = {
 export type RefreshParserResult = {
   candidates: RefreshNormalizedCandidate[];
   warnings: string[];
+  /**
+   * Calendar completeness signal for possibly_removed safety.
+   * - complete: listing is believed exhaustive for the observed window
+   * - partial: incomplete / paginated / unknown window → never emit removals
+   * - unknown: treat like partial (safe default)
+   */
+  listingCoverage?: "complete" | "partial" | "unknown";
 };

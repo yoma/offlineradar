@@ -139,5 +139,5 @@ export function parseSpeeddatenHtml(html: string): RefreshParserResult {
     }
   }
 
-  return { candidates, warnings };
+  return { candidates, warnings, listingCoverage: "complete" };
 }

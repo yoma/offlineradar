@@ -19,8 +19,79 @@ export function normalizeText(value: string | null | undefined): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
+    // Treat & / "en" as equivalent for BE/NL titles
+    .replace(/&/g, " ")
+    .replace(/\ben\b/g, " ")
     .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
+}
+
+/** Title tokens for similarity; drops weak filler words. */
+export function titleMatchTokens(value: string | null | undefined): string[] {
+  const stop = new Set([
+    "de",
+    "het",
+    "een",
+    "van",
+    "voor",
+    "met",
+    "door",
+    "naar",
+    "in",
+    "op",
+    "aan",
+    "bij",
+    "tot",
+    "the",
+    "and",
+    "km",
+    "wandeling",
+    "weekend",
+    "singles",
+    "sportieve",
+  ]);
+  return normalizeText(value)
+    .split(" ")
+    .filter((w) => w.length > 2 && !stop.has(w) && !/^\d+$/.test(w));
+}
+
+export function titlesLooselyEqual(a: string, b: string): boolean {
+  const na = normalizeText(a);
+  const nb = normalizeText(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  if (na.includes(nb) || nb.includes(na)) return true;
+  const ta = new Set(titleMatchTokens(a));
+  const tb = new Set(titleMatchTokens(b));
+  if (ta.size === 0 || tb.size === 0) return false;
+  let overlap = 0;
+  for (const w of ta) if (tb.has(w)) overlap++;
+  const denom = Math.min(ta.size, tb.size);
+  return overlap / denom >= 0.55 && overlap >= 2;
+}
+
+/** Absolute instant compare; true when both parse and differ by < 60s. */
+export function sameInstant(
+  a: string | null | undefined,
+  b: string | null | undefined,
+  slackMs = 60_000,
+): boolean {
+  if (!a || !b) return false;
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  if (!Number.isFinite(ta) || !Number.isFinite(tb)) return false;
+  return Math.abs(ta - tb) < slackMs;
+}
+
+export function calendarDayKey(iso: string | null | undefined): string {
+  if (!iso) return "";
+  // Prefer Brussels calendar day for +02 offsets already in string; else UTC date.
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(iso);
+  if (m) return m[1]!;
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return "";
+  return new Date(t).toISOString().slice(0, 10);
 }
 
 export function slugify(value: string): string {
