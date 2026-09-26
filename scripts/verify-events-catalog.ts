@@ -224,7 +224,7 @@ function main() {
   {
     const previewLike = mapEditionToConsumerEvent(sampleBundle());
     const draft = mapConsumerEventToCatalogDraft(previewLike);
-    assert.equal(draft.edition.publicationStatus, "approved");
+    assert.equal(draft.edition.publicationStatus, "draft");
     assert.equal(draft.edition.publishedAt, null);
     assert.equal(draft.edition.eligibilityRoute, "route_a");
     assert.ok(draft.sources.length >= 1);

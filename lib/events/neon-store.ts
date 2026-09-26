@@ -360,6 +360,77 @@ export async function getOrganizerById(
   return rows[0] ? mapOrganizer(rows[0]) : null;
 }
 
+export async function getOrganizerBySlug(
+  slug: string,
+): Promise<OrganizerRecord | null> {
+  const sql = getEventsSql();
+  if (!sql) return null;
+  const rows = (await sql`
+    SELECT * FROM organizers WHERE slug = ${slug} LIMIT 1
+  `) as OrganizerRow[];
+  return rows[0] ? mapOrganizer(rows[0]) : null;
+}
+
+/** Idempotent organizer upsert by slug. */
+export async function upsertOrganizerBySlug(
+  input: CreateOrganizerInput,
+): Promise<{ record: OrganizerRecord; created: boolean } | null> {
+  const existing = await getOrganizerBySlug(input.slug);
+  const sql = getEventsSql();
+  if (!sql) return null;
+  if (existing) {
+    const rows = (await sql`
+      UPDATE organizers
+      SET
+        name = ${input.name},
+        website_url = ${input.websiteUrl ?? null},
+        updated_at = now()
+      WHERE id = ${existing.id}
+      RETURNING *
+    `) as OrganizerRow[];
+    return rows[0] ? { record: mapOrganizer(rows[0]), created: false } : null;
+  }
+  const created = await createOrganizer(input);
+  return created ? { record: created, created: true } : null;
+}
+
+export async function getSeriesByOrganizerSlug(
+  organizerId: string,
+  slug: string,
+): Promise<EventSeriesRecord | null> {
+  const sql = getEventsSql();
+  if (!sql) return null;
+  const rows = (await sql`
+    SELECT * FROM event_series
+    WHERE organizer_id = ${organizerId} AND slug = ${slug}
+    LIMIT 1
+  `) as SeriesRow[];
+  return rows[0] ? mapSeries(rows[0]) : null;
+}
+
+/** Idempotent series upsert by (organizer_id, slug). */
+export async function upsertSeriesBySlug(
+  input: CreateSeriesInput,
+): Promise<{ record: EventSeriesRecord; created: boolean } | null> {
+  const existing = await getSeriesByOrganizerSlug(input.organizerId, input.slug);
+  const sql = getEventsSql();
+  if (!sql) return null;
+  if (existing) {
+    const rows = (await sql`
+      UPDATE event_series
+      SET
+        name = ${input.name},
+        description = ${input.description ?? null},
+        updated_at = now()
+      WHERE id = ${existing.id}
+      RETURNING *
+    `) as SeriesRow[];
+    return rows[0] ? { record: mapSeries(rows[0]), created: false } : null;
+  }
+  const created = await createSeries(input);
+  return created ? { record: created, created: true } : null;
+}
+
 export async function createSeries(
   input: CreateSeriesInput,
 ): Promise<EventSeriesRecord | null> {
@@ -397,7 +468,7 @@ export async function createEdition(
   const sql = getEventsSql();
   if (!sql) return null;
 
-  const publicationStatus = input.publicationStatus ?? "candidate";
+  const publicationStatus = input.publicationStatus ?? "draft";
   if (publicationStatus === "published" && !input.publishedAt) {
     throw new Error("published editions require publishedAt");
   }
@@ -483,6 +554,89 @@ export async function createEdition(
     RETURNING *
   `) as EditionRow[];
   return rows[0] ? mapEdition(rows[0]) : null;
+}
+
+/** Idempotent edition upsert by slug. Never sets published unless explicitly requested with publishedAt. */
+export async function upsertEditionBySlug(
+  input: CreateEditionInput,
+): Promise<{ record: EventEditionRecord; created: boolean } | null> {
+  const sql = getEventsSql();
+  if (!sql) return null;
+
+  const publicationStatus = input.publicationStatus ?? "draft";
+  if (publicationStatus === "published") {
+    throw new Error("Phase import must not set published; use updateEditionPublication explicitly");
+  }
+
+  const existingBundle = await getEditionBySlug(input.slug);
+  if (!existingBundle) {
+    const created = await createEdition({ ...input, publicationStatus, publishedAt: null });
+    return created ? { record: created, created: true } : null;
+  }
+
+  const id = existingBundle.edition.id;
+  const rows = (await sql`
+    UPDATE event_editions SET
+      organizer_id = ${input.organizerId ?? null},
+      series_id = ${input.seriesId ?? null},
+      title = ${input.title},
+      starts_at = ${input.startsAt},
+      ends_at = ${input.endsAt ?? null},
+      timezone = ${input.timezone ?? "Europe/Brussels"},
+      venue_name = ${input.venueName ?? null},
+      address = ${input.address ?? null},
+      city = ${input.city},
+      postal_code = ${input.postalCode ?? null},
+      region = ${input.region ?? null},
+      country = ${input.country ?? "BE"},
+      latitude = ${input.latitude ?? null},
+      longitude = ${input.longitude ?? null},
+      eligibility_route = ${input.eligibilityRoute ?? "unknown"},
+      singles_oriented = ${input.singlesOriented ?? null},
+      singles_only = ${input.singlesOnly ?? null},
+      singles_only_evidence = ${input.singlesOnlyEvidence ?? null},
+      meet_formula = ${input.meetFormula ?? null},
+      meet_formula_evidence = ${input.meetFormulaEvidence ?? null},
+      min_age = ${input.minAge ?? null},
+      max_age = ${input.maxAge ?? null},
+      age_rule = ${input.ageRule ?? "unknown"},
+      eligibility_json = ${input.eligibilityJson ? JSON.stringify(input.eligibilityJson) : null},
+      category = ${input.category ?? "dating"},
+      sub_category = ${input.subCategory ?? null},
+      activities = ${JSON.stringify(input.activities ?? [])},
+      tags = ${JSON.stringify(input.tags ?? [])},
+      price_amount = ${input.priceAmount ?? null},
+      price_currency = ${input.priceCurrency ?? "EUR"},
+      price_note = ${input.priceNote ?? null},
+      price_is_from = ${input.priceIsFrom ?? false},
+      availability_status = ${input.availabilityStatus ?? null},
+      spots_remaining = ${input.spotsRemaining ?? null},
+      booking_deadline = ${input.bookingDeadline ?? null},
+      availability_note = ${input.availabilityNote ?? null},
+      short_description = ${input.shortDescription ?? null},
+      description = ${input.description ?? null},
+      internal_notes = ${input.internalNotes ?? null},
+      practical_info = ${JSON.stringify(input.practicalInfo ?? [])},
+      publication_status = ${publicationStatus},
+      approved_at = ${input.approvedAt ?? null},
+      published_at = NULL,
+      rejected_at = ${input.rejectedAt ?? null},
+      expired_at = ${input.expiredAt ?? null},
+      last_checked_at = ${input.lastCheckedAt ?? null},
+      source_checked_at = ${input.sourceCheckedAt ?? null},
+      next_check_at = ${input.nextCheckAt ?? null},
+      social_suitability = ${input.socialSuitability ?? null},
+      gender_availability = ${input.genderAvailability ?? null},
+      start_time_display_note = ${input.startTimeDisplayNote ?? null},
+      known_audience_genders = ${input.knownAudienceGenders ? JSON.stringify(input.knownAudienceGenders) : null},
+      preferred_audience_age_min = ${input.preferredAudienceAgeMin ?? null},
+      preferred_audience_age_max = ${input.preferredAudienceAgeMax ?? null},
+      audience_age_from_source = ${input.audienceAgeFromSource ?? false},
+      updated_at = now()
+    WHERE id = ${id}
+    RETURNING *
+  `) as EditionRow[];
+  return rows[0] ? { record: mapEdition(rows[0]), created: false } : null;
 }
 
 export async function updateEditionPublication(input: {

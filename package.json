@@ -24,7 +24,8 @@
     "verify:tips-admin": "npx tsx scripts/verify-tips-admin.ts",
     "db:migrate:events": "node --env-file=.env.local --import tsx scripts/migrate-events.ts",
     "verify:events-catalog": "npx tsx scripts/verify-events-catalog.ts",
-    "verify:events-neon": "node --env-file=.env.local --import tsx scripts/verify-events-neon.ts"
+    "verify:events-neon": "node --env-file=.env.local --import tsx scripts/verify-events-neon.ts",
+    "import:preview-events": "node --env-file=.env.local --import tsx scripts/import-preview-events.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

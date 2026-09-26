@@ -51,7 +51,7 @@ export type PreviewToCatalogDraft = {
 
 /**
  * Build a canonical draft from a preview/mock consumer Event.
- * Never persists. Publication status defaults to `approved` (not published).
+ * Never persists. Publication status defaults to `draft` (never published).
  */
 export function mapConsumerEventToCatalogDraft(
   event: Event,
@@ -101,9 +101,9 @@ export function mapConsumerEventToCatalogDraft(
     shortDescription: event.shortDescription || null,
     description: event.description,
     practicalInfo: event.practicalInfo,
-    // Never auto-publish from preview mapping.
-    publicationStatus: "approved",
-    approvedAt: event.lastCheckedAt,
+    // Never auto-publish from preview mapping. Phase 2 import overrides status.
+    publicationStatus: "draft",
+    approvedAt: null,
     publishedAt: null,
     lastCheckedAt: event.lastCheckedAt,
     sourceCheckedAt: event.lastCheckedAt,
