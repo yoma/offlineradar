@@ -364,27 +364,6 @@ export function HomeHero() {
             </div>
           ) : null}
 
-          <div className="mt-4 space-y-3 sm:mt-6">
-            {error ? (
-              <p className="text-sm font-medium text-white">{error}</p>
-            ) : null}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-              <button
-                type="submit"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#e61e4d] px-6 py-3.5 text-base font-semibold text-white shadow-lg transition hover:bg-[#d70466] sm:w-auto sm:min-w-[240px]"
-              >
-                <Search className="size-4" />
-                Vind activiteiten
-              </button>
-              <a
-                href="#tip-een-activiteit"
-                className="inline-flex w-full items-center justify-center rounded-full border border-white/40 bg-white/10 px-6 py-3.5 text-base font-semibold text-white backdrop-blur-sm transition hover:bg-white/20 sm:w-auto"
-              >
-                Tip een activiteit
-              </a>
-            </div>
-          </div>
-
           <div className="mt-5 space-y-4">
             <div>
               <p className="mb-2 text-xs font-semibold tracking-wide text-white/70 uppercase">
@@ -447,6 +426,27 @@ export function HomeHero() {
                   );
                 })}
               </div>
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-3 sm:mt-6">
+            {error ? (
+              <p className="text-sm font-medium text-white">{error}</p>
+            ) : null}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+              <button
+                type="submit"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#e61e4d] px-6 py-3.5 text-base font-semibold text-white shadow-lg transition hover:bg-[#d70466] sm:w-auto sm:min-w-[240px]"
+              >
+                <Search className="size-4" />
+                Vind activiteiten
+              </button>
+              <a
+                href="#tip-een-activiteit"
+                className="inline-flex w-full items-center justify-center rounded-full border border-white/40 bg-white/10 px-6 py-3.5 text-base font-semibold text-white backdrop-blur-sm transition hover:bg-white/20 sm:w-auto"
+              >
+                Tip een activiteit
+              </a>
             </div>
           </div>
         </form>
