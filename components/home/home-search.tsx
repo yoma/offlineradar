@@ -17,24 +17,40 @@ import type {
   UserGender,
 } from "@/types/event";
 import type { SearchState, WhenFilter } from "@/types/search";
+import {
+  expandActivityFilterSelection,
+  isPublicActivityGroupSelected,
+  type PublicActivityGroupId,
+  togglePublicActivityGroup,
+} from "@/lib/public-activity-groups";
 
-type QuickChip = {
-  label: string;
-  when?: WhenFilter;
-  categories?: EventCategory[];
-  activities?: ActivityId[];
-};
+type QuickChip =
+  | {
+      kind: "when";
+      label: string;
+      when: WhenFilter;
+    }
+  | {
+      kind: "category";
+      label: string;
+      categories: EventCategory[];
+    }
+  | {
+      kind: "activity_group";
+      label: string;
+      groupId: PublicActivityGroupId;
+    };
 
 const TYPE_QUICK: QuickChip[] = [
-  { label: "Speeddate", activities: ["speeddate"] },
-  { label: "Dating", categories: ["dating"] },
-  { label: "Nieuwe mensen", categories: ["meet_new_people"] },
-  { label: "Sport", activities: ["sport"] },
-  { label: "Eten & drinken", activities: ["eten", "drinken"] },
-  { label: "Uitgaan", activities: ["party"] },
-  { label: "Wandelen", activities: ["wandelen", "outdoor"] },
-  { label: "Workshop", activities: ["workshop"] },
-  { label: "Reizen", activities: ["reizen", "weekend"] },
+  { kind: "activity_group", label: "Speeddate", groupId: "speeddate" },
+  { kind: "category", label: "Dating", categories: ["dating"] },
+  { kind: "category", label: "Nieuwe mensen", categories: ["meet_new_people"] },
+  { kind: "activity_group", label: "Sport & actief", groupId: "sport_active" },
+  { kind: "activity_group", label: "Dinner / food", groupId: "eten" },
+  { kind: "activity_group", label: "Drinks / apero", groupId: "drinken" },
+  { kind: "activity_group", label: "Party", groupId: "party" },
+  { kind: "activity_group", label: "Workshop", groupId: "workshop" },
+  { kind: "activity_group", label: "Weekend / reis", groupId: "travel" },
 ];
 
 function includesAll<T>(haystack: T[], needles: T[]) {
@@ -72,7 +88,9 @@ export function HomeHero() {
       if (profile.gender) setGender(profile.gender);
       if (profile.placeId) setPlaceId(findPlace(profile.placeId).id);
       if (profile.maxDistanceKm) setDistance(profile.maxDistanceKm);
-      if (profile.interests.length) setActivities(profile.interests);
+      if (profile.interests.length) {
+        setActivities(expandActivityFilterSelection(profile.interests));
+      }
       if (profile.preferredAgeMin) setPrefMin(String(profile.preferredAgeMin));
       if (profile.preferredAgeMax) setPrefMax(String(profile.preferredAgeMax));
       if (profile.preferredMeetGender) setMeetGender(profile.preferredMeetGender);
@@ -80,25 +98,24 @@ export function HomeHero() {
   }, []);
 
   function isChipActive(chip: QuickChip) {
-    if (chip.when) return when === chip.when;
-    if (chip.categories) return includesAll(categories, chip.categories);
-    if (chip.activities) return includesAll(activities, chip.activities);
-    return false;
+    if (chip.kind === "when") return when === chip.when;
+    if (chip.kind === "category") {
+      return includesAll(categories, chip.categories);
+    }
+    return isPublicActivityGroupSelected(activities, chip.groupId);
   }
 
   function toggleChip(chip: QuickChip) {
-    if (chip.when) {
-      setWhen((current) => (current === chip.when ? "any" : chip.when!));
+    if (chip.kind === "when") {
+      setWhen((current) => (current === chip.when ? "any" : chip.when));
       if (chip.when !== "date") setDate("");
       return;
     }
-    if (chip.categories) {
-      setCategories((current) => toggleList(current, chip.categories!));
+    if (chip.kind === "category") {
+      setCategories((current) => toggleList(current, chip.categories));
       return;
     }
-    if (chip.activities) {
-      setActivities((current) => toggleList(current, chip.activities!));
-    }
+    setActivities((current) => togglePublicActivityGroup(current, chip.groupId));
   }
 
   const noTypeFilter = categories.length === 0 && activities.length === 0;
@@ -185,12 +202,12 @@ export function HomeHero() {
           }}
         >
           <div className="search-divider overflow-hidden rounded-[40px] bg-white">
-            <div className="grid lg:grid-cols-[1.15fr_1fr_0.7fr_0.85fr_0.75fr]">
+            <div className="grid lg:grid-cols-[1.25fr_1.15fr_0.72fr_0.88fr_0.78fr]">
               <Field label="Waar">
                 <select
                   value={placeId}
                   onChange={(event) => setPlaceId(event.target.value)}
-                  className="w-full bg-transparent text-[15px] font-semibold outline-none"
+                  className="search-field-control w-full bg-transparent text-[15px] font-semibold leading-6 outline-none"
                 >
                   {USER_PLACES.map((place) => (
                     <option key={place.id} value={place.id}>
@@ -207,7 +224,7 @@ export function HomeHero() {
                     setWhen(next);
                     if (next !== "date") setDate("");
                   }}
-                  className="w-full bg-transparent text-[15px] font-semibold outline-none"
+                  className="search-field-control w-full bg-transparent text-[15px] font-semibold leading-6 outline-none"
                 >
                   <option value="any">{WHEN_LABEL.any}</option>
                   <option value="today">Vandaag</option>
@@ -227,7 +244,7 @@ export function HomeHero() {
                   placeholder="bv. 49"
                   value={age}
                   onChange={(event) => setAge(event.target.value)}
-                  className="w-full bg-transparent text-[15px] font-semibold outline-none placeholder:font-normal placeholder:text-muted-foreground"
+                  className="search-field-control w-full bg-transparent text-[15px] font-semibold leading-6 outline-none placeholder:font-normal placeholder:text-muted-foreground"
                 />
               </Field>
               <Field label="Mijn gender" divide>
@@ -236,7 +253,7 @@ export function HomeHero() {
                   onChange={(event) =>
                     setGender(event.target.value as UserGender | "")
                   }
-                  className="w-full bg-transparent text-[15px] font-semibold outline-none"
+                  className="search-field-control w-full bg-transparent text-[15px] font-semibold leading-6 outline-none"
                 >
                   <option value="">Kies</option>
                   {(Object.keys(GENDER_LABEL) as UserGender[]).map((key) => (
@@ -250,7 +267,7 @@ export function HomeHero() {
                 <select
                   value={distance}
                   onChange={(event) => setDistance(Number(event.target.value))}
-                  className="w-full bg-transparent text-[15px] font-semibold outline-none"
+                  className="search-field-control w-full bg-transparent text-[15px] font-semibold leading-6 outline-none"
                 >
                   {DISTANCES.map((km) => (
                     <option key={km} value={km}>
@@ -261,19 +278,19 @@ export function HomeHero() {
               </Field>
             </div>
             {when === "date" ? (
-              <div className="border-t border-border px-6 py-3">
+              <div className="border-t border-border px-6 py-3.5">
                 <input
                   type="date"
                   required
                   value={date}
                   onChange={(event) => setDate(event.target.value)}
-                  className="text-sm font-semibold outline-none"
+                  className="text-sm font-semibold leading-6 outline-none"
                 />
               </div>
             ) : null}
           </div>
 
-          <div className="mt-3 flex items-center justify-between gap-3">
+          <div className="mt-3.5 flex flex-wrap items-center gap-x-4 gap-y-2">
             <button
               type="button"
               aria-expanded={moreOpen}
@@ -291,7 +308,7 @@ export function HomeHero() {
                 className={`size-4 transition ${moreOpen ? "rotate-180" : ""}`}
               />
             </button>
-            <p className="hidden text-sm text-white/75 sm:block">
+            <p className="text-sm text-white/70">
               Voorkeuren voor wie je wilt ontmoeten
             </p>
           </div>
@@ -462,14 +479,14 @@ function Field({
 }) {
   return (
     <label
-      className={`block cursor-pointer px-6 py-3.5 transition hover:bg-black/[0.03] ${
+      className={`block cursor-pointer px-5 py-4 transition hover:bg-black/[0.03] sm:px-6 ${
         divide ? "lg:border-l lg:border-border" : ""
       }`}
     >
-      <span className="mb-0.5 block text-[12px] font-semibold tracking-wide uppercase">
+      <span className="mb-1.5 block text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
         {label}
       </span>
-      {children}
+      <span className="block min-h-6">{children}</span>
     </label>
   );
 }

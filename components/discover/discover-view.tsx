@@ -14,7 +14,10 @@ import { Label } from "@/components/ui/label";
 import { USER_PLACES } from "@/data/places";
 import { track } from "@/lib/analytics";
 import { matchingEvents, placeLabel } from "@/lib/filters";
-import { ACTIVITY_LABEL, AVAILABILITY_LABEL, CATEGORY_LABEL, formatAgeRange, formatMeetPreference, MEET_GENDER_LABEL, PRICE_LABEL, SORT_LABEL, WHEN_LABEL } from "@/lib/format";
+import { AVAILABILITY_LABEL, CATEGORY_LABEL, formatAgeRange, formatMeetPreference, MEET_GENDER_LABEL, PRICE_LABEL, SORT_LABEL, WHEN_LABEL } from "@/lib/format";
+import {
+  publicActivityChipsFromSelection,
+} from "@/lib/public-activity-groups";
 import {
   hasAnyStrongPreferenceMatch,
   sortEvents,
@@ -458,10 +461,10 @@ function activeChips(state: SearchState): {
       kind: "filter",
     });
   }
-  for (const activity of state.activities) {
+  for (const activityChip of publicActivityChipsFromSelection(state.activities)) {
     chips.push({
-      id: `act-${activity}`,
-      label: ACTIVITY_LABEL[activity],
+      id: `act-${activityChip.id}`,
+      label: activityChip.label,
       kind: "filter",
     });
   }
@@ -519,9 +522,18 @@ function removeChipFromState(state: SearchState, chipId: string): SearchState {
     });
   }
   if (chipId.startsWith("act-")) {
-    const activity = chipId.slice(4);
+    const activityKey = chipId.slice(4);
+    const groupChip = publicActivityChipsFromSelection(state.activities).find(
+      (chip) => chip.id === activityKey,
+    );
+    if (groupChip) {
+      const remove = new Set(groupChip.activities);
+      return applySearchPatch(state, {
+        activities: state.activities.filter((item) => !remove.has(item)),
+      });
+    }
     return applySearchPatch(state, {
-      activities: state.activities.filter((item) => item !== activity),
+      activities: state.activities.filter((item) => item !== activityKey),
     });
   }
   return state;

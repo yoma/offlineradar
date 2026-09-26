@@ -135,7 +135,7 @@ export const ACTIVITY_LABEL = {
   drinken: "Drinken",
   wandelen: "Wandelen",
   lopen: "Lopen",
-  sport: "Sport",
+  sport: "Sport & actief",
   padel: "Padel",
   party: "Uitgaan",
   dans: "Dans",

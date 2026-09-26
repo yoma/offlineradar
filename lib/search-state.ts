@@ -4,7 +4,10 @@ import type {
   PreferredMeetGender,
   UserGender,
 } from "@/types/event";
-import { canonicalizeActivityId } from "@/lib/event-category";
+import {
+  expandActivityFilterSelection,
+  serializeActivitySelection,
+} from "@/lib/public-activity-groups";
 import type {
   AvailabilityFilter,
   PriceFilter,
@@ -136,10 +139,7 @@ function manyOf<T extends string>(
 
 function manyOfActivities(value: string | undefined): ActivityId[] {
   if (!value) return [];
-  return value
-    .split(",")
-    .map((part) => canonicalizeActivityId(part))
-    .filter((id): id is ActivityId => id != null);
+  return expandActivityFilterSelection(value.split(","));
 }
 
 export function parseSearchState(
@@ -196,7 +196,9 @@ export function serializeSearchState(state: SearchState): string {
   if (state.when !== "any") params.set("when", state.when);
   if (state.when === "date" && state.date) params.set("date", state.date);
   if (state.categories.length) params.set("cat", state.categories.join(","));
-  if (state.activities.length) params.set("act", state.activities.join(","));
+  if (state.activities.length) {
+    params.set("act", serializeActivitySelection(state.activities));
+  }
   if (state.price !== "any") params.set("price", state.price);
   if (state.singlesOnly) params.set("singles", "1");
   if (state.availability !== "any") params.set("avail", state.availability);

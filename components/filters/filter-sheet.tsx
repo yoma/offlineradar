@@ -13,8 +13,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { ACTIVITY_LABEL, AVAILABILITY_LABEL, DISTANCES, MEET_GENDER_LABEL, PRICE_LABEL, WHEN_HINT, WHEN_LABEL } from "@/lib/format";
-import type { ActivityId, EventCategory, PreferredMeetGender } from "@/types/event";
+import { AVAILABILITY_LABEL, DISTANCES, MEET_GENDER_LABEL, PRICE_LABEL, WHEN_HINT, WHEN_LABEL } from "@/lib/format";
+import {
+  isPublicActivityGroupSelected,
+  PUBLIC_ACTIVITY_GROUPS,
+  type PublicActivityGroupId,
+  togglePublicActivityGroup,
+} from "@/lib/public-activity-groups";
+import type { EventCategory, PreferredMeetGender } from "@/types/event";
 import type { AvailabilityFilter, PriceFilter, SearchState, WhenFilter } from "@/types/search";
 
 const WHEN_OPTIONS: WhenFilter[] = [
@@ -53,11 +59,8 @@ export function FilterSheet({
     onChange({ categories });
   }
 
-  function toggleActivity(id: ActivityId) {
-    const activities = state.activities.includes(id)
-      ? state.activities.filter((item) => item !== id)
-      : [...state.activities, id];
-    onChange({ activities });
+  function toggleActivityGroup(id: PublicActivityGroupId) {
+    onChange({ activities: togglePublicActivityGroup(state.activities, id) });
   }
 
   return (
@@ -135,13 +138,16 @@ export function FilterSheet({
 
           <FilterGroup title="Activiteit">
             <div className="flex flex-wrap gap-2">
-              {(Object.keys(ACTIVITY_LABEL) as ActivityId[]).map((activity) => (
+              {PUBLIC_ACTIVITY_GROUPS.map((group) => (
                 <Choice
-                  key={activity}
-                  pressed={state.activities.includes(activity)}
-                  onClick={() => toggleActivity(activity)}
+                  key={group.id}
+                  pressed={isPublicActivityGroupSelected(
+                    state.activities,
+                    group.id,
+                  )}
+                  onClick={() => toggleActivityGroup(group.id)}
                 >
-                  {ACTIVITY_LABEL[activity]}
+                  {group.label}
                 </Choice>
               ))}
             </div>

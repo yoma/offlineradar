@@ -8,6 +8,11 @@ import {
 } from "@/lib/dates";
 import { withUserDistance } from "@/lib/distance";
 import { isEligibleForEvent } from "@/lib/eligibility";
+import {
+  eventMatchesActivityFilter,
+  expandActivityFilterSelection,
+  isTravelOrWeekendActivity,
+} from "@/lib/public-activity-groups";
 import type { Event } from "@/types/event";
 import type { SearchState } from "@/types/search";
 
@@ -93,10 +98,13 @@ export function prepareEvents(
  * Soft filters (when, distance, category, activity…) then hard eligibility.
  * Preference never removes events here.
  *
- * Activity semantics:
+ * Activity semantics (public groups expand before match; see public-activity-groups):
  * - no activities selected → all formats (including speeddate)
- * - one or more activities selected → only those formats
+ * - one or more activities selected → OR match on those ActivityIds
  * Classic speeddates expose activity `speeddate` via normalizeEventActivities.
+ *
+ * Distance: travel/weekend editions are exempt from maxDistanceKm so
+ * destination trips stay findable from Belgian search places.
  */
 export function matchingEvents(
   events: Event[],
@@ -104,19 +112,18 @@ export function matchingEvents(
   now = new Date(),
 ): { visible: PreparedEvent[]; hiddenStrict: number; guidelineHidden: number } {
   const today = brusselsToday(now);
+  const selectedActivities = expandActivityFilterSelection(state.activities);
   const prepared = prepareEvents(events, state).filter((event) => {
     if (!matchesWhen(event, state, today)) return false;
-    if (event.distanceKm > state.maxDistanceKm) return false;
+    const travelExempt = isTravelOrWeekendActivity(event.activities);
+    if (!travelExempt && event.distanceKm > state.maxDistanceKm) return false;
     if (
       state.categories.length > 0 &&
       !state.categories.includes(event.category)
     ) {
       return false;
     }
-    if (
-      state.activities.length > 0 &&
-      !state.activities.some((activity) => event.activities.includes(activity))
-    ) {
+    if (!eventMatchesActivityFilter(event.activities, selectedActivities)) {
       return false;
     }
     if (!matchesPrice(event, state)) return false;
