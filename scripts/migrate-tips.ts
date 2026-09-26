@@ -1,6 +1,6 @@
 /**
  * Verify tips migrations on OfflineRadar Neon only.
- * Schema is applied via the checked-in SQL file (and Neon MCP / this verify).
+ * Schema is applied via checked-in SQL files (and Neon MCP).
  * Usage: npm run db:migrate:tips
  * Does not run on app boot.
  */
@@ -11,6 +11,16 @@ import {
   expectedNeonProjectId,
   getTipsSql,
 } from "../lib/tips/db";
+
+const EXPECTED_TABLES = [
+  "tips",
+  "tip_reviews",
+  "source_watchlist",
+  "source_watch_tips",
+  "tip_email_log",
+  "tip_submit_rate",
+  "schema_migrations",
+] as const;
 
 async function main() {
   const check = assertOfflineRadarDbConfig();
@@ -27,11 +37,14 @@ async function main() {
     process.exit(1);
   }
 
-  const migrationFile = path.join(
-    process.cwd(),
-    "db/migrations/20260925_tips_portal_v1.sql",
+  await readFile(
+    path.join(process.cwd(), "db/migrations/20260925_tips_portal_v1.sql"),
+    "utf8",
   );
-  await readFile(migrationFile, "utf8");
+  await readFile(
+    path.join(process.cwd(), "db/migrations/20260926_tips_submit_rate_v1.sql"),
+    "utf8",
+  );
 
   const sql = getTipsSql();
   if (!sql) {
@@ -58,14 +71,15 @@ async function main() {
         'source_watchlist',
         'source_watch_tips',
         'tip_email_log',
+        'tip_submit_rate',
         'schema_migrations'
       )
     ORDER BY table_name
   `;
 
-  if (tables.length !== 6) {
+  if (tables.length !== 7) {
     console.error(
-      `FAIL expected 6 tips tables, found ${tables.length}. Apply db/migrations/20260925_tips_portal_v1.sql first.`,
+      `FAIL expected 7 tips tables, found ${tables.length}. Apply db/migrations/*.sql first.`,
     );
     process.exit(1);
   }

@@ -8,6 +8,7 @@ import { isValidEmail, validateAndNormalizeTipUrl } from "@/lib/tips/url";
 
 type Capability = {
   submitEnabled: boolean;
+  publicSubmitEnabled: boolean;
   storageMode: "disabled" | "local_file" | "neon";
 };
 
@@ -27,10 +28,11 @@ export function TipSection() {
     let cancelled = false;
     fetch("/api/tips")
       .then((response) => response.json())
-      .then((data: Capability) => {
+      .then((data: Partial<Capability>) => {
         if (!cancelled) {
           setCapability({
             submitEnabled: data.submitEnabled === true,
+            publicSubmitEnabled: data.publicSubmitEnabled === true,
             storageMode:
               data.storageMode === "neon"
                 ? "neon"
@@ -42,7 +44,11 @@ export function TipSection() {
       })
       .catch(() => {
         if (!cancelled) {
-          setCapability({ submitEnabled: false, storageMode: "disabled" });
+          setCapability({
+            submitEnabled: false,
+            publicSubmitEnabled: false,
+            storageMode: "disabled",
+          });
         }
       });
     return () => {
@@ -232,6 +238,11 @@ export function TipSection() {
                 beveiliging moeten eerst worden geactiveerd. Lokaal testen met
                 Neon:{" "}
                 <code className="text-xs">npm run dev:tips-neon</code>.
+              </p>
+            ) : capability?.publicSubmitEnabled ? (
+              <p className="rounded-xl border border-border bg-white px-4 py-3 text-sm text-muted-foreground">
+                Tip wordt pas bevestigd nadat we hem veilig hebben opgeslagen.
+                Inzenden geeft geen garantie op publicatie.
               </p>
             ) : capability?.storageMode === "neon" ? (
               <p className="rounded-xl border border-border bg-white px-4 py-3 text-sm text-muted-foreground">

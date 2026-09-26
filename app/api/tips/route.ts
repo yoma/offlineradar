@@ -4,6 +4,7 @@ import {
   isTipsSubmitEnabled,
   tipsStorageMode,
 } from "@/lib/tips/config";
+import { consumeTipSubmitRateLimit } from "@/lib/tips/rate-limit";
 import { createTip } from "@/lib/tips/service";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,15 @@ export async function POST(request: Request) {
           "Tips kunnen nu nog niet duurzaam worden opgeslagen. Verzenden is uitgeschakeld.",
       },
       { status: 503 },
+    );
+  }
+
+  // Shared Neon rate limit (required for public production submit).
+  const rate = await consumeTipSubmitRateLimit(request);
+  if (!rate.ok) {
+    return NextResponse.json(
+      { ok: false, error: rate.error },
+      { status: rate.status },
     );
   }
 
