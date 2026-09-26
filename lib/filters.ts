@@ -123,7 +123,12 @@ export function matchingEvents(
     ) {
       return false;
     }
-    if (!eventMatchesActivityFilter(event.activities, selectedActivities)) {
+    if (
+      !eventMatchesActivityFilter(event.activities, selectedActivities, {
+        title: event.title,
+        subCategory: event.subCategory,
+      })
+    ) {
       return false;
     }
     if (!matchesPrice(event, state)) return false;

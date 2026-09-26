@@ -216,22 +216,215 @@ export function publicActivityChipsFromSelection(
 
 /**
  * Which public groups an event belongs to (multi-match allowed).
- * Used by golden matrix + documentation; filter match uses OR on activities.
+ * Soft secondary tags (eten/drinken/outdoor on a weekend, drinken on bowling)
+ * do not invent extra public groups.
  */
 export function publicGroupsForEventActivities(
   activities: readonly ActivityId[],
+  meta?: { title?: string | null; subCategory?: string | null },
 ): PublicActivityGroupId[] {
-  return PUBLIC_ACTIVITY_GROUPS.filter((group) =>
-    group.activities.some((activity) => activities.includes(activity)),
-  ).map((group) => group.id);
+  const effective = effectiveActivitiesForMatch(activities, meta);
+  return PUBLIC_ACTIVITY_GROUPS.filter((group) => {
+    if (!group.activities.some((activity) => effective.includes(activity))) {
+      return false;
+    }
+    if (group.id === "sport_active" && isSoftActiveNoise(activities, meta)) {
+      return false;
+    }
+    if (group.id === "drinken" && isSecondaryDrinksNoise(activities, meta)) {
+      return false;
+    }
+    if (group.id === "eten" && isSecondaryFoodNoise(activities, meta)) {
+      return false;
+    }
+    return true;
+  }).map((group) => group.id);
 }
 
+function textOf(meta?: { title?: string | null; subCategory?: string | null }) {
+  return `${meta?.title ?? ""} ${meta?.subCategory ?? ""}`.toLowerCase();
+}
+
+/** Title/subcategory clearly framed as drinks/apero social. */
+export function isDrinksLedSocial(meta?: {
+  title?: string | null;
+  subCategory?: string | null;
+}): boolean {
+  return /\b(apero|apéritif|aperitivo|borrel|afterwork|praatcafé|praatcafe|happy\s*hour|rooftop|night out|drinks)\b/.test(
+    textOf(meta),
+  );
+}
+
+export function isDinnerLedSocial(meta?: {
+  title?: string | null;
+  subCategory?: string | null;
+}): boolean {
+  return /\b(dinner|dîner|diner|brunch|eetfestijn|kook)\b/.test(textOf(meta));
+}
+
+export function isWeekendLedSocial(
+  activities: readonly ActivityId[],
+  meta?: { title?: string | null; subCategory?: string | null },
+): boolean {
+  if (activities.includes("weekend") || activities.includes("reizen")) {
+    return true;
+  }
+  return /\b(weekend|vakantie|citytrip|skiweek|shortski|singlereis|reis\b|travel)\b/.test(
+    textOf(meta),
+  );
+}
+
+export function isSportActivityLed(meta?: {
+  title?: string | null;
+  subCategory?: string | null;
+}): boolean {
+  return /\b(bowling|padel|tennis|climbing|klimmen|fitness|sportieve)\b/.test(
+    textOf(meta),
+  );
+}
+
+/** Infer weekend/reizen when catalog forgot the activity tag. */
+export function effectiveActivitiesForMatch(
+  activities: readonly ActivityId[],
+  meta?: { title?: string | null; subCategory?: string | null },
+): ActivityId[] {
+  const next = activities.filter(
+    (activity): activity is ActivityId =>
+      activity === "speeddate" ||
+      activity === "eten" ||
+      activity === "drinken" ||
+      activity === "wandelen" ||
+      activity === "lopen" ||
+      activity === "sport" ||
+      activity === "padel" ||
+      activity === "party" ||
+      activity === "dans" ||
+      activity === "workshop" ||
+      activity === "reizen" ||
+      activity === "weekend" ||
+      activity === "outdoor",
+  );
+  if (
+    isWeekendLedSocial(activities, meta) &&
+    !next.includes("weekend") &&
+    !next.includes("reizen")
+  ) {
+    next.push("weekend");
+  }
+  return next;
+}
+
+function hasStrongActive(activities: readonly ActivityId[]): boolean {
+  return activities.some(
+    (activity) =>
+      activity === "sport" || activity === "padel" || activity === "lopen",
+  );
+}
+
+/** Apero/weekend packages that only soft-bridge into Sport & actief. */
+function isSoftActiveNoise(
+  activities: readonly ActivityId[],
+  meta?: { title?: string | null; subCategory?: string | null },
+): boolean {
+  if (hasStrongActive(activities)) return false;
+  const softOnly =
+    activities.includes("wandelen") || activities.includes("outdoor");
+  if (!softOnly) return false;
+  if (isDrinksLedSocial(meta) && activities.includes("drinken")) return true;
+  if (isWeekendLedSocial(activities, meta)) return true;
+  return false;
+}
+
+/** Bowling/weekend amenity drinken should not fill Drinks / apero alone. */
+function isSecondaryDrinksNoise(
+  activities: readonly ActivityId[],
+  meta?: { title?: string | null; subCategory?: string | null },
+): boolean {
+  if (!activities.includes("drinken")) return false;
+  if (isDrinksLedSocial(meta)) return false;
+  if (isSportActivityLed(meta) && hasStrongActive(activities)) return true;
+  if (isWeekendLedSocial(activities, meta)) return true;
+  return false;
+}
+
+/** Weekend meal packages should not fill Dinner / food alone. */
+function isSecondaryFoodNoise(
+  activities: readonly ActivityId[],
+  meta?: { title?: string | null; subCategory?: string | null },
+): boolean {
+  if (!activities.includes("eten")) return false;
+  if (isDinnerLedSocial(meta)) return false;
+  if (isWeekendLedSocial(activities, meta)) return true;
+  return false;
+}
+
+/**
+ * Match selected ActivityIds against an event.
+ *
+ * Broad groups ignore soft secondary tags that would create filter noise
+ * (apero under Sport, bowling under Drinks, weekend under Dinner, etc.).
+ */
 export function eventMatchesActivityFilter(
   eventActivities: readonly ActivityId[],
   selected: readonly ActivityId[],
+  meta?: { title?: string | null; subCategory?: string | null },
 ): boolean {
   if (selected.length === 0) return true;
-  return selected.some((activity) => eventActivities.includes(activity));
+
+  const effective = effectiveActivitiesForMatch(eventActivities, meta);
+  const overlap = selected.filter((activity) => effective.includes(activity));
+  if (overlap.length === 0) return false;
+
+  const broadSportActive = SPORT_ACTIVE_ACTIVITIES.every((activity) =>
+    selected.includes(activity),
+  );
+  const drinksSelected = selected.includes("drinken");
+  const foodSelected = selected.includes("eten");
+  const travelSelected =
+    selected.includes("reizen") || selected.includes("weekend");
+  const sportSliceSelected = selected.some((activity) =>
+    (SPORT_ACTIVE_ACTIVITIES as readonly ActivityId[]).includes(activity),
+  );
+
+  // Sport & actief: drop apero/weekend hybrids that only soft-match.
+  if (broadSportActive && isSoftActiveNoise(eventActivities, meta)) {
+    const stillMatchedWithoutSoft = overlap.some(
+      (activity) =>
+        activity !== "wandelen" &&
+        activity !== "outdoor" &&
+        (SPORT_ACTIVE_ACTIVITIES as readonly ActivityId[]).includes(activity),
+    );
+    if (!stillMatchedWithoutSoft) {
+      // Keep if user also picked the true primary group (drinks/travel).
+      if (drinksSelected && eventActivities.includes("drinken")) return true;
+      if (travelSelected && isWeekendLedSocial(eventActivities, meta)) {
+        return true;
+      }
+      return false;
+    }
+  }
+
+  // Drinks / apero alone: drop bowling amenity drinks + weekend packages.
+  if (
+    drinksSelected &&
+    !sportSliceSelected &&
+    isSecondaryDrinksNoise(eventActivities, meta)
+  ) {
+    const onlyViaDrinks = overlap.every((activity) => activity === "drinken");
+    if (onlyViaDrinks) return false;
+  }
+
+  // Dinner / food alone: drop weekend meal packages.
+  if (
+    foodSelected &&
+    !travelSelected &&
+    isSecondaryFoodNoise(eventActivities, meta)
+  ) {
+    const onlyViaFood = overlap.every((activity) => activity === "eten");
+    if (onlyViaFood) return false;
+  }
+
+  return true;
 }
 
 /** Toggle a full public group in/out of the activity selection. */

@@ -166,7 +166,41 @@ const WORKSHOP = stub({
   distanceKm: 6,
 });
 
-const CATALOG = [BOWLING, WALK, SPEEDDATE, DINNER, SKI, PARTY, WORKSHOP];
+const APERO_WALK = stub({
+  id: "apero",
+  slug: "apero-solo-mechelen-2026-10-02",
+  title: "Apero Solo Mechelen",
+  startDate: "2026-10-02",
+  activities: ["wandelen", "drinken"],
+  category: "dating",
+  subCategory: "singles bijeenkomst",
+  distanceKm: 8,
+  city: "Mechelen",
+});
+
+const WEEKEND_OUTDOOR = stub({
+  id: "vv",
+  slug: "villavibes-ardennen-manoir-35-49-2026-10-16",
+  title: "VillaVibes Single Weekend Ardennen — Manoir (35–49)",
+  startDate: "2026-10-16",
+  endDate: "2026-10-18",
+  activities: ["outdoor", "drinken", "eten"],
+  category: "dating",
+  subCategory: "singles weekend",
+  distanceKm: 120,
+});
+
+const CATALOG = [
+  BOWLING,
+  WALK,
+  SPEEDDATE,
+  DINNER,
+  SKI,
+  PARTY,
+  WORKSHOP,
+  APERO_WALK,
+  WEEKEND_OUTDOOR,
+];
 const NOW = new Date("2026-09-26T12:00:00+02:00");
 
 type Expect = {
@@ -264,6 +298,30 @@ const MATRIX: { event: Event; expect: Expect }[] = [
       workshop: true,
     },
   },
+  {
+    event: APERO_WALK,
+    expect: {
+      speeddate: false,
+      sport_active: false,
+      outdoor_narrow: false,
+      dinner: false,
+      party: false,
+      travel: false,
+      workshop: false,
+    },
+  },
+  {
+    event: WEEKEND_OUTDOOR,
+    expect: {
+      speeddate: false,
+      sport_active: false,
+      outdoor_narrow: false,
+      dinner: false,
+      party: false,
+      travel: true,
+      workshop: false,
+    },
+  },
 ];
 
 function main() {
@@ -289,7 +347,10 @@ function main() {
   ok("8. travel ski may match travel + sport_active");
 
   for (const row of MATRIX) {
-    const groups = publicGroupsForEventActivities(row.event.activities);
+    const groups = publicGroupsForEventActivities(row.event.activities, {
+      title: row.event.title,
+      subCategory: row.event.subCategory,
+    });
     assert.equal(
       groups.includes("speeddate"),
       row.expect.speeddate,
@@ -323,6 +384,35 @@ function main() {
   }
   ok("golden matrix public group membership");
 
+  const aperoGroups = publicGroupsForEventActivities(
+    ["wandelen", "drinken"],
+    { title: "Apero Solo Mechelen" },
+  );
+  assert.ok(aperoGroups.includes("drinken"));
+  assert.ok(!aperoGroups.includes("sport_active"));
+  ok("apero+wandelen hybrid → drinks, not Sport & actief");
+
+  const weekendGroups = publicGroupsForEventActivities(
+    ["outdoor", "drinken", "eten"],
+    {
+      title: "VillaVibes Single Weekend Ardennen",
+      subCategory: "singles weekend",
+    },
+  );
+  assert.ok(weekendGroups.includes("travel"));
+  assert.ok(!weekendGroups.includes("sport_active"));
+  assert.ok(!weekendGroups.includes("drinken"));
+  assert.ok(!weekendGroups.includes("eten"));
+  ok("weekend package → travel only, not sport/drinks/dinner");
+
+  const bowlingGroups = publicGroupsForEventActivities(
+    ["sport", "drinken"],
+    { title: "Singles Bowling in Antwerpen", subCategory: "singles bowling" },
+  );
+  assert.ok(bowlingGroups.includes("sport_active"));
+  assert.ok(!bowlingGroups.includes("drinken"));
+  ok("bowling → Sport & actief, not Drinks");
+
   const base = {
     ...defaultSearchState(),
     age: 47,
@@ -353,24 +443,19 @@ function main() {
   const activeIds = activeOnly.visible.map((e) => e.id).sort();
   assert.deepEqual(activeIds, ["bowling", "ski", "walk"]);
   assert.ok(!activeOnly.visible.some((e) => e.id === "sd"));
-  ok("11. Sport & actief includes bowling + walk + ski; no speeddate");
+  assert.ok(!activeOnly.visible.some((e) => e.id === "apero"));
+  assert.ok(!activeOnly.visible.some((e) => e.id === "vv"));
+  ok("11. Sport & actief includes bowling + walk + ski; no speeddate/apero/weekend");
 
-  const multi = matchingEvents(
+  const drinksOnly = matchingEvents(
     CATALOG,
-    { ...base, activities: ["sport", "eten"] },
+    { ...base, activities: ["drinken"] },
     NOW,
   );
-  assert.ok(multi.visible.some((e) => e.id === "walk"));
-  assert.ok(multi.visible.some((e) => e.id === "dinner"));
-  ok("12. multi-select");
-
-  const travelOnly = matchingEvents(
-    CATALOG,
-    { ...base, activities: ["reizen", "weekend"], maxDistanceKm: 10 },
-    NOW,
-  );
-  assert.ok(travelOnly.visible.some((e) => e.id === "ski"));
-  ok("17+13 travel. multi-day travel exempt from distance");
+  assert.ok(drinksOnly.visible.some((e) => e.id === "apero"));
+  assert.ok(!drinksOnly.visible.some((e) => e.id === "bowling"));
+  assert.ok(!drinksOnly.visible.some((e) => e.id === "vv"));
+  ok("Drinks: apero yes; bowling/weekend amenity drinks no");
 
   const dinnerOnly = matchingEvents(
     CATALOG,
@@ -381,7 +466,35 @@ function main() {
     dinnerOnly.visible.map((e) => e.id),
     ["dinner"],
   );
-  ok("dinner only");
+  assert.ok(!dinnerOnly.visible.some((e) => e.id === "vv"));
+  ok("Dinner: real dinner yes; weekend meal package no");
+
+  const travelOnly = matchingEvents(
+    CATALOG,
+    { ...base, activities: ["reizen", "weekend"], maxDistanceKm: 10 },
+    NOW,
+  );
+  assert.ok(travelOnly.visible.some((e) => e.id === "ski"));
+  assert.ok(travelOnly.visible.some((e) => e.id === "vv"));
+  ok("Weekend/reis: ski + VillaVibes even without weekend activity tag");
+
+  const sportAndDrinks = matchingEvents(
+    CATALOG,
+    { ...base, activities: [...SPORT_ACTIVE_ACTIVITIES, "drinken"] },
+    NOW,
+  );
+  assert.ok(sportAndDrinks.visible.some((e) => e.id === "apero"));
+  assert.ok(sportAndDrinks.visible.some((e) => e.id === "bowling"));
+  ok("Sport & actief + Drinks still shows apero + bowling");
+
+  const multi = matchingEvents(
+    CATALOG,
+    { ...base, activities: ["sport", "eten"] },
+    NOW,
+  );
+  assert.ok(multi.visible.some((e) => e.id === "walk"));
+  assert.ok(multi.visible.some((e) => e.id === "dinner"));
+  ok("12. multi-select");
 
   const toggled = togglePublicActivityGroup([], "sport_active");
   assert.ok(isPublicActivityGroupSelected(toggled, "sport_active"));
