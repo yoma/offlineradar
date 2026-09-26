@@ -19,7 +19,7 @@ import type {
  */
 
 /** Configurable, cost-efficient default. Override via ANTHROPIC_MODEL. */
-export const DEFAULT_ANTHROPIC_MODEL = "claude-3-5-haiku-latest";
+export const DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
 
 export type AiScreenerErrorKind =
   | "missing_key"
