@@ -41,7 +41,7 @@ export function UpcomingStrip({
         aria-label="Binnenkort: horizontaal scrollbare evenementen"
       >
         {events.map((event) => (
-          <div key={event.id} role="listitem" className="min-w-0">
+          <div key={event.id} role="listitem" className="shrink-0 snap-start">
             <UpcomingCard
               event={event}
               gender={gender}

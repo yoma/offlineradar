@@ -476,7 +476,7 @@ function main() {
   mustInclude(
     "components/discover/upcoming-card.tsx",
     "min-w-0",
-    "upcoming card shrink",
+    "upcoming card text/image can shrink inside fixed width",
   );
   mustInclude(
     "components/discover/upcoming-card.tsx",
@@ -484,9 +484,9 @@ function main() {
     "reuses EventVisual",
   );
   mustInclude(
-    "components/discover/upcoming-card.tsx",
+    "components/discover/upcoming-strip.tsx",
     "shrink-0",
-    "card fixed width for peek affordance",
+    "list items do not collapse; horizontal peek scroll",
   );
   mustInclude(
     "lib/upcoming.ts",

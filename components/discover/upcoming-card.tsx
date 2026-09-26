@@ -38,7 +38,7 @@ export function UpcomingCard({
   const meta = [event.city, ageBit].filter(Boolean).join(" · ");
 
   return (
-    <article className="group w-[min(72vw,17.5rem)] shrink-0 snap-start sm:w-[15.5rem]">
+    <article className="group w-[min(72vw,17.5rem)] sm:w-[15.5rem]">
       <Link
         href={detailHref}
         className="block min-w-0 rounded-2xl outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-foreground"
