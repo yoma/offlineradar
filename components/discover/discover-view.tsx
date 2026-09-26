@@ -73,6 +73,7 @@ export function DiscoverView({
   useEffect(() => {
     const stored = readProfile();
     queueMicrotask(() => {
+      // Do not re-inject saved activity interests as discover filters.
       setState((current) => applyStoredProfile(current, stored));
       setAgeDraft((current) => current || (stored.age ? String(stored.age) : ""));
       setBooted(true);
@@ -124,6 +125,39 @@ export function DiscoverView({
         sort: next.sort,
       });
       return next;
+    });
+  }
+
+  function removeChip(chipId: string) {
+    setState((current) => {
+      const next = removeChipFromState(current, chipId);
+      track("filter_changed", {
+        when: next.when,
+        distance: next.maxDistanceKm,
+        categories: next.categories.join(","),
+        activities: next.activities.join(","),
+        price: next.price,
+        singlesOnly: next.singlesOnly,
+        availability: next.availability,
+        strictOnly: next.strictOnly,
+        sort: next.sort,
+        removed: chipId,
+      });
+      return next;
+    });
+  }
+
+  function clearDiscoverFilters() {
+    update({
+      when: "any",
+      date: null,
+      categories: [],
+      activities: [],
+      price: "any",
+      singlesOnly: false,
+      availability: "any",
+      strictOnly: false,
+      maxDistanceKm: 100,
     });
   }
 
@@ -212,16 +246,16 @@ export function DiscoverView({
           {previewBanner}
 
           {chips.length > 0 ? (
-            <div className="mt-5 flex flex-wrap gap-2">
+            <div className="mt-5 flex flex-wrap items-center gap-2">
               {chips.map((chip) => (
                 <button
                   key={chip.id}
                   type="button"
-                  onClick={() => update(chip.patch)}
+                  onClick={() => removeChip(chip.id)}
                   title={
                     chip.kind === "preference"
                       ? "Voorkeur – beïnvloedt volgorde, niet zichtbaarheid"
-                      : undefined
+                      : `Verwijder filter ${chip.label}`
                   }
                   className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm hover:border-foreground ${
                     chip.kind === "preference"
@@ -236,6 +270,15 @@ export function DiscoverView({
                   <span className="sr-only">Verwijder filter {chip.label}</span>
                 </button>
               ))}
+              {chips.length >= 2 ? (
+                <button
+                  type="button"
+                  onClick={clearDiscoverFilters}
+                  className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                >
+                  Wis filters
+                </button>
+              ) : null}
             </div>
           ) : null}
 
@@ -354,28 +397,24 @@ export function DiscoverView({
 function activeChips(state: SearchState): {
   id: string;
   label: string;
-  patch: Partial<SearchState>;
   kind: "filter" | "preference" | "date";
 }[] {
   const chips: {
     id: string;
     label: string;
-    patch: Partial<SearchState>;
     kind: "filter" | "preference" | "date";
   }[] = [];
   if (state.when !== "any") {
     chips.push({
       id: "when",
       label: state.when === "date" && state.date ? state.date : WHEN_LABEL[state.when],
-      patch: { when: "any", date: null },
       kind: "date",
     });
   }
-  if (state.maxDistanceKm !== 25) {
+  if (state.maxDistanceKm !== 100) {
     chips.push({
       id: "distance",
       label: `Binnen ${state.maxDistanceKm} km`,
-      patch: { maxDistanceKm: 25 },
       kind: "filter",
     });
   }
@@ -383,7 +422,6 @@ function activeChips(state: SearchState): {
     chips.push({
       id: "meet-gender",
       label: `Ontmoet ${MEET_GENDER_LABEL[state.preferredMeetGender].toLowerCase()}`,
-      patch: { preferredMeetGender: "anyone" },
       kind: "preference",
     });
   }
@@ -391,7 +429,6 @@ function activeChips(state: SearchState): {
     chips.push({
       id: "pref-age",
       label: formatAgeRange(state.preferredAgeMin, state.preferredAgeMax) ?? "Leeftijd",
-      patch: { preferredAgeMin: null, preferredAgeMax: null },
       kind: "preference",
     });
   }
@@ -399,7 +436,6 @@ function activeChips(state: SearchState): {
     chips.push({
       id: `cat-${category}`,
       label: CATEGORY_LABEL[category],
-      patch: { categories: state.categories.filter((item) => item !== category) },
       kind: "filter",
     });
   }
@@ -407,7 +443,6 @@ function activeChips(state: SearchState): {
     chips.push({
       id: `act-${activity}`,
       label: ACTIVITY_LABEL[activity],
-      patch: { activities: state.activities.filter((item) => item !== activity) },
       kind: "filter",
     });
   }
@@ -415,7 +450,6 @@ function activeChips(state: SearchState): {
     chips.push({
       id: "price",
       label: PRICE_LABEL[state.price],
-      patch: { price: "any" },
       kind: "filter",
     });
   }
@@ -423,7 +457,6 @@ function activeChips(state: SearchState): {
     chips.push({
       id: "singles",
       label: "Alleen singles",
-      patch: { singlesOnly: false },
       kind: "filter",
     });
   }
@@ -431,7 +464,6 @@ function activeChips(state: SearchState): {
     chips.push({
       id: "avail",
       label: AVAILABILITY_LABEL[state.availability],
-      patch: { availability: "any" },
       kind: "filter",
     });
   }
@@ -439,19 +471,76 @@ function activeChips(state: SearchState): {
     chips.push({
       id: "strict",
       label: "Alleen strikte leeftijd",
-      patch: { strictOnly: false },
       kind: "filter",
     });
   }
   return chips;
 }
 
+function removeChipFromState(state: SearchState, chipId: string): SearchState {
+  if (chipId === "when") return applySearchPatch(state, { when: "any", date: null });
+  if (chipId === "distance") return applySearchPatch(state, { maxDistanceKm: 100 });
+  if (chipId === "meet-gender") {
+    return applySearchPatch(state, { preferredMeetGender: "anyone" });
+  }
+  if (chipId === "pref-age") {
+    return applySearchPatch(state, {
+      preferredAgeMin: null,
+      preferredAgeMax: null,
+    });
+  }
+  if (chipId === "price") return applySearchPatch(state, { price: "any" });
+  if (chipId === "singles") return applySearchPatch(state, { singlesOnly: false });
+  if (chipId === "avail") return applySearchPatch(state, { availability: "any" });
+  if (chipId === "strict") return applySearchPatch(state, { strictOnly: false });
+  if (chipId.startsWith("cat-")) {
+    const category = chipId.slice(4);
+    return applySearchPatch(state, {
+      categories: state.categories.filter((item) => item !== category),
+    });
+  }
+  if (chipId.startsWith("act-")) {
+    const activity = chipId.slice(4);
+    return applySearchPatch(state, {
+      activities: state.activities.filter((item) => item !== activity),
+    });
+  }
+  return state;
+}
+
 function suggestions(state: SearchState): { id: string; label: string; patch: Partial<SearchState> }[] {
   const items: { id: string; label: string; patch: Partial<SearchState> }[] = [];
+  const hasRestrictiveFilters =
+    state.when !== "any" ||
+    state.categories.length > 0 ||
+    state.activities.length > 0 ||
+    state.price !== "any" ||
+    state.singlesOnly ||
+    state.availability !== "any" ||
+    state.strictOnly ||
+    state.maxDistanceKm < 100;
+
+  if (hasRestrictiveFilters) {
+    items.push({
+      id: "clear-all",
+      label: "Wis filters en toon alle aankomende",
+      patch: {
+        when: "any",
+        date: null,
+        categories: [],
+        activities: [],
+        price: "any",
+        singlesOnly: false,
+        availability: "any",
+        strictOnly: false,
+        maxDistanceKm: 100,
+      },
+    });
+  }
   if (state.when !== "any") {
     items.push({
       id: "clear-when",
-      label: "Toon alle aankomende data",
+      label: "Alleen datumfilter wissen",
       patch: { when: "any", date: null },
     });
   }
@@ -473,27 +562,6 @@ function suggestions(state: SearchState): { id: string; label: string; patch: Pa
       id: "guideline",
       label: "Toon richtleeftijden",
       patch: { strictOnly: false },
-    });
-  }
-  if (state.categories.length > 0 && !state.categories.includes("meet_new_people")) {
-    items.push({
-      id: "people",
-      label: "Toon Nieuwe mensen",
-      patch: { categories: [...state.categories, "meet_new_people"] },
-    });
-  }
-  if (state.when !== "any" && state.when !== "next_week") {
-    items.push({
-      id: "week",
-      label: "Bekijk volgende week",
-      patch: { when: "next_week", date: null },
-    });
-  }
-  if (state.activities.length > 0 || state.categories.length > 0) {
-    items.push({
-      id: "activities",
-      label: "Toon alle soorten activiteiten",
-      patch: { activities: [], categories: [] },
     });
   }
   return items;

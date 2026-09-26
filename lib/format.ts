@@ -160,7 +160,7 @@ export const ACTIVITY_FIT = {
 } as const;
 
 export const WHEN_LABEL = {
-  any: "Binnenkort",
+  any: "Alle aankomende",
   today: "Vandaag",
   tomorrow: "Morgen",
   weekend: "Dit weekend",
@@ -168,6 +168,16 @@ export const WHEN_LABEL = {
   month: "Deze maand",
   date: "Gekozen datum",
 } as const;
+
+export const WHEN_HINT: Partial<Record<keyof typeof WHEN_LABEL, string>> = {
+  any: "Geen datumlimiet: alle toekomstige activiteiten",
+  today: "Alleen vandaag",
+  tomorrow: "Alleen morgen",
+  weekend: "Komende zaterdag en zondag",
+  next_week: "Maandag t.e.m. zondag van volgende week",
+  month: "Vanaf vandaag t.e.m. eind volgende kalendermaand",
+  date: "Eén gekozen dag",
+};
 
 export const PRICE_LABEL = {
   any: "Alle prijzen",
@@ -186,7 +196,7 @@ export const AVAILABILITY_LABEL = {
 
 export const SORT_LABEL = {
   match: "Beste match",
-  soon: "Binnenkort",
+  soon: "Op startdatum",
   distance: "Dichtstbij",
   newest: "Nieuw toegevoegd",
 } as const;

@@ -42,14 +42,6 @@ const TYPE_QUICK: QuickChip[] = [
   { label: "Reizen", activities: ["reizen"] },
 ];
 
-const ALL_CATEGORIES = [
-  ...new Set(TYPE_QUICK.flatMap((chip) => chip.categories ?? [])),
-] as EventCategory[];
-
-const ALL_ACTIVITIES = [
-  ...new Set(TYPE_QUICK.flatMap((chip) => chip.activities ?? [])),
-] as ActivityId[];
-
 function includesAll<T>(haystack: T[], needles: T[]) {
   return needles.every((item) => haystack.includes(item));
 }
@@ -66,7 +58,7 @@ export function HomeHero() {
   const [age, setAge] = useState("");
   const [gender, setGender] = useState<UserGender | "">("");
   const [placeId, setPlaceId] = useState("antwerpen");
-  const [distance, setDistance] = useState(25);
+  const [distance, setDistance] = useState(100);
   const [when, setWhen] = useState<WhenFilter>("any");
   const [date, setDate] = useState("");
   const [activities, setActivities] = useState<ActivityId[]>([]);
@@ -114,18 +106,11 @@ export function HomeHero() {
     }
   }
 
-  const allCategoriesActive =
-    includesAll(categories, ALL_CATEGORIES) &&
-    includesAll(activities, ALL_ACTIVITIES);
+  const noTypeFilter = categories.length === 0 && activities.length === 0;
 
-  function toggleAllCategories() {
-    if (allCategoriesActive) {
-      setCategories([]);
-      setActivities([]);
-      return;
-    }
-    setCategories(ALL_CATEGORIES);
-    setActivities(ALL_ACTIVITIES);
+  function clearTypeFilters() {
+    setCategories([]);
+    setActivities([]);
   }
 
   function go() {
@@ -412,15 +397,15 @@ export function HomeHero() {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  aria-pressed={allCategoriesActive}
-                  onClick={toggleAllCategories}
+                  aria-pressed={noTypeFilter}
+                  onClick={clearTypeFilters}
                   className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold backdrop-blur-sm transition ${
-                    allCategoriesActive
+                    noTypeFilter
                       ? "border-white bg-white text-foreground"
                       : "border-white/40 bg-white/15 text-white hover:bg-white/25"
                   }`}
                 >
-                  Alle categorieën
+                  Alle soorten
                 </button>
                 {TYPE_QUICK.map((item) => {
                   const active = isChipActive(item);

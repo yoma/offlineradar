@@ -89,20 +89,13 @@ export function endOfMonth(isoDate: string): string {
 }
 
 /**
- * "Deze maand" window for discovery:
- * from today through the end of the current calendar month.
- * In the last 14 days of a month, also include the next calendar month
- * so late-month browsing still finds upcoming editions.
+ * "Deze maand" for discovery: from today through the end of next calendar month.
+ * Late September must still surface October editions.
  */
 export function monthRange(today: string): { start: string; end: string } {
   const endThis = endOfMonth(today);
-  const daysLeft = diffDays(today, endThis);
-  // Remove unused variable warning if any - clean monthRange
-  if (daysLeft <= 14) {
-    const nextMonthDay = addDays(endThis, 1);
-    return { start: today, end: endOfMonth(nextMonthDay) };
-  }
-  return { start: today, end: endThis };
+  const nextMonthDay = addDays(endThis, 1);
+  return { start: today, end: endOfMonth(nextMonthDay) };
 }
 
 export function nextWeekRange(today: string): { start: string; end: string } {

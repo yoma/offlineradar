@@ -13,11 +13,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { ACTIVITY_LABEL, AVAILABILITY_LABEL, DISTANCES, MEET_GENDER_LABEL, PRICE_LABEL, WHEN_LABEL } from "@/lib/format";
+import { ACTIVITY_LABEL, AVAILABILITY_LABEL, DISTANCES, MEET_GENDER_LABEL, PRICE_LABEL, WHEN_HINT, WHEN_LABEL } from "@/lib/format";
 import type { ActivityId, EventCategory, PreferredMeetGender } from "@/types/event";
 import type { AvailabilityFilter, PriceFilter, SearchState, WhenFilter } from "@/types/search";
 
 const WHEN_OPTIONS: WhenFilter[] = [
+  "any",
   "today",
   "tomorrow",
   "weekend",
@@ -70,6 +71,9 @@ export function FilterSheet({
         </SheetHeader>
         <div className="space-y-6 overflow-y-auto px-4 pb-4">
           <FilterGroup title="Wanneer">
+            <p className="mb-2 text-sm text-muted-foreground">
+              Kies één periode. {WHEN_HINT[state.when] ?? ""}
+            </p>
             <div className="flex flex-wrap gap-2">
               {WHEN_OPTIONS.map((option) => (
                 <Choice
@@ -77,13 +81,11 @@ export function FilterSheet({
                   pressed={state.when === option}
                   onClick={() =>
                     onChange({
-                      when: state.when === option ? "any" : option,
+                      when: option,
                       date:
-                        state.when === option
-                          ? null
-                          : option === "date"
-                            ? state.date
-                            : null,
+                        option === "date"
+                          ? state.date
+                          : null,
                     })
                   }
                 >
@@ -96,7 +98,9 @@ export function FilterSheet({
                 type="date"
                 className="mt-3 h-11"
                 value={state.date ?? ""}
-                onChange={(event) => onChange({ date: event.target.value || null })}
+                onChange={(event) =>
+                  onChange({ when: "date", date: event.target.value || null })
+                }
               />
             ) : null}
           </FilterGroup>

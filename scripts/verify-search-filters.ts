@@ -126,10 +126,10 @@ async function main() {
   assert.equal(distanceOnly.maxDistanceKm, 100);
   ok("distance change does not alter date");
 
-  // Matching exclusivity with sample events (late Sept → month includes October)
+  // Matching: late Sept "Deze maand" includes October
   const events = [
-    stub({ id: "a", slug: "weekend-ev", startDate: "2026-09-26" }), // Sat
-    stub({ id: "b", slug: "midweek-ev", startDate: "2026-09-29" }), // Tue
+    stub({ id: "a", slug: "weekend-ev", startDate: "2026-09-26" }),
+    stub({ id: "b", slug: "midweek-ev", startDate: "2026-09-29" }),
     stub({ id: "c", slug: "later-ev", startDate: "2026-10-20" }),
   ];
   const now = new Date("2026-09-26T12:00:00+02:00");
@@ -147,7 +147,7 @@ async function main() {
   assert.ok(monthMatch.visible.some((e) => e.slug === "midweek-ev"));
   assert.ok(
     monthMatch.visible.some((e) => e.slug === "later-ev"),
-    "late-month 'Deze maand' includes next calendar month",
+    "'Deze maand' includes next calendar month",
   );
   ok("matching weekend vs month exclusive");
 

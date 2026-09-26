@@ -53,7 +53,7 @@ export function defaultSearchState(): SearchState {
     age: null,
     gender: null,
     placeId: "antwerpen",
-    maxDistanceKm: 25,
+    maxDistanceKm: 100,
     preferredAgeMin: null,
     preferredAgeMax: null,
     preferredMeetGender: "anyone",
@@ -204,14 +204,22 @@ export function profileFromSearch(state: SearchState): StoredProfile {
     preferredAgeMin: state.preferredAgeMin,
     preferredAgeMax: state.preferredAgeMax,
     preferredMeetGender: state.preferredMeetGender,
+    // Discover activity chips are transient filters, not lasting profile interests.
+    // Keep existing interests unless home search sets them explicitly.
     interests: state.activities,
   };
 }
 
+/**
+ * Apply lasting profile fields. Never re-inject activity filters on /ontdek:
+ * URL/search state owns discover filters after first paint.
+ */
 export function applyStoredProfile(
   state: SearchState,
   profile: StoredProfile,
+  options: { restoreInterests?: boolean } = {},
 ): SearchState {
+  const restoreInterests = options.restoreInterests === true;
   if (state.age != null) {
     return {
       ...state,
@@ -233,6 +241,9 @@ export function applyStoredProfile(
     preferredAgeMin: profile.preferredAgeMin,
     preferredAgeMax: profile.preferredAgeMax,
     preferredMeetGender: profile.preferredMeetGender,
-    activities: state.activities.length ? state.activities : profile.interests,
+    activities:
+      restoreInterests && state.activities.length === 0
+        ? profile.interests
+        : state.activities,
   };
 }
