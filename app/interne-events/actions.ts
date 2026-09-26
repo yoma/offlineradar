@@ -9,6 +9,10 @@ import {
   updateCatalogSourceFields,
   type CatalogSourceStatus,
 } from "@/lib/events/catalog-sources";
+import {
+  updateOpenReportsForEdition,
+  type EventReportStatus,
+} from "@/lib/events/reports";
 
 export async function startEventsAdminSignIn() {
   await signIn("google", { redirectTo: "/interne-events" });
@@ -76,5 +80,25 @@ export async function updateCatalogSourceAction(formData: FormData) {
     touchChecked: touch,
   });
   if (!updated) throw new Error("Kon bron niet updaten");
+  revalidatePath("/interne-events");
+}
+
+export async function updateEventReportsAction(formData: FormData) {
+  const access = await resolveTipsAdminAccess();
+  if (!access.ok) throw new Error("Niet geautoriseerd");
+  const editionId = String(formData.get("editionId") ?? "").trim();
+  const status = String(formData.get("status") ?? "").trim() as EventReportStatus;
+  const note = String(formData.get("resolutionNote") ?? "").trim() || null;
+  if (!editionId) throw new Error("editionId ontbreekt");
+  if (!["reviewing", "confirmed", "dismissed", "resolved"].includes(status)) {
+    throw new Error("Ongeldige status");
+  }
+  const reviewedBy = access.email;
+  await updateOpenReportsForEdition({
+    eventEditionId: editionId,
+    status,
+    reviewedBy,
+    resolutionNote: note,
+  });
   revalidatePath("/interne-events");
 }

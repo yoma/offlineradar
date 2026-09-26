@@ -5,6 +5,7 @@ import {
   takeEventOfflineAction,
   addCatalogSourceAction,
   updateCatalogSourceAction,
+  updateEventReportsAction,
 } from "@/app/interne-events/actions";
 import {
   isGoogleAuthConfigured,
@@ -12,6 +13,10 @@ import {
 } from "@/lib/tips/admin-auth";
 import { listEditionBundlesForAdmin } from "@/lib/events/neon-store";
 import { listCatalogSources } from "@/lib/events/catalog-sources";
+import {
+  countOpenReportsByEditionIds,
+  listEventReportSummaries,
+} from "@/lib/events/reports";
 import { assertOfflineRadarDbConfig } from "@/lib/events/db";
 
 export const dynamic = "force-dynamic";
@@ -100,6 +105,17 @@ export default async function InterneEventsPage() {
     catalogSources = await listCatalogSources();
   } catch {
     catalogSources = [];
+  }
+
+  let reportSummaries: Awaited<ReturnType<typeof listEventReportSummaries>> = [];
+  let openByEdition = new Map<string, number>();
+  try {
+    reportSummaries = await listEventReportSummaries();
+    openByEdition = await countOpenReportsByEditionIds(
+      bundles.map((b) => b.edition.id),
+    );
+  } catch {
+    reportSummaries = [];
   }
 
   return (
@@ -256,12 +272,106 @@ export default async function InterneEventsPage() {
         </ul>
       </section>
 
+      <section className="mb-10 space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Meldingen</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Publieke signalen “mogelijk geen singlesevent”. Nooit auto-offline.
+          </p>
+        </div>
+        {reportSummaries.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nog geen meldingen.</p>
+        ) : (
+          <ul className="space-y-3">
+            {reportSummaries.map((summary) => (
+              <li
+                key={summary.eventEditionId}
+                id={`meldingen-${summary.eventEditionId}`}
+                className="rounded-xl border border-border bg-background px-4 py-4"
+              >
+                <div className="space-y-2">
+                  <p className="font-semibold">{summary.title}</p>
+                  <p className="text-xs text-muted-foreground">{summary.slug}</p>
+                  <p className="text-sm">
+                    {summary.openCount > 0
+                      ? `${summary.openCount}× mogelijk geen singlesevent (open)`
+                      : "Geen open meldingen"}
+                    {` · ${summary.totalCount} totaal`}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Status event: <strong>{summary.publicationStatus}</strong>
+                    {" · "}
+                    Route: {summary.eligibilityRoute ?? "—"}
+                    {" · "}
+                    singlesOnly:{" "}
+                    {summary.singlesOnly == null
+                      ? "—"
+                      : summary.singlesOnly
+                        ? "true"
+                        : "false"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {summary.city ?? "—"} · Eerste:{" "}
+                    {summary.firstReportAt?.slice(0, 16) ?? "—"} · Laatste:{" "}
+                    {summary.lastReportAt?.slice(0, 16) ?? "—"}
+                  </p>
+                  {summary.primarySourceUrl ? (
+                    <a
+                      href={summary.primarySourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="break-all text-sm font-medium underline-offset-4 hover:underline"
+                    >
+                      Bron: {summary.primarySourceUrl}
+                    </a>
+                  ) : null}
+                  {summary.openCount > 0 ? (
+                    <form
+                      action={updateEventReportsAction}
+                      className="flex flex-wrap items-end gap-2 pt-1"
+                    >
+                      <input
+                        type="hidden"
+                        name="editionId"
+                        value={summary.eventEditionId}
+                      />
+                      <select
+                        name="status"
+                        defaultValue="reviewing"
+                        className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                      >
+                        <option value="reviewing">In controle</option>
+                        <option value="confirmed">Bevestigd (terecht)</option>
+                        <option value="dismissed">Onterecht</option>
+                        <option value="resolved">Afgehandeld</option>
+                      </select>
+                      <input
+                        name="resolutionNote"
+                        placeholder="Note (optioneel)"
+                        className="min-w-[12rem] flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                      />
+                      <button
+                        type="submit"
+                        className="rounded-md border border-border px-3 py-1.5 text-sm"
+                      >
+                        Update open meldingen
+                      </button>
+                    </form>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <h2 className="mb-4 text-lg font-semibold tracking-tight">Events</h2>
       <ul className="space-y-4">
         {bundles.map((bundle) => {
           const { edition } = bundle;
           const primary =
             bundle.sources.find((s) => s.isPrimary) ?? bundle.sources[0];
+          const openReports = openByEdition.get(edition.id) ?? 0;
           return (
             <li
               key={edition.id}
@@ -277,6 +387,16 @@ export default async function InterneEventsPage() {
                       ? ` · published ${edition.publishedAt.slice(0, 10)}`
                       : null}
                   </p>
+                  {openReports > 0 ? (
+                    <p className="text-sm">
+                      <a
+                        href={`#meldingen-${edition.id}`}
+                        className="font-medium underline-offset-4 hover:underline"
+                      >
+                        {openReports}× mogelijk geen singlesevent
+                      </a>
+                    </p>
+                  ) : null}
                   <p className="text-sm text-muted-foreground">
                     {edition.city} · Laatst gecontroleerd:{" "}
                     {edition.lastCheckedAt?.slice(0, 16) ?? "onbekend"}
@@ -306,8 +426,7 @@ export default async function InterneEventsPage() {
               </div>
             </li>
           );
-        })}
-      </ul>
+        })}      </ul>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { CapacityStatus } from "@/components/events/capacity-status";
 import { EventLabels } from "@/components/events/event-labels";
 import { EventVisual } from "@/components/events/event-visual";
 import { FreshnessLabel } from "@/components/events/freshness-label";
+import { ReportSinglesCta } from "@/components/events/report-singles-cta";
 import { SaveButton } from "@/components/events/save-button";
 import { Button } from "@/components/ui/button";
 import { findPlace } from "@/data/places";
@@ -361,6 +362,9 @@ export function EventDetail({
 
             <div className="space-y-2 border-t border-border pt-4">
               <FreshnessLabel lastCheckedAt={event.lastCheckedAt} />
+              {!showInternalReview ? (
+                <ReportSinglesCta eventId={event.id} />
+              ) : null}
               <p className="text-sm text-muted-foreground">
                 Bron: {event.sourceName}
               </p>

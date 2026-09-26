@@ -4,6 +4,7 @@ import Link from "next/link";
 import { EventLabels } from "@/components/events/event-labels";
 import { EventVisual } from "@/components/events/event-visual";
 import { FreshnessLabel } from "@/components/events/freshness-label";
+import { ReportSinglesCta } from "@/components/events/report-singles-cta";
 import { SaveButton } from "@/components/events/save-button";
 import { displayEligibilityAge } from "@/lib/eligibility";
 import {
@@ -42,6 +43,7 @@ export function EventCard({
     ? formatPriceFrom(event.price, event.currency)
     : formatPrice(event.price, event.currency);
   const capacityBadge = publicCapacityBadge(event.capacityStatus);
+  const showReport = hrefBase === "/event";
 
   return (
     <article className="group">
@@ -87,7 +89,17 @@ export function EventCard({
 
         <p className="text-sm text-muted-foreground">{ageLine}</p>
 
-        <FreshnessLabel lastCheckedAt={event.lastCheckedAt} compact />
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <FreshnessLabel lastCheckedAt={event.lastCheckedAt} compact />
+          {showReport ? (
+            <>
+              <span className="text-xs text-muted-foreground" aria-hidden>
+                ·
+              </span>
+              <ReportSinglesCta eventId={event.id} compact />
+            </>
+          ) : null}
+        </div>
       </div>
     </article>
   );
