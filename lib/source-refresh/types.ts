@@ -40,7 +40,9 @@ export type SourceRefreshMatchConfidence =
 export type RefreshParserKey =
   | "speeddaten"
   | "hoptodate"
-  | "sportieve-singles";
+  | "sportieve-singles"
+  | "tomeeto"
+  | "juntas";
 
 /** Deterministic normalized candidate from a source-specific parser. */
 export type RefreshNormalizedCandidate = {

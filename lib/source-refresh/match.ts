@@ -54,9 +54,8 @@ function diffCandidate(
   e: EventEditionRecord,
 ): RefreshFieldChange[] {
   const changes: RefreshFieldChange[] = [];
-  const candStart = c.startsAt.slice(0, 16);
-  const edStart = e.startsAt.slice(0, 16);
-  if (candStart !== edStart) {
+  // Travel/default wall times vary by offset formatting; compare calendar days.
+  if (dayKey(c.startsAt) !== dayKey(e.startsAt)) {
     changes.push({ field: "startsAt", before: e.startsAt, after: c.startsAt });
   }
   if (c.city && normalizeText(c.city) !== normalizeText(e.city)) {
@@ -93,6 +92,9 @@ function diffCandidate(
       after: `${c.minAge ?? "?"}-${c.maxAge ?? "?"}`,
     });
   }
+  if (c.endsAt && e.endsAt && dayKey(c.endsAt) !== dayKey(e.endsAt)) {
+    changes.push({ field: "endsAt", before: e.endsAt, after: c.endsAt });
+  }
   return changes;
 }
 
@@ -115,13 +117,23 @@ export function matchCandidate(
   const ticketUrl = candidate.ticketUrl
     ? normalizeRefreshUrl(candidate.ticketUrl)
     : null;
+  const day = candidate.date;
 
-  // 1) Exact URL match
+  // 1) Exact URL match (same calendar day; age when present)
   for (const row of editions) {
     if (
       row.sourceUrls.includes(candUrl) ||
       (ticketUrl && row.sourceUrls.includes(ticketUrl))
     ) {
+      if (dayKey(row.edition.startsAt) && dayKey(row.edition.startsAt) !== day) {
+        continue;
+      }
+      if (
+        (candidate.minAge != null || candidate.maxAge != null) &&
+        !sameAge(candidate, row.edition)
+      ) {
+        continue;
+      }
       const changes = diffCandidate(candidate, row.edition);
       return {
         editionId: row.edition.id,
@@ -132,7 +144,6 @@ export function matchCandidate(
   }
 
   // 2) Same organizer + same day + (city or title) + age when present
-  const day = candidate.date;
   let probable: MatchableEdition | null = null;
   for (const row of editions) {
     if (row.organizerSlug !== expectedOrganizerSlug) continue;

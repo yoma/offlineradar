@@ -43,6 +43,8 @@
     "curate:phase15-nonspeeddate": "node --env-file=.env.local --import tsx scripts/curate-phase15-nonspeeddate.ts",
     "verify:phase15-nonspeeddate": "npx tsx scripts/verify-phase15-nonspeeddate.ts",
     "verify:phase16-taxonomy": "npx tsx scripts/verify-phase16-taxonomy.ts",
+    "verify:phase17-travel-parsers": "npx tsx scripts/verify-phase17-travel-parsers.ts",
+    "refresh:phase17-pilot": "node --env-file=.env.local --import tsx scripts/run-phase17-travel-refresh.ts",
     "seed:phase8-sources": "node --env-file=.env.local --import tsx scripts/seed-phase8-sources.ts",
     "db:migrate:event-reports": "node --env-file=.env.local --import tsx scripts/migrate-event-reports.ts",
     "verify:event-reports": "node --env-file=.env.local --import tsx scripts/verify-event-reports.ts",

@@ -86,7 +86,11 @@ export async function startSourceRefresh(input: {
   }
 
   const latest = await getLatestRefreshRun(input.catalogSourceId);
-  if (latest?.status === "completed" && latest.completedAt) {
+  if (
+    process.env.SOURCE_REFRESH_SKIP_COOLDOWN !== "1" &&
+    latest?.status === "completed" &&
+    latest.completedAt
+  ) {
     const age = Date.now() - new Date(latest.completedAt).getTime();
     if (age >= 0 && age < SOURCE_REFRESH_COOLDOWN_MS) {
       return {

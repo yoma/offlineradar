@@ -1,6 +1,6 @@
 /**
  * Pilot source registry for semi-automatic refresh V1.
- * Extensible map; only these three parsers are implemented.
+ * Extensible map; only registered parsers are callable from admin.
  */
 import type { RefreshParserKey } from "@/lib/source-refresh/types";
 
@@ -41,6 +41,22 @@ export const REFRESH_PILOTS: RefreshPilotConfig[] = [
     fetchUrl: "https://www.sportievesingles.be/kalender",
     organizerSlug: "sportieve-singles",
     organizerName: "Sportieve Singles",
+  },
+  {
+    catalogSourceId: "18ac22ba-a921-4317-bbd0-06a6068bc372",
+    parserKey: "tomeeto",
+    label: "Tomeeto singles aanbod",
+    fetchUrl: "https://tomeeto.be/vakanties/aanbod-voor-singles/",
+    organizerSlug: "tomeeto",
+    organizerName: "Tomeeto",
+  },
+  {
+    catalogSourceId: "b6af624e-337d-41e3-8f4f-524a152f9ae9",
+    parserKey: "juntas",
+    label: "Juntas exclusief singles",
+    fetchUrl: "https://juntas.be/?reis_label=single-only",
+    organizerSlug: "juntas",
+    organizerName: "Juntas",
   },
 ];
 
