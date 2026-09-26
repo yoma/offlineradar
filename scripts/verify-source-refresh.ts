@@ -91,8 +91,8 @@ async function main() {
   const fixtureDir = path.join(process.cwd(), "data/source-refresh/fixtures");
 
   // Registry
-  if (REFRESH_PILOTS.length !== 3) fail("registry count", String(REFRESH_PILOTS.length));
-  else ok("registry has 3 pilots");
+  if (REFRESH_PILOTS.length !== 5) fail("registry count", String(REFRESH_PILOTS.length));
+  else ok("registry has 5 pilots");
   if (!isRefreshSupported(REFRESH_PILOTS[0]!.catalogSourceId)) {
     fail("isRefreshSupported", "pilot 0");
   } else ok("isRefreshSupported true for pilot");
