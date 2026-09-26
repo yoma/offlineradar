@@ -11,6 +11,7 @@ import type {
   AttachSourceInput,
   EligibilityRoute,
 } from "@/types/event-catalog";
+import { resolvePublicEventImage } from "@/lib/image-compatibility";
 
 function slugify(value: string): string {
   return value
@@ -140,12 +141,28 @@ export function mapConsumerEventToCatalogDraft(
 
   const images: Omit<AttachImageInput, "eventEditionId">[] = [];
   if (event.imageUrl) {
+    const resolved = resolvePublicEventImage(
+      {
+        category: event.category,
+        activities: event.activities,
+        tags: event.tags,
+        title: event.title,
+        subCategory: event.subCategory,
+      },
+      event.imageUrl,
+      event.imageIsAtmosphere === true,
+    );
+    const useAtmosphere =
+      resolved.keptAtmosphere || resolved.usedFallback || event.imageIsAtmosphere === true;
     images.push({
-      urlOrPath: event.imageUrl,
-      imageType: event.imageIsAtmosphere ? "mood" : "official",
+      urlOrPath: resolved.url,
+      imageType: useAtmosphere ? "mood" : "official",
       isPrimary: true,
-      altText: event.imageAlt ?? null,
-      rightsNote: event.imageIsAtmosphere
+      altText:
+        !resolved.usedFallback && event.imageAlt
+          ? event.imageAlt
+          : `Sfeerbeeld ${resolved.imageCategory.replace("_", " ")}`,
+      rightsNote: useAtmosphere
         ? "Sfeerbeeld; geen officiële editiefoto."
         : null,
     });

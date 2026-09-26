@@ -53,6 +53,9 @@ export function EventCard({
             category={event.category}
             city={event.city}
             activities={event.activities}
+            tags={event.tags}
+            title={event.title}
+            subCategory={event.subCategory}
             imageUrl={event.imageUrl}
             imageAlt={event.imageAlt}
             imageIsAtmosphere={event.imageIsAtmosphere === true}

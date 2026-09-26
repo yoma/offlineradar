@@ -42,9 +42,11 @@ const GEO = {
   geel: { lat: 51.1611, lng: 4.9903 },
 } as const;
 
-function mood(file: string, alt: string) {
+function mood(fileOrUrl: string, alt: string) {
   return {
-    imageUrl: `/preview-mood/${file}`,
+    imageUrl: fileOrUrl.startsWith("http")
+      ? fileOrUrl
+      : `/preview-mood/${fileOrUrl}`,
     imageAlt: alt,
     imageIsAtmosphere: true as const,
   };
@@ -203,8 +205,10 @@ const SS = {
   singlesOnly: true,
   singlesOnlyEvidence:
     "Sportieve Singles vzw: activiteiten exclusief voor singles; open registratie via kalender.",
-  moodFile: "mood-singles-bowling.png",
-  moodAlt: "Sfeerbeeld outdoor singles activiteit",
+  // Outdoor/wandelen must never reuse bowling mood assets.
+  moodFile:
+    "https://images.unsplash.com/photo-1551632811-561732d1e306?auto=format&fit=crop&w=1200&q=80",
+  moodAlt: "Sfeerbeeld outdoor singles wandeling",
   category: "meet_new_people" as const,
   formatKind: "outdoor" as const,
 };
@@ -618,8 +622,9 @@ const SPECS: Spec[] = [
     tags: ["singles", "weekend", "wandelen", "ardennen"],
     activities: ["wandelen", "weekend"],
     practicalInfo: ["Av. de Villez 6, 6980 La Roche-en-Ardenne", "Lidmaatschap vereist volgens bron."],
-    moodFile: "mood-love-rooftop.png",
-    moodAlt: "Sfeerbeeld singles weekend",
+    moodFile:
+      "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=80",
+    moodAlt: "Sfeerbeeld singles weekend / reizen",
     formatKind: "weekend",
     priceNote: "Prijs via reispagina/Intersoc.",
     reviewNotes: ["fase9: travel high-yield; reizenvoorsingles 23–25/10."],
@@ -655,8 +660,9 @@ const SPECS: Spec[] = [
     tags: ["singles", "weekend", "wandelen", "wallonie"],
     activities: ["wandelen", "weekend"],
     practicalInfo: ["Rue Saint-Eloi 27, 5670 Viroinval"],
-    moodFile: "mood-love-rooftop.png",
-    moodAlt: "Sfeerbeeld singles weekend",
+    moodFile:
+      "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=80",
+    moodAlt: "Sfeerbeeld singles weekend / reizen",
     formatKind: "weekend",
     priceNote: "Prijs via reispagina.",
     reviewNotes: ["fase9: Wallonië travel 06–08/11."],

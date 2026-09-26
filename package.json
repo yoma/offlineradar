@@ -40,7 +40,9 @@
     "verify:search-filters": "npx tsx scripts/verify-search-filters.ts",
     "db:migrate:source-refresh": "node --env-file=.env.local --import tsx scripts/migrate-source-refresh.ts",
     "verify:source-refresh": "npx tsx scripts/verify-source-refresh.ts",
-    "verify:source-refresh:neon": "node --env-file=.env.local --import tsx scripts/verify-source-refresh.ts"
+    "verify:source-refresh:neon": "node --env-file=.env.local --import tsx scripts/verify-source-refresh.ts",
+    "verify:image-compatibility": "npx tsx scripts/verify-image-compatibility.ts",
+    "fix:event-image-mismatches": "node --env-file=.env.local --import tsx scripts/fix-event-image-mismatches.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
