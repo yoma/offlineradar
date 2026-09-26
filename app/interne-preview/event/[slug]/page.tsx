@@ -28,5 +28,5 @@ export default async function InternePreviewEventPage({
   const event = await getPreviewEventBySlug(slug);
   if (!event) notFound();
 
-  return <EventDetail event={event} backHref="/interne-preview" />;
+  return <EventDetail event={event} backHref="/interne-preview" showInternalReview />;
 }

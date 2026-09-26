@@ -69,6 +69,39 @@ export function defaultSearchState(): SearchState {
   };
 }
 
+/**
+ * Canonical date filter: exactly one when-mode at a time.
+ * Choosing month/weekend/next_week/etc. always clears an explicit date.
+ */
+export function withWhenFilter(
+  state: SearchState,
+  when: WhenFilter,
+  date: string | null = null,
+): SearchState {
+  if (when === "date") {
+    return { ...state, when: "date", date: date || state.date };
+  }
+  return { ...state, when, date: null };
+}
+
+/** Merge a patch while keeping when/date mutually exclusive. */
+export function applySearchPatch(
+  state: SearchState,
+  patch: Partial<SearchState>,
+): SearchState {
+  const next = { ...state, ...patch };
+  if (Object.prototype.hasOwnProperty.call(patch, "when")) {
+    return withWhenFilter(next, patch.when ?? "any", patch.date ?? null);
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, "date") && next.when !== "date") {
+    return { ...next, date: null };
+  }
+  if (next.when !== "date") {
+    return { ...next, date: null };
+  }
+  return next;
+}
+
 function one(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0];
   return value;
@@ -121,7 +154,10 @@ export function parseSearchState(
     preferredAgeMax: asNumber(one(raw.prefMax)),
     preferredMeetGender: oneOf(one(raw.meet), MEET_GENDERS, "anyone"),
     when: oneOf(one(raw.when), WHENS, "any"),
-    date: one(raw.date) || null,
+    date:
+      oneOf(one(raw.when), WHENS, "any") === "date"
+        ? one(raw.date) || null
+        : null,
     categories: manyOf(one(raw.cat), CATEGORIES),
     activities: manyOf(one(raw.act), ACTIVITIES),
     price: oneOf(one(raw.price), PRICES, "any"),

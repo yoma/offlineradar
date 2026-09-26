@@ -27,7 +27,9 @@
     "verify:events-neon": "node --env-file=.env.local --import tsx scripts/verify-events-neon.ts",
     "import:preview-events": "node --env-file=.env.local --import tsx scripts/import-preview-events.ts",
     "publish:preview-events": "node --env-file=.env.local --import tsx scripts/publish-approved-preview-events.ts",
-    "verify:events-feed": "node --env-file=.env.local --import tsx scripts/verify-events-feed.ts"
+    "enrich:published-events": "node --env-file=.env.local --import tsx scripts/enrich-published-events.ts",
+    "verify:events-feed": "node --env-file=.env.local --import tsx scripts/verify-events-feed.ts",
+    "verify:search-filters": "npx tsx scripts/verify-search-filters.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

@@ -18,6 +18,7 @@ import {
   userHasMeetPreference,
 } from "@/lib/ranking";
 import {
+  applySearchPatch,
   applyStoredProfile,
   profileFromSearch,
   serializeSearchState,
@@ -110,7 +111,7 @@ export function DiscoverView({
 
   function update(patch: Partial<SearchState>) {
     setState((current) => {
-      const next = { ...current, ...patch };
+      const next = applySearchPatch(current, patch);
       track("filter_changed", {
         when: next.when,
         distance: next.maxDistanceKm,
@@ -225,7 +226,9 @@ export function DiscoverView({
                   className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm hover:border-foreground ${
                     chip.kind === "preference"
                       ? "border-dashed border-foreground/35 bg-secondary/50"
-                      : "border-border bg-white"
+                      : chip.kind === "date"
+                        ? "border-foreground/25 bg-secondary/40"
+                        : "border-border bg-white"
                   }`}
                 >
                   {chip.label}
@@ -352,20 +355,20 @@ function activeChips(state: SearchState): {
   id: string;
   label: string;
   patch: Partial<SearchState>;
-  kind: "filter" | "preference";
+  kind: "filter" | "preference" | "date";
 }[] {
   const chips: {
     id: string;
     label: string;
     patch: Partial<SearchState>;
-    kind: "filter" | "preference";
+    kind: "filter" | "preference" | "date";
   }[] = [];
   if (state.when !== "any") {
     chips.push({
       id: "when",
       label: state.when === "date" && state.date ? state.date : WHEN_LABEL[state.when],
       patch: { when: "any", date: null },
-      kind: "filter",
+      kind: "date",
     });
   }
   if (state.maxDistanceKm !== 25) {

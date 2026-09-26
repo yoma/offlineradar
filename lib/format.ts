@@ -111,8 +111,8 @@ export function formatDeadlineDetail(deadline: string | null): string {
 }
 
 const CAPACITY_LABEL: Record<CapacityStatus, string> = {
-  available: "Plaats genoeg",
-  limited: "Beperkt",
+  available: "Beschikbaar",
+  limited: "Beperkte plaatsen",
   almost_full: "Bijna vol",
   sold_out: "Volzet",
   waitlist: "Wachtlijst",

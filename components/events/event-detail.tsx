@@ -24,6 +24,11 @@ import {
   formatPriceFrom,
   formatSchedule,
 } from "@/lib/format";
+import {
+  formatConsumerAvailabilityDetail,
+  formatGuidelineOutsideHint,
+  formatPublicAvailabilityStatus,
+} from "@/lib/public-copy";
 import { defaultSearchState } from "@/lib/search-state";
 import { readProfile } from "@/lib/storage";
 import { whyThisFits } from "@/lib/why";
@@ -34,10 +39,13 @@ import type { SearchState } from "@/types/search";
 export function EventDetail({
   event,
   backHref = "/ontdek",
+  showInternalReview = false,
 }: {
   event: Event;
   /** List path for internal preview back navigation. */
   backHref?: string;
+  /** Preview/admin only: show internal warnings & source conflicts. */
+  showInternalReview?: boolean;
 }) {
   const [state, setState] = useState<SearchState>(defaultSearchState());
 
@@ -79,6 +87,14 @@ export function EventDetail({
   const primaryCtaLabel = event.ticketUrl
     ? "Boek bij organisator"
     : "Bekijk bij organisator";
+  const availabilityDetail = formatConsumerAvailabilityDetail(
+    event.capacityStatus,
+    event.availabilityNote,
+  );
+  const guidelineOutsideHint =
+    eligibility.status === "guideline" && eligibility.inRange === false
+      ? formatGuidelineOutsideHint()
+      : null;
   const priceLabel = event.priceIsFrom
     ? formatPriceFrom(event.price, event.currency)
     : formatPrice(event.price, event.currency);
@@ -141,7 +157,8 @@ export function EventDetail({
             </p>
           </header>
 
-          {(event.internalPreviewWarnings?.length ||
+          {showInternalReview &&
+          (event.internalPreviewWarnings?.length ||
             event.internalSourceConflicts?.length) ? (
             <section className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-950">
               <h2 className="text-base font-semibold tracking-tight">
@@ -184,6 +201,11 @@ export function EventDetail({
             <p className="mt-1.5 text-sm leading-6 text-foreground/80">
               {eligibility.detail}
             </p>
+            {guidelineOutsideHint ? (
+              <p className="mt-2 text-sm leading-6 text-foreground/80">
+                {guidelineOutsideHint}
+              </p>
+            ) : null}
           </section>
 
           {isActiveMeetActivation(event.meetActivation) && event.meetActivation ? (
@@ -259,13 +281,13 @@ export function EventDetail({
           <div className="listing-shadow sticky top-24 space-y-4 rounded-2xl border border-border bg-white p-5">
             <div className="flex items-end justify-between gap-3">
               <p className="text-2xl font-semibold">{priceLabel}</p>
-              {event.availabilityNote ? (
+              {availabilityDetail ? (
                 <p className="max-w-[14rem] text-right text-sm text-muted-foreground">
-                  {event.availabilityNote}
+                  {availabilityDetail}
                 </p>
               ) : event.capacityStatus === "unknown" ? (
                 <p className="text-sm text-muted-foreground">
-                  Beschikbaarheid onbekend
+                  {formatPublicAvailabilityStatus(event.capacityStatus)}
                 </p>
               ) : (
                 <CapacityStatus

@@ -25,8 +25,14 @@ type QuickChip = {
   activities?: ActivityId[];
 };
 
-const QUICK: QuickChip[] = [
+/** Date shortcuts — separate from activity/type chips. */
+const DATE_QUICK: QuickChip[] = [
   { label: "Dit weekend", when: "weekend" },
+  { label: "Deze maand", when: "month" },
+  { label: "Volgende week", when: "next_week" },
+];
+
+const TYPE_QUICK: QuickChip[] = [
   { label: "Dating", categories: ["dating"] },
   { label: "Nieuwe mensen", categories: ["meet_new_people"] },
   { label: "Sport", activities: ["sport"] },
@@ -37,11 +43,11 @@ const QUICK: QuickChip[] = [
 ];
 
 const ALL_CATEGORIES = [
-  ...new Set(QUICK.flatMap((chip) => chip.categories ?? [])),
+  ...new Set(TYPE_QUICK.flatMap((chip) => chip.categories ?? [])),
 ] as EventCategory[];
 
 const ALL_ACTIVITIES = [
-  ...new Set(QUICK.flatMap((chip) => chip.activities ?? [])),
+  ...new Set(TYPE_QUICK.flatMap((chip) => chip.activities ?? [])),
 ] as ActivityId[];
 
 function includesAll<T>(haystack: T[], needles: T[]) {
@@ -61,7 +67,7 @@ export function HomeHero() {
   const [gender, setGender] = useState<UserGender | "">("");
   const [placeId, setPlaceId] = useState("antwerpen");
   const [distance, setDistance] = useState(25);
-  const [when, setWhen] = useState<WhenFilter>("weekend");
+  const [when, setWhen] = useState<WhenFilter>("any");
   const [date, setDate] = useState("");
   const [activities, setActivities] = useState<ActivityId[]>([]);
   const [categories, setCategories] = useState<EventCategory[]>([]);
@@ -96,6 +102,7 @@ export function HomeHero() {
   function toggleChip(chip: QuickChip) {
     if (chip.when) {
       setWhen((current) => (current === chip.when ? "any" : chip.when!));
+      if (chip.when !== "date") setDate("");
       return;
     }
     if (chip.categories) {
@@ -210,7 +217,11 @@ export function HomeHero() {
               <Field label="Wanneer" divide>
                 <select
                   value={when}
-                  onChange={(event) => setWhen(event.target.value as WhenFilter)}
+                  onChange={(event) => {
+                    const next = event.target.value as WhenFilter;
+                    setWhen(next);
+                    if (next !== "date") setDate("");
+                  }}
                   className="w-full bg-transparent text-[15px] font-semibold outline-none"
                 >
                   <option value="any">{WHEN_LABEL.any}</option>
@@ -368,41 +379,68 @@ export function HomeHero() {
             </div>
           ) : null}
 
-          <div className="mt-5">
-            <p className="mb-2 text-xs font-semibold tracking-wide text-white/70 uppercase">
-              Waar heb je zin in?
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                aria-pressed={allCategoriesActive}
-                onClick={toggleAllCategories}
-                className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold backdrop-blur-sm transition ${
-                  allCategoriesActive
-                    ? "border-white bg-white text-foreground"
-                    : "border-white/40 bg-white/15 text-white hover:bg-white/25"
-                }`}
-              >
-                Alle categorieën
-              </button>
-              {QUICK.map((item) => {
-                const active = isChipActive(item);
-                return (
-                  <button
-                    key={item.label}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => toggleChip(item)}
-                    className={`rounded-full border px-3.5 py-1.5 text-sm font-medium backdrop-blur-sm transition ${
-                      active
-                        ? "border-white bg-white text-foreground"
-                        : "border-white/25 bg-white/10 text-white hover:bg-white/20"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
+          <div className="mt-5 space-y-4">
+            <div>
+              <p className="mb-2 text-xs font-semibold tracking-wide text-white/70 uppercase">
+                Wanneer
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                {DATE_QUICK.map((item) => {
+                  const active = isChipActive(item);
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => toggleChip(item)}
+                      className={`rounded-full border px-3.5 py-1.5 text-sm font-medium backdrop-blur-sm transition ${
+                        active
+                          ? "border-white bg-white text-foreground"
+                          : "border-white/25 bg-white/10 text-white hover:bg-white/20"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 text-xs font-semibold tracking-wide text-white/70 uppercase">
+                Waar heb je zin in?
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  aria-pressed={allCategoriesActive}
+                  onClick={toggleAllCategories}
+                  className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold backdrop-blur-sm transition ${
+                    allCategoriesActive
+                      ? "border-white bg-white text-foreground"
+                      : "border-white/40 bg-white/15 text-white hover:bg-white/25"
+                  }`}
+                >
+                  Alle categorieën
+                </button>
+                {TYPE_QUICK.map((item) => {
+                  const active = isChipActive(item);
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => toggleChip(item)}
+                      className={`rounded-full border px-3.5 py-1.5 text-sm font-medium backdrop-blur-sm transition ${
+                        active
+                          ? "border-white bg-white text-foreground"
+                          : "border-white/25 bg-white/10 text-white hover:bg-white/20"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

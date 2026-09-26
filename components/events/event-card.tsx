@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { EventLabels } from "@/components/events/event-labels";
 import { EventVisual } from "@/components/events/event-visual";
+import { FreshnessLabel } from "@/components/events/freshness-label";
 import { SaveButton } from "@/components/events/save-button";
 import { displayEligibilityAge } from "@/lib/eligibility";
 import {
@@ -11,6 +12,10 @@ import {
   formatPrice,
   formatPriceFrom,
 } from "@/lib/format";
+import {
+  formatCardAgeLine,
+  publicCapacityBadge,
+} from "@/lib/public-copy";
 import type { PreparedEvent } from "@/lib/filters";
 import type { UserGender } from "@/types/event";
 
@@ -25,21 +30,18 @@ export function EventCard({
   hrefBase?: string;
 }) {
   const ageInfo = displayEligibilityAge(event, gender);
-  const age = formatAgeRange(ageInfo.min, ageInfo.max);
-  const ageLine =
-    age && ageInfo.rule === "guideline"
-      ? `Richtleeftijd ${age}`
-      : age && ageInfo.rule === "strict"
-        ? `${age} · strikt`
-        : age;
-  const guidelineOutside =
-    event.participation.status === "guideline" &&
-    event.participation.inRange === false;
+  const range = formatAgeRange(ageInfo.min, ageInfo.max);
+  const ageLine = formatCardAgeLine(
+    ageInfo.rule,
+    ageInfo.min != null && ageInfo.max == null && range
+      ? range.replace(" jaar", "")
+      : range,
+  );
   const detailHref = `${hrefBase}/${event.slug}`;
   const priceLabel = event.priceIsFrom
     ? formatPriceFrom(event.price, event.currency)
     : formatPrice(event.price, event.currency);
-  const availability = event.availabilityNote?.trim() || null;
+  const capacityBadge = publicCapacityBadge(event.capacityStatus);
 
   return (
     <article className="group">
@@ -67,28 +69,25 @@ export function EventCard({
             <h2 className="truncate text-[15px] font-semibold tracking-tight">
               {event.title}
             </h2>
-            <p className="mt-0.5 text-sm text-muted-foreground">{event.city}</p>
           </Link>
           <p className="shrink-0 text-[15px] font-semibold">{priceLabel}</p>
         </div>
 
+        <p className="text-sm text-muted-foreground">{event.city}</p>
         <p className="text-sm text-muted-foreground">{formatCardWhen(event)}</p>
 
-        <EventLabels event={event} />
-
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-          {ageLine ? <span>{ageLine}</span> : <span>Leeftijd niet vermeld</span>}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <EventLabels event={event} compact />
+          {capacityBadge ? (
+            <span className="inline-flex items-center rounded-full border border-border bg-white px-2.5 py-0.5 text-xs font-medium text-foreground">
+              {capacityBadge}
+            </span>
+          ) : null}
         </div>
 
-        {guidelineOutside ? (
-          <p className="text-sm text-muted-foreground">
-            Deelname buiten de richtleeftijd is niet bevestigd.
-          </p>
-        ) : null}
+        <p className="text-sm text-muted-foreground">{ageLine}</p>
 
-        {availability ? (
-          <p className="text-sm text-muted-foreground">{availability}</p>
-        ) : null}
+        <FreshnessLabel lastCheckedAt={event.lastCheckedAt} compact />
       </div>
     </article>
   );

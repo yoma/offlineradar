@@ -78,7 +78,12 @@ export function FilterSheet({
                   onClick={() =>
                     onChange({
                       when: state.when === option ? "any" : option,
-                      date: option === "date" ? state.date : null,
+                      date:
+                        state.when === option
+                          ? null
+                          : option === "date"
+                            ? state.date
+                            : null,
                     })
                   }
                 >

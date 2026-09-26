@@ -28,9 +28,8 @@ export function eventLabels(
     labels.push({ kind: "singles_only", text: "Singles only" });
   } else if (event.singlesOriented === true) {
     labels.push({ kind: "singles_oriented", text: "Singlesgericht" });
-  } else if (event.singlesFriendly) {
-    labels.push({ kind: "singles_friendly", text: "Singles Friendly" });
   }
+  // Never show singlesFriendly marketing badge on consumer surfaces.
   if (isActiveMeetActivation(event.meetActivation)) {
     labels.push({ kind: "meet", text: "OfflineRadar Meet" });
   }
