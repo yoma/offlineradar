@@ -19,6 +19,12 @@ import {
 } from "@/lib/events/reports";
 import { assertOfflineRadarDbConfig } from "@/lib/events/db";
 import { CatalogSourcesBrowser } from "@/components/admin/catalog-sources-browser";
+import { SourceRefreshControls } from "@/components/admin/source-refresh-controls";
+import {
+  isRefreshSupported,
+  REFRESH_PILOTS,
+} from "@/lib/source-refresh/registry";
+import { listLatestRunsBySourceIds } from "@/lib/source-refresh/store";
 
 export const dynamic = "force-dynamic";
 
@@ -107,6 +113,9 @@ export default async function InterneEventsPage() {
   } catch {
     catalogSources = [];
   }
+  const refreshRuns = await listLatestRunsBySourceIds(
+    REFRESH_PILOTS.map((p) => p.catalogSourceId),
+  );
 
   let reportSummaries: Awaited<ReturnType<typeof listEventReportSummaries>> = [];
   let openByEdition = new Map<string, number>();
@@ -144,7 +153,8 @@ export default async function InterneEventsPage() {
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Bronnen</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Curated Source Map voor handmatige batches. Geen crawler.
+            Curated Source Map. Pilotbronnen hebben “Controleer bron” (geen
+            crawler, geen auto-publish).
           </p>
         </div>
 
@@ -240,6 +250,11 @@ export default async function InterneEventsPage() {
                         {source.notes}
                       </p>
                     ) : null}
+                    <SourceRefreshControls
+                      catalogSourceId={source.id}
+                      supported={isRefreshSupported(source.id)}
+                      latestRun={refreshRuns.get(source.id) ?? null}
+                    />
                     <form
                       action={updateCatalogSourceAction}
                       className="flex flex-wrap items-end gap-2 pt-1"

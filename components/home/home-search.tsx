@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { ChevronDown, Search, SlidersHorizontal } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
 import { USER_PLACES, findPlace } from "@/data/places";
 import { track } from "@/lib/analytics";
 import { DISTANCES, GENDER_LABEL, MEET_GENDER_LABEL, WHEN_LABEL } from "@/lib/format";
@@ -54,7 +53,6 @@ function toggleList<T>(current: T[], next: T[]) {
 }
 
 export function HomeHero() {
-  const router = useRouter();
   const [age, setAge] = useState("");
   const [gender, setGender] = useState<UserGender | "">("");
   const [placeId, setPlaceId] = useState("antwerpen");
@@ -146,7 +144,9 @@ export function HomeHero() {
       when: state.when,
     });
     const query = serializeSearchState(state);
-    router.push(query ? `/ontdek?${query}` : "/ontdek");
+    // Hard navigation: client soft-nav from the hero was intermittently a no-op
+    // on production (submit ran, profile wrote, URL stayed on /).
+    window.location.assign(query ? `/ontdek?${query}` : "/ontdek");
   }
 
   const extraFilterCount = [
@@ -155,7 +155,7 @@ export function HomeHero() {
   ].filter(Boolean).length;
 
   return (
-    <section className="relative -mt-16 min-h-[100svh] overflow-hidden">
+    <section className="relative -mt-16 min-h-[100svh] overflow-x-hidden">
       <Image
         src={heroImageUrl()}
         alt=""
@@ -166,19 +166,19 @@ export function HomeHero() {
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/60" />
 
-      <div className="relative mx-auto flex min-h-[100svh] w-full max-w-6xl flex-col justify-center px-4 pb-16 pt-28 sm:px-6">
+      <div className="relative mx-auto flex min-h-[100svh] w-full max-w-6xl flex-col justify-center px-4 pb-24 pt-24 sm:px-6 sm:pb-16 sm:pt-28">
         <p className="text-sm font-semibold tracking-[0.18em] text-white/90 uppercase">
           OfflineRadar
         </p>
-        <h1 className="mt-4 max-w-2xl text-4xl font-semibold tracking-tight text-white sm:text-6xl sm:leading-[1.05]">
+        <h1 className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight text-white sm:mt-4 sm:text-6xl sm:leading-[1.05]">
           Ga offline. Ontmoet mensen.
         </h1>
-        <p className="mt-4 max-w-xl text-base leading-7 text-white/85 sm:text-lg">
+        <p className="mt-3 max-w-xl text-base leading-7 text-white/85 sm:mt-4 sm:text-lg">
           Singles-events, diners, wandelingen, sport en meer, op één plek.
         </p>
 
         <form
-          className="mt-8 w-full max-w-4xl"
+          className="mt-6 w-full max-w-4xl sm:mt-8"
           onSubmit={(event) => {
             event.preventDefault();
             go();
@@ -364,6 +364,27 @@ export function HomeHero() {
             </div>
           ) : null}
 
+          <div className="mt-4 space-y-3 sm:mt-6">
+            {error ? (
+              <p className="text-sm font-medium text-white">{error}</p>
+            ) : null}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+              <button
+                type="submit"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#e61e4d] px-6 py-3.5 text-base font-semibold text-white shadow-lg transition hover:bg-[#d70466] sm:w-auto sm:min-w-[240px]"
+              >
+                <Search className="size-4" />
+                Vind activiteiten
+              </button>
+              <a
+                href="#tip-een-activiteit"
+                className="inline-flex w-full items-center justify-center rounded-full border border-white/40 bg-white/10 px-6 py-3.5 text-base font-semibold text-white backdrop-blur-sm transition hover:bg-white/20 sm:w-auto"
+              >
+                Tip een activiteit
+              </a>
+            </div>
+          </div>
+
           <div className="mt-5 space-y-4">
             <div>
               <p className="mb-2 text-xs font-semibold tracking-wide text-white/70 uppercase">
@@ -426,27 +447,6 @@ export function HomeHero() {
                   );
                 })}
               </div>
-            </div>
-          </div>
-
-          <div className="mt-6 space-y-3">
-            {error ? (
-              <p className="text-sm font-medium text-white">{error}</p>
-            ) : null}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-              <button
-                type="submit"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#e61e4d] px-6 py-3.5 text-base font-semibold text-white shadow-lg transition hover:bg-[#d70466] sm:w-auto sm:min-w-[240px]"
-              >
-                <Search className="size-4" />
-                Vind activiteiten
-              </button>
-              <a
-                href="#tip-een-activiteit"
-                className="inline-flex w-full items-center justify-center rounded-full border border-white/40 bg-white/10 px-6 py-3.5 text-base font-semibold text-white backdrop-blur-sm transition hover:bg-white/20 sm:w-auto"
-              >
-                Tip een activiteit
-              </a>
             </div>
           </div>
         </form>
