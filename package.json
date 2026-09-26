@@ -30,6 +30,7 @@
     "db:migrate:catalog-sources": "node --env-file=.env.local --import tsx scripts/migrate-catalog-sources.ts",
     "import:phase5-expansion": "node --env-file=.env.local --import tsx scripts/import-phase5-expansion.ts",
     "import:phase6-expansion": "node --env-file=.env.local --import tsx scripts/import-phase6-expansion.ts",
+    "import:phase9-expansion": "node --env-file=.env.local --import tsx scripts/import-phase9-expansion.ts",
     "seed:phase8-sources": "node --env-file=.env.local --import tsx scripts/seed-phase8-sources.ts",
     "db:migrate:event-reports": "node --env-file=.env.local --import tsx scripts/migrate-event-reports.ts",
     "verify:event-reports": "node --env-file=.env.local --import tsx scripts/verify-event-reports.ts",
