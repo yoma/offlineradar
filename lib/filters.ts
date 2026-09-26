@@ -2,6 +2,7 @@ import { findPlace } from "@/data/places";
 import {
   addDays,
   brusselsToday,
+  monthRange,
   nextWeekRange,
   weekendRange,
 } from "@/lib/dates";
@@ -41,10 +42,8 @@ function matchesWhen(event: Event, state: SearchState, today: string): boolean {
     return overlaps(event, next.start, next.end);
   }
   if (state.when === "month") {
-    return (
-      event.startDate.slice(0, 7) === today.slice(0, 7) &&
-      eventEnd(event) >= today
-    );
+    const range = monthRange(today);
+    return overlaps(event, range.start, range.end);
   }
   if (state.when === "date" && state.date) {
     return overlaps(event, state.date, state.date);

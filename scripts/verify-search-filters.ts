@@ -126,7 +126,7 @@ async function main() {
   assert.equal(distanceOnly.maxDistanceKm, 100);
   ok("distance change does not alter date");
 
-  // Matching exclusivity with sample events
+  // Matching exclusivity with sample events (late Sept → month includes October)
   const events = [
     stub({ id: "a", slug: "weekend-ev", startDate: "2026-09-26" }), // Sat
     stub({ id: "b", slug: "midweek-ev", startDate: "2026-09-29" }), // Tue
@@ -145,8 +145,19 @@ async function main() {
     now,
   );
   assert.ok(monthMatch.visible.some((e) => e.slug === "midweek-ev"));
-  assert.ok(monthMatch.visible.some((e) => e.slug === "later-ev") === false); // Oct not Sep
+  assert.ok(
+    monthMatch.visible.some((e) => e.slug === "later-ev"),
+    "late-month 'Deze maand' includes next calendar month",
+  );
   ok("matching weekend vs month exclusive");
+
+  const clearWhen = applySearchPatch(
+    { ...defaultSearchState(), when: "month", activities: ["sport"] },
+    { when: "any", date: null },
+  );
+  assert.equal(clearWhen.when, "any");
+  assert.deepEqual(clearWhen.activities, ["sport"]);
+  ok("clear date keeps other filters");
 
   assert.equal(
     formatPublicAvailabilityStatus("unknown"),

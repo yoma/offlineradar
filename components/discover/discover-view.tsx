@@ -448,6 +448,13 @@ function activeChips(state: SearchState): {
 
 function suggestions(state: SearchState): { id: string; label: string; patch: Partial<SearchState> }[] {
   const items: { id: string; label: string; patch: Partial<SearchState> }[] = [];
+  if (state.when !== "any") {
+    items.push({
+      id: "clear-when",
+      label: "Toon alle aankomende data",
+      patch: { when: "any", date: null },
+    });
+  }
   if (state.maxDistanceKm < 50) {
     items.push({
       id: "distance",
@@ -482,11 +489,11 @@ function suggestions(state: SearchState): { id: string; label: string; patch: Pa
       patch: { when: "next_week", date: null },
     });
   }
-  if (state.activities.length > 0) {
+  if (state.activities.length > 0 || state.categories.length > 0) {
     items.push({
       id: "activities",
       label: "Toon alle soorten activiteiten",
-      patch: { activities: [] },
+      patch: { activities: [], categories: [] },
     });
   }
   return items;

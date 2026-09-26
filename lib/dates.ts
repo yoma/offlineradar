@@ -79,6 +79,32 @@ export function weekendRange(today: string): { start: string; end: string } {
   };
 }
 
+export function endOfMonth(isoDate: string): string {
+  const [year, month] = isoDate.split("-").map(Number);
+  const last = new Date(Date.UTC(year, month, 0, 12)); // day 0 of next month
+  const y = last.getUTCFullYear();
+  const m = String(last.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(last.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * "Deze maand" window for discovery:
+ * from today through the end of the current calendar month.
+ * In the last 14 days of a month, also include the next calendar month
+ * so late-month browsing still finds upcoming editions.
+ */
+export function monthRange(today: string): { start: string; end: string } {
+  const endThis = endOfMonth(today);
+  const daysLeft = diffDays(today, endThis);
+  // Remove unused variable warning if any - clean monthRange
+  if (daysLeft <= 14) {
+    const nextMonthDay = addDays(endThis, 1);
+    return { start: today, end: endOfMonth(nextMonthDay) };
+  }
+  return { start: today, end: endThis };
+}
+
 export function nextWeekRange(today: string): { start: string; end: string } {
   const weekend = weekendRange(today);
   const start = addDays(weekend.end, 1);
