@@ -21,7 +21,10 @@
     "verify:tip-ai": "npx tsx scripts/verify-tip-ai.ts",
     "db:migrate:tips": "node --env-file=.env.local --import tsx scripts/migrate-tips.ts",
     "verify:tips-neon": "node --env-file=.env.local --import tsx scripts/verify-tips-neon.ts",
-    "verify:tips-admin": "npx tsx scripts/verify-tips-admin.ts"
+    "verify:tips-admin": "npx tsx scripts/verify-tips-admin.ts",
+    "db:migrate:events": "node --env-file=.env.local --import tsx scripts/migrate-events.ts",
+    "verify:events-catalog": "npx tsx scripts/verify-events-catalog.ts",
+    "verify:events-neon": "node --env-file=.env.local --import tsx scripts/verify-events-neon.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
