@@ -717,24 +717,91 @@ export async function listPublishedEditions(
 /**
  * Published editions with organizer/sources/images for the public feed.
  * Returns null when SQL is unavailable (caller must not mock-fallback).
+ *
+ * Batched queries (not N+1 per edition) — critical for /ontdek latency.
  */
 export async function listPublishedEditionBundles(
   limit = 100,
 ): Promise<EventEditionBundle[] | null> {
   const sql = getEventsSql();
   if (!sql) return null;
-  const rows = (await sql`
-    SELECT id FROM event_editions
+
+  const editionRows = (await sql`
+    SELECT * FROM event_editions
     WHERE publication_status = 'published'
     ORDER BY starts_at ASC
     LIMIT ${limit}
-  `) as { id: string }[];
-  const bundles: EventEditionBundle[] = [];
-  for (const row of rows) {
-    const bundle = await loadBundle(row.id);
-    if (bundle) bundles.push(bundle);
+  `) as EditionRow[];
+  if (editionRows.length === 0) return [];
+
+  const editions = editionRows.map(mapEdition);
+  const editionIds = editions.map((e) => e.id);
+  const organizerIds = [
+    ...new Set(
+      editions
+        .map((e) => e.organizerId)
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
+    ),
+  ];
+  const seriesIds = [
+    ...new Set(
+      editions
+        .map((e) => e.seriesId)
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
+    ),
+  ];
+
+  const [organizerRows, seriesRows, sourceRows, imageRows] = await Promise.all([
+    organizerIds.length
+      ? ((await sql`
+          SELECT * FROM organizers WHERE id = ANY(${organizerIds})
+        `) as OrganizerRow[])
+      : Promise.resolve([] as OrganizerRow[]),
+    seriesIds.length
+      ? ((await sql`
+          SELECT * FROM event_series WHERE id = ANY(${seriesIds})
+        `) as SeriesRow[])
+      : Promise.resolve([] as SeriesRow[]),
+    (await sql`
+      SELECT * FROM event_sources
+      WHERE event_edition_id = ANY(${editionIds})
+      ORDER BY is_primary DESC, created_at ASC
+    `) as SourceRow[],
+    (await sql`
+      SELECT * FROM event_images
+      WHERE event_edition_id = ANY(${editionIds})
+      ORDER BY is_primary DESC, created_at ASC
+    `) as ImageRow[],
+  ]);
+
+  const organizersById = new Map(
+    organizerRows.map((row) => [row.id, mapOrganizer(row)]),
+  );
+  const seriesById = new Map(seriesRows.map((row) => [row.id, mapSeries(row)]));
+  const sourcesByEdition = new Map<string, EventSourceRecord[]>();
+  for (const row of sourceRows) {
+    const mapped = mapSource(row);
+    const list = sourcesByEdition.get(mapped.eventEditionId) ?? [];
+    list.push(mapped);
+    sourcesByEdition.set(mapped.eventEditionId, list);
   }
-  return bundles;
+  const imagesByEdition = new Map<string, EventImageRecord[]>();
+  for (const row of imageRows) {
+    const mapped = mapImage(row);
+    const list = imagesByEdition.get(mapped.eventEditionId) ?? [];
+    list.push(mapped);
+    imagesByEdition.set(mapped.eventEditionId, list);
+  }
+
+  return editions.map((edition) => ({
+    edition,
+    organizer: edition.organizerId
+      ? (organizersById.get(edition.organizerId) ?? null)
+      : null,
+    series: edition.seriesId ? (seriesById.get(edition.seriesId) ?? null) : null,
+    sources: sourcesByEdition.get(edition.id) ?? [],
+    images: imagesByEdition.get(edition.id) ?? [],
+  }));
 }
 
 /** Detail lookup: only published editions. */

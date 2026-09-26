@@ -9,6 +9,7 @@ import { DISTANCES, GENDER_LABEL, MEET_GENDER_LABEL, WHEN_LABEL } from "@/lib/fo
 import { heroImageUrl } from "@/lib/images";
 import { profileFromSearch, serializeSearchState } from "@/lib/search-state";
 import { readProfile, writeProfile } from "@/lib/storage";
+import { markSearchPending } from "@/components/discover/search-loading";
 import type {
   ActivityId,
   EventCategory,
@@ -60,6 +61,7 @@ export function HomeHero() {
     useState<PreferredMeetGender>("anyone");
   const [error, setError] = useState("");
   const [moreOpen, setMoreOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     const profile = readProfile();
@@ -105,6 +107,7 @@ export function HomeHero() {
   }
 
   function go() {
+    if (searching) return;
     const parsedAge = Number(age);
     if (!Number.isFinite(parsedAge) || parsedAge < 18 || parsedAge > 99) {
       setError("Vul je leeftijd in.");
@@ -129,6 +132,7 @@ export function HomeHero() {
       sort: "match",
     };
     setError("");
+    setSearching(true);
     writeProfile(profileFromSearch(state));
     track("search_performed", {
       age: state.age,
@@ -136,6 +140,7 @@ export function HomeHero() {
       distance: state.maxDistanceKm,
       when: state.when,
     });
+    markSearchPending();
     const query = serializeSearchState(state);
     // Hard navigation: client soft-nav from the hero was intermittently a no-op
     // on production (submit ran, profile wrote, URL stayed on /).
@@ -401,13 +406,34 @@ export function HomeHero() {
             {error ? (
               <p className="text-sm font-medium text-white">{error}</p>
             ) : null}
+            {searching ? (
+              <div
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+                className="rounded-2xl border border-white/25 bg-black/35 px-5 py-6 text-center text-white backdrop-blur-sm"
+              >
+                <span
+                  className="mx-auto mb-4 block size-9 animate-spin rounded-full border-2 border-white/25 border-t-white"
+                  aria-hidden
+                />
+                <p className="text-[15px] font-semibold">
+                  We zoeken passende singlesevents voor jou…
+                </p>
+                <p className="mt-2 text-sm text-white/75">
+                  We checken je regio en afstand…
+                </p>
+              </div>
+            ) : null}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
               <button
                 type="submit"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#e61e4d] px-6 py-3.5 text-base font-semibold text-white shadow-lg transition hover:bg-[#d70466] sm:w-auto sm:min-w-[240px]"
+                disabled={searching}
+                aria-busy={searching}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#e61e4d] px-6 py-3.5 text-base font-semibold text-white shadow-lg transition hover:bg-[#d70466] disabled:cursor-wait disabled:opacity-80 sm:w-auto sm:min-w-[240px]"
               >
                 <Search className="size-4" />
-                Vind activiteiten
+                {searching ? "Bezig met zoeken…" : "Vind activiteiten"}
               </button>
               <a
                 href="#tip-een-activiteit"

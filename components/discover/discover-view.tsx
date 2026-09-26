@@ -2,8 +2,11 @@
 
 import { SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
 import { EventCard } from "@/components/events/event-card";
+import {
+  SearchLoadingState,
+  consumeSearchPending,
+} from "@/components/discover/search-loading";
 import { FilterSheet } from "@/components/filters/filter-sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,11 +52,11 @@ export function DiscoverView({
   /** Canonical feed DB failure: never show mock events. */
   catalogError?: string | null;
 }) {
-  const router = useRouter();
   const [state, setState] = useState(initial);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [booted, setBooted] = useState(false);
   const [ageDraft, setAgeDraft] = useState(initial.age ? String(initial.age) : "");
+  const [searchPending, setSearchPending] = useState(false);
   const zeroTracked = useRef("");
 
   const previewBanner = showInternalPreviewBanner ? (
@@ -72,11 +75,16 @@ export function DiscoverView({
 
   useEffect(() => {
     const stored = readProfile();
+    const pending = consumeSearchPending();
     queueMicrotask(() => {
       // Do not re-inject saved activity interests as discover filters.
       setState((current) => applyStoredProfile(current, stored));
       setAgeDraft((current) => current || (stored.age ? String(stored.age) : ""));
       setBooted(true);
+      if (pending) {
+        setSearchPending(true);
+        window.setTimeout(() => setSearchPending(false), 400);
+      }
     });
   }, []);
 
@@ -85,10 +93,12 @@ export function DiscoverView({
     writeProfile(profileFromSearch(state));
     const next = serializeSearchState(state);
     const current = window.location.search.replace(/^\?/, "");
-    if (next !== current) {
-      router.replace(next ? `${listPath}?${next}` : listPath, { scroll: false });
-    }
-  }, [booted, listPath, router, state]);
+    if (next === current) return;
+    // Client-side filter sync: avoid RSC refetch of the full Neon feed on every
+    // chip/filter change (events are already loaded and filtered in-memory).
+    const url = next ? `${listPath}?${next}` : listPath;
+    window.history.replaceState(window.history.state, "", url);
+  }, [booted, listPath, state]);
 
   const result = useMemo(() => matchingEvents(events, state), [events, state]);
   const visible = useMemo(() => sortEvents(result.visible, state), [result.visible, state]);
@@ -345,6 +355,14 @@ export function DiscoverView({
             </select>
           </label>
 
+          <SearchLoadingState active={searchPending} className="mt-8" />
+
+          <div
+            className={
+              searchPending ? "pointer-events-none opacity-45 transition-opacity" : undefined
+            }
+            aria-hidden={searchPending || undefined}
+          >
           {visible.length === 0 ? (
             <div className="mt-12 max-w-xl">
               <h2 className="text-2xl font-semibold tracking-tight">
@@ -379,6 +397,7 @@ export function DiscoverView({
               ))}
             </div>
           )}
+          </div>
         </>
       )}
 

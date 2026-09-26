@@ -39,6 +39,7 @@
     "enrich:published-events": "node --env-file=.env.local --import tsx scripts/enrich-published-events.ts",
     "verify:events-feed": "node --env-file=.env.local --import tsx scripts/verify-events-feed.ts",
     "verify:search-filters": "npx tsx scripts/verify-search-filters.ts",
+    "verify:search-ux": "npx tsx scripts/verify-search-ux.ts",
     "db:migrate:source-refresh": "node --env-file=.env.local --import tsx scripts/migrate-source-refresh.ts",
     "verify:source-refresh": "npx tsx scripts/verify-source-refresh.ts",
     "verify:source-refresh:neon": "node --env-file=.env.local --import tsx scripts/verify-source-refresh.ts",
