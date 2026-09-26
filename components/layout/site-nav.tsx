@@ -36,18 +36,18 @@ export function SiteHeader() {
           : "border-transparent bg-transparent text-white",
       )}
     >
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2.5">
+      <div className="mx-auto flex h-16 w-full min-w-0 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+        <Link href="/" className="flex min-w-0 items-center gap-2.5">
           <span
             className={cn(
-              "flex size-8 items-center justify-center rounded-lg text-sm font-bold",
+              "flex size-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold",
               light ? "bg-[#e61e4d] text-white" : "bg-white text-[#e61e4d]",
             )}
             aria-hidden
           >
             OR
           </span>
-          <span className="text-[17px] font-semibold tracking-tight">
+          <span className="truncate text-[17px] font-semibold tracking-tight">
             OfflineRadar
           </span>
         </Link>
@@ -92,17 +92,17 @@ export function SiteHeader() {
 export function MobileNav() {
   const pathname = usePathname();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-white md:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-white pb-[env(safe-area-inset-bottom,0px)] md:hidden">
       <ul className="mx-auto grid max-w-lg grid-cols-3">
         {links.map((link) => {
           const Icon = link.icon;
           const active = pathname.startsWith(link.href);
           return (
-            <li key={link.href}>
+            <li key={link.href} className="min-w-0">
               <Link
                 href={link.href}
                 className={cn(
-                  "flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium",
+                  "flex min-h-12 flex-col items-center justify-center gap-1 px-1 py-2.5 text-[11px] font-medium",
                   active ? "text-foreground" : "text-muted-foreground",
                 )}
               >

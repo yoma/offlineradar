@@ -172,7 +172,7 @@ export function HomeHero() {
   ].filter(Boolean).length;
 
   return (
-    <section className="relative -mt-16 min-h-[100svh] overflow-x-hidden">
+    <section className="relative -mt-16 min-h-[100svh] min-w-0 overflow-x-clip">
       <Image
         src={heroImageUrl()}
         alt=""
@@ -183,7 +183,7 @@ export function HomeHero() {
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/60" />
 
-      <div className="relative mx-auto flex min-h-[100svh] w-full max-w-6xl flex-col justify-center px-4 pb-24 pt-24 sm:px-6 sm:pb-16 sm:pt-28">
+      <div className="relative mx-auto flex min-h-[100svh] w-full min-w-0 max-w-6xl flex-col justify-center px-4 pb-24 pt-24 sm:px-6 sm:pb-16 sm:pt-28">
         <p className="text-sm font-semibold tracking-[0.18em] text-white/90 uppercase">
           OfflineRadar
         </p>
@@ -195,15 +195,15 @@ export function HomeHero() {
         </p>
 
         <form
-          className="mt-6 w-full max-w-4xl sm:mt-8"
+          className="mt-6 w-full min-w-0 max-w-4xl sm:mt-8"
           onSubmit={(event) => {
             event.preventDefault();
             go();
           }}
         >
-          <div className="search-divider overflow-hidden rounded-[40px] bg-white">
-            <div className="grid lg:grid-cols-[1.25fr_1.15fr_0.72fr_0.88fr_0.78fr]">
-              <Field label="Waar">
+          <div className="search-divider overflow-hidden rounded-3xl bg-white lg:rounded-[2.5rem]">
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1.2fr)_minmax(0,0.68fr)_minmax(0,0.85fr)_minmax(0,0.72fr)]">
+              <Field label="Waar" chevron>
                 <select
                   value={placeId}
                   onChange={(event) => setPlaceId(event.target.value)}
@@ -216,7 +216,7 @@ export function HomeHero() {
                   ))}
                 </select>
               </Field>
-              <Field label="Wanneer" divide>
+              <Field label="Wanneer" divide chevron>
                 <select
                   value={when}
                   onChange={(event) => {
@@ -247,7 +247,7 @@ export function HomeHero() {
                   className="search-field-control w-full bg-transparent text-[15px] font-semibold leading-6 outline-none placeholder:font-normal placeholder:text-muted-foreground"
                 />
               </Field>
-              <Field label="Mijn gender" divide>
+              <Field label="Mijn gender" divide chevron>
                 <select
                   value={gender}
                   onChange={(event) =>
@@ -263,7 +263,7 @@ export function HomeHero() {
                   ))}
                 </select>
               </Field>
-              <Field label="Afstand" divide>
+              <Field label="Afstand" divide chevron>
                 <select
                   value={distance}
                   onChange={(event) => setDistance(Number(event.target.value))}
@@ -278,26 +278,26 @@ export function HomeHero() {
               </Field>
             </div>
             {when === "date" ? (
-              <div className="border-t border-border px-6 py-3.5">
+              <div className="border-t border-border px-5 py-3.5 sm:px-6">
                 <input
                   type="date"
                   required
                   value={date}
                   onChange={(event) => setDate(event.target.value)}
-                  className="text-sm font-semibold leading-6 outline-none"
+                  className="w-full min-w-0 text-sm font-semibold leading-6 outline-none"
                 />
               </div>
             ) : null}
           </div>
 
-          <div className="mt-3.5 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="mt-3 flex flex-col items-start gap-1.5 sm:mt-3.5 sm:flex-row sm:items-center sm:gap-3">
             <button
               type="button"
               aria-expanded={moreOpen}
               onClick={() => setMoreOpen((value) => !value)}
-              className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20"
+              className="inline-flex min-h-10 items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20"
             >
-              <SlidersHorizontal className="size-4" />
+              <SlidersHorizontal className="size-4 shrink-0" />
               Meer filters
               {extraFilterCount > 0 ? (
                 <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-xs font-bold text-[#e61e4d]">
@@ -305,11 +305,11 @@ export function HomeHero() {
                 </span>
               ) : null}
               <ChevronDown
-                className={`size-4 transition ${moreOpen ? "rotate-180" : ""}`}
+                className={`size-4 shrink-0 transition ${moreOpen ? "rotate-180" : ""}`}
               />
             </button>
-            <p className="text-sm text-white/70">
-              Voorkeuren voor wie je wilt ontmoeten
+            <p className="max-w-[16rem] pl-1 text-sm leading-5 text-white/70 sm:max-w-none sm:pl-0">
+              Extra: voorkeuren voor wie je wilt ontmoeten
             </p>
           </div>
 
@@ -472,21 +472,33 @@ function Field({
   label,
   children,
   divide = false,
+  chevron = false,
 }: {
   label: string;
   children: ReactNode;
   divide?: boolean;
+  chevron?: boolean;
 }) {
   return (
     <label
-      className={`block cursor-pointer px-5 py-4 transition hover:bg-black/[0.03] sm:px-6 ${
-        divide ? "lg:border-l lg:border-border" : ""
+      className={`block min-w-0 cursor-pointer px-4 py-3.5 transition hover:bg-black/[0.03] focus-within:bg-black/[0.03] sm:px-5 lg:px-5 lg:py-4 ${
+        divide ? "border-t border-border lg:border-t-0 lg:border-l" : ""
       }`}
     >
-      <span className="mb-1.5 block text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+      <span className="mb-2 block text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
         {label}
       </span>
-      <span className="block min-h-6">{children}</span>
+      <span
+        className={`relative block min-h-6 min-w-0 ${chevron ? "pr-5" : ""}`}
+      >
+        {children}
+        {chevron ? (
+          <ChevronDown
+            className="pointer-events-none absolute top-1/2 right-0 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+        ) : null}
+      </span>
     </label>
   );
 }

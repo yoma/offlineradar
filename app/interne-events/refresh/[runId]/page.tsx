@@ -71,13 +71,13 @@ export default async function RefreshRunPage({
   const newItems = reviewItems.filter((i) => i.detectionType === "new");
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6">
+    <div className="mx-auto w-full min-w-0 max-w-4xl px-4 py-10 sm:px-6">
       <p className="text-sm">
         <Link href="/interne-events" className="underline-offset-4 hover:underline">
           ← Interne events
         </Link>
       </p>
-      <h1 className="mt-4 text-2xl font-semibold tracking-tight">
+      <h1 className="mt-4 break-words text-2xl font-semibold tracking-tight">
         Refresh resultaten
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">
@@ -140,7 +140,7 @@ export default async function RefreshRunPage({
         {reviewItems.map((item) => (
           <li
             key={item.id}
-            className="rounded-xl border border-border bg-background px-4 py-4"
+            className="min-w-0 rounded-xl border border-border bg-background px-4 py-4"
           >
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {item.detectionType === "new"
@@ -152,7 +152,7 @@ export default async function RefreshRunPage({
                     : "Ongewijzigd"}{" "}
               · {item.status}
             </p>
-            <p className="mt-1 font-semibold">
+            <p className="mt-1 break-words font-semibold">
               {item.detectedTitle ?? "(zonder titel)"}
             </p>
             <p className="text-sm text-muted-foreground">

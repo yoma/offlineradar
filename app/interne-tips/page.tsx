@@ -120,7 +120,7 @@ export default async function InterneTipsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+    <div className="mx-auto w-full min-w-0 max-w-6xl px-4 py-8 sm:px-6">
       <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

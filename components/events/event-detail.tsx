@@ -139,16 +139,16 @@ export function EventDetail({
         />
       </div>
 
-      <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-8 sm:px-6 lg:grid-cols-[1.4fr_0.8fr]">
-        <div className="space-y-10">
+      <div className="mx-auto grid w-full min-w-0 max-w-6xl gap-10 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)]">
+        <div className="min-w-0 space-y-10">
           <header className="space-y-3 border-b border-border pb-8">
             <div className="flex items-start justify-between gap-3">
-              <p className="text-sm text-muted-foreground">
+              <p className="min-w-0 text-sm text-muted-foreground">
                 {CATEGORY_LABEL[event.category]} · {event.subCategory}
               </p>
               <SaveButton eventId={event.id} title={event.title} />
             </div>
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h1 className="break-words text-3xl font-semibold tracking-tight sm:text-4xl">
               {event.title}
             </h1>
             <EventLabels
@@ -284,12 +284,14 @@ export function EventDetail({
           ) : null}
         </div>
 
-        <aside className="lg:pt-2">
+        <aside className="min-w-0 lg:pt-2">
           <div className="listing-shadow sticky top-24 space-y-4 rounded-2xl border border-border bg-white p-5">
             <div className="flex items-end justify-between gap-3">
-              <p className="text-2xl font-semibold">{priceLabel}</p>
+              <p className="min-w-0 break-words text-2xl font-semibold">
+                {priceLabel}
+              </p>
               {availabilityDetail ? (
-                <p className="max-w-[14rem] text-right text-sm text-muted-foreground">
+                <p className="max-w-[14rem] shrink text-right text-sm break-words text-muted-foreground">
                   {availabilityDetail}
                 </p>
               ) : event.capacityStatus === "unknown" ? (
@@ -392,7 +394,7 @@ export function EventDetail({
         </aside>
       </div>
 
-      <div className="fixed inset-x-0 bottom-16 z-30 border-t border-border bg-white/95 p-3 backdrop-blur md:hidden">
+      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-30 border-t border-border bg-white/95 p-3 backdrop-blur md:hidden">
         <Button asChild className="h-12 w-full rounded-full text-base">
           <a
             href={ticketHref}

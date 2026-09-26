@@ -65,14 +65,17 @@ export function FilterSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[88vh] rounded-t-2xl">
+      <SheetContent
+        side="bottom"
+        className="max-h-[min(88vh,100dvh)] gap-0 rounded-t-2xl pb-[env(safe-area-inset-bottom,0px)]"
+      >
         <SheetHeader>
           <SheetTitle>Filters</SheetTitle>
           <SheetDescription>
             Leeftijd blijft een deelnamecheck. Je voorkeur voor een leeftijdsgroep verbergt geen events.
           </SheetDescription>
         </SheetHeader>
-        <div className="space-y-6 overflow-y-auto px-4 pb-4">
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pb-4">
           <FilterGroup title="Wanneer">
             <p className="mb-2 text-sm text-muted-foreground">
               Kies één periode. {WHEN_HINT[state.when] ?? ""}
@@ -109,7 +112,7 @@ export function FilterSheet({
           </FilterGroup>
 
           <FilterGroup title="Afstand">
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {DISTANCES.map((km) => (
                 <Choice
                   key={km}

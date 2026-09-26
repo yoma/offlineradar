@@ -177,9 +177,9 @@ export function DiscoverView({
   const chips = activeChips(state);
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+    <div className="mx-auto w-full min-w-0 max-w-6xl px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-6">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             {state.age == null
               ? "Activiteiten"
@@ -389,7 +389,7 @@ export function DiscoverView({
               </div>
             </div>
           ) : (
-            <div className="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-8 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 [&>*]:min-w-0">
               {visible.map((event) => (
                 <EventCard
                   key={event.id}

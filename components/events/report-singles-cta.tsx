@@ -107,7 +107,7 @@ export function ReportSinglesCta({
         <SheetContent
           side="bottom"
           showCloseButton={phase !== "submitting"}
-          className="mx-auto max-w-lg rounded-t-2xl"
+          className="mx-auto max-w-lg rounded-t-2xl pb-[env(safe-area-inset-bottom,0px)]"
           aria-labelledby={titleId}
         >
           {phase === "done" ? (

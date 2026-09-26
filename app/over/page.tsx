@@ -1,6 +1,6 @@
 export default function AboutPage() {
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-10 px-4 py-12 sm:px-6">
+    <div className="mx-auto w-full min-w-0 max-w-2xl space-y-10 px-4 py-12 sm:px-6">
       <div>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           Wat is OfflineRadar?

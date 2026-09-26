@@ -145,9 +145,9 @@ export function TipSection() {
   return (
     <section
       id="tip-een-activiteit"
-      className="mx-auto w-full max-w-6xl scroll-mt-24 px-4 py-12 sm:px-6"
+      className="mx-auto w-full min-w-0 max-w-6xl scroll-mt-24 px-4 py-12 sm:px-6"
     >
-      <div className="rounded-2xl border border-border bg-secondary/40 px-5 py-8 sm:px-8">
+      <div className="min-w-0 rounded-2xl border border-border bg-secondary/40 px-5 py-8 sm:px-8">
         {success ? (
           <div className="space-y-4" role="status" aria-live="polite">
             <h2 className="text-2xl font-semibold tracking-tight text-emerald-900 sm:text-3xl">

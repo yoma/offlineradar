@@ -87,11 +87,14 @@
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground antialiased;
-  }
   html {
     @apply font-sans;
+    /* Defensive after layout min-width fixes: clip stray overflow, no page side-scroll. */
+    overflow-x: clip;
+  }
+  body {
+    @apply min-w-0 bg-background text-foreground antialiased;
+    overflow-x: clip;
   }
 }
 
@@ -101,6 +104,7 @@
   }
   .search-field-control {
     min-height: 1.5rem;
+    min-width: 0;
   }
   .search-field-control[type="number"] {
     -moz-appearance: textfield;
@@ -110,7 +114,16 @@
     margin: 0;
     opacity: 0.55;
   }
+  select.search-field-control {
+    appearance: none;
+    background-image: none;
+  }
   .listing-shadow {
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  }
+  /* Intentional table scroll only; page itself must not widen. */
+  .admin-scroll-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }

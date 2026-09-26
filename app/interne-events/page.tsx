@@ -130,7 +130,7 @@ export default async function InterneEventsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6">
+    <div className="mx-auto w-full min-w-0 max-w-3xl px-4 py-10 sm:px-6">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
@@ -288,7 +288,7 @@ export default async function InterneEventsPage() {
                         name="notes"
                         defaultValue={source.notes ?? ""}
                         placeholder="Note"
-                        className="min-w-[12rem] flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                        className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm"
                       />
                       <label className="flex items-center gap-1 text-xs text-muted-foreground">
                         <input type="checkbox" name="touchChecked" value="1" />
@@ -385,7 +385,7 @@ export default async function InterneEventsPage() {
                       <input
                         name="resolutionNote"
                         placeholder="Note (optioneel)"
-                        className="min-w-[12rem] flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                        className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm"
                       />
                       <button
                         type="submit"

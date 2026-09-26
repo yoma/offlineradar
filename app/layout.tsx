@@ -19,9 +19,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="nl" className={`${jakarta.variable} h-full`}>
-      <body className="min-h-full bg-background font-sans text-foreground">
+      <body className="min-h-full min-w-0 bg-background font-sans text-foreground">
         <SiteHeader />
-        <main className="pb-20 md:pb-8">{children}</main>
+        <main className="min-w-0 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-8">
+          {children}
+        </main>
         <MobileNav />
       </body>
     </html>
