@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
+import { isUserSuppliedNotes } from "@/lib/discovery/user-supplied";
 
 export type CatalogSourceListItem = {
   id: string;
@@ -29,6 +30,7 @@ export function CatalogSourcesBrowser({ sources, children }: Props) {
   const [status, setStatus] = useState("all");
   const [region, setRegion] = useState("all");
   const [format, setFormat] = useState("all");
+  const [origin, setOrigin] = useState("all");
 
   const regions = useMemo(() => {
     const set = new Set<string>();
@@ -48,6 +50,8 @@ export function CatalogSourcesBrowser({ sources, children }: Props) {
       if (status !== "all" && s.status !== status) return false;
       if (region !== "all" && !s.regions.includes(region)) return false;
       if (format !== "all" && !s.formats.includes(format)) return false;
+      if (origin === "user" && !isUserSuppliedNotes(s.notes)) return false;
+      if (origin === "other" && isUserSuppliedNotes(s.notes)) return false;
       if (!needle) return true;
       const hay = [
         s.name,
@@ -60,11 +64,11 @@ export function CatalogSourcesBrowser({ sources, children }: Props) {
         .toLowerCase();
       return hay.includes(needle);
     });
-  }, [sources, q, status, region, format]);
+  }, [sources, q, status, region, format, origin]);
 
   return (
     <div className="space-y-3">
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
         <input
           type="search"
           value={q}
@@ -84,6 +88,16 @@ export function CatalogSourcesBrowser({ sources, children }: Props) {
           <option value="promising">promising</option>
           <option value="low_yield">low_yield</option>
           <option value="inactive">inactive</option>
+        </select>
+        <select
+          value={origin}
+          onChange={(e) => setOrigin(e.target.value)}
+          className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+          aria-label="Filter herkomst"
+        >
+          <option value="all">Alle herkomsten</option>
+          <option value="user">User supplied</option>
+          <option value="other">Overige</option>
         </select>
         <select
           value={region}
@@ -114,6 +128,7 @@ export function CatalogSourcesBrowser({ sources, children }: Props) {
       </div>
       <p className="text-xs text-muted-foreground">
         {filtered.length} van {sources.length} bronnen
+        {origin === "user" ? " · Door Youri aangebracht" : null}
       </p>
       {children(filtered)}
     </div>

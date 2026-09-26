@@ -205,6 +205,10 @@ export default async function InterneEventsPage() {
             rows={2}
             className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
           />
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <input type="checkbox" name="userSupplied" value="1" />
+            Door Youri aangebracht (user supplied)
+          </label>
           <button
             type="submit"
             className="rounded-md bg-foreground px-3 py-2 text-sm text-background"
@@ -222,7 +226,16 @@ export default async function InterneEventsPage() {
                   className="rounded-xl border border-border bg-background px-4 py-4"
                 >
                   <div className="space-y-2">
-                    <p className="font-semibold">{source.name}</p>
+                    <p className="font-semibold">
+                      {source.name}
+                      {source.notes &&
+                      (source.notes.includes("discovered_by=user") ||
+                        /door youri aangebracht/i.test(source.notes)) ? (
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">
+                          · Door Youri aangebracht
+                        </span>
+                      ) : null}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {source.sourceKind} · {source.sourceType} ·{" "}
                       {source.status}

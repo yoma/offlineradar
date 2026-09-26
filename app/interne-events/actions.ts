@@ -13,6 +13,7 @@ import {
   updateCatalogSourceFields,
   type CatalogSourceStatus,
 } from "@/lib/events/catalog-sources";
+import { withUserSuppliedProvenance } from "@/lib/discovery/user-supplied";
 import {
   updateOpenReportsForEdition,
   type EventReportStatus,
@@ -88,7 +89,11 @@ export async function addCatalogSourceAction(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const officialUrl = String(formData.get("officialUrl") ?? "").trim();
   const status = String(formData.get("status") ?? "promising").trim() as CatalogSourceStatus;
-  const notes = String(formData.get("notes") ?? "").trim() || null;
+  const notesRaw = String(formData.get("notes") ?? "").trim() || null;
+  const userSupplied = String(formData.get("userSupplied") ?? "") === "1";
+  const notes = userSupplied
+    ? withUserSuppliedProvenance(notesRaw)
+    : notesRaw;
   const regionsRaw = String(formData.get("regions") ?? "").trim();
   const formatsRaw = String(formData.get("formats") ?? "").trim();
   if (!name || !officialUrl) throw new Error("Naam en URL verplicht");
