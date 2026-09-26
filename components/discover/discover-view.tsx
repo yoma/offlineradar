@@ -7,12 +7,14 @@ import {
   SearchLoadingState,
   consumeSearchPending,
 } from "@/components/discover/search-loading";
+import { UpcomingStrip } from "@/components/discover/upcoming-strip";
 import { FilterSheet } from "@/components/filters/filter-sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { USER_PLACES } from "@/data/places";
 import { track } from "@/lib/analytics";
+import { brusselsToday } from "@/lib/dates";
 import { matchingEvents, placeLabel } from "@/lib/filters";
 import { AVAILABILITY_LABEL, CATEGORY_LABEL, formatAgeRange, formatMeetPreference, MEET_GENDER_LABEL, PRICE_LABEL, SORT_LABEL, WHEN_LABEL } from "@/lib/format";
 import {
@@ -30,6 +32,7 @@ import {
   serializeSearchState,
 } from "@/lib/search-state";
 import { readProfile, writeProfile } from "@/lib/storage";
+import { selectUpcomingEvents } from "@/lib/upcoming";
 import type { Event } from "@/types/event";
 import type { SearchState, SortKey } from "@/types/search";
 
@@ -105,6 +108,11 @@ export function DiscoverView({
 
   const result = useMemo(() => matchingEvents(events, state), [events, state]);
   const visible = useMemo(() => sortEvents(result.visible, state), [result.visible, state]);
+  const today = useMemo(() => brusselsToday(), []);
+  const upcoming = useMemo(
+    () => selectUpcomingEvents(events, state),
+    [events, state],
+  );
   const preferenceMiss =
     userHasMeetPreference(state) &&
     visible.length > 0 &&
@@ -366,6 +374,15 @@ export function DiscoverView({
             }
             aria-hidden={searchPending || undefined}
           >
+          {upcoming.events.length > 0 ? (
+            <UpcomingStrip
+              events={upcoming.events}
+              gender={state.gender}
+              hrefBase={eventBasePath}
+              today={today}
+            />
+          ) : null}
+
           {visible.length === 0 ? (
             <div className="mt-12 max-w-xl">
               <h2 className="text-2xl font-semibold tracking-tight">
@@ -389,15 +406,26 @@ export function DiscoverView({
               </div>
             </div>
           ) : (
-            <div className="mt-8 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 [&>*]:min-w-0">
-              {visible.map((event) => (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  gender={state.gender}
-                  hrefBase={eventBasePath}
-                />
-              ))}
+            <div className="mt-8 min-w-0">
+              {upcoming.events.length > 0 ? (
+                <h2 className="text-lg font-semibold tracking-tight">
+                  Activiteiten voor jou
+                </h2>
+              ) : null}
+              <div
+                className={`grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 [&>*]:min-w-0 ${
+                  upcoming.events.length > 0 ? "mt-4" : ""
+                }`}
+              >
+                {visible.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    gender={state.gender}
+                    hrefBase={eventBasePath}
+                  />
+                ))}
+              </div>
             </div>
           )}
           </div>

@@ -27,6 +27,21 @@ function main() {
   );
   mustInclude(
     "components/discover/discover-view.tsx",
+    "UpcomingStrip",
+    "discover upcoming strip",
+  );
+  mustInclude(
+    "components/discover/upcoming-strip.tsx",
+    "overflow-x-auto",
+    "upcoming horizontal scroll only",
+  );
+  mustInclude(
+    "components/discover/upcoming-card.tsx",
+    "min-w-0",
+    "upcoming card min-w-0",
+  );
+  mustInclude(
+    "components/discover/discover-view.tsx",
     "grid-cols-1",
     "discover explicit mobile column",
   );

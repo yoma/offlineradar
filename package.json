@@ -49,6 +49,7 @@
     "seed:phase20-discovery": "node --env-file=.env.local --import tsx scripts/seed-phase20-discovery.ts",
     "import:phase20-drafts": "node --env-file=.env.local --import tsx scripts/import-phase20-drafts.ts",
     "verify:phase20-discovery": "npx tsx scripts/verify-phase20-discovery.ts",
+    "verify:phase21-upcoming": "npx tsx scripts/verify-phase21-upcoming.ts",
     "refresh:phase17-pilot": "node --env-file=.env.local --import tsx scripts/run-phase17-travel-refresh.ts",
     "refresh:phase19-sportieve": "node --env-file=.env.local --import tsx scripts/run-phase19-sportieve-refresh.ts",
     "seed:phase8-sources": "node --env-file=.env.local --import tsx scripts/seed-phase8-sources.ts",
