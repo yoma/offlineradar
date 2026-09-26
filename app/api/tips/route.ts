@@ -116,7 +116,7 @@ export async function POST(request: Request) {
     tipId: result.tip.id,
     duplicate: result.duplicate,
     message: result.duplicate
-      ? "Bedankt! We hadden deze link al ontvangen. Je toelichting is bewaard bij de bestaande melding."
-      : "Bedankt voor je tip! We controleren de activiteit en bekijken of ze op OfflineRadar past. Inzenden geeft geen garantie op publicatie.",
+      ? "We hadden deze link al ontvangen. Je toelichting is bewaard bij de bestaande melding. We gaan ermee aan de slag."
+      : "We hebben je tip veilig opgeslagen. We gaan ermee aan de slag en controleren of de activiteit op OfflineRadar past. Inzenden geeft geen garantie op publicatie.",
   });
 }

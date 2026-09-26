@@ -50,12 +50,36 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
     }
     setMessage(
       status === "published"
-        ? "Status gezet op Gepubliceerd (expliciete beheerderstap). Geen auto-publicatie van echte events."
+        ? "Interne status = gepubliceerd. Er is nog geen echt event op de publieke feed aangemaakt."
         : status === "approved_for_publication"
-          ? "Goedgekeurd voor publicatie. Nog niet publiek tot je Gepubliceerd kiest."
-          : "Status bijgewerkt.",
+          ? "Goedgekeurd voor publicatie. Nog niet live tot een echte publicatiestap bestaat."
+          : status === "in_review"
+            ? "In controle gezet. Ideaal vóór goedkeuren of publiceren."
+            : "Status bijgewerkt.",
     );
     await refresh();
+  }
+
+  function requestPublish(tipId: string, hasAiPrep: boolean) {
+    const lines = [
+      "AI-controle is nog niet automatisch actief.",
+      "Normale flow: In controle → (later AI-scan) → Goedkeuren → daarna pas publiceren.",
+      "Publiceren nu is een handmatige override.",
+      "",
+      "Belangrijk: dit zet alleen de interne status. Er verschijnt nog geen echt evenement op de publieke feed.",
+      "",
+      hasAiPrep
+        ? "AI-prep is aanwezig. Toch publiceren (status only)?"
+        : "Er is nog geen AI-prep. Toch handmatig overrulen en status op Gepubliceerd zetten?",
+    ];
+    if (!window.confirm(lines.join("\n"))) return;
+    void setStatus(
+      tipId,
+      "published",
+      hasAiPrep
+        ? "Handmatige publicatiestatus (override) met AI-prep aanwezig; nog geen live catalogus-item."
+        : "Handmatige publicatiestatus (override) zonder AI-controle; nog geen live catalogus-item.",
+    );
   }
 
   return (
@@ -66,8 +90,8 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
         </h1>
         <p className="text-sm text-muted-foreground">
           {snapshot.tips.length} melding
-          {snapshot.tips.length === 1 ? "" : "en"} · AI-controle nog niet
-          geactiveerd · publicatie nooit automatisch
+          {snapshot.tips.length === 1 ? "" : "en"} · gewenste flow: AI-check
+          eerst, jij beslist, publiceren = override · nog geen auto-live events
         </p>
       </header>
 
@@ -88,6 +112,7 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
         <ul className="space-y-4">
           {snapshot.tips.map((tip) => {
             const review = reviewsByTip.get(tip.id);
+            const hasAiPrep = Boolean(review?.aiPrep);
             return (
               <li
                 key={tip.id}
@@ -144,9 +169,9 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                   <div>
                     <dt className="text-muted-foreground">AI-prep</dt>
                     <dd>
-                      {review?.aiPrep
+                      {hasAiPrep
                         ? "Beschikbaar"
-                        : "Nog niet gestart (geen automatische aanroep)"}
+                        : "Nog niet gestart (geen automatische scan)"}
                     </dd>
                   </div>
                   <div>
@@ -160,7 +185,7 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                     <dt className="text-muted-foreground">Publicatie</dt>
                     <dd>
                       {tip.status === "published"
-                        ? `Gepubliceerd ${review?.publishedAt ?? ""}`
+                        ? "Interne status gepubliceerd (nog geen live event op de feed)"
                         : tip.status === "approved_for_publication"
                           ? "Goedgekeurd, nog niet gepubliceerd"
                           : "Nog niet goedgekeurd voor publicatie"}
@@ -204,14 +229,8 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                     }
                   />
                   <StatusButton
-                    label="Publiceren"
-                    onClick={() =>
-                      setStatus(
-                        tip.id,
-                        "published",
-                        "Expliciete publicatiestap door beheerder (lokale test).",
-                      )
-                    }
+                    label="Publiceren (handmatige override)"
+                    onClick={() => requestPublish(tip.id, hasAiPrep)}
                   />
                   <Button
                     type="button"
