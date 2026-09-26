@@ -20,6 +20,8 @@
     "verify:tips": "npx tsx scripts/verify-tips.ts",
     "verify:tipflow": "npx tsx scripts/verify-tipflow.ts",
     "verify:tip-email": "npx tsx scripts/verify-tip-email.ts",
+    "verify:phase12-refresh": "npx tsx scripts/verify-phase12-refresh.ts",
+    "curate:phase12-refresh": "node --env-file=.env.local --import tsx scripts/curate-phase12-refresh.ts",
     "verify:tip-ai": "npx tsx scripts/verify-tip-ai.ts",
     "db:migrate:tips": "node --env-file=.env.local --import tsx scripts/migrate-tips.ts",
     "verify:tips-neon": "node --env-file=.env.local --import tsx scripts/verify-tips-neon.ts",
