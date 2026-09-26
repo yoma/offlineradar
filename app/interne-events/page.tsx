@@ -3,12 +3,15 @@ import {
   signOutEventsAdmin,
   startEventsAdminSignIn,
   takeEventOfflineAction,
+  addCatalogSourceAction,
+  updateCatalogSourceAction,
 } from "@/app/interne-events/actions";
 import {
   isGoogleAuthConfigured,
   resolveTipsAdminAccess,
 } from "@/lib/tips/admin-auth";
 import { listEditionBundlesForAdmin } from "@/lib/events/neon-store";
+import { listCatalogSources } from "@/lib/events/catalog-sources";
 import { assertOfflineRadarDbConfig } from "@/lib/events/db";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +36,7 @@ function GateShell({
 }
 
 /**
- * Minimal canonical event admin. Same Google allowlist as tip admin.
+ * Minimal canonical event admin + Source Map.
  * Soft unpublish only: published → under_review.
  */
 export default async function InterneEventsPage() {
@@ -83,13 +86,20 @@ export default async function InterneEventsPage() {
     );
   }
 
-  const bundles = await listEditionBundlesForAdmin(50);
+  const bundles = await listEditionBundlesForAdmin(80);
   if (!bundles) {
     return (
       <GateShell title="Eventbeheer niet beschikbaar">
         <p>Catalogus kon niet worden gelezen.</p>
       </GateShell>
     );
+  }
+
+  let catalogSources: Awaited<ReturnType<typeof listCatalogSources>> = [];
+  try {
+    catalogSources = await listCatalogSources();
+  } catch {
+    catalogSources = [];
   }
 
   return (
@@ -113,6 +123,140 @@ export default async function InterneEventsPage() {
         </form>
       </div>
 
+      <section className="mb-10 space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Bronnen</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Curated Source Map voor handmatige batches. Geen crawler.
+          </p>
+        </div>
+
+        <form
+          action={addCatalogSourceAction}
+          className="space-y-3 rounded-xl border border-border bg-background px-4 py-4"
+        >
+          <p className="text-sm font-medium">Bron toevoegen</p>
+          <input
+            name="name"
+            required
+            placeholder="Naam"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+          />
+          <input
+            name="officialUrl"
+            required
+            type="url"
+            placeholder="https://"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input
+              name="regions"
+              placeholder="Regio's (komma)"
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+            />
+            <input
+              name="formats"
+              placeholder="Formats (komma)"
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+            />
+          </div>
+          <select
+            name="status"
+            defaultValue="promising"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="active">active</option>
+            <option value="promising">promising</option>
+            <option value="low_yield">low_yield</option>
+            <option value="inactive">inactive</option>
+          </select>
+          <textarea
+            name="notes"
+            placeholder="Notities"
+            rows={2}
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+          />
+          <button
+            type="submit"
+            className="rounded-md bg-foreground px-3 py-2 text-sm text-background"
+          >
+            Opslaan
+          </button>
+        </form>
+
+        <ul className="space-y-3">
+          {catalogSources.map((source) => (
+            <li
+              key={source.id}
+              className="rounded-xl border border-border bg-background px-4 py-4"
+            >
+              <div className="space-y-2">
+                <p className="font-semibold">{source.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {source.sourceKind} · {source.sourceType} · {source.status}
+                  {source.editionCount != null
+                    ? ` · ${source.editionCount} editions`
+                    : null}
+                </p>
+                <a
+                  href={source.officialUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="break-all text-sm font-medium underline-offset-4 hover:underline"
+                >
+                  {source.officialUrl}
+                </a>
+                <p className="text-sm text-muted-foreground">
+                  Regio: {source.regions.join(", ") || "—"} · Formats:{" "}
+                  {source.formats.join(", ") || "—"}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Laatst gecontroleerd:{" "}
+                  {source.lastCheckedAt?.slice(0, 16) ?? "onbekend"}
+                </p>
+                {source.notes ? (
+                  <p className="text-sm text-muted-foreground">{source.notes}</p>
+                ) : null}
+                <form
+                  action={updateCatalogSourceAction}
+                  className="flex flex-wrap items-end gap-2 pt-1"
+                >
+                  <input type="hidden" name="sourceId" value={source.id} />
+                  <select
+                    name="status"
+                    defaultValue={source.status}
+                    className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                  >
+                    <option value="active">active</option>
+                    <option value="promising">promising</option>
+                    <option value="low_yield">low_yield</option>
+                    <option value="inactive">inactive</option>
+                  </select>
+                  <input
+                    name="notes"
+                    defaultValue={source.notes ?? ""}
+                    placeholder="Note"
+                    className="min-w-[12rem] flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                  />
+                  <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <input type="checkbox" name="touchChecked" value="1" />
+                    checked_at nu
+                  </label>
+                  <button
+                    type="submit"
+                    className="rounded-md border border-border px-3 py-1.5 text-sm"
+                  >
+                    Update
+                  </button>
+                </form>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <h2 className="mb-4 text-lg font-semibold tracking-tight">Events</h2>
       <ul className="space-y-4">
         {bundles.map((bundle) => {
           const { edition } = bundle;
@@ -134,7 +278,7 @@ export default async function InterneEventsPage() {
                       : null}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Laatst gecontroleerd:{" "}
+                    {edition.city} · Laatst gecontroleerd:{" "}
                     {edition.lastCheckedAt?.slice(0, 16) ?? "onbekend"}
                   </p>
                   {primary ? (

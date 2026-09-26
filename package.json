@@ -27,6 +27,8 @@
     "verify:events-neon": "node --env-file=.env.local --import tsx scripts/verify-events-neon.ts",
     "import:preview-events": "node --env-file=.env.local --import tsx scripts/import-preview-events.ts",
     "import:phase4-expansion": "node --env-file=.env.local --import tsx scripts/import-phase4-expansion.ts",
+    "db:migrate:catalog-sources": "node --env-file=.env.local --import tsx scripts/migrate-catalog-sources.ts",
+    "import:phase5-expansion": "node --env-file=.env.local --import tsx scripts/import-phase5-expansion.ts",
     "publish:preview-events": "node --env-file=.env.local --import tsx scripts/publish-approved-preview-events.ts",
     "enrich:published-events": "node --env-file=.env.local --import tsx scripts/enrich-published-events.ts",
     "verify:events-feed": "node --env-file=.env.local --import tsx scripts/verify-events-feed.ts",
