@@ -3,6 +3,7 @@ import {
   signOutEventsAdmin,
   startEventsAdminSignIn,
   takeEventOfflineAction,
+  publishEventAction,
   addCatalogSourceAction,
   updateCatalogSourceAction,
   updateEventReportsAction,
@@ -443,6 +444,19 @@ export default async function InterneEventsPage() {
                       className="rounded-md border border-amber-400 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950"
                     >
                       Haal offline
+                    </button>
+                  </form>
+                ) : edition.publicationStatus === "draft" ||
+                  edition.publicationStatus === "approved" ||
+                  edition.publicationStatus === "under_review" ||
+                  edition.publicationStatus === "candidate" ? (
+                  <form action={publishEventAction}>
+                    <input type="hidden" name="editionId" value={edition.id} />
+                    <button
+                      type="submit"
+                      className="rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background"
+                    >
+                      Publiceer
                     </button>
                   </form>
                 ) : null}

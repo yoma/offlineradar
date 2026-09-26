@@ -2,6 +2,11 @@
  * Tip / meldportaal domain types.
  * Tips are visitor submissions of official activity URLs for human review.
  * Publication always requires an explicit admin decision (never automatic).
+ *
+ * Status naming (existing, do not rename):
+ * received ≈ "new"
+ * needs_info ≈ "extra_info_needed"
+ * expired_or_cancelled ≈ "expired" | "cancelled"
  */
 
 export const TIP_STATUSES = [

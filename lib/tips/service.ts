@@ -1,13 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { tipsStorageMode } from "@/lib/tips/config";
 import {
+  neonFindTipById,
   neonFindTipByNormalizedUrl,
   neonInsertTip,
   neonLoadSnapshot,
   neonUpdateExistingDuplicate,
   neonUpdateTipStatus,
 } from "@/lib/tips/neon-store";
+import { tipStatusTransitionError } from "@/lib/tips/status-guards";
 import { getTipsStore } from "@/lib/tips/storage";
+import { getEditionById } from "@/lib/events/neon-store";
 import { isValidEmail, validateAndNormalizeTipUrl } from "@/lib/tips/url";
 import type {
   TipCreateInput,
@@ -293,6 +296,42 @@ export async function updateTipStatus(input: {
   }
 
   if (mode === "neon") {
+    const current = await neonFindTipById(input.tipId);
+    if (!current) return { ok: false, error: "Melding niet gevonden." };
+
+    const transitionError = tipStatusTransitionError(
+      current.tip.status,
+      input.status,
+    );
+    if (transitionError) return { ok: false, error: transitionError };
+
+    if (input.status === "published") {
+      if (!current.tip.linkedEventId) {
+        return {
+          ok: false,
+          error:
+            "Tip kan alleen ‘published’ worden met een gekoppeld canonical event dat live staat.",
+        };
+      }
+      const bundle = await getEditionById(current.tip.linkedEventId);
+      if (!bundle || bundle.edition.publicationStatus !== "published") {
+        return {
+          ok: false,
+          error:
+            "Gekoppeld event is nog niet published. Publiceer eerst via /interne-events.",
+        };
+      }
+      const path =
+        input.publishedEventPath?.trim() || `/event/${bundle.edition.slug}`;
+      const ok = await neonUpdateTipStatus({
+        tipId: input.tipId,
+        status: input.status,
+        decisionReason: input.decisionReason?.trim() || null,
+        publishedEventPath: path,
+      });
+      return ok ? { ok: true } : { ok: false, error: "Melding niet gevonden." };
+    }
+
     const ok = await neonUpdateTipStatus({
       tipId: input.tipId,
       status: input.status,
@@ -308,6 +347,17 @@ export async function updateTipStatus(input: {
   const snapshot = await store.read();
   const tip = snapshot.tips.find((item) => item.id === input.tipId);
   if (!tip) return { ok: false, error: "Melding niet gevonden." };
+
+  const transitionError = tipStatusTransitionError(tip.status, input.status);
+  if (transitionError) return { ok: false, error: transitionError };
+
+  if (input.status === "published" && !tip.linkedEventId) {
+    return {
+      ok: false,
+      error:
+        "Tip kan alleen ‘published’ worden met een gekoppeld canonical event dat live staat.",
+    };
+  }
 
   tip.status = input.status;
 

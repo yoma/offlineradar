@@ -51,7 +51,6 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
         tipId,
         status,
         decisionReason: reason || null,
-        publishedEventPath: status === "published" ? "/ontdek" : null,
       }),
     });
     const data = (await response.json()) as { ok?: boolean; error?: string };
@@ -61,47 +60,59 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
     }
     setMessage(
       status === "published"
-        ? "Interne status = gepubliceerd. Er is nog geen echt event op de publieke feed aangemaakt."
+        ? "Tip gemarkeerd als published (gekoppeld event staat live)."
         : status === "approved_for_publication"
-          ? "Goedgekeurd voor publicatie. Nog niet live tot een echte publicatiestap bestaat."
+          ? "Goedgekeurd voor publicatie. Maak daarna een concept-event."
           : status === "in_review"
-            ? "In controle gezet. Ideaal vóór goedkeuren of publiceren."
+            ? "In controle gezet."
             : "Status bijgewerkt.",
     );
     await refresh();
   }
 
-  function startAiScan(tipId: string) {
+  async function postAction(
+    body: Record<string, unknown>,
+  ): Promise<Record<string, unknown> | null> {
     setError("");
     setMessage("");
+    const response = await fetch("/api/tips/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = (await response.json()) as Record<string, unknown>;
+    if (!response.ok || data.ok !== true) {
+      if (data.code === "duplicate_candidates" && Array.isArray(data.duplicates)) {
+        const lines = (
+          data.duplicates as Array<{ title: string; slug: string; matchReason: string }>
+        )
+          .slice(0, 5)
+          .map((d) => `- ${d.title} (${d.slug}): ${d.matchReason}`)
+          .join("\n");
+        const force = window.confirm(
+          `${String(data.error || "Mogelijk bestaand event")}\n\n${lines}\n\nToch nieuw concept maken?`,
+        );
+        if (force) {
+          return postAction({ ...body, forceCreate: true });
+        }
+      }
+      setError(String(data.error || "Actie mislukt."));
+      await refresh();
+      return null;
+    }
+    return data;
+  }
+
+  function startAiScan(tipId: string) {
     setScanningId(tipId);
     startTransition(async () => {
       try {
-        const response = await fetch("/api/tips/admin", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "start_ai_scan", tipId }),
-        });
-        const data = (await response.json()) as {
-          ok?: boolean;
-          error?: string;
-          reused?: boolean;
-          code?: string;
-        };
-        if (!response.ok || !data.ok) {
-          setError(
-            data.error ||
-              (data.code === "missing_key"
-                ? "AI-controle is nog niet geconfigureerd op de server."
-                : "AI-controle mislukt."),
-          );
-          await refresh();
-          return;
-        }
+        const data = await postAction({ action: "start_ai_scan", tipId });
+        if (!data) return;
         setMessage(
           data.reused
-            ? "AI-controle hergebruikt (zelfde bron/hash of recent resultaat). Geen nieuwe betaalde call."
-            : "AI-controle voltooid. Advies opgeslagen; jij beslist nog over goedkeuren/publiceren.",
+            ? "AI-controle hergebruikt (zelfde bron/hash). Geen nieuwe betaalde call."
+            : "AI-controle voltooid. Advies opgeslagen; jij beslist.",
         );
         await refresh();
       } finally {
@@ -110,25 +121,45 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
     });
   }
 
-  function requestPublish(tipId: string, hasAiAdvice: boolean) {
-    const lines = [
-      "Normale flow: AI-controle → Goedkeuren → daarna pas publiceren.",
-      "Publiceren nu is een handmatige override.",
-      "",
-      "Belangrijk: dit zet alleen de interne status. Er verschijnt nog geen echt evenement op de publieke feed.",
-      "",
-      hasAiAdvice
-        ? "AI-advies is aanwezig. Toch publiceren (status only)?"
-        : "Er is nog geen bruikbaar AI-advies. Toch handmatig overrulen?",
-    ];
-    if (!window.confirm(lines.join("\n"))) return;
-    void setStatus(
-      tipId,
-      "published",
-      hasAiAdvice
-        ? "Handmatige publicatiestatus (override) met AI-advies; nog geen live catalogus-item."
-        : "Handmatige publicatiestatus (override) zonder AI-controle; nog geen live catalogus-item.",
-    );
+  function createConcept(tipId: string) {
+    startTransition(async () => {
+      const data = await postAction({ action: "create_concept_event", tipId });
+      if (!data) return;
+      setMessage(
+        `Concept-event aangemaakt (${String(data.slug)}). Review/publicatie via /interne-events.`,
+      );
+      await refresh();
+    });
+  }
+
+  function addWatch(tipId: string) {
+    startTransition(async () => {
+      const data = await postAction({ action: "add_source_watch", tipId });
+      if (!data) return;
+      setMessage("Bron toegevoegd aan tip-watchlist (geen auto-monitoring).");
+      await refresh();
+    });
+  }
+
+  function sendMail(tipId: string, mailStatus: TipStatus) {
+    startTransition(async () => {
+      const data = await postAction({
+        action: "send_status_mail",
+        tipId,
+        mailStatus,
+      });
+      if (!data) return;
+      if (data.skipped === "already_sent") {
+        setMessage("Statusmail was al gelogd (idempotent).");
+      } else if (data.sent === true) {
+        setMessage("Statusmail verstuurd.");
+      } else {
+        setMessage(
+          "Mailprovider niet geconfigureerd — template klaar, niets verstuurd.",
+        );
+      }
+      await refresh();
+    });
   }
 
   return (
@@ -139,8 +170,8 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
         </h1>
         <p className="text-sm text-muted-foreground">
           {snapshot.tips.length} melding
-          {snapshot.tips.length === 1 ? "" : "en"} · AI-controle op jouw knop ·
-          jij beslist · publiceren = override · nooit auto-live
+          {snapshot.tips.length === 1 ? "" : "en"} · AI op jouw knop · concept-event
+          na goedkeuring · publicatie via /interne-events · geen auto-live
         </p>
       </header>
 
@@ -237,12 +268,32 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                     </dd>
                   </div>
                   <div>
+                    <dt className="text-muted-foreground">Eventkoppeling</dt>
+                    <dd>
+                      {tip.linkedEventId ? (
+                        <span>
+                          Gekoppeld ·{" "}
+                          <a
+                            href="/interne-events"
+                            className="font-medium underline-offset-4 hover:underline"
+                          >
+                            Bekijk concept-event
+                          </a>
+                        </span>
+                      ) : tip.status === "approved_for_publication" ? (
+                        "Nog geen concept-event"
+                      ) : (
+                        "—"
+                      )}
+                    </dd>
+                  </div>
+                  <div>
                     <dt className="text-muted-foreground">Publicatie</dt>
                     <dd>
                       {tip.status === "published"
-                        ? "Interne status gepubliceerd (nog geen live event op de feed)"
+                        ? "Tip published (gekoppeld event live)"
                         : tip.status === "approved_for_publication"
-                          ? "Goedgekeurd, nog niet gepubliceerd"
+                          ? "Goedgekeurd, nog niet published"
                           : "Nog niet goedgekeurd voor publicatie"}
                     </dd>
                   </div>
@@ -262,44 +313,102 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                         ? "Opnieuw AI-controle"
                         : "Start AI-controle"}
                   </Button>
-                  <StatusButton
-                    label="In controle"
-                    onClick={() => setStatus(tip.id, "in_review", "")}
-                  />
-                  <StatusButton
-                    label="Extra info"
-                    onClick={() =>
-                      setStatus(
-                        tip.id,
-                        "needs_info",
-                        "Officiële bron onvolledig of onbereikbaar.",
-                      )
-                    }
-                  />
-                  <StatusButton
-                    label="Afwijzen"
-                    onClick={() =>
-                      setStatus(
-                        tip.id,
-                        "rejected",
-                        "De activiteit is niet aantoonbaar singlesgericht volgens Route A/B.",
-                      )
-                    }
-                  />
-                  <StatusButton
-                    label="Goedkeuren (nog niet publiceren)"
-                    onClick={() =>
-                      setStatus(
-                        tip.id,
-                        "approved_for_publication",
-                        "Route A/B voldoende; publicatie volgt apart.",
-                      )
-                    }
-                  />
-                  <StatusButton
-                    label="Publiceren (handmatige override)"
-                    onClick={() => requestPublish(tip.id, hasAiAdvice)}
-                  />
+                  {tip.status === "received" ||
+                  tip.status === "duplicate" ||
+                  tip.status === "needs_info" ? (
+                    <StatusButton
+                      label="In controle"
+                      onClick={() => setStatus(tip.id, "in_review", "")}
+                    />
+                  ) : null}
+                  {tip.status !== "rejected" &&
+                  tip.status !== "published" &&
+                  tip.status !== "expired_or_cancelled" ? (
+                    <StatusButton
+                      label="Extra info nodig"
+                      onClick={() =>
+                        setStatus(
+                          tip.id,
+                          "needs_info",
+                          "Officiële bron onvolledig of onbereikbaar.",
+                        )
+                      }
+                    />
+                  ) : null}
+                  {tip.status !== "rejected" &&
+                  tip.status !== "published" &&
+                  tip.status !== "expired_or_cancelled" ? (
+                    <StatusButton
+                      label="Afwijzen"
+                      onClick={() =>
+                        setStatus(
+                          tip.id,
+                          "rejected",
+                          "De activiteit is niet aantoonbaar singlesgericht volgens Route A/B.",
+                        )
+                      }
+                    />
+                  ) : null}
+                  {tip.status !== "approved_for_publication" &&
+                  tip.status !== "published" &&
+                  tip.status !== "rejected" &&
+                  tip.status !== "expired_or_cancelled" ? (
+                    <StatusButton
+                      label="Goedkeuren (nog niet publiceren)"
+                      onClick={() =>
+                        setStatus(
+                          tip.id,
+                          "approved_for_publication",
+                          "Route A/B voldoende; concept-event volgt apart.",
+                        )
+                      }
+                    />
+                  ) : null}
+                  {tip.status === "approved_for_publication" &&
+                  !tip.linkedEventId ? (
+                    <Button
+                      type="button"
+                      className="h-9 rounded-full px-3 text-sm"
+                      disabled={isPending}
+                      onClick={() => createConcept(tip.id)}
+                    >
+                      Maak concept-event
+                    </Button>
+                  ) : null}
+                  {tip.linkedEventId ? (
+                    <a
+                      href="/interne-events"
+                      className="inline-flex h-9 items-center rounded-full border border-border px-3 text-sm font-medium hover:bg-muted"
+                    >
+                      Bekijk event
+                    </a>
+                  ) : null}
+                  {tip.status === "approved_for_publication" ||
+                  tip.status === "published" ||
+                  hasAiAdvice ? (
+                    <StatusButton
+                      label="Voeg bron toe aan watchlist"
+                      onClick={() => addWatch(tip.id)}
+                    />
+                  ) : null}
+                  {tip.notifyRequested && tip.email ? (
+                    <StatusButton
+                      label="Verstuur statusmail"
+                      onClick={() => sendMail(tip.id, tip.status)}
+                    />
+                  ) : null}
+                  {tip.status === "approved_for_publication" && tip.linkedEventId ? (
+                    <StatusButton
+                      label="Markeer tip published"
+                      onClick={() =>
+                        setStatus(
+                          tip.id,
+                          "published",
+                          "Gekoppeld event is published.",
+                        )
+                      }
+                    />
+                  ) : null}
                 </div>
               </li>
             );

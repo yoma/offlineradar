@@ -1,11 +1,21 @@
 import type { TipStatus } from "@/types/tips";
 
 /**
- * Transactional tip status emails — prepared only.
- * No mail provider is activated in this phase.
+ * Transactional tip status emails — templates + idempotency.
+ *
+ * Provider: NOT configured. sendTipEmail always returns provider_not_configured.
+ * Do not activate Resend/Postmark/SES without explicit product approval.
+ *
+ * Retention advice (no auto-cron this phase):
+ * - Clear tip.email after successful status mail or after 90 days if unused.
+ * - Keep tip URL + status for dedupe/audit without PII email.
  */
 
-export type TipEmailKind = "published" | "rejected" | "needs_info";
+export type TipEmailKind =
+  | "published"
+  | "rejected"
+  | "needs_info"
+  | "approved_prep";
 
 export type TipEmailDraft = {
   kind: TipEmailKind;
@@ -20,7 +30,7 @@ export function emailKindForStatus(status: TipStatus): TipEmailKind | null {
   if (status === "published") return "published";
   if (status === "rejected") return "rejected";
   if (status === "needs_info") return "needs_info";
-  // approved_for_publication intentionally has no “online” claim mail.
+  if (status === "approved_for_publication") return "approved_prep";
   return null;
 }
 
@@ -38,16 +48,14 @@ export function buildTipStatusEmail(input: {
 
   if (kind === "published") {
     const link = input.publishedAbsoluteUrl?.trim();
-    const linkLine = link
-      ? `\n\nBekijk de activiteit: ${link}`
-      : "\n\n(De publicatielink ontbreekt nog; voeg die toe vóór verzending.)";
+    if (!link) return null;
     return {
       kind,
       to: input.email,
       subject: "Je tip staat op OfflineRadar",
       body:
         "Bedankt voor je tip! We hebben de activiteit gecontroleerd en ze staat nu op OfflineRadar." +
-        linkLine,
+        `\n\nBekijk de activiteit: ${link}`,
       idempotencyKey,
     };
   }
@@ -64,13 +72,25 @@ export function buildTipStatusEmail(input: {
     };
   }
 
+  if (kind === "approved_prep") {
+    return {
+      kind,
+      to: input.email,
+      subject: "Je tip is goedgekeurd en wordt nog voorbereid",
+      body:
+        "Bedankt voor je tip. We hebben je tip goedgekeurd en bereiden de activiteit nog voor op OfflineRadar. Ze staat nog niet live.",
+      idempotencyKey,
+    };
+  }
+
   return {
     kind: "rejected",
     to: input.email,
-    subject: "Update over je OfflineRadar-tip",
+    subject: "We hebben je tip bekeken",
     body:
       "Bedankt voor je tip. We nemen deze activiteit momenteel niet op in OfflineRadar." +
-      (input.reason ? `\n\nReden: ${input.reason}` : ""),
+      (input.reason ? `\n\nReden: ${input.reason}` : "") +
+      "\n\nKen je een andere officiële link? Je mag die altijd opnieuw tippen.",
     idempotencyKey,
   };
 }

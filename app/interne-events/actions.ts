@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { signIn, signOut } from "@/auth";
 import { resolveTipsAdminAccess } from "@/lib/tips/admin-auth";
-import { takeEditionOffline } from "@/lib/events/neon-store";
+import {
+  getEditionById,
+  takeEditionOffline,
+  updateEditionPublication,
+} from "@/lib/events/neon-store";
 import {
   upsertCatalogSourceByUrl,
   updateCatalogSourceFields,
@@ -13,6 +17,8 @@ import {
   updateOpenReportsForEdition,
   type EventReportStatus,
 } from "@/lib/events/reports";
+import { neonListTipIdsForEdition } from "@/lib/tips/neon-store";
+import { updateTipStatus } from "@/lib/tips/service";
 
 export async function startEventsAdminSignIn() {
   await signIn("google", { redirectTo: "/interne-events" });
@@ -34,6 +40,44 @@ export async function takeEventOfflineAction(formData: FormData) {
     throw new Error("Kon event niet offline halen (niet published of niet gevonden).");
   }
   revalidatePath("/interne-events");
+  revalidatePath("/ontdek");
+  revalidatePath(`/event/${updated.slug}`);
+}
+
+/** Explicit human publish: draft/approved/under_review → published. Syncs linked tips. */
+export async function publishEventAction(formData: FormData) {
+  const access = await resolveTipsAdminAccess();
+  if (!access.ok) throw new Error("Niet geautoriseerd");
+  const id = String(formData.get("editionId") ?? "").trim();
+  if (!id) throw new Error("editionId ontbreekt");
+  const bundle = await getEditionById(id);
+  if (!bundle) throw new Error("Event niet gevonden");
+  const status = bundle.edition.publicationStatus;
+  if (status === "published") throw new Error("Event is al published");
+  if (status === "rejected" || status === "cancelled" || status === "expired") {
+    throw new Error("Deze status kan niet gepubliceerd worden");
+  }
+  const now = new Date().toISOString();
+  const updated = await updateEditionPublication({
+    id,
+    publicationStatus: "published",
+    publishedAt: now,
+    approvedAt: now,
+  });
+  if (!updated) throw new Error("Publiceren mislukt");
+
+  const tipIds = await neonListTipIdsForEdition(id);
+  for (const tipId of tipIds) {
+    await updateTipStatus({
+      tipId,
+      status: "published",
+      decisionReason: "Gekoppeld event gepubliceerd via /interne-events.",
+      publishedEventPath: `/event/${updated.slug}`,
+    });
+  }
+
+  revalidatePath("/interne-events");
+  revalidatePath("/interne-tips");
   revalidatePath("/ontdek");
   revalidatePath(`/event/${updated.slug}`);
 }

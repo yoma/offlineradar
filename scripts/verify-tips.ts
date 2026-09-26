@@ -64,8 +64,17 @@ async function main() {
   ok("email validation");
 
   assert.equal(emailKindForStatus("published"), "published");
-  assert.equal(emailKindForStatus("approved_for_publication"), null);
-  ok("no publish-claim mail for approved_for_publication");
+  assert.equal(emailKindForStatus("approved_for_publication"), "approved_prep");
+  ok("approved_for_publication has prep mail, not live claim");
+
+  const noLink = buildTipStatusEmail({
+    tipId: "t1",
+    status: "published",
+    email: "a@b.co",
+    publishedAbsoluteUrl: null,
+  });
+  assert.equal(noLink, null);
+  ok("published mail blocked without live URL");
 
   const draft = buildTipStatusEmail({
     tipId: "t1",
@@ -129,14 +138,14 @@ async function main() {
     assert.equal(approved.ok, true);
     ok("approved_for_publication separate from published");
 
-    const published = await updateTipStatus({
+    const publishedBlocked = await updateTipStatus({
       tipId: created.tip.id,
       status: "published",
       decisionReason: "Expliciet publiceren",
       publishedEventPath: "/event/demo",
     });
-    assert.equal(published.ok, true);
-    ok("explicit publish step works");
+    assert.equal(publishedBlocked.ok, false);
+    ok("tip published blocked without linked event");
 
     const prep = emptyAiPrepPlaceholder(created.tip);
     assert.equal(prep.suggestsListable, null);

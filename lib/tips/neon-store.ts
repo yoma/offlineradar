@@ -553,3 +553,77 @@ export async function neonUpsertSourceWatch(input: {
 
   return sourceId;
 }
+
+export async function neonLinkTipToEvent(input: {
+  tipId: string;
+  eventEditionId: string;
+}): Promise<boolean> {
+  const sql = getTipsSql();
+  if (!sql) return false;
+  const updated = (await sql`
+    UPDATE tips
+    SET linked_event_id = ${input.eventEditionId}, updated_at = now()
+    WHERE id = ${input.tipId}
+    RETURNING id
+  `) as { id: string }[];
+  return updated.length > 0;
+}
+
+/** Clear tip email after status mail / retention (keep tip for dedupe). */
+export async function neonClearTipEmail(tipId: string): Promise<boolean> {
+  const sql = getTipsSql();
+  if (!sql) return false;
+  const updated = (await sql`
+    UPDATE tips
+    SET email = NULL, updated_at = now()
+    WHERE id = ${tipId}
+    RETURNING id
+  `) as { id: string }[];
+  return updated.length > 0;
+}
+
+export async function neonRecordEmailAttempt(input: {
+  tipId: string;
+  status: TipStatus;
+  idempotencyKey: string;
+  providerMessageId?: string | null;
+}): Promise<"inserted" | "duplicate" | "error"> {
+  const sql = getTipsSql();
+  if (!sql) return "error";
+  try {
+    await sql`
+      INSERT INTO tip_email_log (tip_id, status, idempotency_key, provider_message_id)
+      VALUES (
+        ${input.tipId},
+        ${input.status},
+        ${input.idempotencyKey},
+        ${input.providerMessageId ?? null}
+      )
+    `;
+    return "inserted";
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/unique|duplicate/i.test(message)) return "duplicate";
+    return "error";
+  }
+}
+
+export async function neonHasEmailLog(idempotencyKey: string): Promise<boolean> {
+  const sql = getTipsSql();
+  if (!sql) return false;
+  const rows = (await sql`
+    SELECT 1 AS ok FROM tip_email_log WHERE idempotency_key = ${idempotencyKey} LIMIT 1
+  `) as { ok: number }[];
+  return rows.length > 0;
+}
+
+export async function neonListTipIdsForEdition(
+  eventEditionId: string,
+): Promise<string[]> {
+  const sql = getTipsSql();
+  if (!sql) return [];
+  const rows = (await sql`
+    SELECT id FROM tips WHERE linked_event_id = ${eventEditionId}
+  `) as { id: string }[];
+  return rows.map((r) => r.id);
+}
