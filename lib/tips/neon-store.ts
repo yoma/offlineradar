@@ -617,6 +617,44 @@ export async function neonHasEmailLog(idempotencyKey: string): Promise<boolean> 
   return rows.length > 0;
 }
 
+export type TipEmailLogRow = {
+  tipId: string;
+  status: TipStatus;
+  idempotencyKey: string;
+  providerMessageId: string | null;
+  createdAt: string;
+};
+
+export async function neonListEmailLogsForTip(
+  tipId: string,
+): Promise<TipEmailLogRow[]> {
+  const sql = getTipsSql();
+  if (!sql) return [];
+  const rows = (await sql`
+    SELECT tip_id, status, idempotency_key, provider_message_id, created_at
+    FROM tip_email_log
+    WHERE tip_id = ${tipId}
+    ORDER BY created_at DESC
+    LIMIT 20
+  `) as {
+    tip_id: string;
+    status: TipStatus;
+    idempotency_key: string;
+    provider_message_id: string | null;
+    created_at: string | Date;
+  }[];
+  return rows.map((row) => ({
+    tipId: row.tip_id,
+    status: row.status,
+    idempotencyKey: row.idempotency_key,
+    providerMessageId: row.provider_message_id,
+    createdAt:
+      typeof row.created_at === "string"
+        ? row.created_at
+        : row.created_at.toISOString(),
+  }));
+}
+
 export async function neonListTipIdsForEdition(
   eventEditionId: string,
 ): Promise<string[]> {

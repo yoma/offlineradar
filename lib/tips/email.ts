@@ -1,14 +1,12 @@
 import type { TipStatus } from "@/types/tips";
+import { appDisplayName, isResendConfigured } from "@/lib/email/app-brand";
+import { sendViaResend } from "@/lib/email/resend";
 
 /**
- * Transactional tip status emails — templates + idempotency.
+ * Transactional tip status emails.
  *
- * Provider: NOT configured. sendTipEmail always returns provider_not_configured.
- * Do not activate Resend/Postmark/SES without explicit product approval.
- *
- * Retention advice (no auto-cron this phase):
- * - Clear tip.email after successful status mail or after 90 days if unused.
- * - Keep tip URL + status for dedupe/audit without PII email.
+ * Retention (no auto-cron): clear tip.email after successful final mail
+ * or within ~90 days after final handling; keep tip URL/status for dedupe.
  */
 
 export type TipEmailKind =
@@ -34,28 +32,48 @@ export function emailKindForStatus(status: TipStatus): TipEmailKind | null {
   return null;
 }
 
+export function maskEmail(email: string): string {
+  const trimmed = email.trim().toLowerCase();
+  const at = trimmed.indexOf("@");
+  if (at < 1) return "***";
+  const local = trimmed.slice(0, at);
+  const domain = trimmed.slice(at + 1);
+  const visible = local.slice(0, Math.min(2, local.length));
+  return `${visible}***@${domain}`;
+}
+
 export function buildTipStatusEmail(input: {
   tipId: string;
   status: TipStatus;
   email: string;
   reason?: string | null;
   publishedAbsoluteUrl?: string | null;
+  eventTitle?: string | null;
+  linkedEventId?: string | null;
+  appName?: string;
 }): TipEmailDraft | null {
   const kind = emailKindForStatus(input.status);
   if (!kind) return null;
 
-  const idempotencyKey = `tip:${input.tipId}:status:${input.status}`;
+  const appName = input.appName?.trim() || appDisplayName();
+  const eventKey = input.linkedEventId?.trim() || "none";
+  const idempotencyKey =
+    kind === "published"
+      ? `tip:${input.tipId}:mail:published:event:${eventKey}`
+      : `tip:${input.tipId}:mail:${kind}`;
 
   if (kind === "published") {
     const link = input.publishedAbsoluteUrl?.trim();
     if (!link) return null;
+    const title = input.eventTitle?.trim();
     return {
       kind,
       to: input.email,
-      subject: "Je tip staat op OfflineRadar",
+      subject: `Je tip staat op ${appName}`,
       body:
-        "Bedankt voor je tip! We hebben de activiteit gecontroleerd en ze staat nu op OfflineRadar." +
-        `\n\nBekijk de activiteit: ${link}`,
+        `Bedankt voor je tip! We hebben de activiteit gecontroleerd en ze staat nu op ${appName}.` +
+        (title ? `\n\nEvent: ${title}` : "") +
+        `\n\nBekijk event: ${link}`,
       idempotencyKey,
     };
   }
@@ -64,10 +82,11 @@ export function buildTipStatusEmail(input: {
     return {
       kind,
       to: input.email,
-      subject: "Nog iets nodig voor je OfflineRadar-tip",
+      subject: `Nog iets nodig voor je ${appName}-tip`,
       body:
-        "Bedankt voor je tip. We hebben nog informatie nodig om de activiteit verder te controleren. Dit is geen definitieve afwijzing." +
-        (input.reason ? `\n\n${input.reason}` : ""),
+        `Bedankt voor je tip. We hebben nog informatie nodig om de activiteit verder te controleren. Dit is geen definitieve afwijzing.` +
+        (input.reason ? `\n\n${input.reason}` : "") +
+        `\n\nJe kunt een completere officiële link opnieuw tippen via ${appName}.`,
       idempotencyKey,
     };
   }
@@ -78,7 +97,7 @@ export function buildTipStatusEmail(input: {
       to: input.email,
       subject: "Je tip is goedgekeurd en wordt nog voorbereid",
       body:
-        "Bedankt voor je tip. We hebben je tip goedgekeurd en bereiden de activiteit nog voor op OfflineRadar. Ze staat nog niet live.",
+        `Bedankt voor je tip. We hebben je tip goedgekeurd en bereiden de activiteit nog voor op ${appName}. Ze staat nog niet live.`,
       idempotencyKey,
     };
   }
@@ -88,19 +107,59 @@ export function buildTipStatusEmail(input: {
     to: input.email,
     subject: "We hebben je tip bekeken",
     body:
-      "Bedankt voor je tip. We nemen deze activiteit momenteel niet op in OfflineRadar." +
+      `Bedankt voor je tip. We nemen deze activiteit momenteel niet op in ${appName}.` +
       (input.reason ? `\n\nReden: ${input.reason}` : "") +
       "\n\nKen je een andere officiële link? Je mag die altijd opnieuw tippen.",
     idempotencyKey,
   };
 }
 
+export type SendTipEmailResult =
+  | { sent: true; messageId: string; idempotencyKey: string }
+  | {
+      sent: false;
+      reason: "provider_not_configured" | "provider_error";
+      error: string;
+      idempotencyKey: string;
+    };
+
 /**
- * Provider stub: always reports not configured.
- * Call only after explicit product-owner approval of a mail service.
+ * Send via Resend when configured; otherwise report not configured.
  */
 export async function sendTipEmail(
-  _draft: TipEmailDraft,
-): Promise<{ sent: false; reason: "provider_not_configured" }> {
-  return { sent: false, reason: "provider_not_configured" };
+  draft: TipEmailDraft,
+): Promise<SendTipEmailResult> {
+  if (!isResendConfigured()) {
+    return {
+      sent: false,
+      reason: "provider_not_configured",
+      error:
+        "Mailprovider niet geconfigureerd (RESEND_API_KEY + OFFLINERADAR_EMAIL_FROM).",
+      idempotencyKey: draft.idempotencyKey,
+    };
+  }
+
+  const result = await sendViaResend({
+    to: draft.to,
+    subject: draft.subject,
+    text: draft.body,
+    idempotencyKey: draft.idempotencyKey,
+  });
+
+  if (!result.ok) {
+    return {
+      sent: false,
+      reason: result.reason,
+      error: result.error,
+      idempotencyKey: draft.idempotencyKey,
+    };
+  }
+
+  return {
+    sent: true,
+    messageId: result.messageId,
+    idempotencyKey: draft.idempotencyKey,
+  };
 }
+
+export { isResendConfigured };

@@ -5,14 +5,17 @@ import {
   createConceptEventFromTip,
   linkTipToExistingEvent,
 } from "@/lib/tips/create-concept-event";
-import { buildTipStatusEmail, sendTipEmail } from "@/lib/tips/email";
 import {
   neonFindTipById,
-  neonHasEmailLog,
   neonUpsertSourceWatch,
 } from "@/lib/tips/neon-store";
+import {
+  clearTipContactEmail,
+  listTipEmailHistory,
+  previewTipStatusMail,
+  sendTipStatusMailExplicit,
+} from "@/lib/tips/send-status-mail";
 import { listTips, updateTipStatus } from "@/lib/tips/service";
-import { getEditionById } from "@/lib/events/neon-store";
 import { validateAndNormalizeTipUrl } from "@/lib/tips/url";
 import { TIP_STATUSES, type TipStatus } from "@/types/tips";
 
@@ -219,95 +222,81 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, sourceId });
   }
 
-  if (action === "send_status_mail") {
-    const found = await neonFindTipById(tipId);
-    if (!found) {
-      return NextResponse.json(
-        { ok: false, error: "Tip niet gevonden." },
-        { status: 404 },
-      );
-    }
-    if (!found.tip.notifyRequested || !found.tip.email) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Geen opt-in e-mail voor deze tip.",
-          code: "no_opt_in",
-        },
-        { status: 400 },
-      );
-    }
-    const status =
+  if (action === "preview_status_mail") {
+    const mailStatus =
       typeof record.mailStatus === "string" &&
       TIP_STATUSES.includes(record.mailStatus as TipStatus)
         ? (record.mailStatus as TipStatus)
-        : found.tip.status;
-
-    let publishedAbsoluteUrl: string | null = null;
-    if (status === "published") {
-      if (!found.tip.linkedEventId) {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: "Geen gekoppeld published event voor publicatiemail.",
-          },
-          { status: 400 },
-        );
-      }
-      const bundle = await getEditionById(found.tip.linkedEventId);
-      if (!bundle || bundle.edition.publicationStatus !== "published") {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: "Gekoppeld event is niet published.",
-          },
-          { status: 400 },
-        );
-      }
-      const origin = new URL(request.url).origin;
-      publishedAbsoluteUrl = `${origin}/event/${bundle.edition.slug}`;
-    }
-
-    const draft = buildTipStatusEmail({
+        : null;
+    const result = await previewTipStatusMail({
       tipId,
-      status,
-      email: found.tip.email,
-      reason: found.review.decisionReason,
-      publishedAbsoluteUrl,
+      mailStatus,
+      requestOrigin: new URL(request.url).origin,
     });
-    if (!draft) {
+    if (!result.ok) {
       return NextResponse.json(
-        { ok: false, error: "Geen mailtemplate voor deze status." },
-        { status: 400 },
+        { ok: false, error: result.error, code: result.code },
+        { status: result.code === "not_found" ? 404 : 400 },
       );
     }
+    return NextResponse.json({ ok: true, preview: result.preview });
+  }
 
-    if (await neonHasEmailLog(draft.idempotencyKey)) {
-      return NextResponse.json({
-        ok: true,
-        sent: false,
-        skipped: "already_sent",
-        idempotencyKey: draft.idempotencyKey,
-      });
-    }
-
-    const sent = await sendTipEmail(draft);
-    if (!sent.sent) {
-      return NextResponse.json({
-        ok: false,
-        sent: false,
-        code: sent.reason,
-        error:
-          "Geen mailprovider geconfigureerd. Templates + idempotency klaar; activeer provider pas na goedkeuring.",
-        draftPreview: {
-          subject: draft.subject,
-          kind: draft.kind,
-          idempotencyKey: draft.idempotencyKey,
+  if (action === "send_status_mail") {
+    // Recipient, subject, and body are never taken from the client.
+    const mailStatus =
+      typeof record.mailStatus === "string" &&
+      TIP_STATUSES.includes(record.mailStatus as TipStatus)
+        ? (record.mailStatus as TipStatus)
+        : null;
+    const result = await sendTipStatusMailExplicit({
+      tipId,
+      mailStatus,
+      requestOrigin: new URL(request.url).origin,
+    });
+    if (!result.ok) {
+      const status =
+        result.code === "not_found"
+          ? 404
+          : result.code === "provider_not_configured"
+            ? 503
+            : result.code === "provider_error"
+              ? 502
+              : 400;
+      return NextResponse.json(
+        {
+          ok: false,
+          sent: false,
+          error: result.error,
+          code: result.code,
+          preview: result.preview ?? null,
         },
-      });
+        { status },
+      );
     }
+    return NextResponse.json({
+      ok: true,
+      sent: result.sent,
+      skipped: result.skipped ?? null,
+      messageId: result.messageId ?? null,
+      preview: result.preview,
+    });
+  }
 
-    return NextResponse.json({ ok: true, sent: true });
+  if (action === "list_email_history") {
+    const logs = await listTipEmailHistory(tipId);
+    return NextResponse.json({ ok: true, logs });
+  }
+
+  if (action === "clear_contact_email") {
+    const result = await clearTipContactEmail(tipId);
+    if (!result.ok) {
+      return NextResponse.json(
+        { ok: false, error: result.error, code: result.code },
+        { status: result.code === "not_found" ? 404 : 400 },
+      );
+    }
+    return NextResponse.json({ ok: true, cleared: true });
   }
 
   return NextResponse.json(

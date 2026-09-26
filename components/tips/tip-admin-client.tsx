@@ -141,8 +141,49 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
     });
   }
 
-  function sendMail(tipId: string, mailStatus: TipStatus) {
+  function canSendStatusMail(status: TipStatus): boolean {
+    return (
+      status === "rejected" ||
+      status === "needs_info" ||
+      status === "approved_for_publication" ||
+      status === "published"
+    );
+  }
+
+  function previewAndSendMail(tipId: string, mailStatus: TipStatus) {
     startTransition(async () => {
+      const previewData = await postAction({
+        action: "preview_status_mail",
+        tipId,
+        mailStatus,
+      });
+      if (!previewData) return;
+      const preview = previewData.preview as
+        | {
+            kind?: string;
+            subject?: string;
+            toMasked?: string;
+            bodyPreview?: string;
+            alreadySent?: boolean;
+          }
+        | undefined;
+      if (!preview) {
+        setError("Kon mailpreview niet laden.");
+        return;
+      }
+      if (preview.alreadySent) {
+        setMessage(
+          `Statusmail (${preview.kind}) was al verzonden naar ${preview.toMasked}.`,
+        );
+        return;
+      }
+      const confirmSend = window.confirm(
+        `Statusmail versturen?\n\nType: ${preview.kind}\nAan: ${preview.toMasked}\nOnderwerp: ${preview.subject}\n\n${preview.bodyPreview}`,
+      );
+      if (!confirmSend) {
+        setMessage("Verzenden geannuleerd.");
+        return;
+      }
       const data = await postAction({
         action: "send_status_mail",
         tipId,
@@ -152,12 +193,23 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
       if (data.skipped === "already_sent") {
         setMessage("Statusmail was al gelogd (idempotent).");
       } else if (data.sent === true) {
-        setMessage("Statusmail verstuurd.");
+        setMessage(`Statusmail verstuurd naar ${String(preview.toMasked)}.`);
       } else {
-        setMessage(
-          "Mailprovider niet geconfigureerd — template klaar, niets verstuurd.",
-        );
+        setMessage("Geen mail verstuurd.");
       }
+      await refresh();
+    });
+  }
+
+  function clearContactEmail(tipId: string) {
+    startTransition(async () => {
+      const ok = window.confirm(
+        "Contactmail wissen? De tip blijft bestaan voor audit/dedupe.",
+      );
+      if (!ok) return;
+      const data = await postAction({ action: "clear_contact_email", tipId });
+      if (!data) return;
+      setMessage("Contactmail gewist.");
       await refresh();
     });
   }
@@ -391,11 +443,43 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                       onClick={() => addWatch(tip.id)}
                     />
                   ) : null}
-                  {tip.notifyRequested && tip.email ? (
-                    <StatusButton
-                      label="Verstuur statusmail"
-                      onClick={() => sendMail(tip.id, tip.status)}
-                    />
+                  {tip.notifyRequested ? (
+                    <div className="w-full space-y-2 rounded-xl border border-border bg-muted/20 p-3 text-sm">
+                      <p className="font-medium">Notificatie aangevraagd</p>
+                      <p className="text-muted-foreground">
+                        {tip.email
+                          ? "Contactmail bewaard (opt-in)."
+                          : "Contactmail al gewist; tip blijft voor audit."}
+                      </p>
+                      {review?.emailSentForStatuses?.length ? (
+                        <p className="text-muted-foreground">
+                          Laatste statusmail(s):{" "}
+                          {review.emailSentForStatuses
+                            .map((s) => TIP_STATUS_LABEL[s] ?? s)
+                            .join(" · ")}
+                        </p>
+                      ) : (
+                        <p className="text-muted-foreground">
+                          Nog geen statusmail verzonden.
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        {tip.email && canSendStatusMail(tip.status) ? (
+                          <StatusButton
+                            label="Verstuur statusmail"
+                            onClick={() =>
+                              previewAndSendMail(tip.id, tip.status)
+                            }
+                          />
+                        ) : null}
+                        {tip.email ? (
+                          <StatusButton
+                            label="Verwijder contactmail"
+                            onClick={() => clearContactEmail(tip.id)}
+                          />
+                        ) : null}
+                      </div>
+                    </div>
                   ) : null}
                   {tip.status === "approved_for_publication" && tip.linkedEventId ? (
                     <StatusButton

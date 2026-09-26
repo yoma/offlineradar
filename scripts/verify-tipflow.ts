@@ -52,13 +52,28 @@ function main() {
     reason: "niet singles",
   });
   assert.ok(rejected);
-  assert.equal(rejected!.idempotencyKey, "tip:t:status:rejected");
+  assert.equal(rejected!.idempotencyKey, "tip:t:mail:rejected");
   ok("rejected mail + idempotency key");
 
   void sendTipEmail(rejected!).then((r) => {
     assert.equal(r.sent, false);
     assert.equal(r.reason, "provider_not_configured");
     ok("mail provider stub not configured");
+
+    const published = buildTipStatusEmail({
+      tipId: "t",
+      status: "published",
+      email: "x@y.z",
+      publishedAbsoluteUrl: "https://example.com/event/x",
+      linkedEventId: "ev",
+      eventTitle: "X",
+    });
+    assert.ok(published);
+    assert.equal(
+      published!.idempotencyKey,
+      "tip:t:mail:published:event:ev",
+    );
+    ok("published mail idempotency includes event id");
 
     const img = resolvePublicEventImage(
       {
