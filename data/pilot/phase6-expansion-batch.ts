@@ -1,0 +1,891 @@
+/**
+ * Fase 6: non-speeddate coverage (checked 2026-09-26).
+ * Geen klassieke speeddates. Quality > volume.
+ */
+import type { PreviewImportDecision } from "@/data/pilot/preview-import-decisions";
+import { eligibilityJsonFor } from "@/data/pilot/preview-import-decisions";
+import type { UpsertCatalogSourceInput } from "@/lib/events/catalog-sources";
+import { GEO } from "@/data/places";
+import { distanceKmBetween } from "@/lib/distance";
+import type { Event } from "@/types/event";
+import { band } from "@/types/event";
+import { slugId } from "@/types/domain";
+
+const CHECKED_AT = "2026-09-26T16:00:00.000Z";
+const ANTWERP = GEO.antwerpen;
+
+const GEO_EXTRA = {
+  ieper: { lat: 50.8511, lng: 2.8857 },
+  aalst: { lat: 50.9378, lng: 4.0409 },
+  hatrival: { lat: 50.033, lng: 5.32 },
+  vielsalm: { lat: 50.284, lng: 5.915 },
+} as const;
+
+function dist(lat: number, lng: number) {
+  return distanceKmBetween(ANTWERP, { lat, lng });
+}
+
+function mood(file: string, alt: string) {
+  return {
+    imageUrl: `/preview-mood/${file}`,
+    imageAlt: alt,
+    imageIsAtmosphere: true as const,
+  };
+}
+
+function base(
+  partial: Omit<
+    Event,
+    | "currency"
+    | "instagramUrl"
+    | "addedAt"
+    | "organizerId"
+    | "venueId"
+    | "meetActivation"
+    | "singlesFriendly"
+    | "listingPath"
+    | "socialSuitability"
+    | "distanceKm"
+    | "preferredAudienceAgeMin"
+    | "preferredAudienceAgeMax"
+    | "audienceAgeFromSource"
+    | "knownAudienceGenders"
+    | "spotsRemaining"
+    | "registrationDeadline"
+    | "endDate"
+    | "endTime"
+    | "region"
+  > &
+    Partial<
+      Pick<
+        Event,
+        | "preferredAudienceAgeMin"
+        | "preferredAudienceAgeMax"
+        | "audienceAgeFromSource"
+        | "region"
+        | "priceIsFrom"
+        | "startTimeDisplayNote"
+        | "endDate"
+        | "endTime"
+      >
+    >,
+): Event {
+  const {
+    region,
+    preferredAudienceAgeMin,
+    preferredAudienceAgeMax,
+    audienceAgeFromSource,
+    endDate,
+    endTime,
+    ...rest
+  } = partial;
+  return {
+    ...rest,
+    currency: "EUR",
+    region: region ?? "Vlaanderen",
+    instagramUrl: null,
+    addedAt: CHECKED_AT,
+    organizerId: slugId("org", partial.organizerName),
+    venueId: partial.venue ? slugId("venue", partial.venue) : null,
+    meetActivation: null,
+    singlesFriendly: false,
+    listingPath: "organic",
+    socialSuitability: "high",
+    singlesOriented: true,
+    distanceKm: dist(partial.latitude, partial.longitude),
+    preferredAudienceAgeMin: preferredAudienceAgeMin ?? null,
+    preferredAudienceAgeMax: preferredAudienceAgeMax ?? null,
+    audienceAgeFromSource: audienceAgeFromSource === true,
+    knownAudienceGenders: null,
+    spotsRemaining: null,
+    registrationDeadline: null,
+    endDate: endDate ?? null,
+    endTime: endTime ?? null,
+  };
+}
+
+export type Phase6Item = { event: Event; decision: PreviewImportDecision };
+
+function item(
+  event: Event,
+  decision: Omit<PreviewImportDecision, "previewId" | "slug">,
+): Phase6Item {
+  return {
+    event,
+    decision: { ...decision, previewId: event.id, slug: event.slug },
+  };
+}
+
+export function buildPhase6ExpansionBatch(): Phase6Item[] {
+  return [
+    // Resolve prior under_review: Single's Kiss = Halloween Bloody Kiss branding
+    item(
+      base({
+        id: "phase6-singles-kiss-gent-2026-10-31",
+        title: "Single's Kiss Gent (Bloody Kiss Halloween)",
+        slug: "singles-kiss-gent-2026-10-31",
+        shortDescription:
+          "Lucky Lemon singles popfeest in VIERNULVIER; Halloween-editie als Bloody Kiss.",
+        description:
+          "Single's Kiss is het singles popfeest-concept van Lucky Lemon × MNDR TNDR. De Halloween-editie op 31 okt heet Bloody Kiss maar blijft singlesgericht; wing(wo)men welkom.",
+        category: "dating",
+        subCategory: "singles party",
+        organizerName: "Lucky Lemon",
+        city: "Gent",
+        venue: "VIERNULVIER",
+        latitude: GEO.gent.lat,
+        longitude: GEO.gent.lng,
+        region: "Oost-Vlaanderen",
+        startDate: "2026-10-31",
+        startTime: "22:30",
+        endTime: "04:00",
+        endDate: "2026-11-01",
+        price: null,
+        eligibility: { default: null, byGender: null, allowedGenders: null },
+        eligibilityAgeMin: null,
+        eligibilityAgeMax: null,
+        eligibilityAgeRule: "unknown",
+        singlesOnly: false,
+        genderAvailability: null,
+        capacityStatus: "unknown",
+        availabilityNote: null,
+        sourceType: "official_website",
+        sourceName: "Lucky Lemon",
+        officialUrl: "https://www.luckylemon.be/singleskiss",
+        ticketUrl: "https://www.viernulvier.gent/nl/agenda/bloody-kiss-67qx",
+        lastCheckedAt: CHECKED_AT,
+        tags: ["singles", "party", "halloween"],
+        activities: ["party", "dans"],
+        practicalInfo: [
+          "Sint-Pietersnieuwstraat 23, 9000 Gent",
+          "Wing(wo)men welkom; niet singles-only.",
+        ],
+        ...mood("mood-mingle-night.png", "Sfeerbeeld singles party"),
+      }),
+      {
+        organizerSlug: "lucky-lemon",
+        organizerName: "Lucky Lemon",
+        organizerWebsite: "https://www.luckylemon.be",
+        seriesSlug: "singles-kiss",
+        seriesName: "Single's Kiss",
+        publicationStatus: "approved",
+        eligibilityRoute: "route_a",
+        singlesOriented: true,
+        singlesOnly: false,
+        singlesOnlyEvidence:
+          "Marketingpage: singles popfeest; wing(wo)men expliciet welkom.",
+        minAge: null,
+        maxAge: null,
+        ageRule: "unknown",
+        priceAmount: null,
+        priceIsFrom: false,
+        priceNote: "Prijs via ticketlink.",
+        availabilityStatus: "unknown",
+        availabilityNote: null,
+        genderAvailability: null,
+        startTime: "22:30",
+        endTime: "04:00",
+        startTimeDisplayNote: null,
+        primarySourceUrl: "https://www.luckylemon.be/singleskiss",
+        extraSources: [
+          {
+            sourceType: "ticket",
+            url: "https://www.viernulvier.gent/nl/agenda/bloody-kiss-67qx",
+            sourceName: "VIERNULVIER Bloody Kiss (Halloween-editie)",
+            isPrimary: false,
+          },
+        ],
+        changesVsPreview: [
+          "Conflict opgelost: Bloody Kiss = Halloween-branding van Single's Kiss.",
+        ],
+        conflicts: [],
+        reviewNotes: [
+          "Hercontrole 2026-09-26: luckylemon.be framing singles party 31/10 22:30–04:00 VIERNULVIER.",
+        ],
+        sourceOk: "ok",
+      },
+    ),
+
+    item(
+      base({
+        id: "phase6-ontvlam-women-only-gent-2026-10-11",
+        title: "Ontvlam — Authentiek daten (Women only) Gent",
+        slug: "ontvlam-women-only-gent-2026-10-11",
+        shortDescription:
+          "Women-only Ontvlam-sessie: authentiek daten voor vrouwen die vrouwen zoeken.",
+        description:
+          "Ontvlam: 3 uur authentiek daten (verbaal en non-verbaal) voor vrouwen met interesse in vrouwen. Zaal R7 Gent.",
+        category: "dating",
+        subCategory: "dating workshop",
+        organizerName: "Ontvlam",
+        city: "Gent",
+        venue: "R7",
+        latitude: GEO.gent.lat,
+        longitude: GEO.gent.lng,
+        region: "Oost-Vlaanderen",
+        startDate: "2026-10-11",
+        startTime: "15:00",
+        endTime: "18:00",
+        price: 45,
+        eligibility: {
+          default: band(25, null, "guideline"),
+          byGender: null,
+          allowedGenders: null,
+        },
+        eligibilityAgeMin: 25,
+        eligibilityAgeMax: null,
+        eligibilityAgeRule: "guideline",
+        preferredAudienceAgeMin: 25,
+        preferredAudienceAgeMax: null,
+        audienceAgeFromSource: true,
+        singlesOnly: true,
+        genderAvailability: null,
+        capacityStatus: "available",
+        availabilityNote: null,
+        sourceType: "official_website",
+        sourceName: "Ontvlam",
+        officialUrl: "https://www.ontvlam.be/kalender",
+        ticketUrl:
+          "https://hipsy.nl/event/237317-ontvlam-authentiek-daten-women-only-gent",
+        lastCheckedAt: CHECKED_AT,
+        tags: ["singles", "workshop", "women-only"],
+        activities: ["workshop"],
+        practicalInfo: [
+          "New-Yorkstraat 7, 9000 Gent",
+          "Women only; welkom vanaf 14:45.",
+        ],
+        ...mood("mood-embodied-dating.png", "Sfeerbeeld dating workshop"),
+      }),
+      {
+        organizerSlug: "ontvlam",
+        organizerName: "Ontvlam",
+        organizerWebsite: "https://www.ontvlam.be",
+        seriesSlug: "ontvlam-authentiek-daten",
+        seriesName: "Ontvlam authentiek daten",
+        publicationStatus: "approved",
+        eligibilityRoute: "route_a",
+        singlesOriented: true,
+        singlesOnly: true,
+        singlesOnlyEvidence:
+          "Officiële kalender: Ontvlam authentiek daten, women only.",
+        minAge: 25,
+        maxAge: null,
+        ageRule: "guideline",
+        priceAmount: 45,
+        priceIsFrom: false,
+        priceNote: null,
+        availabilityStatus: "available",
+        availabilityNote: null,
+        genderAvailability: "Women only",
+        startTime: "15:00",
+        endTime: "18:00",
+        startTimeDisplayNote: "Welkom vanaf 14:45.",
+        primarySourceUrl: "https://www.ontvlam.be/kalender",
+        extraSources: [
+          {
+            sourceType: "ticket",
+            url: "https://hipsy.nl/event/237317-ontvlam-authentiek-daten-women-only-gent",
+            sourceName: "Hipsy",
+            isPrimary: false,
+          },
+        ],
+        changesVsPreview: [],
+        conflicts: [],
+        reviewNotes: [
+          "11 okt 2026 15:00–18:00 R7 Gent; €45; women only singles dating.",
+        ],
+        sourceOk: "ok",
+      },
+    ),
+
+    item(
+      base({
+        id: "phase6-villavibes-manoir-35-49-2026-10-16",
+        title: "VillaVibes Single Weekend Ardennen — Manoir (35–49)",
+        slug: "villavibes-ardennen-manoir-35-49-2026-10-16",
+        shortDescription:
+          "All-inclusive singlesweekend in Manoir du Sartay, Ardennen.",
+        description:
+          "VillaVibes: 4-daags singlesweekend (vr–ma) in Manoir du Sartay bij Hatrival. All-inclusive eten/drinken, leeftijdsgroep 35–49 (±12 mnd).",
+        category: "dating",
+        subCategory: "singles weekend",
+        organizerName: "VillaVibes",
+        city: "Hatrival",
+        venue: "Manoir du Sartay",
+        latitude: GEO_EXTRA.hatrival.lat,
+        longitude: GEO_EXTRA.hatrival.lng,
+        region: "Luxemburg",
+        startDate: "2026-10-16",
+        startTime: "19:00",
+        endDate: "2026-10-19",
+        endTime: "10:00",
+        price: 449,
+        priceIsFrom: true,
+        eligibility: {
+          default: band(35, 49, "guideline"),
+          byGender: null,
+          allowedGenders: null,
+        },
+        eligibilityAgeMin: 35,
+        eligibilityAgeMax: 49,
+        eligibilityAgeRule: "guideline",
+        preferredAudienceAgeMin: 35,
+        preferredAudienceAgeMax: 49,
+        audienceAgeFromSource: true,
+        singlesOnly: true,
+        genderAvailability: "Mannen bijna vol · vrouwen bijna vol",
+        capacityStatus: "almost_full",
+        availabilityNote: "Bijna vol; excl. ±€37 boekingskosten.",
+        sourceType: "official_website",
+        sourceName: "VillaVibes",
+        officialUrl: "https://www.villavibes.nl/single-weekend/ardennen-manoir/",
+        ticketUrl: "https://www.villavibes.nl/single-weekend/ardennen-manoir/",
+        lastCheckedAt: CHECKED_AT,
+        tags: ["singles", "weekend", "reizen", "ardennen"],
+        activities: ["outdoor", "drinken", "eten"],
+        practicalInfo: [
+          "Hotel du Val de Poix / Manoir, 6870 Hatrival (Saint-Hubert)",
+          "Exclusief singles; HBO+-profilering volgens VillaVibes.",
+        ],
+        ...mood("mood-love-rooftop.png", "Sfeerbeeld singles weekend"),
+      }),
+      {
+        organizerSlug: "villavibes",
+        organizerName: "VillaVibes",
+        organizerWebsite: "https://www.villavibes.nl",
+        seriesSlug: "villavibes-ardennen-manoir",
+        seriesName: "VillaVibes Ardennen Manoir",
+        publicationStatus: "approved",
+        eligibilityRoute: "route_a",
+        singlesOriented: true,
+        singlesOnly: true,
+        singlesOnlyEvidence:
+          "VillaVibes single weekend; exclusief singles met leeftijdsgroep.",
+        minAge: 35,
+        maxAge: 49,
+        ageRule: "guideline",
+        priceAmount: 449,
+        priceIsFrom: true,
+        priceNote: "€449 excl. ±€37 verplichte bijkomende kosten.",
+        availabilityStatus: "almost_full",
+        availabilityNote: "Mannen en vrouwen bijna vol (2026-09-26).",
+        genderAvailability: "Mannen bijna vol · vrouwen bijna vol",
+        startTime: "19:00",
+        endTime: "10:00",
+        startTimeDisplayNote: "Aankomst vrijdag vanaf ±19:00; checkout maandag ±10:00.",
+        primarySourceUrl:
+          "https://www.villavibes.nl/single-weekend/ardennen-manoir/",
+        extraSources: [],
+        changesVsPreview: [],
+        conflicts: [],
+        reviewNotes: [
+          "16–19 okt 2026 Manoir Hatrival; 35–49 guideline (±12 mnd); €449+.",
+        ],
+        sourceOk: "ok",
+      },
+    ),
+
+    item(
+      base({
+        id: "phase6-villavibes-vielsalm-40-59-2026-11-20",
+        title: "VillaVibes Single Weekend Ardennen — Vielsalm (40–59)",
+        slug: "villavibes-ardennen-vielsalm-40-59-2026-11-20",
+        shortDescription:
+          "All-inclusive singlesweekend Domaine des Officiers, Vielsalm.",
+        description:
+          "VillaVibes singlesweekend in Domaine des Officiers, Vielsalm. Leeftijd 40–59, all-inclusive, wellness inbegrepen.",
+        category: "dating",
+        subCategory: "singles weekend",
+        organizerName: "VillaVibes",
+        city: "Vielsalm",
+        venue: "Domaine des Officiers",
+        latitude: GEO_EXTRA.vielsalm.lat,
+        longitude: GEO_EXTRA.vielsalm.lng,
+        region: "Luxemburg",
+        startDate: "2026-11-20",
+        startTime: "19:00",
+        endDate: "2026-11-23",
+        endTime: "10:00",
+        price: 449,
+        priceIsFrom: true,
+        eligibility: {
+          default: band(40, 59, "guideline"),
+          byGender: null,
+          allowedGenders: null,
+        },
+        eligibilityAgeMin: 40,
+        eligibilityAgeMax: 59,
+        eligibilityAgeRule: "guideline",
+        preferredAudienceAgeMin: 40,
+        preferredAudienceAgeMax: 59,
+        audienceAgeFromSource: true,
+        singlesOnly: true,
+        genderAvailability: "Mannen bijna vol · vrouwen vol",
+        capacityStatus: "almost_full",
+        availabilityNote: "Vrouwen vol / wachtlijst; excl. ±€37 kosten.",
+        sourceType: "official_website",
+        sourceName: "VillaVibes",
+        officialUrl:
+          "https://www.villavibes.nl/single-weekend/ardennen-vielsalm/",
+        ticketUrl: "https://www.villavibes.nl/single-weekend/ardennen-vielsalm/",
+        lastCheckedAt: CHECKED_AT,
+        tags: ["singles", "weekend", "reizen", "ardennen"],
+        activities: ["outdoor", "drinken", "eten"],
+        practicalInfo: [
+          "Rue Général Jacques 9, 6690 Vielsalm",
+          "Exclusief singles.",
+        ],
+        ...mood("mood-love-rooftop.png", "Sfeerbeeld singles weekend"),
+      }),
+      {
+        organizerSlug: "villavibes",
+        organizerName: "VillaVibes",
+        organizerWebsite: "https://www.villavibes.nl",
+        seriesSlug: "villavibes-ardennen-vielsalm",
+        seriesName: "VillaVibes Ardennen Vielsalm",
+        publicationStatus: "approved",
+        eligibilityRoute: "route_a",
+        singlesOriented: true,
+        singlesOnly: true,
+        singlesOnlyEvidence: "VillaVibes single weekend exclusief singles.",
+        minAge: 40,
+        maxAge: 59,
+        ageRule: "guideline",
+        priceAmount: 449,
+        priceIsFrom: true,
+        priceNote: "€449 excl. ±€37 verplichte bijkomende kosten.",
+        availabilityStatus: "almost_full",
+        availabilityNote: "Vrouwen vol; mannen bijna vol (2026-09-26).",
+        genderAvailability: "Mannen bijna vol · vrouwen vol",
+        startTime: "19:00",
+        endTime: "10:00",
+        startTimeDisplayNote: "Aankomst vrijdag vanaf ±19:00; checkout maandag ±10:00.",
+        primarySourceUrl:
+          "https://www.villavibes.nl/single-weekend/ardennen-vielsalm/",
+        extraSources: [],
+        changesVsPreview: [],
+        conflicts: [],
+        reviewNotes: ["20–23 nov 2026 Vielsalm; 40–59; €449+."],
+        sourceOk: "ok",
+      },
+    ),
+
+    item(
+      base({
+        id: "phase6-villavibes-manoir-35-49-2026-12-18",
+        title: "VillaVibes Single Weekend Ardennen — Manoir (35–49)",
+        slug: "villavibes-ardennen-manoir-35-49-2026-12-18",
+        shortDescription:
+          "December-editie singlesweekend Manoir du Sartay, Ardennen.",
+        description:
+          "VillaVibes: singlesweekend 18–21 dec in Manoir du Sartay. Leeftijd 35–49.",
+        category: "dating",
+        subCategory: "singles weekend",
+        organizerName: "VillaVibes",
+        city: "Hatrival",
+        venue: "Manoir du Sartay",
+        latitude: GEO_EXTRA.hatrival.lat,
+        longitude: GEO_EXTRA.hatrival.lng,
+        region: "Luxemburg",
+        startDate: "2026-12-18",
+        startTime: "19:00",
+        endDate: "2026-12-21",
+        endTime: "10:00",
+        price: 449,
+        priceIsFrom: true,
+        eligibility: {
+          default: band(35, 49, "guideline"),
+          byGender: null,
+          allowedGenders: null,
+        },
+        eligibilityAgeMin: 35,
+        eligibilityAgeMax: 49,
+        eligibilityAgeRule: "guideline",
+        preferredAudienceAgeMin: 35,
+        preferredAudienceAgeMax: 49,
+        audienceAgeFromSource: true,
+        singlesOnly: true,
+        genderAvailability: "Nog plek mannen en vrouwen",
+        capacityStatus: "available",
+        availabilityNote: "Nog plek; excl. ±€37 kosten.",
+        sourceType: "official_website",
+        sourceName: "VillaVibes",
+        officialUrl: "https://www.villavibes.nl/single-weekend/ardennen-manoir/",
+        ticketUrl: "https://www.villavibes.nl/single-weekend/ardennen-manoir/",
+        lastCheckedAt: CHECKED_AT,
+        tags: ["singles", "weekend", "reizen", "ardennen"],
+        activities: ["outdoor", "drinken", "eten"],
+        practicalInfo: ["6870 Hatrival (Saint-Hubert)"],
+        ...mood("mood-love-rooftop.png", "Sfeerbeeld singles weekend"),
+      }),
+      {
+        organizerSlug: "villavibes",
+        organizerName: "VillaVibes",
+        organizerWebsite: "https://www.villavibes.nl",
+        seriesSlug: "villavibes-ardennen-manoir",
+        seriesName: "VillaVibes Ardennen Manoir",
+        publicationStatus: "approved",
+        eligibilityRoute: "route_a",
+        singlesOriented: true,
+        singlesOnly: true,
+        singlesOnlyEvidence: "VillaVibes single weekend exclusief singles.",
+        minAge: 35,
+        maxAge: 49,
+        ageRule: "guideline",
+        priceAmount: 449,
+        priceIsFrom: true,
+        priceNote: "€449 excl. ±€37 verplichte bijkomende kosten.",
+        availabilityStatus: "available",
+        availabilityNote: "Nog plek mannen en vrouwen (2026-09-26).",
+        genderAvailability: null,
+        startTime: "19:00",
+        endTime: "10:00",
+        startTimeDisplayNote: "Aankomst vrijdag vanaf ±19:00; checkout maandag ±10:00.",
+        primarySourceUrl:
+          "https://www.villavibes.nl/single-weekend/ardennen-manoir/",
+        extraSources: [],
+        changesVsPreview: [],
+        conflicts: [],
+        reviewNotes: ["18–21 dec 2026 Manoir; 35–49; €449+."],
+        sourceOk: "ok",
+      },
+    ),
+
+    item(
+      base({
+        id: "phase6-villavibes-vielsalm-25-39-2026-12-27",
+        title: "VillaVibes Single Weekend Ardennen — Vielsalm (25–39)",
+        slug: "villavibes-ardennen-vielsalm-25-39-2026-12-27",
+        shortDescription:
+          "Feestdagen-singlesweekend Domaine des Officiers, 25–39.",
+        description:
+          "VillaVibes singlesweekend 27–30 dec in Vielsalm voor 25–39. All-inclusive.",
+        category: "dating",
+        subCategory: "singles weekend",
+        organizerName: "VillaVibes",
+        city: "Vielsalm",
+        venue: "Domaine des Officiers",
+        latitude: GEO_EXTRA.vielsalm.lat,
+        longitude: GEO_EXTRA.vielsalm.lng,
+        region: "Luxemburg",
+        startDate: "2026-12-27",
+        startTime: "19:00",
+        endDate: "2026-12-30",
+        endTime: "10:00",
+        price: 495,
+        priceIsFrom: true,
+        eligibility: {
+          default: band(25, 39, "guideline"),
+          byGender: null,
+          allowedGenders: null,
+        },
+        eligibilityAgeMin: 25,
+        eligibilityAgeMax: 39,
+        eligibilityAgeRule: "guideline",
+        preferredAudienceAgeMin: 25,
+        preferredAudienceAgeMax: 39,
+        audienceAgeFromSource: true,
+        singlesOnly: true,
+        genderAvailability: "Nog plek",
+        capacityStatus: "available",
+        availabilityNote: "Nog plek; excl. ±€37 kosten.",
+        sourceType: "official_website",
+        sourceName: "VillaVibes",
+        officialUrl:
+          "https://www.villavibes.nl/single-weekend/ardennen-vielsalm/",
+        ticketUrl: "https://www.villavibes.nl/single-weekend/ardennen-vielsalm/",
+        lastCheckedAt: CHECKED_AT,
+        tags: ["singles", "weekend", "reizen", "ardennen"],
+        activities: ["outdoor", "drinken", "eten"],
+        practicalInfo: ["Rue Général Jacques 9, 6690 Vielsalm"],
+        ...mood("mood-love-rooftop.png", "Sfeerbeeld singles weekend"),
+      }),
+      {
+        organizerSlug: "villavibes",
+        organizerName: "VillaVibes",
+        organizerWebsite: "https://www.villavibes.nl",
+        seriesSlug: "villavibes-ardennen-vielsalm",
+        seriesName: "VillaVibes Ardennen Vielsalm",
+        publicationStatus: "approved",
+        eligibilityRoute: "route_a",
+        singlesOriented: true,
+        singlesOnly: true,
+        singlesOnlyEvidence: "VillaVibes single weekend exclusief singles.",
+        minAge: 25,
+        maxAge: 39,
+        ageRule: "guideline",
+        priceAmount: 495,
+        priceIsFrom: true,
+        priceNote: "€495 excl. ±€37 verplichte bijkomende kosten.",
+        availabilityStatus: "available",
+        availabilityNote: "Nog plek (2026-09-26).",
+        genderAvailability: null,
+        startTime: "19:00",
+        endTime: "10:00",
+        startTimeDisplayNote: "Aankomst vrijdag vanaf ±19:00; checkout maandag ±10:00.",
+        primarySourceUrl:
+          "https://www.villavibes.nl/single-weekend/ardennen-vielsalm/",
+        extraSources: [],
+        changesVsPreview: [],
+        conflicts: [],
+        reviewNotes: ["27–30 dec 2026 Vielsalm; 25–39; €495+."],
+        sourceOk: "ok",
+      },
+    ),
+
+    item(
+      base({
+        id: "phase6-singles-bowling-ieper-2026-11-21",
+        title: "Singles Bowling in Ieper",
+        slug: "singles-bowling-ieper-2026-11-21",
+        shortDescription:
+          "Will You Date Me Singles Bowling exclusief voor vrijgezellen in Ieper.",
+        description:
+          "Singles Bowling bij Atlantis Bowling Ieper: 2 uur bowlen, hosts, welkomstdrankje, banen per leeftijdsgroep.",
+        category: "dating",
+        subCategory: "singles bowling",
+        organizerName: "Will You Date Me",
+        city: "Ieper",
+        venue: "Atlantis Bowling",
+        latitude: GEO_EXTRA.ieper.lat,
+        longitude: GEO_EXTRA.ieper.lng,
+        region: "West-Vlaanderen",
+        startDate: "2026-11-21",
+        startTime: "19:30",
+        endTime: "22:00",
+        price: 29,
+        eligibility: {
+          default: band(25, null, "guideline"),
+          byGender: null,
+          allowedGenders: null,
+        },
+        eligibilityAgeMin: 25,
+        eligibilityAgeMax: null,
+        eligibilityAgeRule: "guideline",
+        preferredAudienceAgeMin: 25,
+        preferredAudienceAgeMax: null,
+        audienceAgeFromSource: true,
+        singlesOnly: true,
+        genderAvailability: "25–35 mannen VOLZET; overige groepen beperkt",
+        capacityStatus: "limited",
+        availabilityNote: "Meerdere leeftijdsgroepen beperkt.",
+        sourceType: "official_website",
+        sourceName: "Will You Date Me",
+        officialUrl:
+          "https://willyoudateme.be/singles-bowling-in-ieper-21-november-2026/",
+        ticketUrl:
+          "https://willyoudateme.be/singles-bowling-in-ieper-21-november-2026/",
+        lastCheckedAt: CHECKED_AT,
+        tags: ["singles", "bowling", "sport"],
+        activities: ["sport", "drinken"],
+        practicalInfo: ["Posthoornstraat 8, Ieper"],
+        ...mood("mood-singles-bowling.png", "Sfeerbeeld singles bowling"),
+      }),
+      {
+        organizerSlug: "will-you-date-me",
+        organizerName: "Will You Date Me",
+        organizerWebsite: "https://willyoudateme.be",
+        seriesSlug: "singles-bowling",
+        seriesName: "Singles Bowling",
+        publicationStatus: "approved",
+        eligibilityRoute: "route_a",
+        singlesOriented: true,
+        singlesOnly: true,
+        singlesOnlyEvidence: "Exclusief voor singles / vrijgezellen.",
+        minAge: 25,
+        maxAge: null,
+        ageRule: "guideline",
+        priceAmount: 29,
+        priceIsFrom: false,
+        priceNote: null,
+        availabilityStatus: "limited",
+        availabilityNote: "25–35 mannen VOLZET; overige beperkt (2026-09-26).",
+        genderAvailability: "Mix VOLZET / beperkte plaatsen per leeftijdsgroep",
+        startTime: "19:30",
+        endTime: "22:00",
+        startTimeDisplayNote: null,
+        primarySourceUrl:
+          "https://willyoudateme.be/singles-bowling-in-ieper-21-november-2026/",
+        extraSources: [],
+        changesVsPreview: [],
+        conflicts: [],
+        reviewNotes: ["21 nov 2026 19:30 Atlantis Bowling Ieper; €29."],
+        sourceOk: "ok",
+      },
+    ),
+
+    item(
+      base({
+        id: "phase6-singles-bowling-aalst-2026-11-28",
+        title: "Singles Bowling in Aalst",
+        slug: "singles-bowling-aalst-2026-11-28",
+        shortDescription:
+          "Will You Date Me Singles Bowling exclusief voor vrijgezellen in Aalst.",
+        description:
+          "Singles Bowling bij Tragelsport Bowling Aalst: 2 uur bowlen, hosts, welkomstdrankje, banen per leeftijdsgroep.",
+        category: "dating",
+        subCategory: "singles bowling",
+        organizerName: "Will You Date Me",
+        city: "Aalst",
+        venue: "Tragelsport Bowling",
+        latitude: GEO_EXTRA.aalst.lat,
+        longitude: GEO_EXTRA.aalst.lng,
+        region: "Oost-Vlaanderen",
+        startDate: "2026-11-28",
+        startTime: "19:30",
+        endTime: "22:00",
+        price: 29,
+        eligibility: {
+          default: band(25, null, "guideline"),
+          byGender: null,
+          allowedGenders: null,
+        },
+        eligibilityAgeMin: 25,
+        eligibilityAgeMax: null,
+        eligibilityAgeRule: "guideline",
+        preferredAudienceAgeMin: 25,
+        preferredAudienceAgeMax: null,
+        audienceAgeFromSource: true,
+        singlesOnly: true,
+        genderAvailability: "25–40 mannen VOLZET; overige beperkt",
+        capacityStatus: "limited",
+        availabilityNote: "Meerdere groepen VOLZET/beperkt.",
+        sourceType: "official_website",
+        sourceName: "Will You Date Me",
+        officialUrl:
+          "https://willyoudateme.be/singles-bowling-in-aalst-28-november-2026/",
+        ticketUrl:
+          "https://willyoudateme.be/singles-bowling-in-aalst-28-november-2026/",
+        lastCheckedAt: CHECKED_AT,
+        tags: ["singles", "bowling", "sport"],
+        activities: ["sport", "drinken"],
+        practicalInfo: ["Tragel 12, Aalst"],
+        ...mood("mood-singles-bowling.png", "Sfeerbeeld singles bowling"),
+      }),
+      {
+        organizerSlug: "will-you-date-me",
+        organizerName: "Will You Date Me",
+        organizerWebsite: "https://willyoudateme.be",
+        seriesSlug: "singles-bowling",
+        seriesName: "Singles Bowling",
+        publicationStatus: "approved",
+        eligibilityRoute: "route_a",
+        singlesOriented: true,
+        singlesOnly: true,
+        singlesOnlyEvidence: "Exclusief voor singles / vrijgezellen.",
+        minAge: 25,
+        maxAge: null,
+        ageRule: "guideline",
+        priceAmount: 29,
+        priceIsFrom: false,
+        priceNote: null,
+        availabilityStatus: "limited",
+        availabilityNote: "25–40 mannen VOLZET; overige beperkt (2026-09-26).",
+        genderAvailability: "Mix VOLZET / beperkte plaatsen per leeftijdsgroep",
+        startTime: "19:30",
+        endTime: "22:00",
+        startTimeDisplayNote: null,
+        primarySourceUrl:
+          "https://willyoudateme.be/singles-bowling-in-aalst-28-november-2026/",
+        extraSources: [],
+        changesVsPreview: [],
+        conflicts: [],
+        reviewNotes: ["28 nov 2026 19:30 Tragelsport Aalst; €29."],
+        sourceOk: "ok",
+      },
+    ),
+  ];
+}
+
+export const PHASE6_SOURCE_MAP_UPSERTS: UpsertCatalogSourceInput[] = [
+  {
+    name: "VillaVibes",
+    officialUrl: "https://www.villavibes.nl/single-weekend/",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Ardennen", "België", "Nederland"],
+    formats: ["weekend", "reizen"],
+    status: "active",
+    lastCheckedAt: CHECKED_AT,
+    notes: "Hoog yield singlesweekends BE (Manoir/Vielsalm).",
+  },
+  {
+    name: "Ontvlam",
+    officialUrl: "https://www.ontvlam.be",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Gent"],
+    formats: ["workshop", "dating"],
+    status: "active",
+    lastCheckedAt: CHECKED_AT,
+    notes: "Authentiek daten workshops; tickets vaak via Hipsy.",
+  },
+  {
+    name: "Club Compagnon / KRUUL",
+    officialUrl: "https://www.kruul.be/eigen-events/singlediner",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Leuven"],
+    formats: ["dinner"],
+    status: "promising",
+    lastCheckedAt: CHECKED_AT,
+    notes: "Single & Thriving diner 18/09 was verleden; monitor nieuwe edities.",
+  },
+  {
+    name: "Will You Date Me",
+    officialUrl: "https://willyoudateme.be",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Vlaanderen"],
+    formats: ["bowling", "wandelen", "apero", "dinner"],
+    status: "active",
+    lastCheckedAt: CHECKED_AT,
+    notes: "Sterke non-speeddate yield (bowling/wandeling); dinners spaarzaam.",
+  },
+  {
+    name: "Lucky Lemon",
+    officialUrl: "https://www.luckylemon.be",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Gent"],
+    formats: ["party"],
+    status: "active",
+    lastCheckedAt: CHECKED_AT,
+    notes: "Single's Kiss = Bloody Kiss Halloween-editie; gepubliceerd.",
+  },
+  {
+    name: "Farm Date / AgriMatching",
+    officialUrl: "https://www.agrimatching.com/en",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Vlaanderen", "België"],
+    formats: ["outdoor", "meetup"],
+    status: "low_yield",
+    lastCheckedAt: CHECKED_AT,
+    notes: "Geen concrete BE-editie na hercontrole fase 6.",
+  },
+  {
+    name: "dare Events",
+    officialUrl: "https://dare-events.be",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Brussel", "Antwerpen", "Gent", "Leuven"],
+    formats: ["speeddate"],
+    status: "low_yield",
+    lastCheckedAt: CHECKED_AT,
+    notes: "Geen betrouwbare publieke editiepagina's in fase 6.",
+  },
+  {
+    name: "The Sircle",
+    officialUrl: "https://thesircle.be/events/",
+    sourceKind: "organizer_source",
+    sourceType: "organizer",
+    regions: ["Antwerpen"],
+    formats: ["sport", "apero", "outdoor"],
+    status: "promising",
+    lastCheckedAt: CHECKED_AT,
+    notes: "Padeldate 3.0 blijft under_review (13/10 listing vs 31/10 detail).",
+  },
+];
+
+export { eligibilityJsonFor };
