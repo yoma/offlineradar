@@ -1,16 +1,9 @@
-import type { TipAiPrep, TipSubmission } from "@/types/tips";
-
 /**
- * AI control preparation — schema + reuse hooks only.
- * Does not call Anthropic or fetch remote pages in this phase.
- *
- * Future flow:
- * 1. Admin starts prep for a tip.
- * 2. Fetch official URL safely (SSRF guards) → content hash.
- * 3. If hash matches a previous TipAiPrep, reuse (no paid call).
- * 4. Else run ContentScreener / Route A/B screening on neutral facts.
- * 5. Store TipAiPrep; human still decides status/publication.
+ * Tip AI prep helpers + orchestration entry points.
+ * Never auto-publishes. Human decisions stay separate.
  */
+
+import type { TipAiPrep, TipSubmission } from "@/types/tips";
 
 export function emptyAiPrepPlaceholder(tip: TipSubmission): TipAiPrep {
   return {
@@ -18,23 +11,36 @@ export function emptyAiPrepPlaceholder(tip: TipSubmission): TipAiPrep {
     modelHint: null,
     sourceContentHash: null,
     reusedFromTipId: null,
+    sourceUrlsUsed: [],
     proposedTitle: null,
     proposedOrganizer: null,
     proposedStartDate: null,
+    proposedStartTime: null,
+    proposedEndTime: null,
     proposedCity: null,
+    proposedVenue: null,
+    proposedPriceNotes: null,
     singlesRoute: null,
+    routeSuggestion: null,
+    routeReason: null,
+    confidence: null,
     singlesEvidence: null,
+    singlesOnly: null,
     ageNotes: null,
+    ageRule: null,
     priceNotes: null,
     availabilityNotes: null,
     bookingUrl: tip.normalizedUrl,
     gaps: [
-      "AI-controle is nog niet geactiveerd voor tips.",
+      "AI-controle is nog niet uitgevoerd.",
       "Meldertekst is geen bewijs van singlesgerichtheid; controleer de officiële bron.",
     ],
+    conflicts: [],
     suggestsListable: null,
-    rawNotes:
-      "Placeholder only. Wire to lib/screening + ContentScreener later without auto-publish.",
+    suggestSourceWatch: false,
+    suggestSourceWatchReason: null,
+    rawNotes: null,
+    scanError: null,
   };
 }
 
@@ -48,9 +54,34 @@ export function findReusableAiPrep(
   for (const tip of tips) {
     if (tip.normalizedUrl !== normalizedUrl) continue;
     const prep = prepsByTipId.get(tip.id);
-    if (prep?.sourceContentHash && prep.sourceContentHash === contentHash) {
+    if (
+      prep?.sourceContentHash &&
+      prep.sourceContentHash === contentHash &&
+      !prep.scanError &&
+      prep.routeSuggestion
+    ) {
       return { tipId: tip.id, prep };
     }
   }
   return null;
+}
+
+export function clonePrepForReuse(
+  prep: TipAiPrep,
+  reusedFromTipId: string,
+): TipAiPrep {
+  return {
+    ...prep,
+    preparedAt: new Date().toISOString(),
+    reusedFromTipId,
+    scanError: null,
+  };
+}
+
+/** Recent successful scan cooldown (avoid double-click paid calls). */
+export function isAiPrepFresh(prep: TipAiPrep | null, withinMs = 10 * 60_000): boolean {
+  if (!prep?.preparedAt || prep.scanError || !prep.routeSuggestion) return false;
+  const ts = Date.parse(prep.preparedAt);
+  if (!Number.isFinite(ts)) return false;
+  return Date.now() - ts < withinMs;
 }

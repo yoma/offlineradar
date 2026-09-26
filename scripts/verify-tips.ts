@@ -140,8 +140,10 @@ async function main() {
 
     const prep = emptyAiPrepPlaceholder(created.tip);
     assert.equal(prep.suggestsListable, null);
-    const map = new Map<string, TipAiPrep | null>([[created.tip.id, prep]]);
     prep.sourceContentHash = "abc";
+    prep.routeSuggestion = "route_a_supported";
+    prep.routeReason = "test";
+    const map = new Map<string, TipAiPrep | null>([[created.tip.id, prep]]);
     const reused = findReusableAiPrep(
       [created.tip],
       map,

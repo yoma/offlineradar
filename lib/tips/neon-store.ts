@@ -375,6 +375,134 @@ export async function neonUpdateTipStatus(input: {
   return true;
 }
 
+export async function neonFindTipById(
+  tipId: string,
+): Promise<{ tip: TipSubmission; review: TipReview } | null> {
+  const sql = getTipsSql();
+  if (!sql) return null;
+
+  const tipRows = (await sql`
+    SELECT *
+    FROM tips
+    WHERE id = ${tipId}
+    LIMIT 1
+  `) as TipRow[];
+  if (tipRows.length === 0) return null;
+  const tip = mapTip(tipRows[0]);
+
+  const reviewRows = (await sql`
+    SELECT *
+    FROM tip_reviews
+    WHERE tip_id = ${tip.id}
+    LIMIT 1
+  `) as ReviewRow[];
+  const review =
+    reviewRows.length > 0 ? mapReview(reviewRows[0]) : emptyReview(tip.id);
+  return { tip, review };
+}
+
+/**
+ * Persist AI prep only. Never touches admin_decision / decided_at / published_*.
+ */
+export async function neonSaveAiPrep(input: {
+  tipId: string;
+  prep: TipAiPrep;
+  sourceUrlChecked: string;
+}): Promise<boolean> {
+  const sql = getTipsSql();
+  if (!sql) return false;
+
+  const missing = [...input.prep.gaps, ...input.prep.conflicts].slice(0, 40);
+
+  const updated = (await sql`
+    INSERT INTO tip_reviews (
+      tip_id,
+      checked_at,
+      source_url_checked,
+      ai_prep,
+      missing_or_conflicts
+    )
+    VALUES (
+      ${input.tipId},
+      ${input.prep.preparedAt},
+      ${input.sourceUrlChecked},
+      ${JSON.stringify(input.prep)},
+      ${JSON.stringify(missing)}
+    )
+    ON CONFLICT (tip_id) DO UPDATE SET
+      checked_at = EXCLUDED.checked_at,
+      source_url_checked = EXCLUDED.source_url_checked,
+      ai_prep = EXCLUDED.ai_prep,
+      missing_or_conflicts = EXCLUDED.missing_or_conflicts
+    RETURNING tip_id
+  `) as { tip_id: string }[];
+
+  return updated.length > 0;
+}
+
+/** Soft status move used while AI scan runs; never sets approved/published. */
+export async function neonSetTipStatusIfCurrent(input: {
+  tipId: string;
+  fromStatuses: TipStatus[];
+  toStatus: TipStatus;
+}): Promise<boolean> {
+  const sql = getTipsSql();
+  if (!sql) return false;
+  if (
+    input.toStatus === "approved_for_publication" ||
+    input.toStatus === "published"
+  ) {
+    return false;
+  }
+
+  const updated = (await sql`
+    UPDATE tips
+    SET status = ${input.toStatus}, updated_at = now()
+    WHERE id = ${input.tipId}
+      AND status IN (
+        ${input.fromStatuses[0] ?? "__none__"},
+        ${input.fromStatuses[1] ?? "__none__"},
+        ${input.fromStatuses[2] ?? "__none__"},
+        ${input.fromStatuses[3] ?? "__none__"}
+      )
+    RETURNING id
+  `) as { id: string }[];
+  return updated.length > 0;
+}
+
+/** Reuse a successful AI prep for the same normalized URL + content hash. */
+export async function neonFindReusableAiPrep(input: {
+  normalizedUrl: string;
+  contentHash: string;
+  excludeTipId?: string;
+}): Promise<{ tipId: string; prep: TipAiPrep } | null> {
+  const sql = getTipsSql();
+  if (!sql) return null;
+
+  const rows = (await sql`
+    SELECT t.id AS tip_id, r.ai_prep
+    FROM tips t
+    INNER JOIN tip_reviews r ON r.tip_id = t.id
+    WHERE t.normalized_url = ${input.normalizedUrl}
+      AND r.ai_prep IS NOT NULL
+      AND (${input.excludeTipId ?? null}::text IS NULL OR t.id <> ${input.excludeTipId ?? null})
+    ORDER BY r.checked_at DESC NULLS LAST
+    LIMIT 20
+  `) as { tip_id: string; ai_prep: TipAiPrep | null }[];
+
+  for (const row of rows) {
+    const prep = row.ai_prep;
+    if (
+      prep?.sourceContentHash === input.contentHash &&
+      prep.routeSuggestion &&
+      !prep.scanError
+    ) {
+      return { tipId: row.tip_id, prep };
+    }
+  }
+  return null;
+}
+
 export async function neonUpsertSourceWatch(input: {
   officialUrl: string;
   normalizedUrl: string;

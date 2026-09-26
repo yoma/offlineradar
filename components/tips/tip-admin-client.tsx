@@ -1,18 +1,30 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import {
   TIP_STATUSES,
   TIP_STATUS_LABEL,
+  type TipAiPrep,
+  type TipRouteSuggestion,
   type TipStatus,
   type TipsStoreSnapshot,
 } from "@/types/tips";
+
+const ROUTE_LABEL: Record<TipRouteSuggestion, string> = {
+  route_a_supported: "Route A waarschijnlijk ondersteund",
+  route_b_supported: "Route B waarschijnlijk ondersteund",
+  insufficient_evidence: "Onvoldoende bewijs",
+  not_eligible: "Waarschijnlijk niet geschikt",
+  needs_manual_review: "Handmatige controle nodig",
+};
 
 export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
   const [snapshot, setSnapshot] = useState(initial);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [scanningId, setScanningId] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   const reviewsByTip = useMemo(() => {
     const map = new Map(snapshot.reviews.map((review) => [review.tipId, review]));
@@ -39,8 +51,7 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
         tipId,
         status,
         decisionReason: reason || null,
-        publishedEventPath:
-          status === "published" ? "/ontdek" : null,
+        publishedEventPath: status === "published" ? "/ontdek" : null,
       }),
     });
     const data = (await response.json()) as { ok?: boolean; error?: string };
@@ -60,24 +71,62 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
     await refresh();
   }
 
-  function requestPublish(tipId: string, hasAiPrep: boolean) {
+  function startAiScan(tipId: string) {
+    setError("");
+    setMessage("");
+    setScanningId(tipId);
+    startTransition(async () => {
+      try {
+        const response = await fetch("/api/tips/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "start_ai_scan", tipId }),
+        });
+        const data = (await response.json()) as {
+          ok?: boolean;
+          error?: string;
+          reused?: boolean;
+          code?: string;
+        };
+        if (!response.ok || !data.ok) {
+          setError(
+            data.error ||
+              (data.code === "missing_key"
+                ? "AI-controle is nog niet geconfigureerd op de server."
+                : "AI-controle mislukt."),
+          );
+          await refresh();
+          return;
+        }
+        setMessage(
+          data.reused
+            ? "AI-controle hergebruikt (zelfde bron/hash of recent resultaat). Geen nieuwe betaalde call."
+            : "AI-controle voltooid. Advies opgeslagen; jij beslist nog over goedkeuren/publiceren.",
+        );
+        await refresh();
+      } finally {
+        setScanningId(null);
+      }
+    });
+  }
+
+  function requestPublish(tipId: string, hasAiAdvice: boolean) {
     const lines = [
-      "AI-controle is nog niet automatisch actief.",
-      "Normale flow: In controle → (later AI-scan) → Goedkeuren → daarna pas publiceren.",
+      "Normale flow: AI-controle → Goedkeuren → daarna pas publiceren.",
       "Publiceren nu is een handmatige override.",
       "",
       "Belangrijk: dit zet alleen de interne status. Er verschijnt nog geen echt evenement op de publieke feed.",
       "",
-      hasAiPrep
-        ? "AI-prep is aanwezig. Toch publiceren (status only)?"
-        : "Er is nog geen AI-prep. Toch handmatig overrulen en status op Gepubliceerd zetten?",
+      hasAiAdvice
+        ? "AI-advies is aanwezig. Toch publiceren (status only)?"
+        : "Er is nog geen bruikbaar AI-advies. Toch handmatig overrulen?",
     ];
     if (!window.confirm(lines.join("\n"))) return;
     void setStatus(
       tipId,
       "published",
-      hasAiPrep
-        ? "Handmatige publicatiestatus (override) met AI-prep aanwezig; nog geen live catalogus-item."
+      hasAiAdvice
+        ? "Handmatige publicatiestatus (override) met AI-advies; nog geen live catalogus-item."
         : "Handmatige publicatiestatus (override) zonder AI-controle; nog geen live catalogus-item.",
     );
   }
@@ -90,8 +139,8 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
         </h1>
         <p className="text-sm text-muted-foreground">
           {snapshot.tips.length} melding
-          {snapshot.tips.length === 1 ? "" : "en"} · gewenste flow: AI-check
-          eerst, jij beslist, publiceren = override · nog geen auto-live events
+          {snapshot.tips.length === 1 ? "" : "en"} · AI-controle op jouw knop ·
+          jij beslist · publiceren = override · nooit auto-live
         </p>
       </header>
 
@@ -112,7 +161,9 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
         <ul className="space-y-4">
           {snapshot.tips.map((tip) => {
             const review = reviewsByTip.get(tip.id);
-            const hasAiPrep = Boolean(review?.aiPrep);
+            const prep = review?.aiPrep ?? null;
+            const hasAiAdvice = Boolean(prep?.routeSuggestion && !prep.scanError);
+            const scanning = scanningId === tip.id || (isPending && scanningId === tip.id);
             return (
               <li
                 key={tip.id}
@@ -157,6 +208,13 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                   </div>
                 ) : null}
 
+                <AiPrepPanel
+                  tipUrl={tip.originalUrl}
+                  sourceUrlChecked={review?.sourceUrlChecked ?? null}
+                  checkedAt={review?.checkedAt ?? null}
+                  prep={prep}
+                />
+
                 <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
                   <div>
                     <dt className="text-muted-foreground">Terugkoppeling</dt>
@@ -167,18 +225,15 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground">AI-prep</dt>
+                    <dt className="text-muted-foreground">Menselijke beslissing</dt>
                     <dd>
-                      {hasAiPrep
-                        ? "Beschikbaar"
-                        : "Nog niet gestart (geen automatische scan)"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Beslissing</dt>
-                    <dd>
-                      {review?.decisionReason ||
-                        "Nog geen beheerderreden vastgelegd"}
+                      {review?.adminDecision
+                        ? `${TIP_STATUS_LABEL[review.adminDecision]}${
+                            review.decisionReason
+                              ? ` · ${review.decisionReason}`
+                              : ""
+                          }`
+                        : "Nog geen beheerderbeslissing"}
                     </dd>
                   </div>
                   <div>
@@ -194,6 +249,19 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                 </dl>
 
                 <div className="mt-4 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="default"
+                    className="h-9 rounded-full px-3 text-sm"
+                    disabled={scanning}
+                    onClick={() => startAiScan(tip.id)}
+                  >
+                    {scanning
+                      ? "AI-controle bezig…"
+                      : hasAiAdvice
+                        ? "Opnieuw AI-controle"
+                        : "Start AI-controle"}
+                  </Button>
                   <StatusButton
                     label="In controle"
                     onClick={() => setStatus(tip.id, "in_review", "")}
@@ -230,17 +298,8 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                   />
                   <StatusButton
                     label="Publiceren (handmatige override)"
-                    onClick={() => requestPublish(tip.id, hasAiPrep)}
+                    onClick={() => requestPublish(tip.id, hasAiAdvice)}
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-9 rounded-full px-3 text-sm"
-                    disabled
-                    title="AI-controle nog niet geactiveerd"
-                  >
-                    Start AI-controle (nog niet actief)
-                  </Button>
                 </div>
               </li>
             );
@@ -252,6 +311,158 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
         Statussen: {TIP_STATUSES.map((s) => TIP_STATUS_LABEL[s]).join(" · ")}
       </p>
     </div>
+  );
+}
+
+function AiPrepPanel({
+  tipUrl,
+  sourceUrlChecked,
+  checkedAt,
+  prep,
+}: {
+  tipUrl: string;
+  sourceUrlChecked: string | null;
+  checkedAt: string | null;
+  prep: TipAiPrep | null;
+}) {
+  if (!prep) {
+    return (
+      <div className="mt-4 rounded-xl border border-dashed border-border bg-muted/30 p-4 text-sm">
+        <p className="font-medium">AI-controle nog niet uitgevoerd</p>
+        <p className="mt-1 text-muted-foreground">
+          Start de controle hieronder. De AI publiceert of keurt nooit zelf goed.
+        </p>
+      </div>
+    );
+  }
+
+  if (prep.scanError && !prep.routeSuggestion) {
+    return (
+      <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm">
+        <p className="font-medium text-destructive">AI-controle mislukt</p>
+        <p className="mt-1 text-muted-foreground">{prep.scanError}</p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Vorige succesvolle resultaten blijven bewaard waar aanwezig. Probeer later opnieuw.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 space-y-3 rounded-xl border border-border bg-muted/20 p-4 text-sm">
+      <section className="space-y-1">
+        <h3 className="font-medium">Bron</h3>
+        <p className="break-all text-muted-foreground">Ingestuurd: {tipUrl}</p>
+        {sourceUrlChecked ? (
+          <p className="break-all text-muted-foreground">
+            Gecontroleerd: {sourceUrlChecked}
+          </p>
+        ) : null}
+        {prep.sourceUrlsUsed.length > 0 ? (
+          <p className="break-all text-muted-foreground">
+            Gebruikte bronnen: {prep.sourceUrlsUsed.join(" · ")}
+          </p>
+        ) : null}
+        {checkedAt || prep.preparedAt ? (
+          <p className="text-muted-foreground">
+            Gecontroleerd op{" "}
+            {new Date(checkedAt ?? prep.preparedAt).toLocaleString("nl-BE")}
+            {prep.reusedFromTipId ? " · hergebruikt resultaat" : ""}
+            {prep.modelHint ? ` · ${prep.modelHint}` : ""}
+          </p>
+        ) : null}
+      </section>
+
+      {prep.routeSuggestion ? (
+        <section className="space-y-1">
+          <h3 className="font-medium">AI-advies (geen goedkeuring)</h3>
+          <p className="font-semibold">{ROUTE_LABEL[prep.routeSuggestion]}</p>
+          {prep.routeReason ? (
+            <p className="text-muted-foreground">{prep.routeReason}</p>
+          ) : null}
+          {prep.confidence ? (
+            <p className="text-muted-foreground">
+              Zekerheid: {prep.confidence}
+              {prep.singlesEvidence ? ` · ${prep.singlesEvidence}` : ""}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      <section className="space-y-1">
+        <h3 className="font-medium">Gevonden eventgegevens</h3>
+        <ul className="grid gap-1 text-muted-foreground sm:grid-cols-2">
+          <Fact label="Titel" value={prep.proposedTitle} />
+          <Fact label="Organisator" value={prep.proposedOrganizer} />
+          <Fact label="Datum" value={prep.proposedStartDate} />
+          <Fact
+            label="Tijd"
+            value={
+              prep.proposedStartTime
+                ? `${prep.proposedStartTime}${
+                    prep.proposedEndTime ? `–${prep.proposedEndTime}` : ""
+                  }`
+                : null
+            }
+          />
+          <Fact label="Locatie" value={prep.proposedVenue} />
+          <Fact label="Gemeente" value={prep.proposedCity} />
+          <Fact
+            label="Leeftijd"
+            value={
+              prep.ageNotes
+                ? `${prep.ageNotes}${prep.ageRule ? ` (${prep.ageRule})` : ""}`
+                : null
+            }
+          />
+          <Fact label="Prijs" value={prep.proposedPriceNotes ?? prep.priceNotes} />
+          <Fact
+            label="Singles only"
+            value={
+              prep.singlesOnly === "true"
+                ? "true (deelnamevoorwaarde)"
+                : prep.singlesOnly === "false"
+                  ? "false"
+                  : prep.singlesOnly === "unknown"
+                    ? "unknown"
+                    : null
+            }
+          />
+          <Fact label="Beschikbaarheid" value={prep.availabilityNotes} />
+          <Fact label="Ticketlink" value={prep.bookingUrl} />
+        </ul>
+      </section>
+
+      {(prep.gaps.length > 0 || prep.conflicts.length > 0) && (
+        <section className="space-y-1">
+          <h3 className="font-medium">Onzekerheden</h3>
+          <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+            {[...prep.gaps, ...prep.conflicts].map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {prep.suggestSourceWatch ? (
+        <section className="space-y-1 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+          <h3 className="font-medium">Interessante bron voor opvolging</h3>
+          <p className="text-muted-foreground">
+            {prep.suggestSourceWatchReason ||
+              "AI stelt voor deze organisator/reeks te bekijken. Niet automatisch toegevoegd."}
+          </p>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+function Fact({ label, value }: { label: string; value: string | null }) {
+  return (
+    <li>
+      <span className="text-foreground">{label}:</span>{" "}
+      {value?.trim() ? value : "niet bevestigd"}
+    </li>
   );
 }
 

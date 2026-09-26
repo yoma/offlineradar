@@ -74,28 +74,56 @@ export type TipReview = {
 };
 
 /**
- * Prepared AI screening payload (no auto-run in this phase).
+ * Prepared AI screening payload for a tip.
+ * Never auto-approves or publishes. Human decisions stay separate.
  * Reuse via sourceContentHash when the same unchanged source is tip'd again.
  */
+export type TipRouteSuggestion =
+  | "route_a_supported"
+  | "route_b_supported"
+  | "insufficient_evidence"
+  | "not_eligible"
+  | "needs_manual_review";
+
+export type TipAiConfidence = "low" | "medium" | "high";
+
 export type TipAiPrep = {
   preparedAt: string;
   modelHint: string | null;
   sourceContentHash: string | null;
   reusedFromTipId: string | null;
+  /** Sources actually used for this prep (never invent). */
+  sourceUrlsUsed: string[];
   proposedTitle: string | null;
   proposedOrganizer: string | null;
   proposedStartDate: string | null;
+  proposedStartTime: string | null;
+  proposedEndTime: string | null;
   proposedCity: string | null;
+  proposedVenue: string | null;
+  proposedPriceNotes: string | null;
+  /** Legacy shorthand; prefer routeSuggestion. */
   singlesRoute: "A" | "B" | "insufficient" | "unknown" | null;
+  routeSuggestion: TipRouteSuggestion | null;
+  routeReason: string | null;
+  confidence: TipAiConfidence | null;
   singlesEvidence: string | null;
+  /** true only with explicit participation rule; else false/unknown. */
+  singlesOnly: "true" | "false" | "unknown" | null;
   ageNotes: string | null;
+  ageRule: "strict" | "guideline" | "unknown" | null;
   priceNotes: string | null;
   availabilityNotes: string | null;
   bookingUrl: string | null;
   gaps: string[];
+  conflicts: string[];
   /** Never auto-approves listing. */
   suggestsListable: boolean | null;
+  /** Suggest watchlist only; never auto-add. */
+  suggestSourceWatch: boolean;
+  suggestSourceWatchReason: string | null;
   rawNotes: string | null;
+  scanError: string | null;
 };
 
 /** Recurring organizer / series watchlist (separate from concrete editions). */

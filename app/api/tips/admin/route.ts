@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { resolveTipsAdminAccess } from "@/lib/tips/admin-auth";
+import { runTipAiScan } from "@/lib/tips/ai-scan";
 import { listTips, updateTipStatus } from "@/lib/tips/service";
 import { TIP_STATUSES, type TipStatus } from "@/types/tips";
 
@@ -66,15 +67,67 @@ export async function PATCH(request: Request) {
   return NextResponse.json({ ok: true });
 }
 
-/** Reserved: AI screening / email triggers must also call resolveTipsAdminAccess. */
-export async function POST() {
+/**
+ * Admin-only actions. Currently: start AI tip controle.
+ * Never auto-publishes. Never sends status mail from this path.
+ */
+export async function POST(request: Request) {
   const access = await resolveTipsAdminAccess();
   if (!access.ok) return deny(access.reason);
-  return NextResponse.json(
-    {
-      ok: false,
-      error: "AI-screening en e-mailverzending zijn nog niet geactiveerd.",
-    },
-    { status: 501 },
-  );
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: "Ongeldige aanvraag." }, { status: 400 });
+  }
+
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ ok: false, error: "Ongeldige aanvraag." }, { status: 400 });
+  }
+
+  const record = body as Record<string, unknown>;
+  const action = typeof record.action === "string" ? record.action : "";
+  const tipId = typeof record.tipId === "string" ? record.tipId : "";
+
+  if (action !== "start_ai_scan" || !tipId) {
+    return NextResponse.json(
+      { ok: false, error: "Onbekende of onvolledige actie." },
+      { status: 400 },
+    );
+  }
+
+  const result = await runTipAiScan(tipId);
+  if (!result.ok) {
+    const status =
+      result.code === "not_found"
+        ? 404
+        : result.code === "inflight" || result.code === "fresh"
+          ? 409
+          : result.code === "missing_key"
+            ? 503
+            : result.code === "source_unavailable"
+              ? 422
+              : 500;
+    return NextResponse.json(
+      {
+        ok: false,
+        error: result.error,
+        code: result.code,
+        prep: result.prep ?? null,
+      },
+      { status },
+    );
+  }
+
+  return NextResponse.json({
+    ok: true,
+    reused: result.reused,
+    tipId: result.tip.id,
+    status: result.tip.status,
+    prep: result.prep,
+    // Explicit: AI never publishes.
+    published: false,
+    autoApproved: false,
+  });
 }

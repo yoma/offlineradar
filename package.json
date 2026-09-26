@@ -18,6 +18,7 @@
     "dev:tips-neon": "OFFLINERADAR_TIPS_NEON_STORE=1 OFFLINERADAR_TIPS_ADMIN=1 OFFLINERADAR_TIPS_ADMIN_DEV_BYPASS=1 next dev",
     "dev:tips-oauth": "OFFLINERADAR_TIPS_NEON_STORE=1 next dev",
     "verify:tips": "npx tsx scripts/verify-tips.ts",
+    "verify:tip-ai": "npx tsx scripts/verify-tip-ai.ts",
     "db:migrate:tips": "node --env-file=.env.local --import tsx scripts/migrate-tips.ts",
     "verify:tips-neon": "node --env-file=.env.local --import tsx scripts/verify-tips-neon.ts",
     "verify:tips-admin": "npx tsx scripts/verify-tips-admin.ts"
