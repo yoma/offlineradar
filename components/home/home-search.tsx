@@ -24,13 +24,6 @@ type QuickChip = {
   activities?: ActivityId[];
 };
 
-/** Date shortcuts — separate from activity/type chips. */
-const DATE_QUICK: QuickChip[] = [
-  { label: "Dit weekend", when: "weekend" },
-  { label: "Deze maand", when: "month" },
-  { label: "Volgende week", when: "next_week" },
-];
-
 const TYPE_QUICK: QuickChip[] = [
   { label: "Dating", categories: ["dating"] },
   { label: "Nieuwe mensen", categories: ["meet_new_people"] },
@@ -365,31 +358,6 @@ export function HomeHero() {
           ) : null}
 
           <div className="mt-5 space-y-4">
-            <div>
-              <p className="mb-2 text-xs font-semibold tracking-wide text-white/70 uppercase">
-                Wanneer
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                {DATE_QUICK.map((item) => {
-                  const active = isChipActive(item);
-                  return (
-                    <button
-                      key={item.label}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => toggleChip(item)}
-                      className={`rounded-full border px-3.5 py-1.5 text-sm font-medium backdrop-blur-sm transition ${
-                        active
-                          ? "border-white bg-white text-foreground"
-                          : "border-white/25 bg-white/10 text-white hover:bg-white/20"
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
             <div>
               <p className="mb-2 text-xs font-semibold tracking-wide text-white/70 uppercase">
                 Waar heb je zin in?
