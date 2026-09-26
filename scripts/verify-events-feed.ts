@@ -193,18 +193,23 @@ async function main() {
       "../lib/events/neon-store"
     );
     const published = await listPublishedEditions(50);
-    assert.equal(published.length, 7);
-    assert.ok(
-      !published.some((e) => e.slug.includes("mingle")),
-      "Mingle not published",
-    );
+    assert.ok(published.length >= 7, `expected >=7 published, got ${published.length}`);
     assert.ok(published.every((e) => e.publicationStatus === "published"));
     assert.ok(published.every((e) => e.publishedAt != null));
     const mingle = await getEditionBySlug(
       "mingle-night-how-to-be-single-2026-10-17",
     );
-    assert.equal(mingle?.edition.publicationStatus, "under_review");
-    ok("Neon: 7 published, Mingle under_review");
+    // After Fase 4 resolve: Mingle may be published; under_review must never leak via listPublished
+    assert.ok(
+      !published.some((e) => e.publicationStatus !== "published"),
+    );
+    if (mingle?.edition.publicationStatus === "under_review") {
+      assert.ok(!published.some((e) => e.slug.includes("mingle")));
+      ok("Neon: Mingle still under_review; not in published list");
+    } else {
+      assert.equal(mingle?.edition.publicationStatus, "published");
+      ok(`Neon: ${published.length} published incl. Mingle`);
+    }
   } else {
     console.log("skip Neon publish counts (env not loaded)");
   }
