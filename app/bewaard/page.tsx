@@ -1,9 +1,23 @@
 import { SavedView } from "@/components/saved/saved-view";
-import { listEvents } from "@/lib/events";
+import {
+  EventsCatalogUnavailableError,
+  isCanonicalEventsFeedEnabled,
+  listEvents,
+} from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
 export default async function SavedPage() {
-  const events = await listEvents();
-  return <SavedView events={events} />;
+  try {
+    const events = await listEvents();
+    return <SavedView events={events} />;
+  } catch (error) {
+    if (
+      isCanonicalEventsFeedEnabled() &&
+      error instanceof EventsCatalogUnavailableError
+    ) {
+      return <SavedView events={[]} />;
+    }
+    throw error;
+  }
 }

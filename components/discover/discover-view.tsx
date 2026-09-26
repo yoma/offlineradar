@@ -33,6 +33,7 @@ export function DiscoverView({
   eventBasePath = "/event",
   banner = null,
   showInternalPreviewBanner = false,
+  catalogError = null,
 }: {
   events: Event[];
   initial: SearchState;
@@ -44,6 +45,8 @@ export function DiscoverView({
   banner?: ReactNode;
   /** Show the Fase 5 internal-preview notice (local only). */
   showInternalPreviewBanner?: boolean;
+  /** Canonical feed DB failure: never show mock events. */
+  catalogError?: string | null;
 }) {
   const router = useRouter();
   const [state, setState] = useState(initial);
@@ -167,7 +170,16 @@ export function DiscoverView({
         </div>
       </div>
 
-      {state.age == null ? (
+      {catalogError ? (
+        <div className="mt-12 max-w-xl">
+          <h2 className="text-2xl font-semibold tracking-tight">
+            Catalogus tijdelijk niet beschikbaar
+          </h2>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            {catalogError}
+          </p>
+        </div>
+      ) : state.age == null ? (
         <form
           className="mt-10 max-w-md space-y-4"
           onSubmit={(event) => {
@@ -290,10 +302,11 @@ export function DiscoverView({
           {visible.length === 0 ? (
             <div className="mt-12 max-w-xl">
               <h2 className="text-2xl font-semibold tracking-tight">
-                Geen activiteiten gevonden die bij deze zoekfilters passen.
+                Geen passende singlesactiviteiten gevonden met deze filters.
               </h2>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Events waar je volgens een strikte leeftijdsgrens niet mag deelnemen, blijven verborgen.
+                Verruim datum, regio of filters. Events met een strikte
+                leeftijdsgrens waar je niet aan voldoet blijven verborgen.
               </p>
               <div className="mt-6 flex flex-col gap-2">
                 {suggestions(state).map((suggestion) => (

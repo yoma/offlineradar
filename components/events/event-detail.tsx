@@ -76,6 +76,9 @@ export function EventDetail({
   const ageInfo = displayEligibilityAge(event, state.gender);
   const ageLabel = formatAgeRange(ageInfo.min, ageInfo.max);
   const ticketHref = event.ticketUrl ?? event.officialUrl;
+  const primaryCtaLabel = event.ticketUrl
+    ? "Boek bij organisator"
+    : "Bekijk bij organisator";
   const priceLabel = event.priceIsFrom
     ? formatPriceFrom(event.price, event.currency)
     : formatPrice(event.price, event.currency);
@@ -326,7 +329,7 @@ export function EventDetail({
                   })
                 }
               >
-                Tickets / inschrijven bij organisator
+                {primaryCtaLabel}
                 <ArrowUpRight className="size-4" />
               </a>
             </Button>
@@ -367,7 +370,7 @@ export function EventDetail({
               track("ticket_clicked", { eventId: event.id, slug: event.slug })
             }
           >
-            Tickets / inschrijven bij organisator
+            {primaryCtaLabel}
             <ArrowUpRight className="size-4" />
           </a>
         </Button>

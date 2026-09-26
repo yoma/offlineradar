@@ -1,5 +1,5 @@
 import { buildRealPreviewEvents } from "@/data/pilot/real-preview-events";
-import { isActiveMeetActivation } from "@/types/domain";
+import { isRouteABListable } from "@/lib/events";
 import type { Event } from "@/types/event";
 
 /**
@@ -16,14 +16,10 @@ export function isInternalPreviewEnabled(): boolean {
 
 /**
  * Product listing for the internal real-events preview.
- * - Route B: active Meet activation
- * - Route A: singlesOriented === true (never “generally social” alone)
+ * Shares Route A/B helper with the canonical public feed.
  */
 export function isInternalPreviewListable(event: Event): boolean {
-  if (event.listingPath === "meet_activation") {
-    return isActiveMeetActivation(event.meetActivation);
-  }
-  return event.singlesOriented === true;
+  return isRouteABListable(event);
 }
 
 export async function listPreviewEvents(): Promise<Event[]> {

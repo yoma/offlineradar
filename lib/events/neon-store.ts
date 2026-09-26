@@ -714,6 +714,76 @@ export async function listPublishedEditions(
   return rows.map(mapEdition);
 }
 
+/**
+ * Published editions with organizer/sources/images for the public feed.
+ * Returns null when SQL is unavailable (caller must not mock-fallback).
+ */
+export async function listPublishedEditionBundles(
+  limit = 100,
+): Promise<EventEditionBundle[] | null> {
+  const sql = getEventsSql();
+  if (!sql) return null;
+  const rows = (await sql`
+    SELECT id FROM event_editions
+    WHERE publication_status = 'published'
+    ORDER BY starts_at ASC
+    LIMIT ${limit}
+  `) as { id: string }[];
+  const bundles: EventEditionBundle[] = [];
+  for (const row of rows) {
+    const bundle = await loadBundle(row.id);
+    if (bundle) bundles.push(bundle);
+  }
+  return bundles;
+}
+
+/** Detail lookup: only published editions. */
+export async function getPublishedEditionBySlug(
+  slug: string,
+): Promise<EventEditionBundle | null> {
+  const bundle = await getEditionBySlug(slug);
+  if (!bundle) return null;
+  if (bundle.edition.publicationStatus !== "published") return null;
+  return bundle;
+}
+
+/** Soft unpublish for live ops: published → under_review. No delete. */
+export async function takeEditionOffline(
+  id: string,
+): Promise<EventEditionRecord | null> {
+  const sql = getEventsSql();
+  if (!sql) return null;
+  const rows = (await sql`
+    UPDATE event_editions
+    SET
+      publication_status = 'under_review',
+      published_at = NULL,
+      updated_at = now()
+    WHERE id = ${id}
+      AND publication_status = 'published'
+    RETURNING *
+  `) as EditionRow[];
+  return rows[0] ? mapEdition(rows[0]) : null;
+}
+
+export async function listEditionBundlesForAdmin(
+  limit = 100,
+): Promise<EventEditionBundle[] | null> {
+  const sql = getEventsSql();
+  if (!sql) return null;
+  const rows = (await sql`
+    SELECT id FROM event_editions
+    ORDER BY starts_at ASC
+    LIMIT ${limit}
+  `) as { id: string }[];
+  const bundles: EventEditionBundle[] = [];
+  for (const row of rows) {
+    const bundle = await loadBundle(row.id);
+    if (bundle) bundles.push(bundle);
+  }
+  return bundles;
+}
+
 export async function attachSource(
   input: AttachSourceInput,
 ): Promise<EventSourceRecord | null> {

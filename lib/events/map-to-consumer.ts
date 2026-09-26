@@ -68,7 +68,21 @@ function primaryOfficialUrl(bundle: EventEditionBundle): string {
 
 function ticketUrl(bundle: EventEditionBundle): string | null {
   const ticket = bundle.sources.find((s) => s.sourceType === "ticket");
-  return ticket?.url ?? null;
+  if (ticket) return ticket.url;
+  // Booking platforms stored as official_event still act as book CTA.
+  const primary =
+    bundle.sources.find((s) => s.isPrimary) ?? bundle.sources[0] ?? null;
+  if (!primary) return null;
+  const host = primary.url.toLowerCase();
+  if (
+    host.includes("hipsy.") ||
+    host.includes("eventgoose.") ||
+    host.includes("ikwileenticket.") ||
+    host.includes("houseofentertainment.")
+  ) {
+    return primary.url;
+  }
+  return null;
 }
 
 function sourceMeta(bundle: EventEditionBundle): {
