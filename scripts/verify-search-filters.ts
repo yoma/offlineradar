@@ -185,11 +185,25 @@ async function main() {
     singlesFriendly: true,
     meetActivation: null,
   });
-  assert.deepEqual(
-    labels.map((l) => l.text),
-    ["Singlesgericht"],
+  assert.deepEqual(labels.map((l) => l.text), []);
+  const only = eventLabels({
+    singlesOnly: true,
+    singlesOriented: true,
+    singlesFriendly: false,
+    meetActivation: null,
+  });
+  assert.deepEqual(only.map((l) => l.text), ["Singles only"]);
+  const review = eventLabels(
+    {
+      singlesOnly: false,
+      singlesOriented: true,
+      singlesFriendly: false,
+      meetActivation: null,
+    },
+    "review",
   );
-  ok("no singlesFriendly marketing badge");
+  assert.deepEqual(review.map((l) => l.text), ["Singlesgericht"]);
+  ok("public omits Singlesgericht; Singles only + review labels ok");
 
   const cardFields = [
     "availabilityNote",

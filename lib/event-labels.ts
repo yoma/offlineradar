@@ -12,24 +12,29 @@ export type EventLabel = {
   text: string;
 };
 
+export type EventLabelSurface = "public" | "review";
+
 /**
  * Consumer-facing labels only when backing data exists.
  * Singles only ≠ singles-oriented ≠ Singles Friendly ≠ Meet.
- * Singles Friendly alone never creates listing eligibility.
+ *
+ * Public surface: the whole catalog is singles-oriented by product rule,
+ * so "Singlesgericht" is omitted. Only hard "Singles only" (and Meet) show.
+ * Review surface keeps Singlesgericht for internal quality checks.
  */
 export function eventLabels(
   event: Pick<
     Event,
     "singlesOnly" | "singlesFriendly" | "singlesOriented" | "meetActivation"
   >,
+  surface: EventLabelSurface = "public",
 ): EventLabel[] {
   const labels: EventLabel[] = [];
   if (event.singlesOnly === true) {
     labels.push({ kind: "singles_only", text: "Singles only" });
-  } else if (event.singlesOriented === true) {
+  } else if (surface === "review" && event.singlesOriented === true) {
     labels.push({ kind: "singles_oriented", text: "Singlesgericht" });
   }
-  // Never show singlesFriendly marketing badge on consumer surfaces.
   if (isActiveMeetActivation(event.meetActivation)) {
     labels.push({ kind: "meet", text: "OfflineRadar Meet" });
   }

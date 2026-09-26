@@ -129,8 +129,8 @@ async function main() {
   );
   assert(
     "Mingle Night is Singlesgericht, niet Singles only",
-    eventLabels(mingle!).some((l) => l.kind === "singles_oriented") &&
-      !eventLabels(mingle!).some((l) => l.kind === "singles_only") &&
+    eventLabels(mingle!, "review").some((l) => l.kind === "singles_oriented") &&
+      !eventLabels(mingle!, "review").some((l) => l.kind === "singles_only") &&
       mingle!.singlesOnly === false,
   );
 
@@ -143,8 +143,8 @@ async function main() {
   assert(
     "Apero Solo is Singlesgericht, niet Singles only (geen harde deurvoorwaarde bewezen)",
     apero?.singlesOnly === false &&
-      eventLabels(apero!).some((l) => l.kind === "singles_oriented") &&
-      !eventLabels(apero!).some((l) => l.kind === "singles_only"),
+      eventLabels(apero!, "review").some((l) => l.kind === "singles_oriented") &&
+      !eventLabels(apero!, "review").some((l) => l.kind === "singles_only"),
   );
 
   const age45 = {
@@ -203,8 +203,8 @@ async function main() {
   assert(
     "Singles Night Out is Singlesgericht, niet Singles only",
     nightOut?.singlesOnly === false &&
-      eventLabels(nightOut!).some((l) => l.kind === "singles_oriented") &&
-      !eventLabels(nightOut!).some((l) => l.kind === "singles_only"),
+      eventLabels(nightOut!, "review").some((l) => l.kind === "singles_oriented") &&
+      !eventLabels(nightOut!, "review").some((l) => l.kind === "singles_only"),
   );
 
   const expectedBadges: Record<string, "singles_only" | "singles_oriented"> = {
@@ -221,7 +221,7 @@ async function main() {
     const event = curated.find((e) => e.slug.includes(fragment));
     assert(
       `badge ${kind}: ${fragment}`,
-      event != null && eventLabels(event).some((l) => l.kind === kind),
+      event != null && eventLabels(event, "review").some((l) => l.kind === kind),
     );
   }
 
@@ -284,7 +284,7 @@ async function main() {
   assert(
     "Love On The Rooftop: Singlesgericht, niet Singles only (wing tickets)",
     rooftop?.singlesOnly === false &&
-      eventLabels(rooftop!).some((l) => l.kind === "singles_oriented"),
+      eventLabels(rooftop!, "review").some((l) => l.kind === "singles_oriented"),
   );
 
   const listed = await listPreviewEvents();

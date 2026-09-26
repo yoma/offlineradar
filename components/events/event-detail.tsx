@@ -147,7 +147,10 @@ export function EventDetail({
             <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
               {event.title}
             </h1>
-            <EventLabels event={event} />
+            <EventLabels
+              event={event}
+              surface={showInternalReview ? "review" : "public"}
+            />
             <p className="text-[15px] text-muted-foreground">
               {event.venue ? `${event.venue}, ` : ""}
               {event.city} · {placed.distanceKm} km van {place.label}
