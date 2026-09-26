@@ -40,6 +40,8 @@
     "seed:phase14-discovery": "node --env-file=.env.local --import tsx scripts/seed-phase14-discovery.ts",
     "import:phase14-tomeeto-drafts": "node --env-file=.env.local --import tsx scripts/import-phase14-tomeeto-drafts.ts",
     "verify:phase14-discovery": "npx tsx scripts/verify-phase14-discovery.ts",
+    "curate:phase15-nonspeeddate": "node --env-file=.env.local --import tsx scripts/curate-phase15-nonspeeddate.ts",
+    "verify:phase15-nonspeeddate": "npx tsx scripts/verify-phase15-nonspeeddate.ts",
     "seed:phase8-sources": "node --env-file=.env.local --import tsx scripts/seed-phase8-sources.ts",
     "db:migrate:event-reports": "node --env-file=.env.local --import tsx scripts/migrate-event-reports.ts",
     "verify:event-reports": "node --env-file=.env.local --import tsx scripts/verify-event-reports.ts",
