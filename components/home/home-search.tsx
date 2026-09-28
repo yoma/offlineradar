@@ -393,6 +393,15 @@ export function HomeHero() {
                 </label>
               </div>
             ) : null}
+            {error ? (
+              <div
+                id="home-search-error"
+                role="alert"
+                className="border-t border-[#e61e4d]/25 bg-[#fff5f7] px-4 py-3 sm:px-5"
+              >
+                <p className="text-sm font-semibold text-[#9f1239]">{error}</p>
+              </div>
+            ) : null}
           </div>
 
           <div className="mt-3 flex flex-col items-start gap-1.5 sm:mt-3.5 sm:flex-row sm:items-center sm:gap-3">
@@ -527,15 +536,6 @@ export function HomeHero() {
           </div>
 
           <div className="mt-5 space-y-3 sm:mt-6">
-            {error ? (
-              <p
-                id="home-search-error"
-                role="alert"
-                className="rounded-2xl border border-[#e61e4d]/40 bg-[#fff5f7] px-4 py-3 text-sm font-semibold text-[#9f1239] shadow-sm"
-              >
-                {error}
-              </p>
-            ) : null}
             {searching ? (
               <div
                 role="status"
