@@ -22,6 +22,9 @@ export function distanceKmBetween(
 
 export function withUserDistance(event: Event, placeId: string): Event {
   const place = findPlace(placeId);
+  if (!Number.isFinite(event.latitude) || !Number.isFinite(event.longitude)) {
+    return { ...event, distanceKm: Number.POSITIVE_INFINITY };
+  }
   return {
     ...event,
     distanceKm: distanceKmBetween(place, {

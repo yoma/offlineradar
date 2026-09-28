@@ -3,13 +3,13 @@
  * Does not invent facts. Gaps stay null/unknown/empty.
  */
 
-import { GEO } from "@/data/places";
 import { distanceKmBetween } from "@/lib/distance";
 import {
   normalizeEventActivities,
   normalizeSpeeddateSubCategory,
 } from "@/lib/event-category";
 import { resolveSourceVerifiedAt } from "@/lib/freshness";
+import { resolveEditionCoords } from "@/lib/geo-cities";
 import type { EventEditionBundle } from "@/types/event-catalog";
 import type { Event, EventEligibility, ListingPath } from "@/types/event";
 import { band } from "@/types/event";
@@ -141,8 +141,13 @@ export function mapEditionToConsumerEvent(
   const eligibility = buildEligibility(bundle);
   const primaryImage =
     images.find((img) => img.isPrimary) ?? images[0] ?? null;
-  const lat = edition.latitude ?? GEO.antwerpen.lat;
-  const lng = edition.longitude ?? GEO.antwerpen.lng;
+  const coords = resolveEditionCoords({
+    latitude: edition.latitude,
+    longitude: edition.longitude,
+    city: edition.city,
+  });
+  const lat = coords.lat;
+  const lng = coords.lng;
   const source = sourceMeta(bundle);
   const path = listingPathFor(bundle);
 
@@ -174,7 +179,11 @@ export function mapEditionToConsumerEvent(
     venueId: null,
     latitude: lat,
     longitude: lng,
-    distanceKm: distanceKmBetween(GEO.antwerpen, { lat, lng }),
+    // Placeholder until prepareEvents/withUserDistance recalculates from the user place.
+    // Unknown coords → Infinity so distance filters exclude them (never fake Antwerp).
+    distanceKm: coords.known
+      ? distanceKmBetween({ lat: 51.2194, lng: 4.4025 }, { lat, lng })
+      : Number.POSITIVE_INFINITY,
     startDate: start.date,
     endDate: end && end.date !== start.date ? end.date : null,
     startTime: start.time,

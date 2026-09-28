@@ -8,6 +8,7 @@ import {
   createEdition,
   upsertOrganizerBySlug,
 } from "@/lib/events/neon-store";
+import { coordsForCity } from "@/lib/geo-cities";
 import { normalizeRefreshUrl, slugify } from "@/lib/source-refresh/normalize";
 import type { RefreshNormalizedCandidate } from "@/lib/source-refresh/types";
 import type { EventEditionRecord } from "@/types/event-catalog";
@@ -35,6 +36,8 @@ export async function createDraftFromRefreshCandidate(input: {
     input.organizerSlug === "smartvibes" ||
     input.organizerSlug === "hoptodate";
 
+  const cityCoords = coordsForCity(input.candidate.city);
+
   const edition = await createEdition({
     slug,
     organizerId: organizer.record.id,
@@ -45,6 +48,8 @@ export async function createDraftFromRefreshCandidate(input: {
     venueName: input.candidate.venue,
     address: input.candidate.address,
     city: input.candidate.city,
+    latitude: cityCoords?.lat ?? null,
+    longitude: cityCoords?.lng ?? null,
     country: "BE",
     eligibilityRoute: "route_a",
     singlesOriented: true,

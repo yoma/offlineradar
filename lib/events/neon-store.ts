@@ -6,6 +6,7 @@
 import { randomUUID } from "node:crypto";
 import { getEventsSql } from "@/lib/events/db";
 import { canonicalizeActivityId } from "@/lib/event-category";
+import { resolveCoordsForWrite } from "@/lib/geo-cities";
 import type {
   AttachImageInput,
   AttachSourceInput,
@@ -477,6 +478,11 @@ export async function createEdition(
   }
 
   const id = randomUUID();
+  const geo = resolveCoordsForWrite({
+    latitude: input.latitude,
+    longitude: input.longitude,
+    city: input.city,
+  });
   const rows = (await sql`
     INSERT INTO event_editions (
       id, slug, organizer_id, series_id, title,
@@ -510,8 +516,8 @@ export async function createEdition(
       ${input.postalCode ?? null},
       ${input.region ?? null},
       ${input.country ?? "BE"},
-      ${input.latitude ?? null},
-      ${input.longitude ?? null},
+      ${geo.latitude},
+      ${geo.longitude},
       ${input.eligibilityRoute ?? "unknown"},
       ${input.singlesOriented ?? null},
       ${input.singlesOnly ?? null},
@@ -578,6 +584,11 @@ export async function upsertEditionBySlug(
   }
 
   const id = existingBundle.edition.id;
+  const geo = resolveCoordsForWrite({
+    latitude: input.latitude,
+    longitude: input.longitude,
+    city: input.city,
+  });
   const rows = (await sql`
     UPDATE event_editions SET
       organizer_id = ${input.organizerId ?? null},
@@ -592,8 +603,8 @@ export async function upsertEditionBySlug(
       postal_code = ${input.postalCode ?? null},
       region = ${input.region ?? null},
       country = ${input.country ?? "BE"},
-      latitude = ${input.latitude ?? null},
-      longitude = ${input.longitude ?? null},
+      latitude = ${geo.latitude},
+      longitude = ${geo.longitude},
       eligibility_route = ${input.eligibilityRoute ?? "unknown"},
       singles_oriented = ${input.singlesOriented ?? null},
       singles_only = ${input.singlesOnly ?? null},

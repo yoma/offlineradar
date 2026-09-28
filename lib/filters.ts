@@ -116,7 +116,13 @@ export function matchingEvents(
   const prepared = prepareEvents(events, state).filter((event) => {
     if (!matchesWhen(event, state, today)) return false;
     const travelExempt = isTravelOrWeekendActivity(event.activities);
-    if (!travelExempt && event.distanceKm > state.maxDistanceKm) return false;
+    // Exclude unknown/infinite distance from local radius searches.
+    if (
+      !travelExempt &&
+      !(event.distanceKm <= state.maxDistanceKm)
+    ) {
+      return false;
+    }
     if (
       state.categories.length > 0 &&
       !state.categories.includes(event.category)
