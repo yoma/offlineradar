@@ -74,7 +74,11 @@ export function AccountView({
       <h1 className="text-2xl font-semibold tracking-tight">Mijn account</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         We gebruiken je gegevens alleen om voorkeuren te onthouden en bewaarde
-        activiteiten te synchroniseren.
+        activiteiten te synchroniseren. Meer info in de{" "}
+        <Link href="/privacy" className="underline-offset-4 hover:underline">
+          privacyverklaring
+        </Link>
+        .
       </p>
 
       <dl className="mt-8 space-y-3 text-sm">
@@ -214,6 +218,11 @@ export function AccountView({
       </form>
 
       <div className="mt-10 space-y-3 border-t border-border pt-8">
+        <p className="text-sm text-muted-foreground">
+          <Link href="/feedback" className="underline-offset-4 hover:underline">
+            Feedback geven
+          </Link>
+        </p>
         <form action={publicSignOut.bind(null, "/")}>
           <Button type="submit" variant="outline" className="h-11 rounded-full px-6">
             Uitloggen

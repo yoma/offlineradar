@@ -55,7 +55,8 @@ async function loadMockEvents(): Promise<Event[]> {
 }
 
 async function loadCanonicalEvents(): Promise<Event[]> {
-  const bundles = await listPublishedEditionBundles(100);
+  // Public catalog must include the full published set (was silently capped at 100).
+  const bundles = await listPublishedEditionBundles(500);
   if (bundles == null) {
     throw new EventsCatalogUnavailableError(
       "Canonical eventdatabase niet bereikbaar.",

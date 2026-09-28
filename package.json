@@ -61,6 +61,7 @@
     "seed:phase8-sources": "node --env-file=.env.local --import tsx scripts/seed-phase8-sources.ts",
     "db:migrate:event-reports": "node --env-file=.env.local --import tsx scripts/migrate-event-reports.ts",
     "db:migrate:app-users": "node --env-file=.env.local --import tsx scripts/migrate-app-users.ts",
+    "db:migrate:beta-feedback": "node --env-file=.env.local --import tsx scripts/migrate-beta-feedback.ts",
     "verify:phase25-accounts": "npx tsx scripts/verify-phase25-accounts.ts",
     "verify:event-reports": "node --env-file=.env.local --import tsx scripts/verify-event-reports.ts",
     "publish:preview-events": "node --env-file=.env.local --import tsx scripts/publish-approved-preview-events.ts",
