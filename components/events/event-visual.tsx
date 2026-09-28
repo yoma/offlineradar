@@ -1,5 +1,8 @@
 import Image from "next/image";
-import { resolvePublicEventImage } from "@/lib/image-compatibility";
+import {
+  eventImageDiversityKey,
+  resolvePublicEventImage,
+} from "@/lib/image-compatibility";
 import type { ActivityId, EventCategory } from "@/types/event";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +16,8 @@ export function EventVisual({
   imageUrl,
   imageAlt = null,
   imageIsAtmosphere = false,
+  organizerId = null,
+  eventId = null,
   className = "",
   label = true,
   priority = false,
@@ -26,14 +31,18 @@ export function EventVisual({
   imageUrl?: string | null;
   imageAlt?: string | null;
   imageIsAtmosphere?: boolean;
+  organizerId?: string | null;
+  eventId?: string | null;
   className?: string;
   label?: boolean;
   priority?: boolean;
 }) {
+  const diversityKey = eventImageDiversityKey({ organizerId, eventId });
   const resolved = resolvePublicEventImage(
     { category, activities, tags, title, subCategory },
     imageUrl,
     imageIsAtmosphere,
+    diversityKey,
   );
   const src = resolved.url;
   const showAtmosphere = resolved.keptAtmosphere;

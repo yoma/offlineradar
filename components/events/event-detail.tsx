@@ -133,6 +133,8 @@ export function EventDetail({
           imageUrl={event.imageUrl}
           imageAlt={event.imageAlt}
           imageIsAtmosphere={event.imageIsAtmosphere === true}
+          organizerId={event.organizerId}
+          eventId={event.id}
           className="aspect-[16/10] rounded-2xl sm:aspect-[21/9]"
           label={false}
           priority

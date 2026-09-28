@@ -1,7 +1,9 @@
 "use client";
 
 import { Bookmark } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { useEffect, useState, type MouseEvent } from "react";
+import { toggleSavedEventAction } from "@/app/account/actions";
 import { track } from "@/lib/analytics";
 import { readFavorites, writeFavorites } from "@/lib/storage";
 import { cn } from "@/lib/utils";
@@ -15,7 +17,10 @@ export function SaveButton({
   title: string;
   overlay?: boolean;
 }) {
+  const { data: session } = useSession();
+  const loggedIn = Boolean(session?.user?.id);
   const [saved, setSaved] = useState(false);
+  const [pending, setPending] = useState(false);
 
   useEffect(() => {
     const sync = () => setSaved(readFavorites().includes(eventId));
@@ -24,22 +29,42 @@ export function SaveButton({
     return () => window.removeEventListener("offlineradar-store", sync);
   }, [eventId]);
 
-  function toggle(event: MouseEvent) {
+  async function toggle(event: MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
+    if (pending) return;
+
+    const nextSaved = !saved;
     const current = readFavorites();
-    const next = saved
-      ? current.filter((id) => id !== eventId)
-      : [...current, eventId];
-    writeFavorites(next);
-    setSaved(!saved);
-    if (!saved) track("favorite_added", { eventId, title });
+    const nextLocal = nextSaved
+      ? [...current.filter((id) => id !== eventId), eventId]
+      : current.filter((id) => id !== eventId);
+
+    // Optimistic local update (anonymous + logged-in).
+    writeFavorites(nextLocal);
+    setSaved(nextSaved);
+    if (nextSaved) track("favorite_added", { eventId, title });
+
+    if (!loggedIn) return;
+
+    setPending(true);
+    const result = await toggleSavedEventAction(eventId, nextSaved);
+    setPending(false);
+    if (!result.ok) {
+      // Roll back local on server failure.
+      writeFavorites(current);
+      setSaved(!nextSaved);
+      return;
+    }
+    writeFavorites(result.ids);
+    setSaved(result.ids.includes(eventId));
   }
 
   return (
     <button
       type="button"
       onClick={toggle}
+      disabled={pending}
       aria-pressed={saved}
       aria-label={saved ? `Verwijder ${title} uit bewaard` : `Bewaar ${title}`}
       className={cn(

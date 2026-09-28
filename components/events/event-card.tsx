@@ -59,6 +59,8 @@ export function EventCard({
             imageUrl={event.imageUrl}
             imageAlt={event.imageAlt}
             imageIsAtmosphere={event.imageIsAtmosphere === true}
+            organizerId={event.organizerId}
+            eventId={event.id}
             className="aspect-[4/3] w-full min-w-0 rounded-2xl"
             label={false}
           />

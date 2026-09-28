@@ -29,32 +29,111 @@ export type EventImageContext = {
   subCategory?: string | null;
 };
 
-/** Licensed Unsplash mood URLs used as category-safe fallbacks. */
+/** Licensed Unsplash / local mood pools — deterministic variant pick per event. */
+export const CATEGORY_MOOD_POOLS: Record<
+  Exclude<ImageCategory, "neutral">,
+  readonly string[]
+> = {
+  outdoor: [
+    "https://images.unsplash.com/photo-1551632811-561732d1e306?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1501555088652-021faa106b9b?auto=format&fit=crop&w=1200&q=80",
+  ],
+  bowling: [
+    "/preview-mood/mood-singles-bowling.png",
+    "https://images.unsplash.com/photo-1546443046-ed1ce6ffd1ab?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1569523463827-c8dbd4c346b5?auto=format&fit=crop&w=1200&q=80",
+  ],
+  sport: [
+    "https://images.unsplash.com/photo-1517649763962-0c623066027c?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1461896836934-ffe607ba6851?auto=format&fit=crop&w=1200&q=80",
+  ],
+  padel: [
+    "https://images.unsplash.com/photo-1554068865-24cecd4e34b8?auto=format&fit=crop&w=1200&q=80",
+  ],
+  dating_social: [
+    "/preview-mood/mood-speeddate-25-35.png",
+    "/preview-mood/mood-speeddate-53-65.png",
+    "/preview-mood/mood-singles-night-out.png",
+    "/preview-mood/mood-love-rooftop.png",
+  ],
+  drinks: [
+    "/preview-mood/mood-apero-solo.png",
+    "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1470337458703-46ad1756a187?auto=format&fit=crop&w=1200&q=80",
+  ],
+  food: [
+    "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80",
+  ],
+  party: [
+    "/preview-mood/mood-mingle-night.png",
+    "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=80",
+  ],
+  workshop: [
+    "/preview-mood/mood-embodied-dating.png",
+    "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80",
+  ],
+  travel: [
+    "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=1200&q=80",
+  ],
+  generic_social: [
+    "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1543269865-cbf427effbad?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80",
+  ],
+};
+
+/** First pool image — backward-compatible single-url map. */
 export const CATEGORY_MOOD_URLS: Record<Exclude<ImageCategory, "neutral">, string> =
-  {
-    outdoor:
-      "https://images.unsplash.com/photo-1551632811-561732d1e306?auto=format&fit=crop&w=1200&q=80",
-    bowling:
-      "/preview-mood/mood-singles-bowling.png",
-    sport:
-      "https://images.unsplash.com/photo-1517649763962-0c623066027c?auto=format&fit=crop&w=1200&q=80",
-    padel:
-      "https://images.unsplash.com/photo-1554068865-24cecd4e34b8?auto=format&fit=crop&w=1200&q=80",
-    dating_social:
-      "/preview-mood/mood-speeddate-25-35.png",
-    drinks:
-      "/preview-mood/mood-apero-solo.png",
-    food:
-      "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1200&q=80",
-    party:
-      "/preview-mood/mood-mingle-night.png",
-    workshop:
-      "/preview-mood/mood-embodied-dating.png",
-    travel:
-      "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=80",
-    generic_social:
-      "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=80",
-  };
+  Object.fromEntries(
+    Object.entries(CATEGORY_MOOD_POOLS).map(([key, urls]) => [key, urls[0]!]),
+  ) as Record<Exclude<ImageCategory, "neutral">, string>;
+
+/** Stable non-crypto hash for deterministic mood variant selection. */
+export function hashDiversityKey(key: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+/**
+ * Pick a category mood variant. Same key → same image; different keys spread.
+ * Without a key, returns pool[0] (legacy / tests).
+ */
+export function pickCategoryMoodUrl(
+  category: Exclude<ImageCategory, "neutral">,
+  diversityKey?: string | null,
+): string {
+  const pool = CATEGORY_MOOD_POOLS[category];
+  if (!pool.length) return CATEGORY_MOOD_URLS.generic_social;
+  if (!diversityKey || pool.length === 1) return pool[0]!;
+  return pool[hashDiversityKey(diversityKey) % pool.length]!;
+}
+
+/**
+ * Diversity key: prefer organizer (series consistency), else event id.
+ */
+export function eventImageDiversityKey(input: {
+  organizerId?: string | null;
+  eventId?: string | null;
+}): string | null {
+  const organizer = input.organizerId?.trim();
+  if (organizer) return `org:${organizer}`;
+  const eventId = input.eventId?.trim();
+  if (eventId) return `event:${eventId}`;
+  return null;
+}
 
 /** SVG data-URI: calm branded surface, no false activity. */
 export const NEUTRAL_FALLBACK_DATA_URI =
@@ -177,24 +256,59 @@ export function inferImageCategoryFromUrl(
   if (
     lower.includes("1551632811-561732d1e306") ||
     lower.includes("1441974231531-c6227db76b6e") ||
-    lower.includes("1476480862126-209bfaa8edc8")
+    lower.includes("1476480862126-209bfaa8edc8") ||
+    lower.includes("1501555088652-021faa106b9b")
   ) {
     return "outdoor";
   }
-  if (lower.includes("1414235077428-338989a2e8c0")) return "food";
-  if (lower.includes("1510812431401-41d2bd2722f3")) return "drinks";
-  if (lower.includes("1492684223066-81342ee5ff30") || lower.includes("1508700115892")) {
+  if (
+    lower.includes("1414235077428-338989a2e8c0") ||
+    lower.includes("1555939594-58d7cb561ad1") ||
+    lower.includes("1504674900247-0877df9cc836")
+  ) {
+    return "food";
+  }
+  if (
+    lower.includes("1510812431401-41d2bd2722f3") ||
+    lower.includes("1470337458703-46ad1756a187")
+  ) {
+    return "drinks";
+  }
+  if (
+    lower.includes("1492684223066-81342ee5ff30") ||
+    lower.includes("1508700115892") ||
+    lower.includes("1514525253161-7a46d19cd819")
+  ) {
     return "party";
   }
-  if (lower.includes("1556910103-1c02745aae4d")) return "workshop";
+  if (
+    lower.includes("1556910103-1c02745aae4d") ||
+    lower.includes("1522202176988-66273c2fd55f")
+  ) {
+    return "workshop";
+  }
   if (
     lower.includes("1488646953014-85cb44e25828") ||
-    lower.includes("1501785888041-af3ef285b470")
+    lower.includes("1501785888041-af3ef285b470") ||
+    lower.includes("1469854523086-cc02fe5d8800")
   ) {
     return "travel";
   }
   if (lower.includes("1554068865-24cecd4e34b8")) return "padel";
-  if (lower.includes("1517649763962-0c623066027c")) return "sport";
+  if (
+    lower.includes("1517649763962-0c623066027c") ||
+    lower.includes("1571019613454-1cb2f99b2d8b") ||
+    lower.includes("1461896836934-ffe607ba6851")
+  ) {
+    return "sport";
+  }
+  if (
+    lower.includes("1546443046-ed1ce6ffd1ab") ||
+    lower.includes("1569523463827-c8dbd4c346b5") ||
+    lower.includes("mood-singles-bowling")
+  ) {
+    return "bowling";
+  }
   if (
     lower.includes("1517248135467-4c7edcad34c4") ||
     lower.includes("1529156069898-49953e39b3ac") ||
@@ -245,13 +359,14 @@ export type ResolvedEventImage = {
 /**
  * Public render selection:
  * 1) compatible provided image
- * 2) category-specific mood
+ * 2) category-specific mood (deterministic variant via diversityKey)
  * 3) neutral (never wrong activity)
  */
 export function resolvePublicEventImage(
   event: EventImageContext,
   imageUrl?: string | null,
   imageIsAtmosphere = false,
+  diversityKey?: string | null,
 ): ResolvedEventImage {
   const required = inferRequiredImageCategory(event);
 
@@ -265,7 +380,7 @@ export function resolvePublicEventImage(
   }
 
   if (required !== "neutral") {
-    const mood = CATEGORY_MOOD_URLS[required];
+    const mood = pickCategoryMoodUrl(required, diversityKey);
     if (mood) {
       return {
         url: mood,

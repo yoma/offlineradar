@@ -1,18 +1,10 @@
 import type { StoredProfile } from "@/types/search";
+import { emptyProfile } from "@/lib/storage-shared";
 
 const PROFILE_KEY = "offlineradar.profile.v2";
 const FAVORITES_KEY = "offlineradar.favorites.v1";
 
-export const emptyProfile: StoredProfile = {
-  age: null,
-  gender: null,
-  placeId: "antwerpen",
-  maxDistanceKm: 25,
-  preferredAgeMin: null,
-  preferredAgeMax: null,
-  preferredMeetGender: "anyone",
-  interests: [],
-};
+export { emptyProfile };
 
 export function readProfile(): StoredProfile {
   if (typeof window === "undefined") return emptyProfile;

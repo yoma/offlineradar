@@ -31,10 +31,11 @@ import {
   profileFromSearch,
   serializeSearchState,
 } from "@/lib/search-state";
+import { savePreferencesAction } from "@/app/account/actions";
 import { readProfile, writeProfile } from "@/lib/storage";
 import { selectUpcomingEvents } from "@/lib/upcoming";
 import type { Event } from "@/types/event";
-import type { SearchState, SortKey } from "@/types/search";
+import type { SearchState, SortKey, StoredProfile } from "@/types/search";
 
 export function DiscoverView({
   events,
@@ -44,6 +45,8 @@ export function DiscoverView({
   banner = null,
   showInternalPreviewBanner = false,
   catalogError = null,
+  isLoggedIn = false,
+  serverPreferences = null,
 }: {
   events: Event[];
   initial: SearchState;
@@ -57,12 +60,18 @@ export function DiscoverView({
   showInternalPreviewBanner?: boolean;
   /** Canonical feed DB failure: never show mock events. */
   catalogError?: string | null;
+  /** When true, preferences can be saved server-side. */
+  isLoggedIn?: boolean;
+  /** Account preferences used as defaults after URL (never override explicit URL). */
+  serverPreferences?: StoredProfile | null;
 }) {
   const [state, setState] = useState(initial);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [booted, setBooted] = useState(false);
   const [ageDraft, setAgeDraft] = useState(initial.age ? String(initial.age) : "");
   const [searchPending, setSearchPending] = useState(false);
+  const [prefsStatus, setPrefsStatus] = useState<string | null>(null);
+  const [prefsBusy, setPrefsBusy] = useState(false);
   const zeroTracked = useRef("");
 
   const previewBanner = showInternalPreviewBanner ? (
@@ -81,18 +90,28 @@ export function DiscoverView({
 
   useEffect(() => {
     const stored = readProfile();
+    // Priority: URL (already in initial) > active session/local > server prefs.
+    const defaults =
+      isLoggedIn && serverPreferences ? serverPreferences : stored;
     const pending = consumeSearchPending();
     queueMicrotask(() => {
       // Do not re-inject saved activity interests as discover filters.
-      setState((current) => applyStoredProfile(current, stored));
-      setAgeDraft((current) => current || (stored.age ? String(stored.age) : ""));
+      setState((current) => applyStoredProfile(current, defaults));
+      setAgeDraft(
+        (current) => current || (defaults.age ? String(defaults.age) : ""),
+      );
       setBooted(true);
+      if (isLoggedIn && !serverPreferences?.age && !stored.age) {
+        setPrefsStatus(
+          "Je kunt je voorkeuren bewaren zodat we ze volgende keer onthouden.",
+        );
+      }
       if (pending) {
         setSearchPending(true);
         window.setTimeout(() => setSearchPending(false), 400);
       }
     });
-  }, []);
+  }, [isLoggedIn, serverPreferences]);
 
   useEffect(() => {
     if (!booted) return;
@@ -105,6 +124,17 @@ export function DiscoverView({
     const url = next ? `${listPath}?${next}` : listPath;
     window.history.replaceState(window.history.state, "", url);
   }, [booted, listPath, state]);
+
+  async function savePreferences() {
+    if (!isLoggedIn || prefsBusy) return;
+    setPrefsBusy(true);
+    setPrefsStatus(null);
+    const profile = profileFromSearch(state);
+    writeProfile(profile);
+    const result = await savePreferencesAction(profile);
+    setPrefsBusy(false);
+    setPrefsStatus(result.ok ? "Voorkeuren bewaard." : result.error);
+  }
 
   const result = useMemo(() => matchingEvents(events, state), [events, state]);
   const visible = useMemo(() => sortEvents(result.visible, state), [result.visible, state]);
@@ -229,8 +259,24 @@ export function DiscoverView({
             <SlidersHorizontal className="size-4" />
             Filters
           </Button>
+          {isLoggedIn ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 rounded-full px-4"
+              disabled={prefsBusy}
+              onClick={() => void savePreferences()}
+            >
+              {prefsBusy ? "Bewaren…" : "Bewaar voorkeuren"}
+            </Button>
+          ) : null}
         </div>
       </div>
+      {prefsStatus ? (
+        <p className="mt-3 text-sm text-muted-foreground" role="status">
+          {prefsStatus}
+        </p>
+      ) : null}
 
       {catalogError ? (
         <div className="mt-12 max-w-xl">

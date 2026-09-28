@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bookmark, Compass, Info } from "lucide-react";
 import { useEffect, useState } from "react";
+import { AccountNavLink } from "@/components/auth/account-nav-link";
 import { cn } from "@/lib/utils";
 
 const links = [
@@ -51,7 +52,7 @@ export function SiteHeader() {
             OfflineRadar
           </span>
         </Link>
-        <nav className="hidden items-center gap-8 text-sm font-medium md:flex">
+        <nav className="hidden items-center gap-6 text-sm font-medium md:flex lg:gap-8">
           {links.map((link) => {
             const active = pathname.startsWith(link.href);
             return (
@@ -72,6 +73,7 @@ export function SiteHeader() {
               </Link>
             );
           })}
+          <AccountNavLink light={light} />
           <Link
             href="/#tip-een-activiteit"
             className={cn(
@@ -84,6 +86,9 @@ export function SiteHeader() {
             Tip activiteit
           </Link>
         </nav>
+        <div className="md:hidden">
+          <AccountNavLink light={light} />
+        </div>
       </div>
     </header>
   );

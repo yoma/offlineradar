@@ -45,4 +45,7 @@ export {
   resolvePublicEventImage,
   NEUTRAL_FALLBACK_DATA_URI,
   CATEGORY_MOOD_URLS,
+  CATEGORY_MOOD_POOLS,
+  pickCategoryMoodUrl,
+  eventImageDiversityKey,
 } from "@/lib/image-compatibility";
