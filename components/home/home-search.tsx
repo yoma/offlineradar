@@ -150,20 +150,41 @@ export function HomeHero() {
       strictOnly: false,
       sort: "match",
     };
+    if (when === "date" && !state.date) {
+      setError("Kies een datum.");
+      return;
+    }
     setError("");
     setSearching(true);
-    writeProfile(profileFromSearch(state));
-    track("search_performed", {
-      age: state.age,
-      placeId: state.placeId,
-      distance: state.maxDistanceKm,
-      when: state.when,
-    });
-    markSearchPending();
-    const query = serializeSearchState(state);
-    // Hard navigation: client soft-nav from the hero was intermittently a no-op
-    // on production (submit ran, profile wrote, URL stayed on /).
-    window.location.assign(query ? `/ontdek?${query}` : "/ontdek");
+    try {
+      writeProfile(profileFromSearch(state));
+      track("search_performed", {
+        age: state.age,
+        placeId: state.placeId,
+        distance: state.maxDistanceKm,
+        when: state.when,
+      });
+      markSearchPending();
+      const query = serializeSearchState(state);
+      const url = query ? `/ontdek?${query}` : "/ontdek";
+      // Hard navigation: client soft-nav from the hero was intermittently a no-op
+      // on production (submit ran, profile wrote, URL stayed on /).
+      window.location.assign(url);
+      window.setTimeout(() => {
+        if (window.location.pathname === "/") {
+          window.location.href = url;
+        }
+      }, 500);
+      window.setTimeout(() => {
+        if (window.location.pathname === "/") {
+          setSearching(false);
+          setError("Zoeken lukte even niet. Probeer opnieuw.");
+        }
+      }, 2500);
+    } catch {
+      setSearching(false);
+      setError("Zoeken lukte even niet. Probeer opnieuw.");
+    }
   }
 
   const extraFilterCount = [
@@ -446,7 +467,8 @@ export function HomeHero() {
             ) : null}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
               <button
-                type="submit"
+                type="button"
+                onClick={go}
                 disabled={searching}
                 aria-busy={searching}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#e61e4d] px-6 py-3.5 text-base font-semibold text-white shadow-lg transition hover:bg-[#d70466] disabled:cursor-wait disabled:opacity-80 sm:w-auto sm:min-w-[240px]"
