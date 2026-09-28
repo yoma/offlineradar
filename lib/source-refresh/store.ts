@@ -201,6 +201,8 @@ export type SourceScheduleState = {
   refreshEnabled: boolean;
   refreshIntervalHours: number | null;
   lastScheduledRefreshAt: string | null;
+  /** Last successful verification (catalog last_checked_at). */
+  lastCheckedAt: string | null;
 };
 
 export async function getSourceScheduleStates(
@@ -211,7 +213,8 @@ export async function getSourceScheduleStates(
   const sql = getEventsSql();
   if (!sql) return map;
   const rows = (await sql`
-    SELECT id, name, refresh_enabled, refresh_interval_hours, last_scheduled_refresh_at
+    SELECT id, name, refresh_enabled, refresh_interval_hours,
+           last_scheduled_refresh_at, last_checked_at
     FROM catalog_sources
     WHERE id = ANY(${sourceIds})
   `) as {
@@ -220,6 +223,7 @@ export async function getSourceScheduleStates(
     refresh_enabled: boolean;
     refresh_interval_hours: number | null;
     last_scheduled_refresh_at: string | Date | null;
+    last_checked_at: string | Date | null;
   }[];
   for (const row of rows) {
     map.set(row.id, {
@@ -231,6 +235,7 @@ export async function getSourceScheduleStates(
           ? null
           : Number(row.refresh_interval_hours),
       lastScheduledRefreshAt: iso(row.last_scheduled_refresh_at),
+      lastCheckedAt: iso(row.last_checked_at),
     });
   }
   return map;
@@ -239,13 +244,27 @@ export async function getSourceScheduleStates(
 export async function markSourceScheduledRefresh(
   catalogSourceId: string,
   at: Date = new Date(),
+  options: { verified?: boolean } = {},
 ): Promise<void> {
   const sql = getEventsSql();
   if (!sql) return;
+  const verified = options.verified !== false;
+  const atIso = at.toISOString();
+  if (verified) {
+    // Full successful scheduled run = real source check for this catalog source.
+    await sql`
+      UPDATE catalog_sources SET
+        last_scheduled_refresh_at = ${atIso},
+        last_checked_at = ${atIso},
+        updated_at = now()
+      WHERE id = ${catalogSourceId}
+    `;
+    return;
+  }
+  // Attempt recorded, but do not claim a successful verification.
   await sql`
     UPDATE catalog_sources SET
-      last_scheduled_refresh_at = ${at.toISOString()},
-      last_checked_at = COALESCE(last_checked_at, ${at.toISOString()}),
+      last_scheduled_refresh_at = ${atIso},
       updated_at = now()
     WHERE id = ${catalogSourceId}
   `;
@@ -442,9 +461,13 @@ export async function touchEditionSourceCheckedAt(
 ): Promise<boolean> {
   const sql = getEventsSql();
   if (!sql) return false;
+  // Exact unchanged match after a successful fetch = edition was re-verified.
   const rows = await sql`
     UPDATE event_editions
-    SET source_checked_at = ${checkedAt}, updated_at = now()
+    SET
+      source_checked_at = ${checkedAt},
+      last_checked_at = ${checkedAt},
+      updated_at = now()
     WHERE id = ${editionId}
     RETURNING id
   `;

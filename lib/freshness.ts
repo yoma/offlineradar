@@ -1,12 +1,35 @@
 import { brusselsToday, diffDays } from "@/lib/dates";
 
-export type FreshnessTone = "fresh" | "recent" | "stale";
+export type FreshnessTone = "fresh" | "recent" | "stale" | "unknown";
 
 export type Freshness = {
   label: string;
+  /** Compact card label; null = hide on cards. */
+  cardLabel: string | null;
   tone: FreshnessTone;
   caution: string | null;
 };
+
+/**
+ * Authoritative public freshness: last successful source verification.
+ * Never use createdAt / updatedAt / publishedAt.
+ */
+export function resolveSourceVerifiedAt(input: {
+  sourceCheckedAt?: string | null;
+  lastCheckedAt?: string | null;
+}): string | null {
+  const candidates = [input.sourceCheckedAt, input.lastCheckedAt]
+    .map((value) => {
+      if (!value) return null;
+      const t = new Date(value).getTime();
+      return Number.isNaN(t) ? null : { value, t };
+    })
+    .filter((row): row is { value: string; t: number } => row != null);
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => b.t - a.t);
+  return candidates[0]!.value;
+}
 
 function brusselsTime(date: Date): string {
   return new Intl.DateTimeFormat("nl-BE", {
@@ -17,67 +40,115 @@ function brusselsTime(date: Date): string {
   }).format(date);
 }
 
-function brusselsDateParts(date: Date): { day: number; month: string } {
+function brusselsDateParts(date: Date): { day: number; month: string; year: number } {
   const parts = new Intl.DateTimeFormat("nl-BE", {
     timeZone: "Europe/Brussels",
     day: "numeric",
-    month: "short",
+    month: "long",
+    year: "numeric",
   }).formatToParts(date);
   const day = Number(parts.find((part) => part.type === "day")?.value ?? "0");
   const month = parts.find((part) => part.type === "month")?.value ?? "";
-  return { day, month };
+  const year = Number(parts.find((part) => part.type === "year")?.value ?? "0");
+  return { day, month, year };
+}
+
+function brusselsShortDate(date: Date): string {
+  const { day, month } = brusselsDateParts(date);
+  return `${day} ${month}`;
+}
+
+function brusselsLongDate(date: Date): string {
+  const { day, month, year } = brusselsDateParts(date);
+  return `${day} ${month} ${year}`;
 }
 
 /**
- * Single consistent freshness label for cards and detail.
- * Examples: "2 uur geleden gecontroleerd", "Gisteren om 18:20 gecontroleerd"
+ * Public freshness labels (Europe/Brussels).
+ * Cards: compact; detail: longer via formatFreshnessDetail.
  */
 export function formatFreshness(
-  lastCheckedAt: string,
+  lastCheckedAt: string | null | undefined,
   now = new Date(),
 ): Freshness {
+  if (!lastCheckedAt) {
+    return {
+      label: "Controle-datum onbekend",
+      cardLabel: null,
+      tone: "unknown",
+      caution: null,
+    };
+  }
+
   const checked = new Date(lastCheckedAt);
   if (Number.isNaN(checked.getTime())) {
     return {
-      label: "Controlemoment onbekend",
-      tone: "stale",
-      caution: "Controleer de actuele info bij de organisator.",
+      label: "Controle-datum onbekend",
+      cardLabel: null,
+      tone: "unknown",
+      caution: null,
     };
   }
 
   const today = brusselsToday(now);
   const checkedDay = brusselsToday(checked);
   const dayGap = diffDays(checkedDay, today);
-  const time = brusselsTime(checked);
-  const hours = Math.floor((now.getTime() - checked.getTime()) / 3_600_000);
-  const minutes = Math.floor((now.getTime() - checked.getTime()) / 60_000);
 
+  let cardLabel: string;
   let label: string;
-  if (dayGap <= 0 && minutes < 1) label = "Zojuist gecontroleerd";
-  else if (dayGap <= 0 && minutes < 60) {
-    label = `${minutes} min geleden gecontroleerd`;
-  } else if (dayGap <= 0 && hours < 8) {
-    label =
-      hours <= 1
-        ? "1 uur geleden gecontroleerd"
-        : `${hours} uur geleden gecontroleerd`;
-  } else if (dayGap <= 0) label = `Vandaag om ${time} gecontroleerd`;
-  else if (dayGap === 1) label = `Gisteren om ${time} gecontroleerd`;
-  else if (dayGap <= 3) label = `${dayGap} dagen geleden gecontroleerd`;
-  else {
-    const { day, month } = brusselsDateParts(checked);
-    label = `${day} ${month} om ${time} gecontroleerd`;
+
+  if (dayGap <= 0) {
+    cardLabel = "Vandaag gecontroleerd";
+    label = `Vandaag gecontroleerd (${brusselsTime(checked)})`;
+  } else if (dayGap === 1) {
+    cardLabel = "Gisteren gecontroleerd";
+    label = `Gisteren gecontroleerd (${brusselsTime(checked)})`;
+  } else if (dayGap <= 6) {
+    cardLabel = `${dayGap} dagen geleden gecontroleerd`;
+    label = cardLabel;
+  } else if (dayGap <= 30) {
+    cardLabel = `Laatst gecontroleerd op ${brusselsShortDate(checked)}`;
+    label = `Laatste broncontrole: ${brusselsLongDate(checked)}`;
+  } else {
+    cardLabel = "Broncontrole ouder dan 30 dagen";
+    label = `Broncontrole ouder dan 30 dagen (laatst ${brusselsLongDate(checked)})`;
   }
 
   const tone: FreshnessTone =
-    dayGap <= 0 ? "fresh" : dayGap <= 3 ? "recent" : "stale";
+    dayGap <= 0 ? "fresh" : dayGap <= 6 ? "recent" : "stale";
 
   return {
     label,
+    cardLabel,
     tone,
     caution:
       tone === "stale"
-        ? "Controleer de actuele info bij de organisator."
+        ? "Beschikbaarheid en details kunnen intussen wijzigen; de officiële bron blijft leidend."
         : null,
   };
+}
+
+export function formatFreshnessDetail(
+  lastCheckedAt: string | null | undefined,
+  now = new Date(),
+): Freshness {
+  const base = formatFreshness(lastCheckedAt, now);
+  if (!lastCheckedAt || base.tone === "unknown") {
+    return {
+      ...base,
+      label: "Controle-datum onbekend",
+      caution:
+        "We konden geen betrouwbare broncontrole vinden. De officiële bron blijft leidend.",
+    };
+  }
+
+  const checked = new Date(lastCheckedAt);
+  const dayGap = diffDays(brusselsToday(checked), brusselsToday(now));
+  if (dayGap <= 6) {
+    return {
+      ...base,
+      label: `Laatste broncontrole: ${brusselsLongDate(checked)}`,
+    };
+  }
+  return base;
 }

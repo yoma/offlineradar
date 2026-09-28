@@ -81,6 +81,7 @@ function main() {
     refreshEnabled: true,
     refreshIntervalHours: 24,
     lastScheduledRefreshAt: null,
+    lastCheckedAt: null,
   };
   if (!isSourceDueForScheduledRefresh(base, "speeddaten")) {
     fail("due null last", "expected due");

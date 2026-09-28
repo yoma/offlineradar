@@ -294,8 +294,12 @@ export async function runScheduledSourceRefresh(
         };
       }
 
-      await markSourceScheduledRefresh(pilot.catalogSourceId, now);
       const status = classifyRun(result.run, true);
+      // Catalog last_checked only on full success — not partial/failed.
+      // last_scheduled_refresh_at always advances so due-calc stays honest.
+      await markSourceScheduledRefresh(pilot.catalogSourceId, now, {
+        verified: status === "success",
+      });
       return {
         catalogSourceId: pilot.catalogSourceId,
         label: pilot.label,

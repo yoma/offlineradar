@@ -9,9 +9,24 @@ import {
   normalizeEventActivities,
   normalizeSpeeddateSubCategory,
 } from "@/lib/event-category";
+import { resolveSourceVerifiedAt } from "@/lib/freshness";
 import type { EventEditionBundle } from "@/types/event-catalog";
 import type { Event, EventEligibility, ListingPath } from "@/types/event";
 import { band } from "@/types/event";
+
+/**
+ * Public freshness: source_checked_at only (successful source verification).
+ * Never uses last_checked_at (historically polluted with import stamps),
+ * createdAt, updatedAt, or publishedAt.
+ */
+function resolvePublicFreshnessAt(
+  edition: EventEditionBundle["edition"],
+): string | null {
+  return resolveSourceVerifiedAt({
+    sourceCheckedAt: edition.sourceCheckedAt,
+    lastCheckedAt: null,
+  });
+}
 
 function brusselsParts(iso: string, timeZone: string): {
   date: string;
@@ -191,10 +206,7 @@ export function mapEditionToConsumerEvent(
     ticketUrl: ticketUrl(bundle),
     instagramUrl:
       bundle.sources.find((s) => s.sourceType === "social")?.url ?? null,
-    lastCheckedAt:
-      edition.lastCheckedAt ??
-      edition.sourceCheckedAt ??
-      edition.createdAt,
+    lastCheckedAt: resolvePublicFreshnessAt(edition),
     addedAt: edition.createdAt,
     imageUrl: primaryImage?.urlOrPath ?? null,
     imageAlt: primaryImage?.altText ?? null,

@@ -53,6 +53,14 @@ export function SourceRefreshControls({
       : latestRun
         ? "Handmatige controle"
         : null;
+  const lastAttemptAt = latestRun?.completedAt ?? latestRun?.startedAt ?? null;
+  const lastSuccessAt =
+    schedule?.lastCheckedAt ??
+    (latestRun?.status === "completed" &&
+    latestRun.fetchState === "ok" &&
+    !latestRun.error
+      ? latestRun.completedAt
+      : null);
 
   return (
     <div className="space-y-2 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-3">
@@ -60,19 +68,22 @@ export function SourceRefreshControls({
         Source refresh
       </p>
       {latestRun ? (
-        <p className="text-sm text-muted-foreground">
-          Laatste controle: {fmtStamp(latestRun.completedAt ?? latestRun.startedAt)}{" "}
-          · {latestRun.status}
-          {triggerLabel ? ` · ${triggerLabel}` : null}
+        <div className="space-y-1 text-sm text-muted-foreground">
+          <p>
+            Laatste poging: {fmtStamp(lastAttemptAt)} · {latestRun.status}
+            {triggerLabel ? ` · ${triggerLabel}` : null}
+          </p>
+          <p>
+            Laatste succesvolle controle: {fmtStamp(lastSuccessAt)}
+          </p>
           {latestRun.status === "completed" ? (
-            <>
-              {" "}
-              · {latestRun.newCount} nieuw, {latestRun.changedCount} gewijzigd,{" "}
+            <p>
+              {latestRun.newCount} nieuw, {latestRun.changedCount} gewijzigd,{" "}
               {latestRun.unchangedCount} ongewijzigd, {latestRun.removedCount}{" "}
               verdwenen?
-            </>
+            </p>
           ) : null}
-        </p>
+        </div>
       ) : (
         <p className="text-sm text-muted-foreground">Nog niet gecontroleerd.</p>
       )}
@@ -83,7 +94,7 @@ export function SourceRefreshControls({
             ? ` · elke ${schedule.refreshIntervalHours}u`
             : null}
           {" · "}
-          laatste auto: {fmtStamp(schedule.lastScheduledRefreshAt)}
+          laatste auto-poging: {fmtStamp(schedule.lastScheduledRefreshAt)}
           {" · "}
           volgende: {fmtStamp(nextRefreshAt)}
           {consecutiveFailures && consecutiveFailures > 0

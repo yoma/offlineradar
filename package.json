@@ -65,6 +65,8 @@
     "db:migrate:beta-feedback-admin": "node --env-file=.env.local --import tsx scripts/migrate-beta-feedback-admin.ts",
     "verify:phase25-accounts": "npx tsx scripts/verify-phase25-accounts.ts",
     "verify:beta-feedback-admin": "npx tsx scripts/verify-beta-feedback-admin.ts",
+    "verify:freshness": "npx tsx scripts/verify-freshness.ts",
+    "backfill:freshness": "node --env-file=.env.local --import tsx scripts/backfill-freshness-from-refresh.ts",
     "verify:event-reports": "node --env-file=.env.local --import tsx scripts/verify-event-reports.ts",
     "publish:preview-events": "node --env-file=.env.local --import tsx scripts/publish-approved-preview-events.ts",
     "enrich:published-events": "node --env-file=.env.local --import tsx scripts/enrich-published-events.ts",

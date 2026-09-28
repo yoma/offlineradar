@@ -155,7 +155,7 @@ export type Event = {
   officialUrl: string;
   ticketUrl: string | null;
   instagramUrl: string | null;
-  lastCheckedAt: string;
+  lastCheckedAt: string | null;
   addedAt: string;
   imageUrl: string | null;
   /**
