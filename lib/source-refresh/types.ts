@@ -72,6 +72,10 @@ export type RefreshFieldChange = {
   after: string | number | boolean | null;
 };
 
+export const SOURCE_REFRESH_TRIGGER_TYPES = ["manual", "scheduled"] as const;
+export type SourceRefreshTriggerType =
+  (typeof SOURCE_REFRESH_TRIGGER_TYPES)[number];
+
 export type SourceRefreshRunRecord = {
   id: string;
   catalogSourceId: string;
@@ -90,6 +94,8 @@ export type SourceRefreshRunRecord = {
   removedCount: number;
   error: string | null;
   triggeredBy: string | null;
+  /** manual (admin) | scheduled (cron) */
+  triggerType: SourceRefreshTriggerType;
   createdAt: string;
 };
 

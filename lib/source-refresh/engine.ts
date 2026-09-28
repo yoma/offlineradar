@@ -1,5 +1,5 @@
 /**
- * Orchestrates one admin-triggered source refresh run.
+ * Orchestrates one source refresh run (manual admin or scheduled cron).
  * Never publishes or mutates canonical event facts (except optional source_checked_at).
  */
 import {
@@ -24,7 +24,10 @@ import {
   touchEditionSourceCheckedAt,
   type EventEditionBundleLite,
 } from "@/lib/source-refresh/store";
-import type { SourceRefreshRunRecord } from "@/lib/source-refresh/types";
+import type {
+  SourceRefreshRunRecord,
+  SourceRefreshTriggerType,
+} from "@/lib/source-refresh/types";
 import type { EventEditionRecord } from "@/types/event-catalog";
 import type { CapacityStatus } from "@/types/event";
 
@@ -62,10 +65,16 @@ export type StartRefreshResult =
       run?: SourceRefreshRunRecord | null;
     };
 
+/**
+ * Shared refresh entrypoint for admin + scheduler.
+ * Parsing/matching/diff is identical regardless of triggerType.
+ */
 export async function startSourceRefresh(input: {
   catalogSourceId: string;
   triggeredBy: string;
+  triggerType?: SourceRefreshTriggerType;
 }): Promise<StartRefreshResult> {
+  const triggerType: SourceRefreshTriggerType = input.triggerType ?? "manual";
   const pilot = getRefreshPilot(input.catalogSourceId);
   if (!pilot) {
     return {
@@ -96,7 +105,7 @@ export async function startSourceRefresh(input: {
       return {
         ok: false,
         code: "cooldown",
-        error: `Cooldown bron is recent gecontroleerd. Wacht nog ${Math.ceil((SOURCE_REFRESH_COOLDOWN_MS - age) / 60000)} min.`,
+        error: `Deze bron is recent gecontroleerd. Wacht nog ${Math.ceil((SOURCE_REFRESH_COOLDOWN_MS - age) / 60000)} min.`,
         run: latest,
       };
     }
@@ -107,6 +116,7 @@ export async function startSourceRefresh(input: {
     parserKey: pilot.parserKey,
     parserVersion: SOURCE_REFRESH_PARSER_VERSION,
     triggeredBy: input.triggeredBy,
+    triggerType,
   });
   if (!run) {
     return { ok: false, code: "failed", error: "Kon refresh-run niet starten." };

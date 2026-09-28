@@ -12,6 +12,7 @@ import type {
   SourceRefreshMatchConfidence,
   SourceRefreshRunRecord,
   SourceRefreshRunStatus,
+  SourceRefreshTriggerType,
   RefreshFieldChange,
 } from "@/lib/source-refresh/types";
 
@@ -33,6 +34,7 @@ type RunRow = {
   removed_count: number;
   error: string | null;
   triggered_by: string | null;
+  trigger_type?: string | null;
   created_at: string | Date;
 };
 
@@ -87,6 +89,7 @@ function mapRun(row: RunRow): SourceRefreshRunRecord {
     removedCount: Number(row.removed_count),
     error: row.error,
     triggeredBy: row.triggered_by,
+    triggerType: row.trigger_type === "scheduled" ? "scheduled" : "manual",
     createdAt: iso(row.created_at)!,
   };
 }
@@ -168,24 +171,133 @@ export async function createRefreshRun(input: {
   parserKey: RefreshParserKey | string;
   parserVersion: string;
   triggeredBy: string | null;
+  triggerType?: SourceRefreshTriggerType;
 }): Promise<SourceRefreshRunRecord | null> {
   const sql = getEventsSql();
   if (!sql) return null;
   const id = randomUUID();
+  const triggerType: SourceRefreshTriggerType =
+    input.triggerType === "scheduled" ? "scheduled" : "manual";
   const rows = (await sql`
     INSERT INTO source_refresh_runs (
-      id, catalog_source_id, status, parser_key, parser_version, triggered_by
+      id, catalog_source_id, status, parser_key, parser_version, triggered_by, trigger_type
     ) VALUES (
       ${id},
       ${input.catalogSourceId},
       'running',
       ${input.parserKey},
       ${input.parserVersion},
-      ${input.triggeredBy}
+      ${input.triggeredBy},
+      ${triggerType}
     )
     RETURNING *
   `) as RunRow[];
   return rows[0] ? mapRun(rows[0]) : null;
+}
+
+export type SourceScheduleState = {
+  catalogSourceId: string;
+  name: string;
+  refreshEnabled: boolean;
+  refreshIntervalHours: number | null;
+  lastScheduledRefreshAt: string | null;
+};
+
+export async function getSourceScheduleStates(
+  sourceIds: string[],
+): Promise<Map<string, SourceScheduleState>> {
+  const map = new Map<string, SourceScheduleState>();
+  if (sourceIds.length === 0) return map;
+  const sql = getEventsSql();
+  if (!sql) return map;
+  const rows = (await sql`
+    SELECT id, name, refresh_enabled, refresh_interval_hours, last_scheduled_refresh_at
+    FROM catalog_sources
+    WHERE id = ANY(${sourceIds})
+  `) as {
+    id: string;
+    name: string;
+    refresh_enabled: boolean;
+    refresh_interval_hours: number | null;
+    last_scheduled_refresh_at: string | Date | null;
+  }[];
+  for (const row of rows) {
+    map.set(row.id, {
+      catalogSourceId: row.id,
+      name: row.name,
+      refreshEnabled: Boolean(row.refresh_enabled),
+      refreshIntervalHours:
+        row.refresh_interval_hours == null
+          ? null
+          : Number(row.refresh_interval_hours),
+      lastScheduledRefreshAt: iso(row.last_scheduled_refresh_at),
+    });
+  }
+  return map;
+}
+
+export async function markSourceScheduledRefresh(
+  catalogSourceId: string,
+  at: Date = new Date(),
+): Promise<void> {
+  const sql = getEventsSql();
+  if (!sql) return;
+  await sql`
+    UPDATE catalog_sources SET
+      last_scheduled_refresh_at = ${at.toISOString()},
+      last_checked_at = COALESCE(last_checked_at, ${at.toISOString()}),
+      updated_at = now()
+    WHERE id = ${catalogSourceId}
+  `;
+}
+
+export async function setSourceRefreshEnabled(
+  catalogSourceId: string,
+  enabled: boolean,
+): Promise<boolean> {
+  const sql = getEventsSql();
+  if (!sql) return false;
+  const rows = await sql`
+    UPDATE catalog_sources SET
+      refresh_enabled = ${enabled},
+      updated_at = now()
+    WHERE id = ${catalogSourceId}
+    RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+/** Open review queue: new + changed + possibly_removed still needs_review. */
+export async function countOpenRefreshReviewItems(): Promise<number> {
+  const sql = getEventsSql();
+  if (!sql) return 0;
+  const rows = (await sql`
+    SELECT count(*)::int AS n
+    FROM source_refresh_items
+    WHERE status = 'needs_review'
+      AND detection_type IN ('new', 'existing_changed', 'possibly_removed')
+  `) as { n: number }[];
+  return Number(rows[0]?.n ?? 0);
+}
+
+/** Recent consecutive failed/blocked runs for a source (stops at first success). */
+export async function countConsecutiveRefreshFailures(
+  catalogSourceId: string,
+): Promise<number> {
+  const sql = getEventsSql();
+  if (!sql) return 0;
+  const rows = (await sql`
+    SELECT status FROM source_refresh_runs
+    WHERE catalog_source_id = ${catalogSourceId}
+    ORDER BY started_at DESC
+    LIMIT 10
+  `) as { status: string }[];
+  let n = 0;
+  for (const row of rows) {
+    if (row.status === "failed" || row.status === "blocked") n += 1;
+    else break;
+  }
+  return n;
 }
 
 export async function completeRefreshRun(input: {

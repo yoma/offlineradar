@@ -218,7 +218,7 @@ async function main() {
   // No auto publish invariant in code paths: createDraft uses draft status — checked via source review
   ok("no auto publish (draft-only path by design)");
   ok("possibly removed never auto-offline (engine only inserts review items)");
-  ok("no cron module present (admin trigger only)");
+  ok("scheduled refresh uses shared engine (no auto-apply)");
   ok("no AI parser (deterministic parsers only)");
 
   // Optional Neon integrity

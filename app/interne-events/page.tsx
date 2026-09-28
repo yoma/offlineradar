@@ -24,8 +24,16 @@ import { SourceRefreshControls } from "@/components/admin/source-refresh-control
 import {
   isRefreshSupported,
   REFRESH_PILOTS,
+  getRefreshPilot,
 } from "@/lib/source-refresh/registry";
-import { listLatestRunsBySourceIds } from "@/lib/source-refresh/store";
+import { computeNextRefreshAtIso } from "@/lib/source-refresh/scheduler";
+import { isScheduledRefreshGloballyEnabled } from "@/lib/source-refresh/schedule-config";
+import {
+  countConsecutiveRefreshFailures,
+  countOpenRefreshReviewItems,
+  getSourceScheduleStates,
+  listLatestRunsBySourceIds,
+} from "@/lib/source-refresh/store";
 
 export const dynamic = "force-dynamic";
 
@@ -117,6 +125,27 @@ export default async function InterneEventsPage() {
   const refreshRuns = await listLatestRunsBySourceIds(
     REFRESH_PILOTS.map((p) => p.catalogSourceId),
   );
+  const scheduleStates = await getSourceScheduleStates(
+    REFRESH_PILOTS.map((p) => p.catalogSourceId),
+  );
+  let openRefreshReviews = 0;
+  try {
+    openRefreshReviews = await countOpenRefreshReviewItems();
+  } catch {
+    openRefreshReviews = 0;
+  }
+  const consecutiveFailures = new Map<string, number>();
+  for (const pilot of REFRESH_PILOTS) {
+    try {
+      consecutiveFailures.set(
+        pilot.catalogSourceId,
+        await countConsecutiveRefreshFailures(pilot.catalogSourceId),
+      );
+    } catch {
+      consecutiveFailures.set(pilot.catalogSourceId, 0);
+    }
+  }
+  const scheduledGlobalOn = isScheduledRefreshGloballyEnabled();
 
   let reportSummaries: Awaited<ReturnType<typeof listEventReportSummaries>> = [];
   let openByEdition = new Map<string, number>();
@@ -150,12 +179,26 @@ export default async function InterneEventsPage() {
         </form>
       </div>
 
-      <section className="mb-10 space-y-4">
+      {openRefreshReviews > 0 ? (
+        <div className="mb-6 rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm">
+          Nieuwe bronupdates: {openRefreshReviews}{" "}
+          <a
+            href="#bronnen"
+            className="ml-2 font-medium underline-offset-4 hover:underline"
+          >
+            Bekijk bronnen
+          </a>
+        </div>
+      ) : null}
+
+      <section id="bronnen" className="mb-10 space-y-4">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Bronnen</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Curated Source Map. Pilotbronnen hebben “Controleer bron” (geen
-            crawler, geen auto-publish).
+            crawler, geen auto-publish). Scheduled refresh{" "}
+            {scheduledGlobalOn ? "globaal aan" : "globaal uit"}{" "}
+            (OFFLINERADAR_SCHEDULED_REFRESH).
           </p>
         </div>
 
@@ -268,6 +311,14 @@ export default async function InterneEventsPage() {
                       catalogSourceId={source.id}
                       supported={isRefreshSupported(source.id)}
                       latestRun={refreshRuns.get(source.id) ?? null}
+                      schedule={scheduleStates.get(source.id) ?? null}
+                      nextRefreshAt={computeNextRefreshAtIso(
+                        scheduleStates.get(source.id),
+                        getRefreshPilot(source.id)?.parserKey,
+                      )}
+                      consecutiveFailures={
+                        consecutiveFailures.get(source.id) ?? 0
+                      }
                     />
                     <form
                       action={updateCatalogSourceAction}

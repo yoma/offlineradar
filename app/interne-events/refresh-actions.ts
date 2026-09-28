@@ -5,9 +5,10 @@ import { resolveTipsAdminAccess } from "@/lib/tips/admin-auth";
 import { applyRefreshChangesToEdition } from "@/lib/source-refresh/apply-change";
 import { createDraftFromRefreshCandidate } from "@/lib/source-refresh/draft-from-candidate";
 import { startSourceRefresh } from "@/lib/source-refresh/engine";
-import { getRefreshPilot } from "@/lib/source-refresh/registry";
+import { getRefreshPilot, isRefreshSupported } from "@/lib/source-refresh/registry";
 import {
   getRefreshItem,
+  setSourceRefreshEnabled,
   updateRefreshItemStatus,
 } from "@/lib/source-refresh/store";
 import type { RefreshNormalizedCandidate } from "@/lib/source-refresh/types";
@@ -33,6 +34,7 @@ export async function runSourceRefreshAction(
   const result = await startSourceRefresh({
     catalogSourceId,
     triggeredBy: access.email,
+    triggerType: "manual",
   });
   revalidatePath("/interne-events");
   if (result.run?.id) {
@@ -50,6 +52,20 @@ export async function runSourceRefreshAction(
     message: `Klaar: ${result.run.newCount} nieuw, ${result.run.changedCount} gewijzigd, ${result.run.unchangedCount} ongewijzigd, ${result.run.removedCount} mogelijk verdwenen.`,
     runId: result.run.id,
   };
+}
+
+export async function setSourceScheduledRefreshAction(formData: FormData) {
+  const access = await resolveTipsAdminAccess();
+  if (!access.ok) throw new Error("Niet geautoriseerd");
+  const catalogSourceId = String(formData.get("catalogSourceId") ?? "").trim();
+  const enabled = String(formData.get("refreshEnabled") ?? "") === "1";
+  if (!catalogSourceId) throw new Error("Bron ontbreekt");
+  if (!isRefreshSupported(catalogSourceId)) {
+    throw new Error("Alleen stabiele parsers kunnen scheduled worden.");
+  }
+  const ok = await setSourceRefreshEnabled(catalogSourceId, enabled);
+  if (!ok) throw new Error("Kon schedule-flag niet bijwerken");
+  revalidatePath("/interne-events");
 }
 
 export async function ignoreRefreshItemAction(formData: FormData) {

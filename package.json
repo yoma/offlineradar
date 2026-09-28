@@ -64,8 +64,11 @@
     "verify:search-filters": "npx tsx scripts/verify-search-filters.ts",
     "verify:search-ux": "npx tsx scripts/verify-search-ux.ts",
     "db:migrate:source-refresh": "node --env-file=.env.local --import tsx scripts/migrate-source-refresh.ts",
+    "db:migrate:source-refresh-schedule": "node --env-file=.env.local --import tsx scripts/migrate-source-refresh-schedule.ts",
     "verify:source-refresh": "npx tsx scripts/verify-source-refresh.ts",
     "verify:source-refresh:neon": "node --env-file=.env.local --import tsx scripts/verify-source-refresh.ts",
+    "verify:scheduled-source-refresh": "npx tsx scripts/verify-scheduled-source-refresh.ts",
+    "refresh:scheduled-pilot": "node --env-file=.env.local --import tsx scripts/run-scheduled-refresh-pilot.ts",
     "verify:image-compatibility": "npx tsx scripts/verify-image-compatibility.ts",
     "fix:event-image-mismatches": "node --env-file=.env.local --import tsx scripts/fix-event-image-mismatches.ts"
   },

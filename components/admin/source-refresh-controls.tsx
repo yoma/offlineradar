@@ -4,20 +4,33 @@ import Link from "next/link";
 import { useActionState } from "react";
 import {
   runSourceRefreshAction,
+  setSourceScheduledRefreshAction,
   type RefreshActionState,
 } from "@/app/interne-events/refresh-actions";
+import type { SourceScheduleState } from "@/lib/source-refresh/store";
 import type { SourceRefreshRunRecord } from "@/lib/source-refresh/types";
 
 const initial: RefreshActionState = { ok: false, message: "" };
+
+function fmtStamp(iso: string | null | undefined): string {
+  if (!iso) return "onbekend";
+  return iso.slice(0, 16).replace("T", " ");
+}
 
 export function SourceRefreshControls({
   catalogSourceId,
   supported,
   latestRun,
+  schedule,
+  nextRefreshAt,
+  consecutiveFailures,
 }: {
   catalogSourceId: string;
   supported: boolean;
   latestRun: SourceRefreshRunRecord | null;
+  schedule?: SourceScheduleState | null;
+  nextRefreshAt?: string | null;
+  consecutiveFailures?: number;
 }) {
   const [state, action, pending] = useActionState(
     runSourceRefreshAction,
@@ -32,6 +45,15 @@ export function SourceRefreshControls({
     );
   }
 
+  const activeLocked =
+    latestRun?.status === "pending" || latestRun?.status === "running";
+  const triggerLabel =
+    latestRun?.triggerType === "scheduled"
+      ? "Automatische controle"
+      : latestRun
+        ? "Handmatige controle"
+        : null;
+
   return (
     <div className="space-y-2 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-3">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -39,10 +61,9 @@ export function SourceRefreshControls({
       </p>
       {latestRun ? (
         <p className="text-sm text-muted-foreground">
-          Laatste controle:{" "}
-          {latestRun.completedAt?.slice(0, 16).replace("T", " ") ??
-            latestRun.startedAt.slice(0, 16).replace("T", " ")}{" "}
+          Laatste controle: {fmtStamp(latestRun.completedAt ?? latestRun.startedAt)}{" "}
           · {latestRun.status}
+          {triggerLabel ? ` · ${triggerLabel}` : null}
           {latestRun.status === "completed" ? (
             <>
               {" "}
@@ -55,18 +76,54 @@ export function SourceRefreshControls({
       ) : (
         <p className="text-sm text-muted-foreground">Nog niet gecontroleerd.</p>
       )}
+      {schedule ? (
+        <p className="text-sm text-muted-foreground">
+          Scheduled: {schedule.refreshEnabled ? "aan" : "uit"}
+          {schedule.refreshIntervalHours != null
+            ? ` · elke ${schedule.refreshIntervalHours}u`
+            : null}
+          {" · "}
+          laatste auto: {fmtStamp(schedule.lastScheduledRefreshAt)}
+          {" · "}
+          volgende: {fmtStamp(nextRefreshAt)}
+          {consecutiveFailures && consecutiveFailures > 0
+            ? ` · ${consecutiveFailures}× fout op rij`
+            : null}
+        </p>
+      ) : null}
+      {activeLocked ? (
+        <p className="text-sm text-[#e61e4d]">
+          Er loopt al een refresh voor deze bron (handmatig of scheduled).
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <form action={action}>
           <input type="hidden" name="catalogSourceId" value={catalogSourceId} />
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || activeLocked}
             className="rounded-md bg-[#e61e4d] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
           >
             {pending ? "Bron wordt gecontroleerd..." : "Controleer bron"}
           </button>
         </form>
-        {latestRun?.status === "completed" ? (
+        {schedule ? (
+          <form action={setSourceScheduledRefreshAction}>
+            <input type="hidden" name="catalogSourceId" value={catalogSourceId} />
+            <input
+              type="hidden"
+              name="refreshEnabled"
+              value={schedule.refreshEnabled ? "0" : "1"}
+            />
+            <button
+              type="submit"
+              className="rounded-md border border-border px-3 py-1.5 text-sm"
+            >
+              {schedule.refreshEnabled ? "Scheduled uit" : "Scheduled aan"}
+            </button>
+          </form>
+        ) : null}
+        {latestRun?.status === "completed" || latestRun?.status === "failed" ? (
           <Link
             href={`/interne-events/refresh/${latestRun.id}`}
             className="rounded-md border border-border px-3 py-1.5 text-sm"

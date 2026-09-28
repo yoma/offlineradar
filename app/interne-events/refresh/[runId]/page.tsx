@@ -42,6 +42,7 @@ async function getRun(id: string): Promise<SourceRefreshRunRecord | null> {
     removedCount: Number(row.removed_count),
     error: row.error ? String(row.error) : null,
     triggeredBy: row.triggered_by ? String(row.triggered_by) : null,
+    triggerType: row.trigger_type === "scheduled" ? "scheduled" : "manual",
     createdAt: String(row.created_at),
   };
 }
@@ -82,7 +83,10 @@ export default async function RefreshRunPage({
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">
         {pilot?.label ?? run.catalogSourceId} · parser {run.parserKey} v
-        {run.parserVersion} · {run.status}
+        {run.parserVersion} · {run.status} ·{" "}
+        {run.triggerType === "scheduled"
+          ? "Automatische controle"
+          : "Handmatige controle"}
       </p>
       <p className="mt-1 text-sm text-muted-foreground">
         {run.newCount} nieuw · {run.changedCount} gewijzigd ·{" "}
