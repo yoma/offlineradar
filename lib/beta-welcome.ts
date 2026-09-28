@@ -1,6 +1,6 @@
 /** One-time beta welcome modal (client localStorage; no DB). */
 
-export const BETA_WELCOME_STORAGE_KEY = "offlineradar_beta_welcome_seen_v1";
+export const BETA_WELCOME_STORAGE_KEY = "offlineradar_beta_welcome_seen_v2";
 
 export function isBetaWelcomeEnabled(): boolean {
   return process.env.NEXT_PUBLIC_BETA_WELCOME_ENABLED === "1";

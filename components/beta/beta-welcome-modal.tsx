@@ -64,21 +64,21 @@ export function BetaWelcomeModal() {
       <Dialog.Portal>
         <Dialog.Overlay
           className={cn(
-            "fixed inset-0 z-[60] bg-black/40",
+            "fixed inset-0 z-[60] bg-[#1a1214]/45 backdrop-blur-md",
             "data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
-            "duration-150",
+            "duration-200",
           )}
         />
         <Dialog.Content
           aria-labelledby={titleId}
           aria-describedby={descId}
           className={cn(
-            "fixed top-1/2 left-1/2 z-[60] w-[min(100vw-1.5rem,36rem)] -translate-x-1/2 -translate-y-1/2",
-            "rounded-2xl border border-border bg-background p-5 shadow-lg sm:p-6",
+            "fixed top-1/2 left-1/2 z-[60] w-[min(100vw-1.5rem,26rem)] -translate-x-1/2 -translate-y-1/2",
+            "rounded-[1.75rem] border border-white/70 bg-white p-6 pt-7 text-center shadow-[0_24px_80px_-12px_rgba(26,18,20,0.45)] sm:p-8",
             "max-h-[min(90dvh,40rem)] overflow-y-auto outline-none",
             "data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95",
             "data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-            "duration-150",
+            "duration-200",
           )}
           onOpenAutoFocus={(event) => {
             const target = (event.currentTarget as HTMLElement).querySelector(
@@ -90,79 +90,78 @@ export function BetaWelcomeModal() {
             }
           }}
         >
-          <div className="flex items-start justify-between gap-3">
-            <Dialog.Title
-              id={titleId}
-              className="pr-2 text-xl font-semibold tracking-tight text-foreground sm:text-2xl"
+          <Dialog.Close asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="absolute top-3 right-3 text-muted-foreground"
+              aria-label="Sluiten"
             >
-              Welkom bij de OfflineRadar beta 👋
-            </Dialog.Title>
-            <Dialog.Close asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="shrink-0"
-                aria-label="Sluiten"
-              >
-                <XIcon />
-              </Button>
-            </Dialog.Close>
+              <XIcon />
+            </Button>
+          </Dialog.Close>
+
+          <div
+            className="mx-auto flex size-14 items-center justify-center rounded-full bg-[#e61e4d] text-lg font-bold tracking-tight text-white shadow-[0_10px_30px_-8px_rgba(230,30,77,0.55)]"
+            aria-hidden
+          >
+            OR
           </div>
+
+          <Dialog.Title
+            id={titleId}
+            className="mt-5 text-balance text-[1.65rem] leading-tight font-semibold tracking-tight text-foreground sm:text-[1.85rem]"
+          >
+            Psst… dit is nog een proefversie
+          </Dialog.Title>
 
           <Dialog.Description asChild>
             <div
               id={descId}
-              className="mt-4 space-y-3 text-sm leading-6 text-muted-foreground sm:text-[0.95rem]"
+              className="mx-auto mt-3 max-w-[22rem] space-y-3 text-sm leading-6 text-muted-foreground"
             >
-              <p className="font-medium text-foreground">Fijn dat je mee test.</p>
               <p>
-                OfflineRadar verzamelt activiteiten en events waar je andere
-                singles offline kunt ontmoeten.
-              </p>
-              <p>Je kunt meteen rondkijken zonder account.</p>
-              <p>
-                Log je in met Google, dan onthouden we je voorkeuren en bewaarde
-                events.
+                Fijn dat je erbij bent. OfflineRadar helpt je offline
+                singlesactiviteiten te vinden.
               </p>
               <p>
-                Feedback geven kan op elk moment via{" "}
+                Neem het met een korreltje zout waar het nog wankelt, en geniet
+                waar het al glimt. Account is optioneel; feedback via{" "}
                 <Link
                   href="/feedback"
                   className="font-medium text-foreground underline-offset-4 hover:underline"
                   onClick={closeAndRemember}
                 >
                   Feedback
-                </Link>
-                .
+                </Link>{" "}
+                helpt ons verder.
               </p>
             </div>
           </Dialog.Description>
 
-          <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:items-center">
-            <Button asChild className="h-11 w-full rounded-full sm:flex-1">
-              <Link
-                href={loginHref}
-                data-beta-welcome-primary
-                onClick={() => {
-                  track("beta_welcome_login_click");
-                  closeAndRemember();
-                }}
-              >
-                Inloggen met Google
-              </Link>
-            </Button>
+          <div className="mt-7 flex flex-col items-stretch gap-3">
             <Button
               type="button"
-              variant="outline"
-              className="h-11 w-full rounded-full sm:flex-1"
+              data-beta-welcome-primary
+              className="h-12 w-full rounded-full text-base font-semibold shadow-[0_12px_28px_-10px_rgba(230,30,77,0.65)]"
               onClick={() => {
                 track("beta_welcome_skip");
                 closeAndRemember();
               }}
             >
-              Eerst even rondkijken
+              Oké, laten we gaan
             </Button>
+            <Link
+              href={loginHref}
+              className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              onClick={() => {
+                track("beta_welcome_login_click");
+                closeAndRemember();
+              }}
+            >
+              Of inloggen met Google
+            </Link>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

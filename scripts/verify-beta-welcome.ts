@@ -24,7 +24,7 @@ function check(name: string, fn: () => void) {
 }
 
 check("storage key stable", () => {
-  assert.equal(BETA_WELCOME_STORAGE_KEY, "offlineradar_beta_welcome_seen_v1");
+  assert.equal(BETA_WELCOME_STORAGE_KEY, "offlineradar_beta_welcome_seen_v2");
 });
 
 check("flag requires 1 (next.config defaults to 1 at build)", () => {
