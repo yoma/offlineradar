@@ -80,7 +80,8 @@
     "verify:scheduled-source-refresh": "npx tsx scripts/verify-scheduled-source-refresh.ts",
     "refresh:scheduled-pilot": "node --env-file=.env.local --import tsx scripts/run-scheduled-refresh-pilot.ts",
     "verify:image-compatibility": "npx tsx scripts/verify-image-compatibility.ts",
-    "fix:event-image-mismatches": "node --env-file=.env.local --import tsx scripts/fix-event-image-mismatches.ts"
+    "fix:event-image-mismatches": "node --env-file=.env.local --import tsx scripts/fix-event-image-mismatches.ts",
+    "verify:beta-welcome": "npx tsx scripts/verify-beta-welcome.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

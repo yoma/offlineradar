@@ -5,7 +5,10 @@ export type AnalyticsEventName =
   | "organizer_clicked"
   | "ticket_clicked"
   | "favorite_added"
-  | "zero_results";
+  | "zero_results"
+  | "beta_welcome_shown"
+  | "beta_welcome_login_click"
+  | "beta_welcome_skip";
 
 export type AnalyticsProperties = Record<
   string,
