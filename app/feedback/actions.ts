@@ -1,7 +1,17 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
-import { getEventsSql } from "@/lib/events/db";
+import { headers } from "next/headers";
+import { auth } from "@/auth";
+import {
+  FEEDBACK_CATEGORIES,
+  countRecentFeedback,
+  insertBetaFeedback,
+  type FeedbackCategory,
+} from "@/lib/feedback/store";
+import {
+  clientIpFromRequest,
+  consumeTipSubmitRateLimit,
+} from "@/lib/tips/rate-limit";
 
 export type FeedbackResult =
   | { ok: true }
@@ -12,19 +22,53 @@ function clean(value: FormDataEntryValue | null, max = 2000): string {
   return value.trim().slice(0, max);
 }
 
+function parseCategory(raw: string): FeedbackCategory {
+  return FEEDBACK_CATEGORIES.includes(raw as FeedbackCategory)
+    ? (raw as FeedbackCategory)
+    : "other";
+}
+
+function safePathname(raw: string): string | null {
+  if (!raw.startsWith("/") || raw.startsWith("//")) return null;
+  return raw.slice(0, 300);
+}
+
+function safeQuery(raw: string): string | null {
+  if (!raw) return null;
+  // Never store cookies/tokens; strip common sensitive keys.
+  try {
+    const params = new URLSearchParams(raw.startsWith("?") ? raw.slice(1) : raw);
+    for (const key of [...params.keys()]) {
+      if (/token|secret|code|password|auth|session/i.test(key)) {
+        params.delete(key);
+      }
+    }
+    const next = params.toString();
+    return next ? next.slice(0, 500) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function submitBetaFeedback(
   formData: FormData,
 ): Promise<FeedbackResult> {
-  const whatWentWell = clean(formData.get("whatWentWell"));
-  const whatUnclear = clean(formData.get("whatUnclear"));
-  const whatMissing = clean(formData.get("whatMissing"));
+  const category = parseCategory(clean(formData.get("category"), 40));
+  const message = clean(formData.get("message"), 2000);
   const contactEmail = clean(formData.get("contactEmail"), 200);
   const userAgent = clean(formData.get("userAgent"), 400);
+  const pathname = safePathname(clean(formData.get("pathname"), 300));
+  const queryString = safeQuery(clean(formData.get("queryString"), 500));
 
-  if (!whatWentWell && !whatUnclear && !whatMissing) {
+  // Honeypot: bots fill this; humans leave empty.
+  if (clean(formData.get("website"), 100)) {
+    return { ok: true };
+  }
+
+  if (!message || message.length < 3) {
     return {
       ok: false,
-      error: "Vul minstens één veld in zodat we iets concreets kunnen verbeteren.",
+      error: "Vertel kort wat er gebeurde of wat je mist.",
     };
   }
 
@@ -32,32 +76,59 @@ export async function submitBetaFeedback(
     return { ok: false, error: "Dat e-mailadres lijkt ongeldig." };
   }
 
-  const sql = getEventsSql();
-  if (!sql) {
+  // Reuse durable tip rate-limit table when available.
+  try {
+    const h = await headers();
+    const req = new Request("https://offlineradar.local/feedback", {
+      headers: h,
+    });
+    // Touch IP helper so dead-code elimination keeps import useful in tests.
+    void clientIpFromRequest(req);
+    const limit = await consumeTipSubmitRateLimit(req);
+    if (!limit.ok && limit.status === 429) {
+      return {
+        ok: false,
+        error: "Te veel berichten. Probeer het later opnieuw.",
+      };
+    }
+  } catch {
+    // Fall through to row-count soft limit.
+  }
+
+  const recent = await countRecentFeedback(15);
+  if (recent >= 40) {
     return {
       ok: false,
-      error: "Feedback opslaan lukt tijdelijk niet. Probeer het later opnieuw.",
+      error: "Dat lukte even niet. Probeer opnieuw.",
     };
   }
 
+  let appUserId: string | null = null;
   try {
-    await sql`
-      INSERT INTO beta_feedback (
-        id, what_went_well, what_unclear, what_missing, contact_email, user_agent
-      ) VALUES (
-        ${randomUUID()},
-        ${whatWentWell || null},
-        ${whatUnclear || null},
-        ${whatMissing || null},
-        ${contactEmail || null},
-        ${userAgent || null}
-      )
-    `;
-    return { ok: true };
+    const session = await auth();
+    if (typeof session?.user?.id === "string") {
+      appUserId = session.user.id;
+    }
   } catch {
+    appUserId = null;
+  }
+
+  const inserted = await insertBetaFeedback({
+    category,
+    message,
+    contactEmail: contactEmail || null,
+    appUserId,
+    pathname,
+    queryString,
+    userAgent: userAgent || null,
+  });
+
+  if (!inserted.ok) {
     return {
       ok: false,
-      error: "Feedback opslaan mislukt. Probeer het later opnieuw.",
+      error: "Dat lukte even niet. Probeer opnieuw.",
     };
   }
+
+  return { ok: true };
 }

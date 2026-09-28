@@ -20,6 +20,7 @@ import {
 } from "@/lib/events/reports";
 import { assertOfflineRadarDbConfig } from "@/lib/events/db";
 import { CatalogSourcesBrowser } from "@/components/admin/catalog-sources-browser";
+import { InterneAdminNav } from "@/components/admin/interne-admin-nav";
 import { SourceRefreshControls } from "@/components/admin/source-refresh-controls";
 import {
   isRefreshSupported,
@@ -34,6 +35,7 @@ import {
   getSourceScheduleStates,
   listLatestRunsBySourceIds,
 } from "@/lib/source-refresh/store";
+import { countBetaFeedbackByStatus } from "@/lib/feedback/store";
 
 export const dynamic = "force-dynamic";
 
@@ -158,8 +160,16 @@ export default async function InterneEventsPage() {
     reportSummaries = [];
   }
 
+  let newFeedbackCount = 0;
+  try {
+    newFeedbackCount = (await countBetaFeedbackByStatus()).new;
+  } catch {
+    newFeedbackCount = 0;
+  }
+
   return (
     <div className="mx-auto w-full min-w-0 max-w-3xl px-4 py-10 sm:px-6">
+      <InterneAdminNav active="events" newFeedbackCount={newFeedbackCount} />
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bookmark, Compass, Info } from "lucide-react";
+import { Bookmark, Compass, Info, MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AccountNavLink } from "@/components/auth/account-nav-link";
 import { cn } from "@/lib/utils";
@@ -73,6 +73,21 @@ export function SiteHeader() {
               </Link>
             );
           })}
+          <Link
+            href="/feedback"
+            className={cn(
+              "text-sm font-medium",
+              light
+                ? pathname.startsWith("/feedback")
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+                : pathname.startsWith("/feedback")
+                  ? "text-white"
+                  : "text-white/75 hover:text-white",
+            )}
+          >
+            Feedback
+          </Link>
           <AccountNavLink light={light} />
           <Link
             href="/#tip-een-activiteit"
@@ -86,7 +101,17 @@ export function SiteHeader() {
             Tip activiteit
           </Link>
         </nav>
-        <div className="md:hidden">
+        <div className="flex items-center gap-3 md:hidden">
+          <Link
+            href="/feedback"
+            className={cn(
+              "text-sm font-medium",
+              light ? "text-muted-foreground" : "text-white/80",
+            )}
+            aria-label="Feedback geven"
+          >
+            Feedback
+          </Link>
           <AccountNavLink light={light} />
         </div>
       </div>
@@ -96,10 +121,14 @@ export function SiteHeader() {
 
 export function MobileNav() {
   const pathname = usePathname();
+  const mobileLinks = [
+    ...links,
+    { href: "/feedback", label: "Feedback", icon: MessageSquare },
+  ];
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-white pb-[env(safe-area-inset-bottom,0px)] md:hidden">
-      <ul className="mx-auto grid max-w-lg grid-cols-3">
-        {links.map((link) => {
+      <ul className="mx-auto grid max-w-lg grid-cols-4">
+        {mobileLinks.map((link) => {
           const Icon = link.icon;
           const active = pathname.startsWith(link.href);
           return (
