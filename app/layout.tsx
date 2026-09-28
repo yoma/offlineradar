@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { AuthSessionProvider } from "@/components/auth/session-provider";
 import { BetaWelcomeModal } from "@/components/beta/beta-welcome-modal";
+import { FeedbackLauncher } from "@/components/feedback/feedback-launcher";
 import { MobileNav, SiteHeader } from "@/components/layout/site-nav";
 import "./globals.css";
 
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             {children}
           </main>
           <MobileNav />
+          <FeedbackLauncher />
           <BetaWelcomeModal />
         </AuthSessionProvider>
       </body>

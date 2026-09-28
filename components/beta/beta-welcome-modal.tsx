@@ -126,16 +126,8 @@ export function BetaWelcomeModal() {
                 singlesactiviteiten te vinden.
               </p>
               <p>
-                Neem het met een korreltje zout waar het nog wankelt, en geniet
-                waar het al glimt. Account is optioneel; feedback via{" "}
-                <Link
-                  href="/feedback"
-                  className="font-medium text-foreground underline-offset-4 hover:underline"
-                  onClick={closeAndRemember}
-                >
-                  Feedback
-                </Link>{" "}
-                helpt ons verder.
+                Feedback geven kan op elk moment via de Feedback-knop rechtsonder.
+                Account is optioneel.
               </p>
             </div>
           </Dialog.Description>
