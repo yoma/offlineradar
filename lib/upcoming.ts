@@ -1,30 +1,21 @@
 /**
- * "Binnenkort" strip: upcoming published editions from the in-memory feed.
- * No extra DB queries. Reuses matchingEvents / eligibility.
+ * "Binnenkort" sticker strip: global upcoming published editions.
+ * Filter-independent. No eligibility / location / activity coupling.
+ * Derived from the in-memory public feed (no extra DB queries).
  */
-import { findPlace } from "@/data/places";
 import {
   addDays,
   brusselsToday,
   diffDays,
   formatDayMonth,
-  weekendRange,
   weekdayIndex,
 } from "@/lib/dates";
-import { matchingEvents, type PreparedEvent } from "@/lib/filters";
-import {
-  type PublicActivityGroupId,
-  PUBLIC_ACTIVITY_GROUPS,
-} from "@/lib/public-activity-groups";
-import { calculatePreferenceScore } from "@/lib/ranking";
 import type { Event } from "@/types/event";
-import type { SearchState } from "@/types/search";
 
-export const UPCOMING_PRIMARY_DAYS = 7;
-export const UPCOMING_FALLBACK_DAYS = 14;
-export const UPCOMING_MIN_COUNT = 3;
+export const UPCOMING_WINDOW_DAYS = 14;
 export const UPCOMING_MAX_COUNT = 8;
-export const UPCOMING_MAX_PER_FORMAT = 3;
+/** Soft cap so Brussels never crowds out Flanders when both exist. */
+export const UPCOMING_MAX_BRUSSELS = 2;
 
 const WEEKDAY_SHORT = ["zo", "ma", "di", "wo", "do", "vr", "za"] as const;
 
@@ -34,23 +25,24 @@ const WALLONIA_REGION =
 const WALLONIA_CITY =
   /^(namur|li[eè]ge|luik|charleroi|mons|arlon|gembloux|huy|herve|verviers|tournai|wavre|nivelles|ottignies|louvain-la-neuve|sterrebeek|waterloo|la hulpe|marche-en-famenne)$/i;
 
-const FLANDERS_PLACE =
-  /antwerpen|gent|brugge|leuven|hasselt|mechelen|kortrijk|oostende|aalst|sint-niklaas|roeselare|genk|turnhout|vilvoorde|dendermonde|lokeren|waregem|ieper|eeklo|holsbeek|tremelo|heusden|zolder|maasmechelen|beringen|lommel|tongeren|sint-truiden/i;
+const FLANDERS_REGION =
+  /antwerpen|oost-?vlaanderen|west-?vlaanderen|vlaams-?brabant|limburg|vlaanderen|flanders/i;
 
-const BRUSSELS_PLACE = /brussel|bruxelles|etterbeek|koekelberg|uccle|ixelles|schaarbeek|woluwe/i;
+const FLANDERS_CITY =
+  /antwerpen|gent|brugge|leuven|hasselt|mechelen|kortrijk|oostende|aalst|sint-niklaas|roeselare|genk|turnhout|vilvoorde|dendermonde|lokeren|waregem|ieper|eeklo|holsbeek|tremelo|heusden|zolder|maasmechelen|beringen|lommel|tongeren|sint-truiden|deinze|gooik|oostkamp|stekene|haacht|ronse|genk|waregem|middelheim/i;
 
-export type UpcomingUrgencyLabel = "Vandaag" | "Morgen" | "Dit weekend" | string;
+const BRUSSELS_PLACE =
+  /brussel|bruxelles|etterbeek|koekelberg|uccle|ixelles|schaarbeek|woluwe|anderlecht|jette|vorst|sint-gillis|elsene/i;
+
+export type UpcomingUrgencyLabel = "Vandaag" | "Morgen" | string;
 
 export type UpcomingSelection = {
-  events: PreparedEvent[];
-  windowDays: 7 | 14;
+  events: Event[];
+  windowDays: typeof UPCOMING_WINDOW_DAYS;
 };
 
-function eventEnd(event: Event): string {
-  return event.endDate ?? event.startDate;
-}
+export type UpcomingGeoFocus = "flanders" | "brussels" | "wallonia" | "other";
 
-/** Started editions (start already past) never appear as upcoming. */
 export function isUpcomingStart(event: Event, today: string): boolean {
   return event.startDate >= today;
 }
@@ -58,11 +50,10 @@ export function isUpcomingStart(event: Event, today: string): boolean {
 export function isWithinUpcomingWindow(
   event: Event,
   today: string,
-  windowDays: number,
+  windowDays: number = UPCOMING_WINDOW_DAYS,
 ): boolean {
   if (!isUpcomingStart(event, today)) return false;
-  const last = addDays(today, windowDays);
-  return event.startDate <= last;
+  return event.startDate <= addDays(today, windowDays);
 }
 
 export function isWalloniaEvent(event: Pick<Event, "region" | "city">): boolean {
@@ -73,35 +64,28 @@ export function isWalloniaEvent(event: Pick<Event, "region" | "city">): boolean 
   return false;
 }
 
-export function placeGeoFocus(
-  placeId: string,
-): "flanders" | "brussels" | "wallonia" | "other" {
-  const place = findPlace(placeId);
-  const label = `${place.label} ${placeId}`.toLowerCase();
-  if (BRUSSELS_PLACE.test(label)) return "brussels";
-  if (WALLONIA_REGION.test(label) || WALLONIA_CITY.test(label)) return "wallonia";
-  if (FLANDERS_PLACE.test(label)) return "flanders";
-  // Default product places are Flanders hubs.
-  return "flanders";
+export function isBrusselsEvent(event: Pick<Event, "region" | "city">): boolean {
+  const region = (event.region ?? "").trim();
+  const city = (event.city ?? "").trim();
+  if (BRUSSELS_PLACE.test(region) || BRUSSELS_PLACE.test(city)) return true;
+  return false;
 }
 
-/**
- * Default strip: do not actively spotlight Wallonia when the user searches
- * from Flanders/Brussels. Explicit Wallonia place keeps those editions.
- */
-export function shouldExcludeWalloniaFromStrip(state: SearchState): boolean {
-  const focus = placeGeoFocus(state.placeId);
-  return focus === "flanders" || focus === "brussels";
+export function isFlandersEvent(event: Pick<Event, "region" | "city">): boolean {
+  if (isWalloniaEvent(event) || isBrusselsEvent(event)) return false;
+  const region = (event.region ?? "").trim();
+  const city = (event.city ?? "").trim();
+  if (region && FLANDERS_REGION.test(region)) return true;
+  if (city && FLANDERS_CITY.test(city)) return true;
+  return false;
 }
 
-export function primaryFormatId(
-  activities: readonly string[],
-): PublicActivityGroupId | "other" {
-  for (const group of PUBLIC_ACTIVITY_GROUPS) {
-    if (group.activities.some((a) => activities.includes(a))) {
-      return group.id;
-    }
-  }
+export function eventGeoFocus(
+  event: Pick<Event, "region" | "city">,
+): UpcomingGeoFocus {
+  if (isWalloniaEvent(event)) return "wallonia";
+  if (isBrusselsEvent(event)) return "brussels";
+  if (isFlandersEvent(event)) return "flanders";
   return "other";
 }
 
@@ -112,139 +96,84 @@ export function upcomingUrgencyLabel(
   const days = diffDays(today, startDate);
   if (days === 0) return "Vandaag";
   if (days === 1) return "Morgen";
-
-  const weekend = weekendRange(today);
-  const dow = weekdayIndex(today);
-  // Fri–Sun: label sat/sun of this weekend as "Dit weekend".
-  if (dow >= 5 || dow === 0) {
-    const weekendStart = weekend.start < today ? today : weekend.start;
-    if (startDate >= weekendStart && startDate <= weekend.end) {
-      return "Dit weekend";
-    }
-  }
-
   const day = WEEKDAY_SHORT[weekdayIndex(startDate)];
   return `${day} ${formatDayMonth(startDate)}`;
 }
 
-function sortSoonest(
-  events: PreparedEvent[],
-  state: SearchState,
-): PreparedEvent[] {
+/** Compact sticker text: `za 3 okt · Title` (+ city when not already in title). */
+export function upcomingStickerLabel(
+  event: Pick<Event, "title" | "city" | "startDate">,
+  today = brusselsToday(),
+): string {
+  const when = upcomingUrgencyLabel(event.startDate, today);
+  const title = event.title.trim();
+  const city = (event.city ?? "").trim();
+  const cityInTitle =
+    city.length > 0 && title.toLowerCase().includes(city.toLowerCase());
+  if (city && !cityInTitle) {
+    return `${when} · ${title} · ${city}`;
+  }
+  return `${when} · ${title}`;
+}
+
+function sortSoonest(events: Event[]): Event[] {
   return [...events].sort((a, b) => {
     const byDate = a.startDate.localeCompare(b.startDate);
     if (byDate !== 0) return byDate;
-    const byTime = (a.startTime ?? "99:99").localeCompare(b.startTime ?? "99:99");
-    if (byTime !== 0) return byTime;
-    const scoreA = calculatePreferenceScore(a, state).organicScore;
-    const scoreB = calculatePreferenceScore(b, state).organicScore;
-    return scoreB - scoreA;
+    return (a.startTime ?? "99:99").localeCompare(b.startTime ?? "99:99");
   });
 }
 
 /**
- * Cap per primary format when alternatives exist.
- * Urgency stays first; fill from deferred if under max.
- */
-export function applyFormatDiversity(
-  sorted: PreparedEvent[],
-  state: SearchState,
-  maxPerFormat = UPCOMING_MAX_PER_FORMAT,
-  limit = UPCOMING_MAX_COUNT,
-): PreparedEvent[] {
-  const counts = new Map<string, number>();
-  const taken: PreparedEvent[] = [];
-  const deferred: PreparedEvent[] = [];
-  const formatsInPool = new Set(
-    sorted.map((event) => primaryFormatId(event.activities)),
-  );
-  const multiFormat = formatsInPool.size > 1;
-
-  for (const event of sorted) {
-    const format = primaryFormatId(event.activities);
-    const count = counts.get(format) ?? 0;
-    if (count < maxPerFormat) {
-      taken.push(event);
-      counts.set(format, count + 1);
-    } else {
-      deferred.push(event);
-    }
-    if (taken.length >= limit) {
-      return sortSoonest(taken, state);
-    }
-  }
-
-  while (taken.length < limit && deferred.length > 0) {
-    const underCapIdx = deferred.findIndex(
-      (event) =>
-        (counts.get(primaryFormatId(event.activities)) ?? 0) < maxPerFormat,
-    );
-    if (underCapIdx >= 0) {
-      const [event] = deferred.splice(underCapIdx, 1);
-      const format = primaryFormatId(event.activities);
-      taken.push(event);
-      counts.set(format, (counts.get(format) ?? 0) + 1);
-      continue;
-    }
-    // Same-format-only pools may still fill the strip.
-    if (!multiFormat) {
-      taken.push(deferred.shift()!);
-      continue;
-    }
-    break;
-  }
-
-  return sortSoonest(taken, state);
-}
-
-/**
- * Select upcoming cards from the already-loaded catalog.
- * Overrides `when`/`date` so the strip always uses the 7→14 urgency window,
- * while keeping location, age eligibility, categories, and activity filters.
+ * Global product strip selection. Ignores user search/filter state entirely.
+ * Flanders first, Brussels selective, Wallonia not promoted.
  */
 export function selectUpcomingEvents(
   events: Event[],
-  state: SearchState,
   now = new Date(),
 ): UpcomingSelection {
   const today = brusselsToday(now);
-  const stripState: SearchState = {
-    ...state,
-    when: "any",
-    date: null,
-  };
+  const windowDays = UPCOMING_WINDOW_DAYS;
 
-  const { visible } = matchingEvents(events, stripState, now);
-  const excludeWallonia = shouldExcludeWalloniaFromStrip(state);
-
-  const pool = visible.filter((event) => {
-    if (eventEnd(event) < today) return false;
-    if (!isUpcomingStart(event, today)) return false;
-    if (excludeWallonia && isWalloniaEvent(event)) return false;
+  const pool = events.filter((event) => {
+    if (!event.startDate) return false;
+    if (!isWithinUpcomingWindow(event, today, windowDays)) return false;
+    if (isWalloniaEvent(event)) return false;
     return true;
   });
 
-  const inWindow = (days: number) =>
-    pool.filter((event) => isWithinUpcomingWindow(event, today, days));
-
-  let windowDays: 7 | 14 = UPCOMING_PRIMARY_DAYS;
-  let candidates = inWindow(UPCOMING_PRIMARY_DAYS);
-  if (candidates.length < UPCOMING_MIN_COUNT) {
-    windowDays = UPCOMING_FALLBACK_DAYS;
-    candidates = inWindow(UPCOMING_FALLBACK_DAYS);
-  }
-
-  if (candidates.length === 0) {
+  if (pool.length === 0) {
     return { events: [], windowDays };
   }
 
-  const sorted = sortSoonest(candidates, stripState);
-  const eventsOut = applyFormatDiversity(
-    sorted,
-    stripState,
-    UPCOMING_MAX_PER_FORMAT,
-    UPCOMING_MAX_COUNT,
+  const flanders = sortSoonest(
+    pool.filter((event) => eventGeoFocus(event) === "flanders"),
+  );
+  const brussels = sortSoonest(
+    pool.filter((event) => eventGeoFocus(event) === "brussels"),
+  );
+  const other = sortSoonest(
+    pool.filter((event) => eventGeoFocus(event) === "other"),
   );
 
-  return { events: eventsOut, windowDays };
+  const out: Event[] = [];
+  for (const event of flanders) {
+    if (out.length >= UPCOMING_MAX_COUNT) break;
+    out.push(event);
+  }
+
+  let brusselsTaken = 0;
+  for (const event of brussels) {
+    if (out.length >= UPCOMING_MAX_COUNT) break;
+    if (brusselsTaken >= UPCOMING_MAX_BRUSSELS) break;
+    out.push(event);
+    brusselsTaken += 1;
+  }
+
+  for (const event of other) {
+    if (out.length >= UPCOMING_MAX_COUNT) break;
+    out.push(event);
+  }
+
+  return { events: sortSoonest(out), windowDays };
 }

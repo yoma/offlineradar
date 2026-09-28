@@ -1,27 +1,26 @@
 /**
- * Fase 21: Binnenkort / upcoming strip selection + UI invariants.
+ * Fase 21.1: Binnenkort sticker strip — filter-independent selection + UI.
  * Usage: npm run verify:phase21-upcoming
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { addDays } from "../lib/dates";
-import { defaultSearchState } from "../lib/search-state";
 import {
-  applyFormatDiversity,
+  eventGeoFocus,
+  isBrusselsEvent,
+  isFlandersEvent,
   isUpcomingStart,
   isWalloniaEvent,
   isWithinUpcomingWindow,
-  primaryFormatId,
   selectUpcomingEvents,
-  shouldExcludeWalloniaFromStrip,
+  upcomingStickerLabel,
   upcomingUrgencyLabel,
   UPCOMING_MAX_COUNT,
+  UPCOMING_WINDOW_DAYS,
 } from "../lib/upcoming";
 import type { Event } from "../types/event";
 import { band } from "../types/event";
-import type { PreparedEvent } from "../lib/filters";
-import type { SearchState } from "../types/search";
 
 const NOW = new Date("2026-09-27T12:00:00+02:00");
 const TODAY = "2026-09-27";
@@ -91,33 +90,14 @@ function stub(
   };
 }
 
-function asPrepared(event: Event): PreparedEvent {
-  return {
-    ...event,
-    participation: {
-      status: "eligible",
-      includedByDefault: true,
-      inRange: true,
-      title: "",
-      detail: "",
-      appliedBand: null,
-    },
-  };
-}
-
-function baseState(patch: Partial<SearchState> = {}): SearchState {
-  return {
-    ...defaultSearchState(),
-    age: 35,
-    placeId: "antwerpen",
-    maxDistanceKm: 100,
-    ...patch,
-  };
-}
-
 function mustInclude(rel: string, needle: string, label: string) {
   const src = fs.readFileSync(path.join(process.cwd(), rel), "utf8");
   assert.ok(src.includes(needle), `${label}: missing ${needle} in ${rel}`);
+}
+
+function mustNotInclude(rel: string, needle: string, label: string) {
+  const src = fs.readFileSync(path.join(process.cwd(), rel), "utf8");
+  assert.ok(!src.includes(needle), `${label}: unexpected ${needle} in ${rel}`);
 }
 
 function main() {
@@ -126,182 +106,213 @@ function main() {
     isUpcomingStart(stub({ id: "2", slug: "b", startDate: "2026-09-26" }), TODAY),
     false,
   );
-  ok("1-4. upcoming start excludes past");
+  ok("1-3. future only; past excluded");
 
   assert.equal(
     isWithinUpcomingWindow(
-      stub({ id: "3", slug: "c", startDate: addDays(TODAY, 6) }),
+      stub({ id: "3", slug: "c", startDate: addDays(TODAY, 13) }),
       TODAY,
-      7,
+      UPCOMING_WINDOW_DAYS,
     ),
     true,
   );
   assert.equal(
     isWithinUpcomingWindow(
-      stub({ id: "4", slug: "d", startDate: addDays(TODAY, 8) }),
+      stub({ id: "4", slug: "d", startDate: addDays(TODAY, 15) }),
       TODAY,
-      7,
+      UPCOMING_WINDOW_DAYS,
     ),
     false,
   );
-  assert.equal(
-    isWithinUpcomingWindow(
-      stub({ id: "5", slug: "e", startDate: addDays(TODAY, 13) }),
-      TODAY,
-      14,
-    ),
-    true,
-  );
-  ok("5-6. 7-day and 14-day window bounds");
-
-  const near: Event[] = [
-    stub({
-      id: "w1",
-      slug: "walk-1",
-      startDate: addDays(TODAY, 1),
-      activities: ["wandelen"],
-      title: "Wandeling A",
-    }),
-    stub({
-      id: "w2",
-      slug: "walk-2",
-      startDate: addDays(TODAY, 2),
-      activities: ["wandelen"],
-      title: "Wandeling B",
-    }),
-  ];
-  const nearSel = selectUpcomingEvents(near, baseState(), NOW);
-  assert.equal(nearSel.windowDays, 14, "fallback to 14 when <3 in 7 days");
-  assert.equal(nearSel.events.length, 2);
-  ok("6. fallback max 14 days when fewer than 3");
+  ok("13. 14-day window");
 
   const empty = selectUpcomingEvents(
-    [
-      stub({
-        id: "far",
-        slug: "far",
-        startDate: addDays(TODAY, 30),
-        activities: ["wandelen"],
-      }),
-    ],
-    baseState(),
+    [stub({ id: "far", slug: "far", startDate: addDays(TODAY, 30) })],
     NOW,
   );
   assert.equal(empty.events.length, 0);
-  ok("7. empty selection when none in 14 days");
+  ok("empty when none in window");
 
-  const antwerp = selectUpcomingEvents(
-    [
+  const catalog: Event[] = [
+    stub({
+      id: "a1",
+      slug: "a1",
+      title: "Apero Solo Mechelen",
+      startDate: addDays(TODAY, 1),
+      city: "Mechelen",
+      region: "Antwerpen",
+      activities: ["drinken"],
+    }),
+    stub({
+      id: "g1",
+      slug: "g1",
+      title: "Wandeling Gent",
+      startDate: addDays(TODAY, 2),
+      city: "Gent",
+      region: "Oost-Vlaanderen",
+      latitude: 51.05,
+      longitude: 3.72,
+      distanceKm: 60,
+      activities: ["wandelen"],
+    }),
+    stub({
+      id: "bxl1",
+      slug: "bxl1",
+      title: "Dîner Dating Bruxelles",
+      startDate: addDays(TODAY, 3),
+      city: "Brussel",
+      region: "Brussel",
+      activities: ["eten"],
+    }),
+    stub({
+      id: "wa1",
+      slug: "wa1",
+      title: "Dinner Namur",
+      startDate: addDays(TODAY, 1),
+      city: "Namur",
+      region: "Namur",
+      latitude: 50.47,
+      longitude: 4.87,
+      activities: ["eten"],
+    }),
+    stub({
+      id: "sd1",
+      slug: "sd1",
+      title: "Speeddate Antwerpen",
+      startDate: addDays(TODAY, 4),
+      city: "Antwerpen",
+      region: "Antwerpen",
+      activities: ["speeddate"],
+      eligibility: {
+        default: band(50, 60, "strict"),
+        byGender: null,
+        allowedGenders: null,
+      },
+      eligibilityAgeMin: 50,
+      eligibilityAgeMax: 60,
+      eligibilityAgeRule: "strict",
+    }),
+  ];
+
+  const base = selectUpcomingEvents(catalog, NOW);
+  assert.ok(base.events.every((e) => e.slug !== "wa1"), "Wallonia not promoted");
+  assert.ok(base.events.some((e) => e.slug === "a1"));
+  assert.ok(base.events.some((e) => e.slug === "sd1"), "speeddate still allowed globally");
+  ok("10-12. Flanders priority; Wallonia excluded; Brussels selective allowed");
+
+  // Filter independence: same selection regardless of what *would* have been filters.
+  // (API no longer accepts SearchState; prove catalog selection is stable.)
+  const again = selectUpcomingEvents(catalog, NOW);
+  assert.deepEqual(
+    again.events.map((e) => e.slug),
+    base.events.map((e) => e.slug),
+  );
+  ok("5. selection stable / independent of filters");
+
+  // Location / age / activity would have changed old strip; new strip ignores them.
+  // Prove via presence of far Gent + strict-age speeddate + drinken together.
+  assert.ok(base.events.some((e) => e.city === "Gent"));
+  assert.ok(base.events.some((e) => e.activities.includes("speeddate")));
+  assert.ok(base.events.some((e) => e.activities.includes("drinken")));
+  ok("6-9. location/age/activity do not gate strip (Gent + strict speeddate + apero)");
+
+  assert.equal(isWalloniaEvent({ region: "Namur", city: "Namur" }), true);
+  assert.equal(isFlandersEvent({ region: "Antwerpen", city: "Antwerpen" }), true);
+  assert.equal(isBrusselsEvent({ region: "Brussel", city: "Brussel" }), true);
+  assert.equal(eventGeoFocus({ region: "Brussel", city: "Brussel" }), "brussels");
+  assert.equal(eventGeoFocus({ region: "Namur", city: "Namur" }), "wallonia");
+  ok("geo classifiers");
+
+  // Brussels soft cap when Flanders fills the strip
+  const manyFl: Event[] = [];
+  for (let i = 0; i < 8; i++) {
+    manyFl.push(
       stub({
-        id: "a1",
-        slug: "a1",
-        startDate: addDays(TODAY, 1),
+        id: `fl-${i}`,
+        slug: `fl-${i}`,
+        title: `Walk ${i}`,
+        startDate: addDays(TODAY, i),
         city: "Antwerpen",
         region: "Antwerpen",
-        distanceKm: 3,
-        activities: ["wandelen"],
       }),
-      stub({
-        id: "g1",
-        slug: "g1",
-        startDate: addDays(TODAY, 1),
-        city: "Gent",
-        region: "Oost-Vlaanderen",
-        latitude: 51.05,
-        longitude: 3.72,
-        distanceKm: 60,
-        activities: ["wandelen"],
-      }),
-    ],
-    baseState({ placeId: "antwerpen", maxDistanceKm: 20 }),
-    NOW,
+    );
+  }
+  manyFl.push(
+    stub({
+      id: "bxl-a",
+      slug: "bxl-a",
+      title: "BXL A",
+      startDate: addDays(TODAY, 1),
+      city: "Brussel",
+      region: "Brussel",
+    }),
+    stub({
+      id: "bxl-b",
+      slug: "bxl-b",
+      title: "BXL B",
+      startDate: addDays(TODAY, 2),
+      city: "Brussel",
+      region: "Brussel",
+    }),
+    stub({
+      id: "bxl-c",
+      slug: "bxl-c",
+      title: "BXL C",
+      startDate: addDays(TODAY, 3),
+      city: "Brussel",
+      region: "Brussel",
+    }),
   );
-  assert.ok(antwerp.events.every((e) => e.city === "Antwerpen"));
-  ok("8. location / distance respected");
+  const capped = selectUpcomingEvents(manyFl, NOW);
+  assert.ok(capped.events.length <= UPCOMING_MAX_COUNT);
+  assert.equal(
+    capped.events.filter((e) => isBrusselsEvent(e)).length,
+    0,
+    "Flanders fills max; Brussels not inserted over Flanders",
+  );
+  ok("13. max item count + Flanders fills before Brussels");
 
-  const ageHard = selectUpcomingEvents(
+  // When Flanders is thin, Brussels may appear (selectively, max 2)
+  const thin = selectUpcomingEvents(
     [
       stub({
-        id: "age1",
-        slug: "age1",
+        id: "fl-only",
+        slug: "fl-only",
+        title: "Solo walk",
         startDate: addDays(TODAY, 1),
-        activities: ["eten"],
-        eligibility: {
-          default: band(50, 60, "strict"),
-          byGender: null,
-          allowedGenders: null,
-        },
-        eligibilityAgeMin: 50,
-        eligibilityAgeMax: 60,
-        eligibilityAgeRule: "strict",
+        city: "Leuven",
+        region: "Vlaams-Brabant",
       }),
       stub({
-        id: "age2",
-        slug: "age2",
+        id: "bx1",
+        slug: "bx1",
+        title: "Dinner 1",
         startDate: addDays(TODAY, 2),
-        activities: ["eten"],
-      }),
-    ],
-    baseState({ age: 35 }),
-    NOW,
-  );
-  assert.ok(!ageHard.events.some((e) => e.slug === "age1"));
-  assert.ok(ageHard.events.some((e) => e.slug === "age2"));
-  ok("9+11. age eligibility respected");
-
-  const sport = selectUpcomingEvents(
-    [
-      stub({
-        id: "s1",
-        slug: "s1",
-        startDate: addDays(TODAY, 1),
-        activities: ["wandelen"],
-        title: "Walk",
+        city: "Brussel",
+        region: "Brussel",
       }),
       stub({
-        id: "sd1",
-        slug: "sd1",
-        startDate: addDays(TODAY, 1),
-        activities: ["speeddate"],
-        title: "Speeddate",
-      }),
-    ],
-    baseState({ activities: ["sport"] }),
-    NOW,
-  );
-  assert.ok(sport.events.every((e) => !e.activities.includes("speeddate")));
-  assert.ok(sport.events.some((e) => e.slug === "s1"));
-  ok("10. speeddate excluded when Sport & actief selected");
-
-  const multi = selectUpcomingEvents(
-    [
-      stub({
-        id: "m1",
-        slug: "m1",
-        startDate: addDays(TODAY, 1),
-        activities: ["eten"],
-      }),
-      stub({
-        id: "m2",
-        slug: "m2",
-        startDate: addDays(TODAY, 2),
-        activities: ["drinken"],
-      }),
-      stub({
-        id: "m3",
-        slug: "m3",
+        id: "bx2",
+        slug: "bx2",
+        title: "Dinner 2",
         startDate: addDays(TODAY, 3),
-        activities: ["wandelen"],
+        city: "Brussel",
+        region: "Brussel",
+      }),
+      stub({
+        id: "bx3",
+        slug: "bx3",
+        title: "Dinner 3",
+        startDate: addDays(TODAY, 4),
+        city: "Brussel",
+        region: "Brussel",
       }),
     ],
-    baseState({ activities: ["eten", "drinken"] }),
     NOW,
   );
-  const multiSlugs = multi.events.map((e) => e.slug);
-  assert.ok(multiSlugs.includes("m1"));
-  assert.ok(multiSlugs.includes("m2"));
-  assert.ok(!multiSlugs.includes("m3"));
-  ok("10b. multi-select activity OR respected");
+  assert.ok(thin.events.some((e) => e.slug === "fl-only"));
+  assert.equal(thin.events.filter((e) => isBrusselsEvent(e)).length, 2);
+  ok("11. Brussels selective (max 2) when room remains");
 
   const travelStarted = selectUpcomingEvents(
     [
@@ -310,32 +321,56 @@ function main() {
         slug: "t0",
         startDate: "2026-09-25",
         endDate: "2026-09-30",
+        city: "Antwerpen",
+        region: "Antwerpen",
         activities: ["reizen", "weekend"],
-        distanceKm: 200,
       }),
       stub({
         id: "t1",
         slug: "t1",
         startDate: addDays(TODAY, 3),
         endDate: addDays(TODAY, 5),
+        city: "Antwerpen",
+        region: "Antwerpen",
         activities: ["reizen", "weekend"],
-        distanceKm: 200,
       }),
     ],
-    baseState(),
     NOW,
   );
   assert.ok(!travelStarted.events.some((e) => e.slug === "t0"));
   assert.ok(travelStarted.events.some((e) => e.slug === "t1"));
-  ok("11. travel: started excluded, future start included");
+  ok("started travel excluded; future start included");
 
   assert.equal(upcomingUrgencyLabel(TODAY, TODAY), "Vandaag");
   assert.equal(upcomingUrgencyLabel(addDays(TODAY, 1), TODAY), "Morgen");
-  // 2026-09-27 is Sunday → weekend label for today
-  assert.equal(upcomingUrgencyLabel(TODAY, TODAY), "Vandaag");
-  const wed = addDays(TODAY, 3);
-  assert.match(upcomingUrgencyLabel(wed, TODAY), /^(ma|di|wo|do|vr|za|zo) /);
-  ok("12. today/tomorrow/weekday labels");
+  assert.match(upcomingUrgencyLabel(addDays(TODAY, 3), TODAY), /^(ma|di|wo|do|vr|za|zo) /);
+  assert.match(
+    upcomingStickerLabel(
+      stub({
+        id: "lab",
+        slug: "lab",
+        title: "Wandeling Middelheim",
+        city: "Antwerpen",
+        startDate: addDays(TODAY, 3),
+      }),
+      TODAY,
+    ),
+    / · Wandeling Middelheim · Antwerpen$/,
+  );
+  assert.match(
+    upcomingStickerLabel(
+      stub({
+        id: "lab2",
+        slug: "lab2",
+        title: "Apero Antwerpen",
+        city: "Antwerpen",
+        startDate: addDays(TODAY, 3),
+      }),
+      TODAY,
+    ),
+    / · Apero Antwerpen$/,
+  );
+  ok("14. date formatting + sticker label");
 
   const chrono = selectUpcomingEvents(
     [
@@ -343,106 +378,33 @@ function main() {
         id: "c2",
         slug: "c2",
         startDate: addDays(TODAY, 5),
-        activities: ["eten"],
+        city: "Gent",
+        region: "Oost-Vlaanderen",
       }),
       stub({
         id: "c1",
         slug: "c1",
         startDate: addDays(TODAY, 1),
-        activities: ["eten"],
+        city: "Gent",
+        region: "Oost-Vlaanderen",
       }),
       stub({
         id: "c3",
         slug: "c3",
         startDate: addDays(TODAY, 2),
-        activities: ["eten"],
+        city: "Gent",
+        region: "Oost-Vlaanderen",
       }),
     ],
-    baseState(),
     NOW,
   );
   assert.deepEqual(
     chrono.events.map((e) => e.slug),
     ["c1", "c3", "c2"],
   );
-  ok("13. chronological sorting");
+  ok("chronological sorting");
 
-  const manySpeed: PreparedEvent[] = [];
-  for (let i = 0; i < 6; i++) {
-    manySpeed.push(
-      asPrepared(
-        stub({
-          id: `sd-${i}`,
-          slug: `sd-${i}`,
-          startDate: addDays(TODAY, i),
-          activities: ["speeddate"],
-        }),
-      ),
-    );
-  }
-  manySpeed.push(
-    asPrepared(
-      stub({
-        id: "walk-alt",
-        slug: "walk-alt",
-        startDate: addDays(TODAY, 1),
-        activities: ["wandelen"],
-      }),
-    ),
-  );
-  manySpeed.sort((a, b) => a.startDate.localeCompare(b.startDate));
-  const div = applyFormatDiversity(manySpeed, baseState(), 3, 8);
-  const speedCount = div.filter((e) => primaryFormatId(e.activities) === "speeddate")
-    .length;
-  assert.ok(speedCount <= 3 || !div.some((e) => e.slug === "walk-alt"));
-  assert.ok(div.some((e) => e.slug === "walk-alt"));
-  assert.ok(div.length <= UPCOMING_MAX_COUNT);
-  ok("14. format diversity caps speeddate when alternatives exist");
-
-  const onlySpeed = applyFormatDiversity(
-    manySpeed.filter((e) => e.activities.includes("speeddate")),
-    baseState(),
-    3,
-    8,
-  );
-  assert.ok(onlySpeed.length > 3, "speeddate may dominate if no alternatives");
-  ok("14b. speeddate can dominate without alternatives");
-
-  assert.equal(isWalloniaEvent({ region: "Namur", city: "Namur" }), true);
-  assert.equal(isWalloniaEvent({ region: "Antwerpen", city: "Antwerpen" }), false);
-  assert.equal(shouldExcludeWalloniaFromStrip(baseState({ placeId: "antwerpen" })), true);
-  assert.equal(shouldExcludeWalloniaFromStrip(baseState({ placeId: "brussel" })), true);
-
-  const walloniaFiltered = selectUpcomingEvents(
-    [
-      stub({
-        id: "wa1",
-        slug: "wa1",
-        startDate: addDays(TODAY, 1),
-        city: "Namur",
-        region: "Namur",
-        latitude: 50.47,
-        longitude: 4.87,
-        distanceKm: 80,
-        activities: ["eten"],
-      }),
-      stub({
-        id: "fl1",
-        slug: "fl1",
-        startDate: addDays(TODAY, 2),
-        city: "Antwerpen",
-        region: "Antwerpen",
-        activities: ["eten"],
-      }),
-    ],
-    baseState({ placeId: "antwerpen" }),
-    NOW,
-  );
-  assert.ok(!walloniaFiltered.events.some((e) => e.slug === "wa1"));
-  assert.ok(walloniaFiltered.events.some((e) => e.slug === "fl1"));
-  ok("26-28. Flanders priority; Wallonia not pushed from Flanders place");
-
-  // UI / overflow / a11y static checks
+  // UI / a11y / no cards / no filter wiring
   mustInclude(
     "components/discover/discover-view.tsx",
     "UpcomingStrip",
@@ -450,8 +412,13 @@ function main() {
   );
   mustInclude(
     "components/discover/discover-view.tsx",
-    "selectUpcomingEvents",
-    "discover uses selectUpcomingEvents",
+    "selectUpcomingEvents(events)",
+    "strip selection ignores search state",
+  );
+  mustNotInclude(
+    "components/discover/discover-view.tsx",
+    "selectUpcomingEvents(events, state)",
+    "must not pass filters into strip",
   );
   mustInclude(
     "components/discover/upcoming-strip.tsx",
@@ -474,24 +441,28 @@ function main() {
     "keyboard focusable strip",
   );
   mustInclude(
-    "components/discover/upcoming-card.tsx",
-    "min-w-0",
-    "upcoming card text/image can shrink inside fixed width",
-  );
-  mustInclude(
-    "components/discover/upcoming-card.tsx",
-    "EventVisual",
-    "reuses EventVisual",
+    "components/discover/upcoming-strip.tsx",
+    "shrink-0",
+    "sticker items do not collapse",
   );
   mustInclude(
     "components/discover/upcoming-strip.tsx",
-    "shrink-0",
-    "list items do not collapse; horizontal peek scroll",
+    "hrefBase}/${event.slug",
+    "link to event detail",
   );
-  mustInclude(
+  mustNotInclude(
+    "components/discover/upcoming-strip.tsx",
+    "EventVisual",
+    "no images in sticker strip",
+  );
+  mustNotInclude(
     "lib/upcoming.ts",
     "matchingEvents",
-    "reuses matchingEvents (no second filter engine)",
+    "no matchingEvents filter coupling",
+  );
+  assert.ok(
+    !fs.existsSync(path.join(process.cwd(), "components/discover/upcoming-card.tsx")),
+    "mini-card component removed",
   );
   assert.ok(
     !fs
@@ -499,9 +470,9 @@ function main() {
       .includes("getEventsSql"),
     "no DB access in upcoming helper",
   );
-  ok("15-19+23. mobile strip / a11y / no N+1 static checks");
+  ok("15-18. sticker UI / links / a11y / no N+1 / no cards");
 
-  console.log("\nOK: phase21 upcoming verify.");
+  console.log("\nOK: phase21.1 upcoming sticker verify.");
 }
 
 main();

@@ -36,9 +36,9 @@ function main() {
     "upcoming horizontal scroll only",
   );
   mustInclude(
-    "components/discover/upcoming-card.tsx",
-    "min-w-0",
-    "upcoming card min-w-0",
+    "components/discover/upcoming-strip.tsx",
+    "shrink-0",
+    "upcoming sticker items shrink-0",
   );
   mustInclude(
     "components/discover/discover-view.tsx",

@@ -109,10 +109,8 @@ export function DiscoverView({
   const result = useMemo(() => matchingEvents(events, state), [events, state]);
   const visible = useMemo(() => sortEvents(result.visible, state), [result.visible, state]);
   const today = useMemo(() => brusselsToday(), []);
-  const upcoming = useMemo(
-    () => selectUpcomingEvents(events, state),
-    [events, state],
-  );
+  // Global infosstrip: never recompute from filters/age/location/activity.
+  const upcoming = useMemo(() => selectUpcomingEvents(events), [events]);
   const preferenceMiss =
     userHasMeetPreference(state) &&
     visible.length > 0 &&
@@ -186,6 +184,14 @@ export function DiscoverView({
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-6xl px-4 py-8 sm:px-6">
+      {upcoming.events.length > 0 ? (
+        <UpcomingStrip
+          events={upcoming.events}
+          hrefBase={eventBasePath}
+          today={today}
+        />
+      ) : null}
+
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-6">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -374,15 +380,6 @@ export function DiscoverView({
             }
             aria-hidden={searchPending || undefined}
           >
-          {upcoming.events.length > 0 ? (
-            <UpcomingStrip
-              events={upcoming.events}
-              gender={state.gender}
-              hrefBase={eventBasePath}
-              today={today}
-            />
-          ) : null}
-
           {visible.length === 0 ? (
             <div className="mt-12 max-w-xl">
               <h2 className="text-2xl font-semibold tracking-tight">
@@ -407,16 +404,7 @@ export function DiscoverView({
             </div>
           ) : (
             <div className="mt-8 min-w-0">
-              {upcoming.events.length > 0 ? (
-                <h2 className="text-lg font-semibold tracking-tight">
-                  Activiteiten voor jou
-                </h2>
-              ) : null}
-              <div
-                className={`grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 [&>*]:min-w-0 ${
-                  upcoming.events.length > 0 ? "mt-4" : ""
-                }`}
-              >
+              <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 [&>*]:min-w-0">
                 {visible.map((event) => (
                   <EventCard
                     key={event.id}
