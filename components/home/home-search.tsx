@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { ChevronDown, Search, SlidersHorizontal } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { USER_PLACES, findPlace } from "@/data/places";
 import { track } from "@/lib/analytics";
 import { DISTANCES, GENDER_LABEL, MEET_GENDER_LABEL, WHEN_LABEL } from "@/lib/format";
@@ -78,8 +78,14 @@ export function HomeHero() {
   const [meetGender, setMeetGender] =
     useState<PreferredMeetGender>("anyone");
   const [error, setError] = useState("");
+  const [invalidFields, setInvalidFields] = useState<{
+    age?: boolean;
+    date?: boolean;
+  }>({});
   const [moreOpen, setMoreOpen] = useState(false);
   const [searching, setSearching] = useState(false);
+  const ageInputRef = useRef<HTMLInputElement>(null);
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const profile = readProfile();
@@ -127,11 +133,44 @@ export function HomeHero() {
 
   function go() {
     if (searching) return;
-    const parsedAge = Number(age);
-    if (!Number.isFinite(parsedAge) || parsedAge < 18 || parsedAge > 99) {
-      setError("Vul je leeftijd in.");
+    const missing: string[] = [];
+    const nextInvalid: { age?: boolean; date?: boolean } = {};
+    const ageTrimmed = age.trim();
+    const parsedAge = Number(ageTrimmed);
+
+    if (!ageTrimmed) {
+      missing.push("vul je leeftijd in");
+      nextInvalid.age = true;
+    } else if (
+      !Number.isFinite(parsedAge) ||
+      parsedAge < 18 ||
+      parsedAge > 99
+    ) {
+      missing.push("kies een leeftijd tussen 18 en 99");
+      nextInvalid.age = true;
+    }
+
+    if (when === "date" && !date) {
+      missing.push("kies een datum");
+      nextInvalid.date = true;
+    }
+
+    if (missing.length > 0) {
+      setInvalidFields(nextInvalid);
+      const list =
+        missing.length === 1
+          ? missing[0]
+          : `${missing.slice(0, -1).join(", ")} en ${missing[missing.length - 1]}`;
+      setError(
+        `Nog nodig om te zoeken: ${list.charAt(0).toUpperCase()}${list.slice(1)}.`,
+      );
+      queueMicrotask(() => {
+        if (nextInvalid.age) ageInputRef.current?.focus();
+        else if (nextInvalid.date) dateInputRef.current?.focus();
+      });
       return;
     }
+
     const state: SearchState = {
       age: parsedAge,
       gender: gender || null,
@@ -150,11 +189,8 @@ export function HomeHero() {
       strictOnly: false,
       sort: "match",
     };
-    if (when === "date" && !state.date) {
-      setError("Kies een datum.");
-      return;
-    }
     setError("");
+    setInvalidFields({});
     setSearching(true);
     try {
       writeProfile(profileFromSearch(state));
@@ -243,7 +279,13 @@ export function HomeHero() {
                   onChange={(event) => {
                     const next = event.target.value as WhenFilter;
                     setWhen(next);
-                    if (next !== "date") setDate("");
+                    if (next !== "date") {
+                      setDate("");
+                      setInvalidFields((current) => ({
+                        ...current,
+                        date: false,
+                      }));
+                    }
                   }}
                   className="search-field-control w-full bg-transparent text-[15px] font-semibold leading-6 outline-none"
                 >
@@ -256,19 +298,33 @@ export function HomeHero() {
                   <option value="date">Datum kiezen</option>
                 </select>
               </Field>
-              <Field label="Mijn leeftijd" divide>
+              <Field
+                label="Mijn leeftijd"
+                divide
+                invalid={Boolean(invalidFields.age)}
+                hint={invalidFields.age ? "Verplicht" : undefined}
+              >
                 <input
+                  ref={ageInputRef}
                   type="number"
                   min={18}
                   max={99}
                   inputMode="numeric"
                   placeholder="bv. 49"
                   value={age}
-                  onChange={(event) => setAge(event.target.value)}
+                  aria-invalid={invalidFields.age || undefined}
+                  aria-describedby={invalidFields.age ? "home-search-error" : undefined}
+                  onChange={(event) => {
+                    setAge(event.target.value);
+                    if (invalidFields.age) {
+                      setInvalidFields((current) => ({ ...current, age: false }));
+                      setError("");
+                    }
+                  }}
                   className="search-field-control w-full bg-transparent text-[15px] font-semibold leading-6 outline-none placeholder:font-normal placeholder:text-muted-foreground"
                 />
               </Field>
-              <Field label="Mijn gender" divide chevron>
+              <Field label="Mijn gender (optioneel)" divide chevron>
                 <select
                   value={gender}
                   onChange={(event) =>
@@ -299,14 +355,42 @@ export function HomeHero() {
               </Field>
             </div>
             {when === "date" ? (
-              <div className="border-t border-border px-5 py-3.5 sm:px-6">
-                <input
-                  type="date"
-                  required
-                  value={date}
-                  onChange={(event) => setDate(event.target.value)}
-                  className="w-full min-w-0 text-sm font-semibold leading-6 outline-none"
-                />
+              <div
+                className={`border-t px-5 py-3.5 sm:px-6 ${
+                  invalidFields.date
+                    ? "border-[#e61e4d]/40 bg-[#e61e4d]/5"
+                    : "border-border"
+                }`}
+              >
+                <label className="block">
+                  <span
+                    className={`mb-1.5 block text-[11px] font-semibold tracking-[0.08em] uppercase ${
+                      invalidFields.date ? "text-[#e61e4d]" : "text-muted-foreground"
+                    }`}
+                  >
+                    Datum {invalidFields.date ? "(verplicht)" : ""}
+                  </span>
+                  <input
+                    ref={dateInputRef}
+                    type="date"
+                    value={date}
+                    aria-invalid={invalidFields.date || undefined}
+                    aria-describedby={
+                      invalidFields.date ? "home-search-error" : undefined
+                    }
+                    onChange={(event) => {
+                      setDate(event.target.value);
+                      if (invalidFields.date) {
+                        setInvalidFields((current) => ({
+                          ...current,
+                          date: false,
+                        }));
+                        setError("");
+                      }
+                    }}
+                    className="w-full min-w-0 text-sm font-semibold leading-6 outline-none"
+                  />
+                </label>
               </div>
             ) : null}
           </div>
@@ -444,7 +528,13 @@ export function HomeHero() {
 
           <div className="mt-5 space-y-3 sm:mt-6">
             {error ? (
-              <p className="text-sm font-medium text-white">{error}</p>
+              <p
+                id="home-search-error"
+                role="alert"
+                className="rounded-2xl border border-[#e61e4d]/40 bg-[#fff5f7] px-4 py-3 text-sm font-semibold text-[#9f1239] shadow-sm"
+              >
+                {error}
+              </p>
             ) : null}
             {searching ? (
               <div
@@ -495,20 +585,33 @@ function Field({
   children,
   divide = false,
   chevron = false,
+  invalid = false,
+  hint,
 }: {
   label: string;
   children: ReactNode;
   divide?: boolean;
   chevron?: boolean;
+  invalid?: boolean;
+  hint?: string;
 }) {
   return (
     <label
       className={`block min-w-0 cursor-pointer px-4 py-3.5 transition hover:bg-black/[0.03] focus-within:bg-black/[0.03] sm:px-5 lg:px-5 lg:py-4 ${
         divide ? "border-t border-border lg:border-t-0 lg:border-l" : ""
-      }`}
+      } ${invalid ? "bg-[#fff5f7] ring-2 ring-inset ring-[#e61e4d]/70" : ""}`}
     >
-      <span className="mb-2 block text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+      <span
+        className={`mb-2 flex items-center gap-2 text-[11px] font-semibold tracking-[0.08em] uppercase ${
+          invalid ? "text-[#e61e4d]" : "text-muted-foreground"
+        }`}
+      >
         {label}
+        {hint ? (
+          <span className="rounded-full bg-[#e61e4d] px-1.5 py-0.5 text-[9px] font-bold tracking-normal text-white normal-case">
+            {hint}
+          </span>
+        ) : null}
       </span>
       <span
         className={`relative block min-h-6 min-w-0 ${chevron ? "pr-5" : ""}`}

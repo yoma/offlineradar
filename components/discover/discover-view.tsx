@@ -69,6 +69,7 @@ export function DiscoverView({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [booted, setBooted] = useState(false);
   const [ageDraft, setAgeDraft] = useState(initial.age ? String(initial.age) : "");
+  const [ageError, setAgeError] = useState("");
   const [searchPending, setSearchPending] = useState(false);
   const [prefsStatus, setPrefsStatus] = useState<string | null>(null);
   const [prefsBusy, setPrefsBusy] = useState(false);
@@ -292,8 +293,18 @@ export function DiscoverView({
           className="mt-10 max-w-md space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
-            const age = Number(ageDraft);
-            if (age >= 18 && age <= 99) update({ age });
+            const trimmed = ageDraft.trim();
+            if (!trimmed) {
+              setAgeError("Vul je leeftijd in om activiteiten te tonen.");
+              return;
+            }
+            const age = Number(trimmed);
+            if (!Number.isFinite(age) || age < 18 || age > 99) {
+              setAgeError("Kies een leeftijd tussen 18 en 99.");
+              return;
+            }
+            setAgeError("");
+            update({ age });
           }}
         >
           <Label htmlFor="results-age">Je leeftijd</Label>
@@ -305,11 +316,26 @@ export function DiscoverView({
             type="number"
             min={18}
             max={99}
-            required
             value={ageDraft}
-            onChange={(event) => setAgeDraft(event.target.value)}
-            className="h-12 rounded-xl text-base"
+            aria-invalid={ageError ? true : undefined}
+            aria-describedby={ageError ? "results-age-error" : undefined}
+            onChange={(event) => {
+              setAgeDraft(event.target.value);
+              if (ageError) setAgeError("");
+            }}
+            className={`h-12 rounded-xl text-base ${
+              ageError ? "border-[#e61e4d] ring-2 ring-[#e61e4d]/30" : ""
+            }`}
           />
+          {ageError ? (
+            <p
+              id="results-age-error"
+              role="alert"
+              className="rounded-xl border border-[#e61e4d]/30 bg-[#fff5f7] px-3 py-2 text-sm font-medium text-[#9f1239]"
+            >
+              {ageError}
+            </p>
+          ) : null}
           <Button type="submit" className="h-11 rounded-full px-6">
             Toon activiteiten
           </Button>
