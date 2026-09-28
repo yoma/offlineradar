@@ -159,27 +159,28 @@ export function BetaWelcomeModal() {
               </Dialog.Description>
 
               <div className="mt-7 flex flex-col items-stretch gap-3">
-                <Button
+                <Button asChild className="h-12 w-full rounded-full text-base font-semibold shadow-[0_12px_28px_-10px_rgba(230,30,77,0.65)]">
+                  <Link
+                    href={loginHref}
+                    data-beta-welcome-primary
+                    onClick={() => {
+                      track("beta_welcome_login_click");
+                      closeAndRemember();
+                    }}
+                  >
+                    Inloggen met Google
+                  </Link>
+                </Button>
+                <button
                   type="button"
-                  data-beta-welcome-primary
-                  className="h-12 w-full rounded-full text-base font-semibold shadow-[0_12px_28px_-10px_rgba(230,30,77,0.65)]"
+                  className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                   onClick={() => {
                     track("beta_welcome_skip");
                     closeAndRemember();
                   }}
                 >
-                  Oké, laten we gaan
-                </Button>
-                <Link
-                  href={loginHref}
-                  className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-                  onClick={() => {
-                    track("beta_welcome_login_click");
-                    closeAndRemember();
-                  }}
-                >
-                  Of inloggen met Google
-                </Link>
+                  Eerst even rondkijken
+                </button>
               </div>
             </div>
           </Dialog.Content>
