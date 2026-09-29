@@ -69,6 +69,21 @@ function domainFromUrl(url: string): string {
   }
 }
 
+/** Neon may return Date objects; client UI needs plain ISO strings. */
+function toIsoString(value: unknown): string {
+  if (value == null) return "";
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return new Date(value).toISOString();
+  return String(value);
+}
+
+function toIsoOrNull(value: unknown): string | null {
+  if (value == null || value === "") return null;
+  const iso = toIsoString(value);
+  return iso || null;
+}
+
 function intakeTypeFromNotes(
   notes: string | null,
   sourceType: CatalogSourceType,
@@ -92,6 +107,9 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
   const empty: AanvoerCockpitData = {
     sources: sources.map((s) => ({
       ...s,
+      createdAt: toIsoString(s.createdAt),
+      updatedAt: toIsoString(s.updatedAt),
+      lastCheckedAt: toIsoOrNull(s.lastCheckedAt),
       userSupplied: isUserSuppliedNotes(s.notes),
       intakeSourceType: intakeTypeFromNotes(s.notes, s.sourceType),
       futureEventCount: 0,
@@ -145,7 +163,7 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
     const item: CockpitLinkedEvent = {
       id: row.id,
       title: row.title,
-      startsAt: String(row.starts_at),
+      startsAt: toIsoString(row.starts_at),
       city: row.city,
       publicationStatus: row.publication_status,
     };
@@ -180,6 +198,9 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
     );
     return {
       ...source,
+      createdAt: toIsoString(source.createdAt),
+      updatedAt: toIsoString(source.updatedAt),
+      lastCheckedAt: toIsoOrNull(source.lastCheckedAt),
       userSupplied: isUserSuppliedNotes(source.notes),
       intakeSourceType: intakeTypeFromNotes(source.notes, source.sourceType),
       futureEventCount: linkedFutureEvents.length,
@@ -254,7 +275,7 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       title: row.title,
       organizerName: row.organizer_name,
       city: row.city,
-      startsAt: String(row.starts_at),
+      startsAt: toIsoString(row.starts_at),
       publicationStatus: row.publication_status,
       eligibilityRoute: row.eligibility_route,
       singlesOnly: row.singles_only,
@@ -267,7 +288,7 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       sourceUrl: row.source_url,
       hasScreenshot: /intake_asset=/.test(notes),
       fromIntake: tags.includes("admin-intake"),
-      createdAt: String(row.created_at),
+      createdAt: toIsoString(row.created_at),
       tags,
     };
   });

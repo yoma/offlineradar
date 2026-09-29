@@ -25,10 +25,22 @@ const TABS: { id: TabId; label: string }[] = [
 
 const PAGE_SIZE = 50;
 
-function formatDate(value: string | null | undefined): string {
+function formatDate(value: string | null | undefined | Date): string {
   if (!value) return "-";
-  const d = value.slice(0, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : value.slice(0, 16);
+  const raw =
+    value instanceof Date
+      ? value.toISOString()
+      : typeof value === "string"
+        ? value
+        : String(value);
+  const d = raw.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : raw.slice(0, 16);
+}
+
+function sortKey(value: string | null | undefined | Date): string {
+  if (!value) return "";
+  if (value instanceof Date) return value.toISOString();
+  return String(value);
 }
 
 function typeLabel(type: CockpitSourceRow["intakeSourceType"]): string {
@@ -206,9 +218,9 @@ function SourcesPanel({
     list = [...list].sort((a, b) => {
       if (sort === "name") return a.name.localeCompare(b.name, "nl");
       if (sort === "checked") {
-        return (b.lastCheckedAt ?? "").localeCompare(a.lastCheckedAt ?? "");
+        return sortKey(b.lastCheckedAt).localeCompare(sortKey(a.lastCheckedAt));
       }
-      return b.createdAt.localeCompare(a.createdAt);
+      return sortKey(b.createdAt).localeCompare(sortKey(a.createdAt));
     });
     return list;
   }, [sources, q, origin, status, type, sort]);
