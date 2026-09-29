@@ -29,6 +29,7 @@ async function main() {
     const key = eventImageDiversityKey({
       organizerId: event.organizerId,
       eventId: event.id,
+      imageCategory: required,
     });
     const resolved = resolvePublicEventImage(
       {

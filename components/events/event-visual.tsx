@@ -1,6 +1,7 @@
 import Image from "next/image";
 import {
   eventImageDiversityKey,
+  inferRequiredImageCategory,
   resolvePublicEventImage,
 } from "@/lib/image-compatibility";
 import type { ActivityId, EventCategory } from "@/types/event";
@@ -37,9 +38,15 @@ export function EventVisual({
   label?: boolean;
   priority?: boolean;
 }) {
-  const diversityKey = eventImageDiversityKey({ organizerId, eventId });
+  const ctx = { category, activities, tags, title, subCategory };
+  const required = inferRequiredImageCategory(ctx);
+  const diversityKey = eventImageDiversityKey({
+    organizerId,
+    eventId,
+    imageCategory: required,
+  });
   const resolved = resolvePublicEventImage(
-    { category, activities, tags, title, subCategory },
+    ctx,
     imageUrl,
     imageIsAtmosphere,
     diversityKey,

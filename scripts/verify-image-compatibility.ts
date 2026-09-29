@@ -8,6 +8,7 @@ import {
   isImageCompatibleWithEvent,
   resolvePublicEventImage,
   CATEGORY_MOOD_URLS,
+  CATEGORY_MOOD_POOLS,
   NEUTRAL_FALLBACK_DATA_URI,
 } from "../lib/image-compatibility";
 import { eventImageUrl } from "../lib/images";
@@ -240,7 +241,7 @@ check("import mapping blocks incompatible public image", () => {
   assert.equal(draft.images[0].urlOrPath, outdoorMood);
 });
 
-check("Sfeerbeeld label path: atmosphere stays true on compatible mood", () => {
+check("Sfeerbeeld label path: legacy mood re-enters pool with atmosphere badge", () => {
   const resolved = resolvePublicEventImage(
     {
       category: "meet_new_people",
@@ -250,9 +251,11 @@ check("Sfeerbeeld label path: atmosphere stays true on compatible mood", () => {
     },
     bowlingMood,
     true,
+    "event:bowl-1|cat:bowling|org:x",
   );
   assert.equal(resolved.keptAtmosphere, true);
-  assert.equal(resolved.usedFallback, false);
+  assert.equal(resolved.usedFallback, true);
+  assert.ok(CATEGORY_MOOD_POOLS.bowling.includes(resolved.url));
 });
 
 if (failed > 0) {

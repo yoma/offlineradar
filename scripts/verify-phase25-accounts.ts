@@ -35,40 +35,38 @@ function check(name: string, fn: () => void) {
 }
 
 check("same event deterministic same image", () => {
-  const a = pickCategoryMoodUrl("bowling", "org:org-a");
-  const b = pickCategoryMoodUrl("bowling", "org:org-a");
+  const a = pickCategoryMoodUrl("bowling", "event:e1|cat:bowling|org:org-a");
+  const b = pickCategoryMoodUrl("bowling", "event:e1|cat:bowling|org:org-a");
   assert.equal(a, b);
 });
 
-check("same organizer reuses image (series consistency)", () => {
-  const key = eventImageDiversityKey({
+check("same organizer different events can spread across pool", () => {
+  const keyA = eventImageDiversityKey({
     organizerId: "org-series-1",
     eventId: "evt-1",
+    imageCategory: "bowling",
   });
-  assert.equal(key, "org:org-series-1");
-  const u1 = resolvePublicEventImage(
-    {
-      category: "meet_new_people",
-      activities: ["sport"],
-      title: "Singles Bowling A",
-      tags: ["bowling"],
-    },
-    null,
-    true,
-    key,
-  );
-  const u2 = resolvePublicEventImage(
-    {
-      category: "meet_new_people",
-      activities: ["sport"],
-      title: "Singles Bowling B",
-      tags: ["bowling"],
-    },
-    null,
-    true,
-    key,
-  );
-  assert.equal(u1.url, u2.url);
+  const keyB = eventImageDiversityKey({
+    organizerId: "org-series-1",
+    eventId: "evt-2",
+    imageCategory: "bowling",
+  });
+  assert.equal(keyA, "event:evt-1|cat:bowling|org:org-series-1");
+  assert.notEqual(keyA, keyB);
+  const urls = new Set<string>();
+  for (let i = 0; i < 20; i++) {
+    urls.add(
+      pickCategoryMoodUrl(
+        "bowling",
+        eventImageDiversityKey({
+          organizerId: "org-series-1",
+          eventId: `evt-${i}`,
+          imageCategory: "bowling",
+        }),
+      ),
+    );
+  }
+  assert.ok(urls.size >= 2, `expected ≥2 bowling variants, got ${urls.size}`);
 });
 
 check("different organizers prefer different variants when pool allows", () => {
@@ -76,7 +74,16 @@ check("different organizers prefer different variants when pool allows", () => {
   assert.ok(pool.length >= 2);
   const urls = new Set<string>();
   for (let i = 0; i < 40; i++) {
-    urls.add(pickCategoryMoodUrl("bowling", `org:organizer-${i}`));
+    urls.add(
+      pickCategoryMoodUrl(
+        "bowling",
+        eventImageDiversityKey({
+          organizerId: `organizer-${i}`,
+          eventId: `e-${i}`,
+          imageCategory: "bowling",
+        }),
+      ),
+    );
   }
   assert.ok(urls.size >= 2, `expected ≥2 bowling variants, got ${urls.size}`);
 });
@@ -102,7 +109,11 @@ check("no incompatible outdoor←bowling", () => {
     },
     bowling,
     true,
-    "org:hike-org",
+    eventImageDiversityKey({
+      organizerId: "hike-org",
+      eventId: "hike-1",
+      imageCategory: "outdoor",
+    }),
   );
   assert.equal(inferRequiredImageCategory({
     category: "meet_new_people",
@@ -111,6 +122,33 @@ check("no incompatible outdoor←bowling", () => {
   }), "outdoor");
   assert.ok(CATEGORY_MOOD_POOLS.outdoor.includes(resolved.url));
   assert.equal(resolved.keptAtmosphere, true);
+});
+
+check("legacy mood asset does not lock; diversity spreads", () => {
+  const ctx = {
+    category: "meet_new_people" as const,
+    activities: ["sport" as const],
+    title: "Singles Bowling A",
+    tags: ["bowling"],
+  };
+  const lockedLegacy = "/preview-mood/mood-singles-bowling.png";
+  const urls = new Set<string>();
+  for (let i = 0; i < 30; i++) {
+    const resolved = resolvePublicEventImage(
+      ctx,
+      lockedLegacy,
+      true,
+      eventImageDiversityKey({
+        organizerId: "bowl-org",
+        eventId: `bowl-${i}`,
+        imageCategory: "bowling",
+      }),
+    );
+    urls.add(resolved.url);
+    assert.equal(resolved.keptAtmosphere, true);
+    assert.equal(resolved.usedFallback, true);
+  }
+  assert.ok(urls.size >= 2, `legacy mood should re-enter pool, got ${urls.size}`);
 });
 
 check("neutral fallback safe + Sfeerbeeld flag", () => {
@@ -122,7 +160,7 @@ check("neutral fallback safe + Sfeerbeeld flag", () => {
     },
     "https://evil.example/wrong.jpg",
     false,
-    "event:x",
+    "event:x|cat:outdoor|org:x",
   );
   assert.equal(resolved.usedFallback, true);
   assert.equal(resolved.keptAtmosphere, true);
@@ -133,11 +171,11 @@ check("neutral fallback safe + Sfeerbeeld flag", () => {
 });
 
 check("no random image per render (hash stable)", () => {
-  const h1 = hashDiversityKey("org:abc");
-  const h2 = hashDiversityKey("org:abc");
+  const h1 = hashDiversityKey("event:abc|cat:outdoor|org:o");
+  const h2 = hashDiversityKey("event:abc|cat:outdoor|org:o");
   assert.equal(h1, h2);
-  const u1 = pickCategoryMoodUrl("outdoor", "org:abc");
-  const u2 = pickCategoryMoodUrl("outdoor", "org:abc");
+  const u1 = pickCategoryMoodUrl("outdoor", "event:abc|cat:outdoor|org:o");
+  const u2 = pickCategoryMoodUrl("outdoor", "event:abc|cat:outdoor|org:o");
   assert.equal(u1, u2);
 });
 
