@@ -44,13 +44,24 @@ Structuur: **REGIO × TAAL × FORMAT × KANAAL**
 
 ## Provenance
 
-User-supplied bronnen (Youri / handmatige productvondst):
+User-supplied bronnen (handmatige productvondst / admin intake):
 
 ```
 discovered_by=user
 ```
 
-Admin → Bronnen → filter **User supplied**.
+Admin → Aanvoer → Mijn bronnen → filter **Door jou aangebracht**.
+
+### Mandatory future discovery input
+
+Bronnen met `discovered_by=user` zijn **permanente discovery-input**:
+
+- ze mogen niet verdwijnen omdat een latere scan ze tijdelijk niet terugvindt
+- ze mogen niet automatisch naar `low_yield` / `inactive` alleen wegens crawlbaarheid
+- geplande refresh / discovery-runs moeten ze blijven raadplegen
+- zie ook `lib/aanvoer/future-discovery.ts`
+
+Geen `discovered_by=user` verzinnen: alleen zetten bij bewezen handmatige productvondst of admin intake.
 
 ## Best-performing queries (fase 14)
 

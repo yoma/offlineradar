@@ -1,7 +1,8 @@
 /**
  * Lightweight provenance for Source Map notes.
- * Convention: tag `discovered_by=user` so admin can filter "Door Youri aangebracht".
+ * Convention: tag `discovered_by=user` so admin can filter "Door jou aangebracht".
  * No schema migration required.
+ * Do not invent this tag without evidence (admin intake or documented product find).
  */
 
 export const USER_SUPPLIED_TAG = "discovered_by=user";
