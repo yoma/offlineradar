@@ -83,6 +83,7 @@
     "fix:event-image-mismatches": "node --env-file=.env.local --import tsx scripts/fix-event-image-mismatches.ts",
     "verify:beta-welcome": "npx tsx scripts/verify-beta-welcome.ts",
     "verify:geo": "npx tsx scripts/verify-geo-distance.ts",
+    "verify:result-refinement": "npx tsx scripts/verify-result-refinement.ts",
     "audit:geo": "node --env-file=.env.local --import tsx scripts/audit-edition-geo.ts",
     "backfill:coords": "node --env-file=.env.local --import tsx scripts/backfill-edition-coords.ts"
   },

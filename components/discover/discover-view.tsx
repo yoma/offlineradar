@@ -3,6 +3,7 @@
 import { SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { EventCard } from "@/components/events/event-card";
+import { ResultRefinementBar } from "@/components/discover/result-refinement";
 import {
   SearchLoadingState,
   consumeSearchPending,
@@ -16,15 +17,21 @@ import { USER_PLACES } from "@/data/places";
 import { track } from "@/lib/analytics";
 import { brusselsToday } from "@/lib/dates";
 import { matchingEvents, placeLabel } from "@/lib/filters";
-import { AVAILABILITY_LABEL, CATEGORY_LABEL, formatAgeRange, formatMeetPreference, MEET_GENDER_LABEL, PRICE_LABEL, SORT_LABEL, WHEN_LABEL } from "@/lib/format";
+import { AVAILABILITY_LABEL, CATEGORY_LABEL, formatAgeRange, formatMeetPreference, MEET_GENDER_LABEL, PRICE_LABEL, WHEN_LABEL } from "@/lib/format";
 import {
   publicActivityChipsFromSelection,
 } from "@/lib/public-activity-groups";
 import {
   hasAnyStrongPreferenceMatch,
-  sortEvents,
   userHasMeetPreference,
 } from "@/lib/ranking";
+import {
+  applyResultRefinement,
+  defaultResultRefinement,
+  refinementFiltersActive,
+  serializeResultRefinement,
+  type ResultRefinement,
+} from "@/lib/result-refinement";
 import {
   applySearchPatch,
   applyStoredProfile,
@@ -35,11 +42,12 @@ import { savePreferencesAction } from "@/app/account/actions";
 import { readProfile, writeProfile } from "@/lib/storage";
 import { selectUpcomingEvents } from "@/lib/upcoming";
 import type { Event } from "@/types/event";
-import type { SearchState, SortKey, StoredProfile } from "@/types/search";
+import type { SearchState, StoredProfile } from "@/types/search";
 
 export function DiscoverView({
   events,
   initial,
+  initialRefinement = defaultResultRefinement(),
   listPath = "/ontdek",
   eventBasePath = "/event",
   banner = null,
@@ -50,6 +58,8 @@ export function DiscoverView({
 }: {
   events: Event[];
   initial: SearchState;
+  /** Soft result refinement (q / date / sort). Not saved to profile. */
+  initialRefinement?: ResultRefinement;
   /** Discover URL path for filter sync (internal preview uses /interne-preview). */
   listPath?: string;
   /** Detail URL prefix without trailing slash. */
@@ -66,6 +76,8 @@ export function DiscoverView({
   serverPreferences?: StoredProfile | null;
 }) {
   const [state, setState] = useState(initial);
+  const [refinement, setRefinement] =
+    useState<ResultRefinement>(initialRefinement);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [booted, setBooted] = useState(false);
   const [ageDraft, setAgeDraft] = useState(initial.age ? String(initial.age) : "");
@@ -117,14 +129,15 @@ export function DiscoverView({
   useEffect(() => {
     if (!booted) return;
     writeProfile(profileFromSearch(state));
-    const next = serializeSearchState(state);
+    const main = new URLSearchParams(serializeSearchState(state));
+    const next = serializeResultRefinement(refinement, main).toString();
     const current = window.location.search.replace(/^\?/, "");
     if (next === current) return;
     // Client-side filter sync: avoid RSC refetch of the full Neon feed on every
     // chip/filter change (events are already loaded and filtered in-memory).
     const url = next ? `${listPath}?${next}` : listPath;
     window.history.replaceState(window.history.state, "", url);
-  }, [booted, listPath, state]);
+  }, [booted, listPath, state, refinement]);
 
   async function savePreferences() {
     if (!isLoggedIn || prefsBusy) return;
@@ -137,9 +150,13 @@ export function DiscoverView({
     setPrefsStatus(result.ok ? "Voorkeuren bewaard." : result.error);
   }
 
-  const result = useMemo(() => matchingEvents(events, state), [events, state]);
-  const visible = useMemo(() => sortEvents(result.visible, state), [result.visible, state]);
   const today = useMemo(() => brusselsToday(), []);
+  const result = useMemo(() => matchingEvents(events, state), [events, state]);
+  const baseVisible = result.visible;
+  const visible = useMemo(
+    () => applyResultRefinement(baseVisible, refinement, today),
+    [baseVisible, refinement, today],
+  );
   // Global infosstrip: never recompute from filters/age/location/activity.
   const upcoming = useMemo(() => selectUpcomingEvents(events), [events]);
   const preferenceMiss =
@@ -151,14 +168,15 @@ export function DiscoverView({
     state.preferredAgeMin,
     state.preferredAgeMax,
   );
+  const refineNarrowed = refinementFiltersActive(refinement);
 
   useEffect(() => {
-    if (!booted || state.age == null || visible.length > 0) return;
+    if (!booted || state.age == null || baseVisible.length > 0) return;
     const signature = serializeSearchState(state);
     if (zeroTracked.current === signature) return;
     zeroTracked.current = signature;
     track("zero_results", { filters: signature });
-  }, [booted, state, visible.length]);
+  }, [booted, state, baseVisible.length]);
 
   function update(patch: Partial<SearchState>) {
     setState((current) => {
@@ -211,7 +229,22 @@ export function DiscoverView({
     });
   }
 
+  function clearRefinement() {
+    setRefinement(defaultResultRefinement());
+  }
+
   const chips = activeChips(state);
+
+  const resultHeading =
+    state.age == null
+      ? "Activiteiten"
+      : refineNarrowed
+        ? `${visible.length} van ${baseVisible.length} ${
+            baseVisible.length === 1 ? "activiteit" : "activiteiten"
+          }`
+        : `${visible.length} ${
+            visible.length === 1 ? "activiteit" : "activiteiten"
+          } voor jou`;
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-6xl px-4 py-8 sm:px-6">
@@ -226,9 +259,7 @@ export function DiscoverView({
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-6">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            {state.age == null
-              ? "Activiteiten"
-              : `${visible.length} ${visible.length === 1 ? "activiteit" : "activiteiten"} voor jou`}
+            {resultHeading}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Rond {placeLabel(state.placeId)}
@@ -236,22 +267,6 @@ export function DiscoverView({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {state.age != null ? (
-            <label className="hidden items-center gap-2 text-sm sm:flex">
-              <span className="text-muted-foreground">Sorteren</span>
-              <select
-                value={state.sort}
-                onChange={(event) => update({ sort: event.target.value as SortKey })}
-                className="h-10 rounded-full border border-border bg-white px-3"
-              >
-                {(Object.keys(SORT_LABEL) as SortKey[]).map((sort) => (
-                  <option key={sort} value={sort}>
-                    {SORT_LABEL[sort]}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
           <Button
             variant="outline"
             className="h-10 rounded-full px-4"
@@ -381,6 +396,16 @@ export function DiscoverView({
             </div>
           ) : null}
 
+          {state.age != null && baseVisible.length > 0 ? (
+            <ResultRefinementBar
+              refinement={refinement}
+              baseCount={baseVisible.length}
+              refinedCount={visible.length}
+              onChange={setRefinement}
+              onClear={clearRefinement}
+            />
+          ) : null}
+
           {result.hiddenStrict > 0 ? (
             <div className="mt-4 rounded-xl border border-border bg-secondary/60 px-4 py-3 text-sm">
               <p>
@@ -429,21 +454,6 @@ export function DiscoverView({
             </p>
           ) : null}
 
-          <label className="mt-4 flex items-center gap-2 text-sm sm:hidden">
-            <span className="text-muted-foreground">Sorteren</span>
-            <select
-              value={state.sort}
-              onChange={(event) => update({ sort: event.target.value as SortKey })}
-              className="h-10 rounded-full border border-border bg-white px-3"
-            >
-              {(Object.keys(SORT_LABEL) as SortKey[]).map((sort) => (
-                <option key={sort} value={sort}>
-                  {SORT_LABEL[sort]}
-                </option>
-              ))}
-            </select>
-          </label>
-
           <SearchLoadingState active={searchPending} className="mt-8" />
 
           <div
@@ -452,7 +462,7 @@ export function DiscoverView({
             }
             aria-hidden={searchPending || undefined}
           >
-          {visible.length === 0 ? (
+          {baseVisible.length === 0 ? (
             <div className="mt-12 max-w-xl">
               <h2 className="text-2xl font-semibold tracking-tight">
                 Geen passende singlesactiviteiten gevonden met deze filters.
@@ -473,6 +483,24 @@ export function DiscoverView({
                   </button>
                 ))}
               </div>
+            </div>
+          ) : visible.length === 0 ? (
+            <div className="mt-12 max-w-xl">
+              <h2 className="text-2xl font-semibold tracking-tight">
+                Geen events binnen deze verfijning.
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                Je hoofdzoekopdracht heeft wel {baseVisible.length}{" "}
+                {baseVisible.length === 1 ? "resultaat" : "resultaten"}. Pas de
+                verfijning aan of wis die.
+              </p>
+              <button
+                type="button"
+                onClick={clearRefinement}
+                className="mt-6 h-11 rounded-full border border-border px-5 text-sm font-semibold hover:border-foreground"
+              >
+                Wis verfijning
+              </button>
             </div>
           ) : (
             <div className="mt-8 min-w-0">

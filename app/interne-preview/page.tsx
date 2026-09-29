@@ -4,6 +4,7 @@ import {
   isInternalPreviewEnabled,
   listPreviewEvents,
 } from "@/lib/events-preview";
+import { parseResultRefinement } from "@/lib/result-refinement";
 import { parseSearchState } from "@/lib/search-state";
 
 export const dynamic = "force-dynamic";
@@ -20,11 +21,13 @@ export default async function InternePreviewPage({
   const raw = await searchParams;
   const events = await listPreviewEvents();
   const initial = parseSearchState(raw);
+  const initialRefinement = parseResultRefinement(raw);
 
   return (
     <DiscoverView
       events={events}
       initial={initial}
+      initialRefinement={initialRefinement}
       listPath="/interne-preview"
       eventBasePath="/interne-preview/event"
       showInternalPreviewBanner

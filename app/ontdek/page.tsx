@@ -5,6 +5,7 @@ import {
   isCanonicalEventsFeedEnabled,
   listEvents,
 } from "@/lib/events";
+import { parseResultRefinement } from "@/lib/result-refinement";
 import { parseSearchState } from "@/lib/search-state";
 import { getUserPreferences } from "@/lib/users/store";
 
@@ -15,6 +16,7 @@ export default async function OntdekPage({
 }: PageProps<"/ontdek">) {
   const raw = await searchParams;
   const initial = parseSearchState(raw);
+  const initialRefinement = parseResultRefinement(raw);
 
   // Session is JWT-only (no DB). Preferences load only when logged in.
   const session = await auth();
@@ -34,6 +36,7 @@ export default async function OntdekPage({
       <DiscoverView
         events={events}
         initial={initial}
+        initialRefinement={initialRefinement}
         isLoggedIn={Boolean(userId)}
         serverPreferences={serverPreferences}
       />
@@ -47,6 +50,7 @@ export default async function OntdekPage({
         <DiscoverView
           events={[]}
           initial={initial}
+          initialRefinement={initialRefinement}
           isLoggedIn={Boolean(userId)}
           serverPreferences={serverPreferences}
           catalogError="De eventcatalogus is tijdelijk niet beschikbaar. Probeer het later opnieuw."
