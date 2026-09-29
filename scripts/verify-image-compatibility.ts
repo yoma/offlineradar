@@ -314,6 +314,42 @@ check("title 50+ without minAge still resolves mature", () => {
   );
 });
 
+check("known-dead Unsplash ids are not in mood pools", () => {
+  const dead = [
+    "photo-1569523463827",
+    "photo-1519502336329",
+    "photo-1517649763962",
+    "photo-1461896836934",
+    "photo-1595435742656",
+    "photo-1511632765486",
+    "photo-1515187029135",
+  ];
+  const blob = JSON.stringify(CATEGORY_MOOD_POOLS);
+  for (const id of dead) {
+    assert.ok(!blob.includes(id), `dead unsplash still in pool: ${id}`);
+  }
+});
+
+check("Singles Bowling diversity pick stays on live assets", () => {
+  const resolved = resolvePublicEventImage(
+    {
+      category: "meet_new_people",
+      activities: ["sport"],
+      title: "Singles Bowling in Antwerpen",
+      tags: ["bowling"],
+      subCategory: "singles bowling",
+      minAge: 25,
+      maxAge: null,
+    },
+    "/preview-mood/mood-singles-bowling.png",
+    true,
+    "event:56ec5f81-0cd6-4993-9394-9dfdf0603d75|cat:bowling|org:x",
+  );
+  assert.ok(CATEGORY_MOOD_POOLS.bowling.includes(resolved.url));
+  assert.ok(!resolved.url.includes("photo-1519502336329"));
+  assert.ok(!resolved.url.includes("photo-1569523463827"));
+});
+
 if (failed > 0) {
   console.error(`\n${failed} failure(s)`);
   process.exit(1);

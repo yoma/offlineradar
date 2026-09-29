@@ -61,21 +61,20 @@ export const CATEGORY_MOOD_POOLS: Record<
   bowling: [
     "/preview-mood/mood-singles-bowling.png",
     "https://images.unsplash.com/photo-1546443046-ed1ce6ffd1ab?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1569523463827-c8dbd4c346b5?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1519502336329-de1de63ed558?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1575361204480-aadea25e6e68?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1578662996442-48f60103fc96?auto=format&fit=crop&w=1200&q=80",
   ],
   sport: [
-    "https://images.unsplash.com/photo-1517649763962-0c623066027c?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1461896836934-ffe607ba6851?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1576678927484-cc907957088c?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80",
   ],
   padel: [
     "https://images.unsplash.com/photo-1554068865-24cecd4e34b8?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1595435742656-5272d0b55c76?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1200&q=80",
   ],
   dating_social: [
     // young (~20–35)
@@ -85,7 +84,7 @@ export const CATEGORY_MOOD_POOLS: Record<
     // mid (~30–50)
     "/preview-mood/mood-singles-night-out.png",
     "/preview-mood/mood-love-rooftop.png",
-    "https://images.unsplash.com/photo-1511632765486-a01980e381a6?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&w=1200&q=80",
     // mature (~45+/50+) — people or ambience without young-adult faces
     "/preview-mood/mood-speeddate-53-65.png",
     "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80",
@@ -117,8 +116,8 @@ export const CATEGORY_MOOD_POOLS: Record<
     "/preview-mood/mood-embodied-dating.png",
     "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1515187029135-18ee40646307?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1200&q=80",
   ],
   travel: [
     "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=80",
@@ -132,7 +131,7 @@ export const CATEGORY_MOOD_POOLS: Record<
     "https://images.unsplash.com/photo-1543269865-cbf427effbad?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1511632765486-a01980e381a6?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&w=1200&q=80",
   ],
 };
 
@@ -209,6 +208,9 @@ function datingMoodAgeBands(url: string): ImageAgeBand[] {
     return ["young"];
   }
   if (photoId === "1511632765486-a01980e381a6") {
+    return ["young", "mid"];
+  }
+  if (photoId === "1529333166437-7750a6dd5a70") {
     return ["young", "mid"];
   }
   if (
