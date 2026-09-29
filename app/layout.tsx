@@ -16,7 +16,8 @@ export const metadata: Metadata = {
     default: "OfflineRadar",
     template: "%s · OfflineRadar",
   },
-  description: "Ontdek waar je offline nieuwe mensen ontmoet.",
+  description:
+    "Ontdek hier singlesevents en activiteiten waar je andere singles in het echt kunt ontmoeten.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

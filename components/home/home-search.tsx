@@ -244,11 +244,12 @@ export function HomeHero() {
         <p className="text-sm font-semibold tracking-[0.18em] text-white/90 uppercase">
           OfflineRadar
         </p>
-        <h1 className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight text-white sm:mt-4 sm:text-6xl sm:leading-[1.05]">
-          Ga offline. Ontmoet mensen.
+        <h1 className="mt-3 max-w-3xl text-balance text-[1.7rem] font-semibold leading-[1.15] tracking-tight text-white sm:mt-4 sm:text-5xl sm:leading-[1.08] lg:text-[3.25rem]">
+          Date offline. Ervaar opnieuw de kracht van echte connecties.
         </h1>
-        <p className="mt-3 max-w-xl text-base leading-7 text-white/85 sm:mt-4 sm:text-lg">
-          Singles-events, diners, wandelingen, sport en meer, op één plek.
+        <p className="mt-3 max-w-2xl text-pretty text-base leading-7 text-white/85 sm:mt-4 sm:text-lg">
+          Ontdek hier singlesevents en activiteiten waar je andere singles in
+          het echt kunt ontmoeten.
         </p>
 
         <form
