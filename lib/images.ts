@@ -23,6 +23,8 @@ export function eventImageUrl(input: {
   title?: string | null;
   subCategory?: string | null;
   imageIsAtmosphere?: boolean;
+  minAge?: number | null;
+  maxAge?: number | null;
 }): string {
   const ctx: EventImageContext = {
     category: input.category,
@@ -30,6 +32,8 @@ export function eventImageUrl(input: {
     tags: input.tags,
     title: input.title,
     subCategory: input.subCategory,
+    minAge: input.minAge,
+    maxAge: input.maxAge,
   };
   return resolvePublicEventImage(
     ctx,
@@ -42,6 +46,8 @@ export {
   isImageCompatibleWithEvent,
   inferRequiredImageCategory,
   inferImageCategoryFromUrl,
+  inferImageAgeBand,
+  parseAgeHintsFromTitle,
   resolvePublicEventImage,
   NEUTRAL_FALLBACK_DATA_URI,
   CATEGORY_MOOD_URLS,

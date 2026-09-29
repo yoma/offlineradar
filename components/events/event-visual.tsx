@@ -14,6 +14,8 @@ export function EventVisual({
   tags = [],
   title = null,
   subCategory = null,
+  minAge = null,
+  maxAge = null,
   imageUrl,
   imageAlt = null,
   imageIsAtmosphere = false,
@@ -29,6 +31,8 @@ export function EventVisual({
   tags?: string[];
   title?: string | null;
   subCategory?: string | null;
+  minAge?: number | null;
+  maxAge?: number | null;
   imageUrl?: string | null;
   imageAlt?: string | null;
   imageIsAtmosphere?: boolean;
@@ -38,7 +42,15 @@ export function EventVisual({
   label?: boolean;
   priority?: boolean;
 }) {
-  const ctx = { category, activities, tags, title, subCategory };
+  const ctx = {
+    category,
+    activities,
+    tags,
+    title,
+    subCategory,
+    minAge,
+    maxAge,
+  };
   const required = inferRequiredImageCategory(ctx);
   const diversityKey = eventImageDiversityKey({
     organizerId,

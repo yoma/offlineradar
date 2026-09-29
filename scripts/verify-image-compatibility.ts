@@ -258,6 +258,62 @@ check("Sfeerbeeld label path: legacy mood re-enters pool with atmosphere badge",
   assert.ok(CATEGORY_MOOD_POOLS.bowling.includes(resolved.url));
 });
 
+check("50+ dating never gets young speeddate mood", () => {
+  const { inferImageAgeBand, pickCategoryMoodUrl } =
+    require("../lib/image-compatibility") as typeof import("../lib/image-compatibility");
+  assert.equal(
+    inferImageAgeBand({ minAge: 50, maxAge: 60, title: "Speeddate Lochristi, 50–60 jaar" }),
+    "mature",
+  );
+  for (let i = 0; i < 20; i++) {
+    const url = pickCategoryMoodUrl(
+      "dating_social",
+      `event:mature-${i}|cat:dating_social|org:x`,
+      "mature",
+    );
+    assert.ok(
+      !url.includes("mood-speeddate-25-35"),
+      `mature pick leaked young mood: ${url}`,
+    );
+    assert.ok(
+      !url.includes("photo-1529156069898"),
+      `mature pick leaked young unsplash: ${url}`,
+    );
+    assert.ok(
+      !url.includes("photo-1543269865"),
+      `mature pick leaked young unsplash: ${url}`,
+    );
+  }
+});
+
+check("Speeddate Kortrijk 35-45 does not keep 25-35 mood", () => {
+  const youngMood = "/preview-mood/mood-speeddate-25-35.png";
+  const resolved = resolvePublicEventImage(
+    {
+      category: "dating",
+      activities: ["speeddate"],
+      title: "Speeddate Kortrijk Hogeropgeleiden, 35–45 jaar",
+      subCategory: "speeddate",
+      minAge: 35,
+      maxAge: 45,
+    },
+    youngMood,
+    true,
+    "event:16f186a5-5a94-4675-8841-387b8b75b597|cat:dating_social|org:x",
+  );
+  assert.notEqual(resolved.url, youngMood);
+  assert.ok(!resolved.url.includes("mood-speeddate-25-35"));
+});
+
+check("title 50+ without minAge still resolves mature", () => {
+  const { inferImageAgeBand } =
+    require("../lib/image-compatibility") as typeof import("../lib/image-compatibility");
+  assert.equal(
+    inferImageAgeBand({ title: "Singlereis Ibiza (45+)", minAge: null, maxAge: null }),
+    "mature",
+  );
+});
+
 if (failed > 0) {
   console.error(`\n${failed} failure(s)`);
   process.exit(1);

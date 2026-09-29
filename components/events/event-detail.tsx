@@ -130,6 +130,8 @@ export function EventDetail({
           tags={event.tags}
           title={event.title}
           subCategory={event.subCategory}
+          minAge={event.eligibilityAgeMin}
+          maxAge={event.eligibilityAgeMax}
           imageUrl={event.imageUrl}
           imageAlt={event.imageAlt}
           imageIsAtmosphere={event.imageIsAtmosphere === true}

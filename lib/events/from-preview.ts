@@ -148,6 +148,8 @@ export function mapConsumerEventToCatalogDraft(
         tags: event.tags,
         title: event.title,
         subCategory: event.subCategory,
+        minAge: event.eligibilityAgeMin,
+        maxAge: event.eligibilityAgeMax,
       },
       event.imageUrl,
       event.imageIsAtmosphere === true,
