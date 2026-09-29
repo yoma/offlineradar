@@ -56,7 +56,13 @@ function FieldMeta({
   );
 }
 
-export function AanvoerClient() {
+export function AanvoerClient({
+  onSavedSource,
+  onSavedCandidate,
+}: {
+  onSavedSource?: (sourceId: string) => void;
+  onSavedCandidate?: (editionId: string) => void;
+} = {}) {
   const [mode, setMode] = useState<IntakeMode>("url");
   const [url, setUrl] = useState("");
   const [text, setText] = useState("");
@@ -70,6 +76,8 @@ export function AanvoerClient() {
   const [error, setError] = useState<string | null>(null);
   const [forceNeeded, setForceNeeded] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [savedSourceId, setSavedSourceId] = useState<string | null>(null);
+  const [savedEditionId, setSavedEditionId] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
   const fieldStatus = useMemo(() => {
@@ -121,6 +129,8 @@ export function AanvoerClient() {
     setError(null);
     setForceNeeded(false);
     setDismissed(false);
+    setSavedSourceId(null);
+    setSavedEditionId(null);
   }
 
   function analyze() {
@@ -157,6 +167,8 @@ export function AanvoerClient() {
     if (!draft) return;
     setError(null);
     setMessage(null);
+    setSavedSourceId(null);
+    setSavedEditionId(null);
     const formData = new FormData();
     formData.set("draft", JSON.stringify(draft));
     if (assetId) formData.set("assetId", assetId);
@@ -173,17 +185,28 @@ export function AanvoerClient() {
         return;
       }
       setForceNeeded(false);
-      setMessage(result.message);
+      const parts: string[] = [];
+      if (result.sourceId) {
+        setSavedSourceId(result.sourceId);
+        parts.push("Bron opgeslagen.");
+      }
+      if (result.editionId) {
+        setSavedEditionId(result.editionId);
+        parts.push("Event-kandidaat opgeslagen.");
+      }
+      setMessage(parts.length > 0 ? parts.join(" ") : result.message);
     });
   }
 
   if (dismissed) {
     return (
-      <div className="rounded-xl border border-border bg-white px-4 py-5">
-        <p className="text-sm">Gemarkeerd als niet relevant. Niets opgeslagen.</p>
+      <div className="rounded-2xl border border-stone-200/80 bg-white/90 px-4 py-5 shadow-sm">
+        <p className="text-sm text-stone-700">
+          Gemarkeerd als niet relevant. Niets opgeslagen.
+        </p>
         <button
           type="button"
-          className="mt-4 text-sm font-semibold underline-offset-4 hover:underline"
+          className="mt-4 text-sm font-semibold text-stone-900 underline-offset-4 hover:underline"
           onClick={resetAll}
         >
           Nieuwe intake
@@ -193,51 +216,53 @@ export function AanvoerClient() {
   }
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-xl border border-border bg-white p-4 sm:p-5">
-        <div className="flex flex-wrap gap-2">
+    <div className="space-y-5">
+      <section className="rounded-2xl border border-stone-200/80 bg-white/90 p-4 shadow-sm sm:p-5">
+        <div className="flex flex-wrap gap-1.5">
           {MODES.map((item) => (
             <button
               key={item.id}
               type="button"
               onClick={() => setMode(item.id)}
-              className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
+              className={`rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
                 mode === item.id
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-border text-muted-foreground"
+                  ? "bg-stone-900 text-white shadow"
+                  : "bg-stone-100 text-stone-600 hover:bg-stone-200 hover:text-stone-900"
               }`}
             >
               {item.label}
             </button>
           ))}
         </div>
-        <p className="mt-3 text-sm text-muted-foreground">
+        <p className="mt-3 text-sm leading-6 text-stone-600">
           {MODES.find((item) => item.id === mode)?.help}
         </p>
 
         <div className="mt-4 space-y-3">
           {mode === "url" || mode === "screenshot" ? (
             <label className="block text-sm">
-              <span className="mb-1 block font-medium">URL (optioneel bij screenshot)</span>
+              <span className="mb-1 block font-medium text-stone-800">
+                URL (optioneel bij screenshot)
+              </span>
               <input
                 value={url}
                 onChange={(event) => setUrl(event.target.value)}
                 placeholder="https://…"
-                className="h-11 w-full rounded-xl border border-border px-3"
+                className="h-11 w-full break-all rounded-xl border border-stone-200 bg-white px-3"
               />
             </label>
           ) : null}
 
           {mode === "text" || mode === "url" ? (
             <label className="block text-sm">
-              <span className="mb-1 block font-medium">
+              <span className="mb-1 block font-medium text-stone-800">
                 {mode === "text" ? "Tekst" : "Extra notities (optioneel)"}
               </span>
               <textarea
                 value={text}
                 onChange={(event) => setText(event.target.value)}
                 rows={mode === "text" ? 8 : 3}
-                className="w-full rounded-xl border border-border px-3 py-2"
+                className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2"
                 placeholder="Plak hier…"
               />
             </label>
@@ -245,12 +270,14 @@ export function AanvoerClient() {
 
           {mode === "screenshot" ? (
             <label className="block text-sm">
-              <span className="mb-1 block font-medium">Screenshot</span>
+              <span className="mb-1 block font-medium text-stone-800">
+                Screenshot
+              </span>
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
                 capture="environment"
-                className="block w-full text-sm"
+                className="block w-full text-sm text-stone-700"
                 onChange={(event) => {
                   const next = event.target.files?.[0] ?? null;
                   setFile(next);
@@ -258,7 +285,7 @@ export function AanvoerClient() {
                 }}
               />
               {fileName ? (
-                <p className="mt-1 text-xs text-muted-foreground">{fileName}</p>
+                <p className="mt-1 break-all text-xs text-stone-500">{fileName}</p>
               ) : null}
             </label>
           ) : null}
@@ -268,25 +295,45 @@ export function AanvoerClient() {
           type="button"
           disabled={pending}
           onClick={analyze}
-          className="mt-4 h-11 w-full rounded-full bg-foreground px-5 text-sm font-semibold text-background disabled:opacity-60 sm:w-auto"
+          className="mt-4 h-11 w-full rounded-full bg-rose-700 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-800 disabled:opacity-60 sm:w-auto"
         >
           {pending ? "Bezig…" : "Analyseer"}
         </button>
       </section>
 
       {error ? (
-        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+        <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
           {error}
         </p>
       ) : null}
       {message ? (
-        <p className="rounded-xl border border-border bg-secondary/50 px-4 py-3 text-sm">
-          {message}
-        </p>
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950 shadow-sm">
+          <p className="font-semibold">{message}</p>
+          <div className="mt-2 flex flex-wrap gap-3">
+            {savedSourceId ? (
+              <button
+                type="button"
+                className="font-semibold text-emerald-900 underline-offset-4 hover:underline"
+                onClick={() => onSavedSource?.(savedSourceId)}
+              >
+                Bekijk in Mijn bronnen
+              </button>
+            ) : null}
+            {savedEditionId ? (
+              <button
+                type="button"
+                className="font-semibold text-emerald-900 underline-offset-4 hover:underline"
+                onClick={() => onSavedCandidate?.(savedEditionId)}
+              >
+                Bekijk bij Event-kandidaten
+              </button>
+            ) : null}
+          </div>
+        </div>
       ) : null}
 
       {draft && proposal ? (
-        <section className="space-y-4 rounded-xl border border-border bg-white p-4 sm:p-5">
+        <section className="space-y-4 rounded-2xl border border-stone-200/80 bg-white/90 p-4 shadow-sm sm:p-5">
           <div>
             <h2 className="text-lg font-semibold tracking-tight">Voorstel</h2>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -324,7 +371,7 @@ export function AanvoerClient() {
               <ul className="mt-2 space-y-1">
                 {matches.map((match) => (
                   <li key={`${match.kind}-${match.id}`}>
-                    {match.label} — {match.detail} ({match.matchReason})
+                    {match.label} - {match.detail} ({match.matchReason})
                   </li>
                 ))}
               </ul>
@@ -449,7 +496,7 @@ export function AanvoerClient() {
               type="button"
               disabled={pending}
               onClick={() => runSave(saveIntakeSourceAction, forceNeeded)}
-              className="h-11 rounded-full border border-border px-4 text-sm font-semibold hover:border-foreground disabled:opacity-60"
+              className="h-11 rounded-full border border-stone-300 bg-white px-4 text-sm font-semibold text-stone-800 hover:border-stone-900 disabled:opacity-60"
             >
               Bewaar als bron
             </button>
@@ -457,7 +504,7 @@ export function AanvoerClient() {
               type="button"
               disabled={pending}
               onClick={() => runSave(saveIntakeEventAction, forceNeeded)}
-              className="h-11 rounded-full border border-border px-4 text-sm font-semibold hover:border-foreground disabled:opacity-60"
+              className="h-11 rounded-full border border-stone-300 bg-white px-4 text-sm font-semibold text-stone-800 hover:border-stone-900 disabled:opacity-60"
             >
               Maak event-kandidaat
             </button>
@@ -465,7 +512,7 @@ export function AanvoerClient() {
               type="button"
               disabled={pending}
               onClick={() => runSave(saveIntakeCombinedAction, forceNeeded)}
-              className="h-11 rounded-full bg-foreground px-4 text-sm font-semibold text-background disabled:opacity-60"
+              className="h-11 rounded-full bg-stone-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
             >
               Bron + event voorbereiden
             </button>
@@ -473,12 +520,12 @@ export function AanvoerClient() {
               type="button"
               disabled={pending}
               onClick={() => setDismissed(true)}
-              className="h-11 rounded-full px-4 text-sm font-medium text-muted-foreground underline-offset-4 hover:underline"
+              className="h-11 rounded-full px-4 text-sm font-medium text-stone-500 underline-offset-4 hover:underline"
             >
               Niet relevant
             </button>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-stone-500">
             Geen directe publicatie vanaf intake. Screenshot wordt nooit public
             event image.
           </p>

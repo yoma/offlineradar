@@ -188,6 +188,7 @@ export async function updateCatalogSourceFields(input: {
   id: string;
   status?: CatalogSourceStatus;
   notes?: string | null;
+  sourceType?: CatalogSourceType;
   touchChecked?: boolean;
 }): Promise<CatalogSourceRecord | null> {
   const sql = getEventsSql();
@@ -197,6 +198,7 @@ export async function updateCatalogSourceFields(input: {
     UPDATE catalog_sources SET
       status = COALESCE(${input.status ?? null}, status),
       notes = COALESCE(${input.notes ?? null}, notes),
+      source_type = COALESCE(${input.sourceType ?? null}, source_type),
       last_checked_at = COALESCE(${now}, last_checked_at),
       updated_at = now()
     WHERE id = ${input.id}

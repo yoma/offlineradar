@@ -1,10 +1,12 @@
-import type { ReactNode } from "react";
-import { AanvoerClient } from "@/app/interne-aanvoer/aanvoer-client";
+import { Suspense, type ReactNode } from "react";
 import {
   signOutAanvoerAdmin,
   startAanvoerAdminSignIn,
 } from "@/app/interne-aanvoer/actions";
+import { AanvoerCockpit } from "@/components/admin/aanvoer-cockpit";
 import { InterneAdminNav } from "@/components/admin/interne-admin-nav";
+import { InterneAdminShell } from "@/components/admin/interne-admin-shell";
+import { loadAanvoerCockpitData } from "@/lib/aanvoer/cockpit-data";
 import { assertOfflineRadarDbConfig } from "@/lib/events/db";
 import { countBetaFeedbackByStatus } from "@/lib/feedback/store";
 import {
@@ -23,9 +25,9 @@ function GateShell({
 }) {
   return (
     <div className="mx-auto w-full max-w-lg px-4 py-16 sm:px-6">
-      <div className="space-y-4 rounded-xl border border-border bg-background px-5 py-6">
+      <div className="space-y-4 rounded-2xl border border-stone-200 bg-white/90 px-5 py-6 shadow-sm">
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-        <div className="space-y-3 text-sm leading-6 text-muted-foreground">
+        <div className="space-y-3 text-sm leading-6 text-stone-600">
           {children}
         </div>
       </div>
@@ -33,7 +35,22 @@ function GateShell({
   );
 }
 
-export default async function InterneAanvoerPage() {
+export default async function InterneAanvoerPage({
+  searchParams,
+}: PageProps<"/interne-aanvoer">) {
+  const raw = await searchParams;
+  const tabRaw = Array.isArray(raw.tab) ? raw.tab[0] : raw.tab;
+  const initialTab =
+    tabRaw === "bronnen" || tabRaw === "kandidaten" || tabRaw === "nieuw"
+      ? tabRaw
+      : "nieuw";
+  const highlightSourceId = Array.isArray(raw.sourceId)
+    ? raw.sourceId[0]
+    : raw.sourceId ?? null;
+  const highlightEditionId = Array.isArray(raw.editionId)
+    ? raw.editionId[0]
+    : raw.editionId ?? null;
+
   const db = assertOfflineRadarDbConfig();
   if (!db.ok) {
     return (
@@ -52,7 +69,7 @@ export default async function InterneAanvoerPage() {
           <form action={signOutAanvoerAdmin}>
             <button
               type="submit"
-              className="rounded-md bg-foreground px-3 py-2 text-sm text-background"
+              className="rounded-full bg-stone-900 px-4 py-2 text-sm font-semibold text-white"
             >
               Uitloggen
             </button>
@@ -72,7 +89,7 @@ export default async function InterneAanvoerPage() {
           <form action={startAanvoerAdminSignIn}>
             <button
               type="submit"
-              className="rounded-md bg-foreground px-3 py-2 text-sm text-background"
+              className="rounded-full bg-stone-900 px-4 py-2 text-sm font-semibold text-white"
             >
               Inloggen met Google
             </button>
@@ -92,18 +109,31 @@ export default async function InterneAanvoerPage() {
     newFeedbackCount = 0;
   }
 
+  const data = await loadAanvoerCockpitData();
+
   return (
-    <div className="mx-auto w-full min-w-0 max-w-3xl px-4 py-10 sm:px-6">
+    <InterneAdminShell>
       <InterneAdminNav active="aanvoer" newFeedbackCount={newFeedbackCount} />
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Aanvoer</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Plak een URL, tekst of screenshot. AI maakt een voorstel. Jij beslist.
-          Geen auto-publish. User-supplied bronnen blijven mandatory voor
-          toekomstige discovery.
+      <header className="mb-6">
+        <p className="text-xs font-semibold tracking-[0.14em] text-rose-700/80 uppercase">
+          Admin cockpit
         </p>
-      </div>
-      <AanvoerClient />
-    </div>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">
+          Aanvoer
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
+          Nieuwe bronnen en events toevoegen, je user-supplied bronnen beheren
+          en kandidaten reviewen. Geen auto-publish.
+        </p>
+      </header>
+      <Suspense fallback={<p className="text-sm text-stone-500">Laden…</p>}>
+        <AanvoerCockpit
+          data={data}
+          initialTab={initialTab}
+          highlightSourceId={highlightSourceId}
+          highlightEditionId={highlightEditionId}
+        />
+      </Suspense>
+    </InterneAdminShell>
   );
 }

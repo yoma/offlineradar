@@ -21,6 +21,7 @@ import {
 import { assertOfflineRadarDbConfig } from "@/lib/events/db";
 import { CatalogSourcesBrowser } from "@/components/admin/catalog-sources-browser";
 import { InterneAdminNav } from "@/components/admin/interne-admin-nav";
+import { InterneAdminShell } from "@/components/admin/interne-admin-shell";
 import { SourceRefreshControls } from "@/components/admin/source-refresh-controls";
 import {
   isRefreshSupported,
@@ -168,21 +169,24 @@ export default async function InterneEventsPage() {
   }
 
   return (
-    <div className="mx-auto w-full min-w-0 max-w-3xl px-4 py-10 sm:px-6">
+    <InterneAdminShell>
       <InterneAdminNav active="events" newFeedbackCount={newFeedbackCount} />
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Canonical events
+          <p className="text-xs font-semibold tracking-[0.14em] text-rose-700/80 uppercase">
+            Admin
+          </p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">
+            Events
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-2 text-sm leading-6 text-stone-600">
             Soft offline: published → under_review. Geen hard delete.
           </p>
         </div>
         <form action={signOutEventsAdmin}>
           <button
             type="submit"
-            className="rounded-md border border-border px-3 py-2 text-sm"
+            className="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-800"
           >
             Uitloggen
           </button>
@@ -538,6 +542,6 @@ export default async function InterneEventsPage() {
             </li>
           );
         })}      </ul>
-    </div>
+    </InterneAdminShell>
   );
 }

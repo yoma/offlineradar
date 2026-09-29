@@ -264,3 +264,79 @@ export async function saveIntakeCombinedAction(
     editionId: event.editionId,
   };
 }
+
+export async function updateAanvoerSourceAction(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const gate = await requireAdmin();
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  const id = String(formData.get("sourceId") ?? "").trim();
+  if (!id) return { ok: false, error: "Bron ontbreekt." };
+  const status = String(formData.get("status") ?? "").trim();
+  const notes = String(formData.get("notes") ?? "");
+  const sourceType = String(formData.get("sourceType") ?? "").trim();
+  const markReview = String(formData.get("markReview") ?? "") === "1";
+
+  const {
+    updateCatalogSourceFields,
+    CATALOG_SOURCE_STATUSES,
+    CATALOG_SOURCE_TYPES,
+  } = await import("@/lib/events/catalog-sources");
+
+  let nextNotes = notes;
+  if (markReview) {
+    const stamp = `review_requested_at=${new Date().toISOString()}`;
+    nextNotes = nextNotes.includes("review_requested_at=")
+      ? nextNotes
+      : `${nextNotes}\n${stamp}`.trim();
+  }
+
+  const updated = await updateCatalogSourceFields({
+    id,
+    status: CATALOG_SOURCE_STATUSES.includes(status as never)
+      ? (status as (typeof CATALOG_SOURCE_STATUSES)[number])
+      : undefined,
+    notes: nextNotes,
+    sourceType: CATALOG_SOURCE_TYPES.includes(sourceType as never)
+      ? (sourceType as (typeof CATALOG_SOURCE_TYPES)[number])
+      : undefined,
+    touchChecked: false,
+  });
+  if (!updated) return { ok: false, error: "Kon bron niet bijwerken." };
+  revalidatePath("/interne-aanvoer");
+  revalidatePath("/interne-events");
+  return { ok: true };
+}
+
+export async function updateAanvoerCandidateStatusAction(
+  formData: FormData,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const gate = await requireAdmin();
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  const id = String(formData.get("editionId") ?? "").trim();
+  const status = String(formData.get("status") ?? "").trim();
+  if (!id) return { ok: false, error: "Kandidaat ontbreekt." };
+  if (!["draft", "under_review", "rejected", "candidate"].includes(status)) {
+    return {
+      ok: false,
+      error: "Ongeldige status (geen publicatie vanaf hier).",
+    };
+  }
+
+  const { updateEditionPublication } = await import("@/lib/events/neon-store");
+  const updated = await updateEditionPublication({
+    id,
+    publicationStatus: status as
+      | "draft"
+      | "under_review"
+      | "rejected"
+      | "candidate",
+    rejectedAt: status === "rejected" ? new Date().toISOString() : null,
+  });
+  if (!updated) return { ok: false, error: "Kon kandidaat niet bijwerken." };
+  revalidatePath("/interne-aanvoer");
+  revalidatePath("/interne-events");
+  return { ok: true };
+}

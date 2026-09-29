@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { FeedbackAdminClient } from "@/components/admin/feedback-admin-client";
 import { InterneAdminNav } from "@/components/admin/interne-admin-nav";
+import { InterneAdminShell } from "@/components/admin/interne-admin-shell";
 import {
   signOutFeedbackAdmin,
   startFeedbackAdminSignIn,
@@ -26,9 +27,9 @@ function GateShell({
 }) {
   return (
     <div className="mx-auto w-full max-w-lg px-4 py-16 sm:px-6">
-      <div className="space-y-4 rounded-xl border border-border bg-background px-5 py-6">
+      <div className="space-y-4 rounded-2xl border border-stone-200 bg-white/90 px-5 py-6 shadow-sm">
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-        <div className="space-y-3 text-sm leading-6 text-muted-foreground">
+        <div className="space-y-3 text-sm leading-6 text-stone-600">
           {children}
         </div>
       </div>
@@ -55,7 +56,7 @@ export default async function InterneFeedbackPage() {
           <form action={signOutFeedbackAdmin}>
             <button
               type="submit"
-              className="rounded-md bg-foreground px-3 py-2 text-sm text-background"
+              className="rounded-full bg-stone-900 px-4 py-2 text-sm font-semibold text-white"
             >
               Uitloggen
             </button>
@@ -75,7 +76,7 @@ export default async function InterneFeedbackPage() {
           <form action={startFeedbackAdminSignIn}>
             <button
               type="submit"
-              className="rounded-md bg-foreground px-3 py-2 text-sm text-background"
+              className="rounded-full bg-stone-900 px-4 py-2 text-sm font-semibold text-white"
             >
               Inloggen met Google
             </button>
@@ -93,25 +94,28 @@ export default async function InterneFeedbackPage() {
   ]);
 
   return (
-    <div className="mx-auto w-full min-w-0 max-w-3xl px-4 py-10 sm:px-6">
+    <InterneAdminShell>
       <InterneAdminNav active="feedback" newFeedbackCount={counts.new} />
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Beta feedback
+          <p className="text-xs font-semibold tracking-[0.14em] text-rose-700/80 uppercase">
+            Admin
+          </p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">
+            Feedback
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-2 text-sm leading-6 text-stone-600">
             Ingelogd als beheerder
             {access.via === "dev_bypass"
               ? " (lokale DEV-bypass)"
               : ` (${access.email})`}
-            . Geen ticketsysteem — alleen inbox.
+            . Geen ticketsysteem, alleen inbox.
           </p>
         </div>
         <form action={signOutFeedbackAdmin}>
           <button
             type="submit"
-            className="rounded-md border border-border px-3 py-2 text-sm"
+            className="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-800"
           >
             Uitloggen
           </button>
@@ -119,6 +123,6 @@ export default async function InterneFeedbackPage() {
       </div>
 
       <FeedbackAdminClient items={items} counts={counts} />
-    </div>
+    </InterneAdminShell>
   );
 }

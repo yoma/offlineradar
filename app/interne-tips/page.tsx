@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { TipAdminClient } from "@/components/tips/tip-admin-client";
 import { InterneAdminNav } from "@/components/admin/interne-admin-nav";
+import { InterneAdminShell } from "@/components/admin/interne-admin-shell";
 import { startGoogleSignIn, signOutTipsAdmin } from "@/app/interne-tips/actions";
 import {
   isGoogleAuthConfigured,
@@ -129,9 +130,17 @@ export default async function InterneTipsPage() {
   }
 
   return (
-    <div className="mx-auto w-full min-w-0 max-w-6xl px-4 py-8 sm:px-6">
+    <InterneAdminShell>
       <InterneAdminNav active="tips" newFeedbackCount={newFeedbackCount} />
-      <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+      <header className="mb-6">
+        <p className="text-xs font-semibold tracking-[0.14em] text-rose-700/80 uppercase">
+          Admin
+        </p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">
+          Tips
+        </h1>
+      </header>
+      <div className="rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="font-semibold">Interne tipwachtrij (niet publiek)</p>
@@ -148,7 +157,7 @@ export default async function InterneTipsPage() {
             <form action={signOutTipsAdmin}>
               <button
                 type="submit"
-                className="rounded-md border border-amber-400 bg-white px-3 py-1.5 text-sm"
+                className="rounded-full border border-amber-400 bg-white px-3 py-1.5 text-sm font-semibold"
               >
                 Uitloggen
               </button>
@@ -156,7 +165,9 @@ export default async function InterneTipsPage() {
           ) : null}
         </div>
       </div>
-      <TipAdminClient initial={snapshot} />
-    </div>
+      <div className="mt-5">
+        <TipAdminClient initial={snapshot} />
+      </div>
+    </InterneAdminShell>
   );
 }
