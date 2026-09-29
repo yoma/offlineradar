@@ -241,19 +241,19 @@ export function HomeHero() {
       <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/60" />
 
       <div className="relative mx-auto flex min-h-[100svh] w-full min-w-0 max-w-6xl flex-col justify-center px-4 pb-24 pt-24 sm:px-6 sm:pb-16 sm:pt-28">
-        <p className="text-sm font-semibold tracking-[0.18em] text-white/90 uppercase">
+        <p className="text-[11px] font-medium tracking-[0.22em] text-white/65 uppercase sm:text-xs">
           OfflineRadar
         </p>
-        <h1 className="mt-3 max-w-3xl text-balance text-[1.7rem] font-semibold leading-[1.15] tracking-tight text-white sm:mt-4 sm:text-5xl sm:leading-[1.08] lg:text-[3.25rem]">
+        <h1 className="mt-4 max-w-[18ch] text-balance text-[1.55rem] font-semibold leading-[1.2] tracking-[-0.02em] text-white sm:mt-5 sm:max-w-2xl sm:text-[2.35rem] sm:leading-[1.15] lg:text-[2.75rem] lg:leading-[1.12]">
           Date offline. Ervaar opnieuw de kracht van echte connecties.
         </h1>
-        <p className="mt-3 max-w-2xl text-pretty text-base leading-7 text-white/85 sm:mt-4 sm:text-lg">
+        <p className="mt-3.5 max-w-md text-pretty text-[13.5px] leading-6 font-normal text-white/70 sm:mt-4 sm:max-w-lg sm:text-[15px] sm:leading-7">
           Ontdek hier singlesevents en activiteiten waar je andere singles in
           het echt kunt ontmoeten.
         </p>
 
         <form
-          className="mt-6 w-full min-w-0 max-w-4xl sm:mt-8"
+          className="mt-8 w-full min-w-0 max-w-4xl sm:mt-10"
           onSubmit={(event) => {
             event.preventDefault();
             go();
