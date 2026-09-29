@@ -175,24 +175,23 @@ export function TipSection() {
         ) : (
           <>
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              Ken jij een leuk singlesevent?
+              Ken je een singlesevent?
             </h2>
             <p className="mt-2 max-w-2xl text-[15px] leading-6 text-muted-foreground">
-              Ken je een singlesactiviteit die nog niet op OfflineRadar staat?
-              Deel de officiële link en help andere singles nieuwe activiteiten
-              ontdekken.
+              Geef het aan ons door.
             </p>
 
             {!open ? (
               <Button
                 type="button"
                 className="mt-6 h-11 rounded-full px-6"
+                aria-label="Ken je een singlesevent? Geef het aan ons door."
                 onClick={() => {
                   setOpen(true);
                   setError("");
                 }}
               >
-                Tip een singlesactiviteit
+                Singlesevent doorgeven
               </Button>
             ) : (
               <form

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { ChevronDown, Search, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { USER_PLACES, findPlace } from "@/data/places";
 import { track } from "@/lib/analytics";
@@ -556,7 +556,7 @@ export function HomeHero() {
                 </p>
               </div>
             ) : null}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch sm:gap-4">
               <button
                 type="button"
                 onClick={go}
@@ -569,9 +569,16 @@ export function HomeHero() {
               </button>
               <a
                 href="#tip-een-activiteit"
-                className="inline-flex w-full items-center justify-center rounded-full border border-white/40 bg-white/10 px-6 py-3.5 text-base font-semibold text-white backdrop-blur-sm transition hover:bg-white/20 sm:w-auto"
+                aria-label="Ken je een singlesevent? Geef het aan ons door."
+                className="inline-flex w-full flex-col items-center justify-center gap-0.5 rounded-2xl border border-white/40 bg-white/10 px-5 py-3 text-center text-white backdrop-blur-sm transition hover:bg-white/20 sm:w-auto sm:min-w-[220px] sm:items-start sm:text-left"
               >
-                Tip een activiteit
+                <span className="inline-flex items-center gap-1.5 text-[15px] font-semibold leading-5">
+                  <Plus className="size-3.5 shrink-0 opacity-90" aria-hidden />
+                  Ken je een singlesevent?
+                </span>
+                <span className="text-[13px] font-normal leading-5 text-white/75">
+                  Geef het aan ons door.
+                </span>
               </a>
             </div>
           </div>

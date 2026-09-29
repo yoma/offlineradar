@@ -76,6 +76,7 @@ export function SiteHeader() {
           <AccountNavLink light={light} />
           <Link
             href="/#tip-een-activiteit"
+            aria-label="Ken je een singlesevent? Geef het aan ons door."
             className={cn(
               "rounded-full px-3 py-1.5 text-sm font-semibold transition",
               light
@@ -83,7 +84,7 @@ export function SiteHeader() {
                 : "bg-white text-[#e61e4d] hover:bg-white/90",
             )}
           >
-            Tip activiteit
+            Singlesevent doorgeven
           </Link>
         </nav>
         <div className="flex items-center gap-3 md:hidden">
