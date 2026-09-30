@@ -218,14 +218,26 @@ export function publicActivityChipsFromSelection(
  * Which public groups an event belongs to (multi-match allowed).
  * Soft secondary tags (eten/drinken/outdoor on a weekend, drinken on bowling)
  * do not invent extra public groups.
+ * Travel packages and classic speeddates stay primary-format only.
  */
 export function publicGroupsForEventActivities(
   activities: readonly ActivityId[],
   meta?: { title?: string | null; subCategory?: string | null },
 ): PublicActivityGroupId[] {
   const effective = effectiveActivitiesForMatch(activities, meta);
+  const travelLed = isWeekendLedSocial(activities, meta);
+  const speeddateLed = effective.includes("speeddate") && !travelLed;
+
   return PUBLIC_ACTIVITY_GROUPS.filter((group) => {
     if (!group.activities.some((activity) => effective.includes(activity))) {
+      return false;
+    }
+    // Skiweek / singlesreis / weekend package → only Weekend/reis.
+    if (travelLed && group.id !== "travel") {
+      return false;
+    }
+    // Classic speeddate → only Speeddate (not drinks amenity leftovers).
+    if (speeddateLed && group.id !== "speeddate") {
       return false;
     }
     if (group.id === "sport_active" && isSoftActiveNoise(activities, meta)) {
@@ -269,7 +281,7 @@ export function isWeekendLedSocial(
   if (activities.includes("weekend") || activities.includes("reizen")) {
     return true;
   }
-  return /\b(weekend|vakantie|citytrip|skiweek|shortski|singlereis|reis\b|travel)\b/.test(
+  return /\b(weekend|vakantie|citytrip|skiweek|shortski|ski|singlereis|reis|travel)\b/.test(
     textOf(meta),
   );
 }
@@ -363,6 +375,8 @@ function isSecondaryFoodNoise(
  *
  * Broad groups ignore soft secondary tags that would create filter noise
  * (apero under Sport, bowling under Drinks, weekend under Dinner, etc.).
+ * Travel packages and classic speeddates only match when that primary
+ * format is in the selection (or when no activity filter is set).
  */
 export function eventMatchesActivityFilter(
   eventActivities: readonly ActivityId[],
@@ -372,6 +386,19 @@ export function eventMatchesActivityFilter(
   if (selected.length === 0) return true;
 
   const effective = effectiveActivitiesForMatch(eventActivities, meta);
+  const travelSelected =
+    selected.includes("reizen") || selected.includes("weekend");
+  const travelLed = isWeekendLedSocial(eventActivities, meta);
+  // Without Weekend/reis selected, ski/reis packages must not leak via sport/eten/drinken.
+  if (travelLed && !travelSelected) {
+    return false;
+  }
+
+  const speeddateLed = effective.includes("speeddate") && !travelLed;
+  if (speeddateLed && !selected.includes("speeddate")) {
+    return false;
+  }
+
   const overlap = selected.filter((activity) => effective.includes(activity));
   if (overlap.length === 0) return false;
 
@@ -380,8 +407,6 @@ export function eventMatchesActivityFilter(
   );
   const drinksSelected = selected.includes("drinken");
   const foodSelected = selected.includes("eten");
-  const travelSelected =
-    selected.includes("reizen") || selected.includes("weekend");
   const sportSliceSelected = selected.some((activity) =>
     (SPORT_ACTIVE_ACTIVITIES as readonly ActivityId[]).includes(activity),
   );

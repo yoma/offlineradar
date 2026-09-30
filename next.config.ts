@@ -6,6 +6,12 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_BETA_WELCOME_ENABLED:
       process.env.NEXT_PUBLIC_BETA_WELCOME_ENABLED ?? "1",
   },
+  // Screenshots up to INTAKE_MAX_BYTES (4 MB) + multipart overhead.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "5mb",
+    },
+  },
   images: {
     remotePatterns: [
       {

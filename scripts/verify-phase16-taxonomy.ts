@@ -266,7 +266,7 @@ const MATRIX: { event: Event; expect: Expect }[] = [
     event: SKI,
     expect: {
       speeddate: false,
-      sport_active: true,
+      sport_active: false,
       outdoor_narrow: false,
       dinner: false,
       party: false,
@@ -341,10 +341,13 @@ function main() {
   );
   ok("walking/hiking/sport_active tokens");
 
-  const skiGroups = publicGroupsForEventActivities(["reizen", "sport"]);
-  assert.ok(skiGroups.includes("sport_active"));
+  const skiGroups = publicGroupsForEventActivities(["reizen", "sport"], {
+    title: "Tomeeto — Skiweek Kronplatz (40–55)",
+    subCategory: "singles ski",
+  });
   assert.ok(skiGroups.includes("travel"));
-  ok("8. travel ski may match travel + sport_active");
+  assert.ok(!skiGroups.includes("sport_active"));
+  ok("8. travel ski is travel-only (not Sport & actief via secondary sport tag)");
 
   for (const row of MATRIX) {
     const groups = publicGroupsForEventActivities(row.event.activities, {
@@ -441,11 +444,34 @@ function main() {
     NOW,
   );
   const activeIds = activeOnly.visible.map((e) => e.id).sort();
-  assert.deepEqual(activeIds, ["bowling", "ski", "walk"]);
+  assert.deepEqual(activeIds, ["bowling", "walk"]);
+  assert.ok(!activeOnly.visible.some((e) => e.id === "ski"));
   assert.ok(!activeOnly.visible.some((e) => e.id === "sd"));
   assert.ok(!activeOnly.visible.some((e) => e.id === "apero"));
   assert.ok(!activeOnly.visible.some((e) => e.id === "vv"));
-  ok("11. Sport & actief includes bowling + walk + ski; no speeddate/apero/weekend");
+  ok("11. Sport & actief includes bowling + walk; excludes ski/reis packages");
+
+  const withoutTravel = matchingEvents(
+    CATALOG,
+    {
+      ...base,
+      activities: [
+        ...SPORT_ACTIVE_ACTIVITIES,
+        "speeddate",
+        "eten",
+        "drinken",
+        "party",
+        "dans",
+        "workshop",
+      ],
+      maxDistanceKm: 1000,
+    },
+    NOW,
+  );
+  assert.ok(!withoutTravel.visible.some((e) => e.id === "ski"));
+  assert.ok(!withoutTravel.visible.some((e) => e.id === "vv"));
+  assert.ok(withoutTravel.visible.some((e) => e.id === "bowling"));
+  ok("all formats except travel: no ski/weekend packages");
 
   const drinksOnly = matchingEvents(
     CATALOG,

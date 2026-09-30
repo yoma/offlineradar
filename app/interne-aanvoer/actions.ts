@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { signIn, signOut } from "@/auth";
 import { resolveTipsAdminAccess } from "@/lib/tips/admin-auth";
-import { storeIntakeAsset, validateIntakeImage } from "@/lib/aanvoer/assets";
+import {
+  resolveIntakeImageMime,
+  storeIntakeAsset,
+  validateIntakeImage,
+} from "@/lib/aanvoer/assets";
 import { findIntakeMatches } from "@/lib/aanvoer/dedupe";
 import { runAdminIntakeExtract } from "@/lib/aanvoer/extract";
 import {
@@ -12,6 +16,7 @@ import {
 } from "@/lib/aanvoer/save";
 import { htmlToPlainishText, safeFetchTipSource } from "@/lib/tips/safe-fetch";
 import {
+  INTAKE_MAX_BYTES,
   proposalToDraft,
   type IntakeEditableDraft,
   type IntakeMatch,
@@ -92,14 +97,24 @@ export async function analyzeIntakeAction(
     if (!(file instanceof File) || file.size === 0) {
       return { ok: false, error: "Kies een screenshot (PNG/JPG/WEBP)." };
     }
-    const mimeType = file.type || "application/octet-stream";
+    if (file.size > INTAKE_MAX_BYTES) {
+      return { ok: false, error: "Screenshot mag maximaal 4 MB zijn." };
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const resolved = resolveIntakeImageMime({
+      declaredMime: file.type || "",
+      data: buffer,
+    });
+    if (!resolved.ok) return { ok: false, error: resolved.error };
+
+    const mimeType = resolved.mimeType;
     const check = validateIntakeImage({
       mimeType,
-      byteSize: file.size,
+      byteSize: buffer.byteLength,
     });
     if (!check.ok) return { ok: false, error: check.error };
 
-    const buffer = Buffer.from(await file.arrayBuffer());
     const stored = await storeIntakeAsset({
       mimeType,
       data: buffer,

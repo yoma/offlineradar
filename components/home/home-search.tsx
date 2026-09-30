@@ -20,6 +20,7 @@ import type { SearchState, WhenFilter } from "@/types/search";
 import {
   expandActivityFilterSelection,
   isPublicActivityGroupSelected,
+  PUBLIC_ACTIVITY_GROUPS,
   type PublicActivityGroupId,
   togglePublicActivityGroup,
 } from "@/lib/public-activity-groups";
@@ -53,8 +54,23 @@ const TYPE_QUICK: QuickChip[] = [
   { kind: "activity_group", label: "Weekend / reis", groupId: "travel" },
 ];
 
+/** Full category set: empty filter means "all" (same as selecting every value). */
+const ALL_CATEGORIES: EventCategory[] = [
+  "dating",
+  "meet_new_people",
+  "social",
+];
+
+const ALL_ACTIVITY_IDS: ActivityId[] = Array.from(
+  new Set(PUBLIC_ACTIVITY_GROUPS.flatMap((group) => [...group.activities])),
+);
+
 function includesAll<T>(haystack: T[], needles: T[]) {
   return needles.every((item) => haystack.includes(item));
+}
+
+function sameSet<T>(a: T[], b: readonly T[]) {
+  return a.length === b.length && includesAll(a, [...b]);
 }
 
 function toggleList<T>(current: T[], next: T[]) {
@@ -73,6 +89,8 @@ export function HomeHero() {
   const [date, setDate] = useState("");
   const [activities, setActivities] = useState<ActivityId[]>([]);
   const [categories, setCategories] = useState<EventCategory[]>([]);
+  /** Explicit "Alle soorten" toggle (empty lists alone cannot mean both on and off). */
+  const [allTypes, setAllTypes] = useState(true);
   const [prefMin, setPrefMin] = useState("");
   const [prefMax, setPrefMax] = useState("");
   const [meetGender, setMeetGender] =
@@ -95,6 +113,7 @@ export function HomeHero() {
       if (profile.placeId) setPlaceId(findPlace(profile.placeId).id);
       if (profile.maxDistanceKm) setDistance(profile.maxDistanceKm);
       if (profile.interests.length) {
+        setAllTypes(false);
         setActivities(expandActivityFilterSelection(profile.interests));
       }
       if (profile.preferredAgeMin) setPrefMin(String(profile.preferredAgeMin));
@@ -105,10 +124,29 @@ export function HomeHero() {
 
   function isChipActive(chip: QuickChip) {
     if (chip.kind === "when") return when === chip.when;
+    if (allTypes) return true;
     if (chip.kind === "category") {
       return includesAll(categories, chip.categories);
     }
     return isPublicActivityGroupSelected(activities, chip.groupId);
+  }
+
+  function applyTypeSelection(
+    nextCategories: EventCategory[],
+    nextActivities: ActivityId[],
+  ) {
+    if (
+      sameSet(nextCategories, ALL_CATEGORIES) &&
+      sameSet(nextActivities, ALL_ACTIVITY_IDS)
+    ) {
+      setAllTypes(true);
+      setCategories([]);
+      setActivities([]);
+      return;
+    }
+    setAllTypes(false);
+    setCategories(nextCategories);
+    setActivities(nextActivities);
   }
 
   function toggleChip(chip: QuickChip) {
@@ -117,16 +155,56 @@ export function HomeHero() {
       if (chip.when !== "date") setDate("");
       return;
     }
+
+    const emptyCustom =
+      !allTypes && categories.length === 0 && activities.length === 0;
+
     if (chip.kind === "category") {
-      setCategories((current) => toggleList(current, chip.categories));
+      if (allTypes) {
+        applyTypeSelection(
+          ALL_CATEGORIES.filter((id) => !chip.categories.includes(id)),
+          [...ALL_ACTIVITY_IDS],
+        );
+        return;
+      }
+      if (emptyCustom) {
+        applyTypeSelection([...chip.categories], []);
+        return;
+      }
+      applyTypeSelection(toggleList(categories, chip.categories), activities);
       return;
     }
-    setActivities((current) => togglePublicActivityGroup(current, chip.groupId));
+
+    if (allTypes) {
+      const group = PUBLIC_ACTIVITY_GROUPS.find((g) => g.id === chip.groupId);
+      const remove = new Set(group?.activities ?? []);
+      applyTypeSelection(
+        [...ALL_CATEGORIES],
+        ALL_ACTIVITY_IDS.filter((id) => !remove.has(id)),
+      );
+      return;
+    }
+    if (emptyCustom) {
+      applyTypeSelection(
+        [],
+        togglePublicActivityGroup([], chip.groupId),
+      );
+      return;
+    }
+    applyTypeSelection(
+      categories,
+      togglePublicActivityGroup(activities, chip.groupId),
+    );
   }
 
-  const noTypeFilter = categories.length === 0 && activities.length === 0;
-
-  function clearTypeFilters() {
+  function toggleAlleSoorten() {
+    if (allTypes) {
+      setAllTypes(false);
+      setCategories([]);
+      setActivities([]);
+      return;
+    }
+    setAllTypes(true);
     setCategories([]);
     setActivities([]);
   }
@@ -181,8 +259,11 @@ export function HomeHero() {
       preferredMeetGender: meetGender,
       when,
       date: when === "date" ? date || null : null,
-      categories,
-      activities,
+      // "Alles" (allTypes of volledige set) = geen typefilter in de zoek-URL.
+      categories:
+        allTypes || sameSet(categories, ALL_CATEGORIES) ? [] : categories,
+      activities:
+        allTypes || sameSet(activities, ALL_ACTIVITY_IDS) ? [] : activities,
       price: "any",
       singlesOnly: false,
       availability: "any",
@@ -504,10 +585,10 @@ export function HomeHero() {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  aria-pressed={noTypeFilter}
-                  onClick={clearTypeFilters}
+                  aria-pressed={allTypes}
+                  onClick={toggleAlleSoorten}
                   className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold backdrop-blur-sm transition ${
-                    noTypeFilter
+                    allTypes
                       ? "border-white bg-white text-foreground"
                       : "border-white/40 bg-white/15 text-white hover:bg-white/25"
                   }`}

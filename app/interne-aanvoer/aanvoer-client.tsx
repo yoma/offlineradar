@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import {
   analyzeIntakeAction,
   saveIntakeCombinedAction,
@@ -15,6 +15,7 @@ import type {
   IntakeProposal,
   IntakeSourceKindHint,
 } from "@/lib/aanvoer/types";
+import { INTAKE_MAX_BYTES } from "@/lib/aanvoer/types";
 
 const MODES: { id: IntakeMode; label: string; help: string }[] = [
   {
@@ -30,9 +31,37 @@ const MODES: { id: IntakeMode; label: string; help: string }[] = [
   {
     id: "screenshot",
     label: "Screenshot",
-    help: "Upload PNG, JPG/JPEG of WEBP (max 4 MB). Alleen review-evidence.",
+    help: "Upload PNG, JPG of WEBP (max 4 MB). Geen HEIC. Alleen review-evidence.",
   },
 ];
+
+function validateScreenshotFile(file: File | null): string | null {
+  if (!file || file.size === 0) {
+    return "Kies een screenshot (PNG/JPG/WEBP).";
+  }
+  if (file.size > INTAKE_MAX_BYTES) {
+    return "Screenshot mag maximaal 4 MB zijn.";
+  }
+  const type = (file.type || "").toLowerCase();
+  const name = file.name.toLowerCase();
+  if (
+    type === "image/heic" ||
+    type === "image/heif" ||
+    name.endsWith(".heic") ||
+    name.endsWith(".heif")
+  ) {
+    return "HEIC wordt niet ondersteund. Sla op als PNG of JPG.";
+  }
+  if (
+    type &&
+    type !== "image/png" &&
+    type !== "image/jpeg" &&
+    type !== "image/webp"
+  ) {
+    return "Alleen PNG, JPG/JPEG of WEBP zijn toegestaan.";
+  }
+  return null;
+}
 
 function statusLabel(status: FieldStatus): string {
   if (status === "found") return "gevonden";
@@ -68,6 +97,7 @@ export function AanvoerClient({
   const [text, setText] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [proposal, setProposal] = useState<IntakeProposal | null>(null);
   const [draft, setDraft] = useState<IntakeEditableDraft | null>(null);
   const [matches, setMatches] = useState<IntakeMatch[]>([]);
@@ -76,9 +106,13 @@ export function AanvoerClient({
   const [error, setError] = useState<string | null>(null);
   const [forceNeeded, setForceNeeded] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [savingKind, setSavingKind] = useState<
+    null | "source" | "event" | "combined"
+  >(null);
   const [savedSourceId, setSavedSourceId] = useState<string | null>(null);
   const [savedEditionId, setSavedEditionId] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const saveFeedbackRef = useRef<HTMLDivElement>(null);
 
   const fieldStatus = useMemo(() => {
     if (!proposal) return {} as Record<string, FieldStatus>;
@@ -131,6 +165,16 @@ export function AanvoerClient({
     setDismissed(false);
     setSavedSourceId(null);
     setSavedEditionId(null);
+    setSavingKind(null);
+  }
+
+  function scrollToSaveFeedback() {
+    queueMicrotask(() => {
+      saveFeedbackRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
   }
 
   function analyze() {
@@ -138,6 +182,18 @@ export function AanvoerClient({
     setMessage(null);
     setDismissed(false);
     setForceNeeded(false);
+    setSavingKind(null);
+    setSavedSourceId(null);
+    setSavedEditionId(null);
+
+    if (mode === "screenshot") {
+      const fileError = validateScreenshotFile(file);
+      if (fileError) {
+        setError(fileError);
+        return;
+      }
+    }
+
     const formData = new FormData();
     formData.set("mode", mode);
     formData.set("url", url);
@@ -145,56 +201,88 @@ export function AanvoerClient({
     if (file) formData.set("screenshot", file);
 
     startTransition(async () => {
-      const result = await analyzeIntakeAction(formData);
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      setProposal(result.proposal);
-      setDraft(result.draft);
-      setMatches(result.matches);
-      setAssetId(result.assetId);
-      if (result.proposal.aiFailed) {
-        setMessage(result.proposal.aiError);
+      try {
+        const result = await analyzeIntakeAction(formData);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        setProposal(result.proposal);
+        setDraft(result.draft);
+        setMatches(result.matches);
+        setAssetId(result.assetId);
+        if (result.proposal.aiFailed) {
+          setMessage(result.proposal.aiError);
+        }
+      } catch (err) {
+        const text =
+          err instanceof Error ? err.message : "Analyse mislukt.";
+        if (/body exceeded|413|too large/i.test(text)) {
+          setError(
+            "Bestand is te groot voor de upload. Gebruik een screenshot tot 4 MB (PNG/JPG).",
+          );
+          return;
+        }
+        setError(text || "Analyse mislukt. Probeer opnieuw.");
       }
     });
   }
 
   function runSave(
+    kind: "source" | "event" | "combined",
     action: typeof saveIntakeSourceAction,
     force = false,
   ) {
-    if (!draft) return;
+    if (!draft || pending) return;
     setError(null);
     setMessage(null);
     setSavedSourceId(null);
     setSavedEditionId(null);
+    setSavingKind(kind);
+    scrollToSaveFeedback();
+
     const formData = new FormData();
     formData.set("draft", JSON.stringify(draft));
     if (assetId) formData.set("assetId", assetId);
     if (force) formData.set("force", "1");
 
     startTransition(async () => {
-      const result = await action(formData);
-      if (!result.ok) {
-        setError(result.error);
-        if (result.matches?.length) {
-          setMatches(result.matches);
-          setForceNeeded(true);
+      try {
+        const result = await action(formData);
+        if (!result.ok) {
+          setError(result.error);
+          if (result.matches?.length) {
+            setMatches(result.matches);
+            setForceNeeded(true);
+          }
+          setSavingKind(null);
+          scrollToSaveFeedback();
+          return;
         }
-        return;
+        setForceNeeded(false);
+        const parts: string[] = [];
+        if (result.sourceId) {
+          setSavedSourceId(result.sourceId);
+          parts.push("Bron staat in Mijn bronnen.");
+        }
+        if (result.editionId) {
+          setSavedEditionId(result.editionId);
+          parts.push("Event-kandidaat staat klaar voor review.");
+        }
+        setMessage(
+          parts.length > 0
+            ? `Gelukt. ${parts.join(" ")}`
+            : `Gelukt. ${result.message}`,
+        );
+        setSavingKind(null);
+        scrollToSaveFeedback();
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Opslaan mislukt. Probeer opnieuw.",
+        );
+        setSavingKind(null);
+        scrollToSaveFeedback();
       }
-      setForceNeeded(false);
-      const parts: string[] = [];
-      if (result.sourceId) {
-        setSavedSourceId(result.sourceId);
-        parts.push("Bron opgeslagen.");
-      }
-      if (result.editionId) {
-        setSavedEditionId(result.editionId);
-        parts.push("Event-kandidaat opgeslagen.");
-      }
-      setMessage(parts.length > 0 ? parts.join(" ") : result.message);
     });
   }
 
@@ -269,25 +357,63 @@ export function AanvoerClient({
           ) : null}
 
           {mode === "screenshot" ? (
-            <label className="block text-sm">
-              <span className="mb-1 block font-medium text-stone-800">
+            <div className="block text-sm">
+              <span className="mb-1.5 block font-medium text-stone-800">
                 Screenshot
               </span>
               <input
+                ref={fileInputRef}
                 type="file"
-                accept="image/png,image/jpeg,image/webp"
-                capture="environment"
-                className="block w-full text-sm text-stone-700"
+                accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+                className="sr-only"
                 onChange={(event) => {
                   const next = event.target.files?.[0] ?? null;
-                  setFile(next);
+                  const fileError = validateScreenshotFile(next);
+                  setFile(fileError ? null : next);
                   setFileName(next?.name ?? null);
+                  setError(fileError);
                 }}
               />
-              {fileName ? (
-                <p className="mt-1 break-all text-xs text-stone-500">{fileName}</p>
-              ) : null}
-            </label>
+              <div
+                className={`flex flex-col gap-3 rounded-2xl border border-dashed px-4 py-4 sm:flex-row sm:items-center sm:justify-between ${
+                  file
+                    ? "border-emerald-300 bg-emerald-50/70"
+                    : "border-stone-300 bg-stone-50"
+                }`}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-stone-900">
+                    {fileName ? "Bestand geselecteerd" : "Nog geen bestand gekozen"}
+                  </p>
+                  <p className="mt-0.5 break-all text-xs text-stone-600">
+                    {fileName ?? "PNG, JPG of WEBP · max 4 MB · geen HEIC"}
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="inline-flex h-11 items-center justify-center rounded-full bg-stone-900 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-stone-800"
+                  >
+                    {file ? "Ander bestand" : "Bestand kiezen"}
+                  </button>
+                  {file ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFile(null);
+                        setFileName(null);
+                        setError(null);
+                        if (fileInputRef.current) fileInputRef.current.value = "";
+                      }}
+                      className="inline-flex h-11 items-center justify-center rounded-full border border-stone-300 bg-white px-4 text-sm font-semibold text-stone-700 transition hover:bg-stone-100"
+                    >
+                      Wissen
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
           ) : null}
         </div>
 
@@ -297,7 +423,7 @@ export function AanvoerClient({
           onClick={analyze}
           className="mt-4 h-11 w-full rounded-full bg-rose-700 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-800 disabled:opacity-60 sm:w-auto"
         >
-          {pending ? "Bezig…" : "Analyseer"}
+          {pending && !savingKind ? "Bezig met analyseren…" : "Analyseer"}
         </button>
       </section>
 
@@ -491,43 +617,166 @@ export function AanvoerClient({
             </label>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => runSave(saveIntakeSourceAction, forceNeeded)}
-              className="h-11 rounded-full border border-stone-300 bg-white px-4 text-sm font-semibold text-stone-800 hover:border-stone-900 disabled:opacity-60"
-            >
-              Bewaar als bron
-            </button>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => runSave(saveIntakeEventAction, forceNeeded)}
-              className="h-11 rounded-full border border-stone-300 bg-white px-4 text-sm font-semibold text-stone-800 hover:border-stone-900 disabled:opacity-60"
-            >
-              Maak event-kandidaat
-            </button>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => runSave(saveIntakeCombinedAction, forceNeeded)}
-              className="h-11 rounded-full bg-stone-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
-            >
-              Bron + event voorbereiden
-            </button>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => setDismissed(true)}
-              className="h-11 rounded-full px-4 text-sm font-medium text-stone-500 underline-offset-4 hover:underline"
-            >
-              Niet relevant
-            </button>
+          <div
+            ref={saveFeedbackRef}
+            className="space-y-3 rounded-2xl border border-stone-200 bg-stone-50/80 p-3 sm:p-4"
+          >
+            <p className="text-sm font-semibold text-stone-900">
+              Wat wil je hiermee doen?
+            </p>
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-950">
+              <p className="font-semibold">Geen automatische scan bij deze knop</p>
+              <p className="mt-1">
+                Bewaren zet de bron op je lijst als{" "}
+                <strong>verplichte input voor latere discovery</strong>. Er start
+                nu geen crawl/refresh. Publicatie gebeurt pas na handmatige review
+                van een event-kandidaat.
+              </p>
+            </div>
+
+            {savingKind ? (
+              <div
+                role="status"
+                aria-live="polite"
+                className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-3 text-sm text-sky-950"
+              >
+                <p className="font-semibold">
+                  {savingKind === "source"
+                    ? "Bron wordt bewaard…"
+                    : savingKind === "event"
+                      ? "Event-kandidaat wordt gemaakt…"
+                      : "Bron én event-kandidaat worden bewaard…"}
+                </p>
+                <p className="mt-1 text-xs text-sky-900/80">
+                  Even geduld. Dit publiceert niets.
+                </p>
+              </div>
+            ) : null}
+
+            {error && draft ? (
+              <div
+                role="alert"
+                className="rounded-xl border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-900"
+              >
+                <p className="font-semibold">Niet gelukt</p>
+                <p className="mt-1">{error}</p>
+                {forceNeeded ? (
+                  <p className="mt-2 text-xs">
+                    Er is een mogelijke match. Klik opnieuw op dezelfde knop om
+                    toch te bewaren.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {message && (savedSourceId || savedEditionId) ? (
+              <div
+                role="status"
+                className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-950"
+              >
+                <p className="font-semibold">{message}</p>
+                <p className="mt-1 text-xs leading-5 text-emerald-900/90">
+                  {savedSourceId
+                    ? "De bron zit in Mijn bronnen en blijft mandatory voor toekomstige scans. Er loopt nu geen scan."
+                    : null}
+                  {savedSourceId && savedEditionId ? " " : null}
+                  {savedEditionId
+                    ? "Het event staat als kandidaat klaar; jij (of review) publiceert later."
+                    : null}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-3">
+                  {savedSourceId ? (
+                    <button
+                      type="button"
+                      className="font-semibold text-emerald-900 underline-offset-4 hover:underline"
+                      onClick={() => onSavedSource?.(savedSourceId)}
+                    >
+                      Open Mijn bronnen
+                    </button>
+                  ) : null}
+                  {savedEditionId ? (
+                    <button
+                      type="button"
+                      className="font-semibold text-emerald-900 underline-offset-4 hover:underline"
+                      onClick={() => onSavedCandidate?.(savedEditionId)}
+                    >
+                      Open Event-kandidaten
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="grid gap-2">
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() =>
+                  runSave("source", saveIntakeSourceAction, forceNeeded)
+                }
+                className="rounded-2xl border border-stone-300 bg-white px-4 py-3 text-left transition hover:border-stone-900 disabled:opacity-60"
+              >
+                <span className="block text-sm font-semibold text-stone-900">
+                  {savingKind === "source"
+                    ? "Bezig met bewaren…"
+                    : "Alleen bron bewaren"}
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-stone-600">
+                  Nu: op de bronnenlijst. Later: meenemen in discovery/scans.
+                  Geen event, geen publicatie, geen scan juist nu.
+                </span>
+              </button>
+
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() =>
+                  runSave("event", saveIntakeEventAction, forceNeeded)
+                }
+                className="rounded-2xl border border-stone-300 bg-white px-4 py-3 text-left transition hover:border-stone-900 disabled:opacity-60"
+              >
+                <span className="block text-sm font-semibold text-stone-900">
+                  {savingKind === "event"
+                    ? "Bezig met maken…"
+                    : "Alleen event-kandidaat maken"}
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-stone-600">
+                  Nu: concept bij Event-kandidaten. Geen bronnenlijst, geen
+                  automatische scan, niet zichtbaar voor gebruikers.
+                </span>
+              </button>
+
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() =>
+                  runSave("combined", saveIntakeCombinedAction, forceNeeded)
+                }
+                className="rounded-2xl border border-stone-900 bg-stone-900 px-4 py-3 text-left text-white transition hover:bg-stone-800 disabled:opacity-60"
+              >
+                <span className="block text-sm font-semibold">
+                  {savingKind === "combined"
+                    ? "Bezig met bewaren…"
+                    : "Bron én event-kandidaat"}
+                </span>
+                <span className="mt-1 block text-xs leading-5 text-white/80">
+                  Nu: bron op de lijst + concept-event. Scan later via discovery;
+                  publicatie pas na review.
+                </span>
+              </button>
+
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => setDismissed(true)}
+                className="rounded-2xl px-4 py-2.5 text-left text-sm font-medium text-stone-500 underline-offset-4 hover:underline disabled:opacity-60"
+              >
+                Niet relevant — niets bewaren
+              </button>
+            </div>
           </div>
           <p className="text-xs text-stone-500">
-            Geen directe publicatie vanaf intake. Screenshot wordt nooit public
-            event image.
+            Screenshot blijft privé-evidence en wordt nooit public event image.
           </p>
         </section>
       ) : null}
