@@ -94,16 +94,30 @@ export async function analyzeIntakeAction(
   }
 
   if (mode === "screenshot") {
-    if (!(file instanceof File) || file.size === 0) {
+    // Server Actions may yield Blob/File; avoid brittle `instanceof File`.
+    const blob =
+      file instanceof Blob
+        ? file
+        : file &&
+            typeof file === "object" &&
+            "arrayBuffer" in file &&
+            typeof (file as Blob).arrayBuffer === "function"
+          ? (file as Blob)
+          : null;
+    if (!blob || blob.size === 0) {
       return { ok: false, error: "Kies een screenshot (PNG/JPG/WEBP)." };
     }
-    if (file.size > INTAKE_MAX_BYTES) {
+    if (blob.size > INTAKE_MAX_BYTES) {
       return { ok: false, error: "Screenshot mag maximaal 4 MB zijn." };
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const buffer = Buffer.from(await blob.arrayBuffer());
+    const declaredMime =
+      (file instanceof File && file.type) ||
+      (blob.type ? blob.type : "") ||
+      "";
     const resolved = resolveIntakeImageMime({
-      declaredMime: file.type || "",
+      declaredMime,
       data: buffer,
     });
     if (!resolved.ok) return { ok: false, error: resolved.error };
@@ -115,10 +129,11 @@ export async function analyzeIntakeAction(
     });
     if (!check.ok) return { ok: false, error: check.error };
 
+    const uploadedBy = gate.email!;
     const stored = await storeIntakeAsset({
       mimeType,
       data: buffer,
-      uploadedBy: gate.email!,
+      uploadedBy,
     });
     if (!stored) {
       return {

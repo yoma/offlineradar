@@ -35,6 +35,16 @@ const MODES: { id: IntakeMode; label: string; help: string }[] = [
   },
 ];
 
+function hasScreenshotExtension(name: string): boolean {
+  const lower = name.toLowerCase();
+  return (
+    lower.endsWith(".png") ||
+    lower.endsWith(".jpg") ||
+    lower.endsWith(".jpeg") ||
+    lower.endsWith(".webp")
+  );
+}
+
 function validateScreenshotFile(file: File | null): string | null {
   if (!file || file.size === 0) {
     return "Kies een screenshot (PNG/JPG/WEBP).";
@@ -42,25 +52,31 @@ function validateScreenshotFile(file: File | null): string | null {
   if (file.size > INTAKE_MAX_BYTES) {
     return "Screenshot mag maximaal 4 MB zijn.";
   }
-  const type = (file.type || "").toLowerCase();
-  const name = file.name.toLowerCase();
+  const type = (file.type || "").toLowerCase().trim();
+  const name = file.name || "";
   if (
     type === "image/heic" ||
     type === "image/heif" ||
-    name.endsWith(".heic") ||
-    name.endsWith(".heif")
+    name.toLowerCase().endsWith(".heic") ||
+    name.toLowerCase().endsWith(".heif")
   ) {
     return "HEIC wordt niet ondersteund. Sla op als PNG of JPG.";
   }
+  // iOS/Safari often sends empty type or application/octet-stream; trust extension then.
   if (
-    type &&
-    type !== "image/png" &&
-    type !== "image/jpeg" &&
-    type !== "image/webp"
+    type === "image/png" ||
+    type === "image/jpeg" ||
+    type === "image/jpg" ||
+    type === "image/webp"
   ) {
-    return "Alleen PNG, JPG/JPEG of WEBP zijn toegestaan.";
+    return null;
   }
-  return null;
+  if (!type || type === "application/octet-stream") {
+    if (hasScreenshotExtension(name)) return null;
+    return "Kies een bestand met extensie .png, .jpg of .webp.";
+  }
+  if (hasScreenshotExtension(name)) return null;
+  return "Alleen PNG, JPG/JPEG of WEBP zijn toegestaan.";
 }
 
 function statusLabel(status: FieldStatus): string {
@@ -369,9 +385,17 @@ export function AanvoerClient({
                 onChange={(event) => {
                   const next = event.target.files?.[0] ?? null;
                   const fileError = validateScreenshotFile(next);
-                  setFile(fileError ? null : next);
+                  if (fileError) {
+                    setFile(null);
+                    setFileName(null);
+                    setError(fileError);
+                    // Allow picking the same file again after a reject.
+                    event.target.value = "";
+                    return;
+                  }
+                  setFile(next);
                   setFileName(next?.name ?? null);
-                  setError(fileError);
+                  setError(null);
                 }}
               />
               <div
@@ -383,10 +407,12 @@ export function AanvoerClient({
               >
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-stone-900">
-                    {fileName ? "Bestand geselecteerd" : "Nog geen bestand gekozen"}
+                    {file ? "Bestand geselecteerd" : "Nog geen bestand gekozen"}
                   </p>
                   <p className="mt-0.5 break-all text-xs text-stone-600">
-                    {fileName ?? "PNG, JPG of WEBP · max 4 MB · geen HEIC"}
+                    {file && fileName
+                      ? `${fileName} · ${(file.size / (1024 * 1024)).toFixed(1)} MB`
+                      : "PNG, JPG of WEBP · max 4 MB · geen HEIC"}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2">
@@ -419,12 +445,17 @@ export function AanvoerClient({
 
         <button
           type="button"
-          disabled={pending}
+          disabled={pending || (mode === "screenshot" && !file)}
           onClick={analyze}
           className="mt-4 h-11 w-full rounded-full bg-rose-700 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-800 disabled:opacity-60 sm:w-auto"
         >
           {pending && !savingKind ? "Bezig met analyseren…" : "Analyseer"}
         </button>
+        {mode === "screenshot" && !file ? (
+          <p className="mt-2 text-xs text-stone-500">
+            Kies eerst een screenshot-bestand om te analyseren.
+          </p>
+        ) : null}
       </section>
 
       {error ? (
