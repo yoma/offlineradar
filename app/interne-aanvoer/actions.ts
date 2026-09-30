@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { signIn, signOut } from "@/auth";
-import { resolveTipsAdminAccess } from "@/lib/tips/admin-auth";
+import { evaluateIntakeApproval } from "@/lib/aanvoer/approval";
 import {
   resolveIntakeImageMime,
   storeIntakeAsset,
@@ -14,7 +14,11 @@ import {
   saveIntakeAsEventCandidate,
   saveIntakeAsSource,
 } from "@/lib/aanvoer/save";
+import { updateEditionPublication } from "@/lib/events/neon-store";
+import { resolveTipsAdminAccess } from "@/lib/tips/admin-auth";
+import { neonListTipIdsForEdition } from "@/lib/tips/neon-store";
 import { htmlToPlainishText, safeFetchTipSource } from "@/lib/tips/safe-fetch";
+import { updateTipStatus } from "@/lib/tips/service";
 import {
   INTAKE_MAX_BYTES,
   proposalToDraft,
@@ -73,10 +77,7 @@ export async function analyzeIntakeAction(
     if (!url) return { ok: false, error: "Plak eerst een URL." };
     const fetched = await safeFetchTipSource(url);
     if (fetched.ok) {
-      sourceText = [
-        text,
-        htmlToPlainishText(fetched.text),
-      ]
+      sourceText = [text, htmlToPlainishText(fetched.text)]
         .filter(Boolean)
         .join("\n\n");
     } else {
@@ -94,7 +95,6 @@ export async function analyzeIntakeAction(
   }
 
   if (mode === "screenshot") {
-    // Server Actions may yield Blob/File; avoid brittle `instanceof File`.
     const blob =
       file instanceof Blob
         ? file
@@ -129,11 +129,10 @@ export async function analyzeIntakeAction(
     });
     if (!check.ok) return { ok: false, error: check.error };
 
-    const uploadedBy = gate.email!;
     const stored = await storeIntakeAsset({
       mimeType,
       data: buffer,
-      uploadedBy,
+      uploadedBy: gate.email!,
     });
     if (!stored) {
       return {
@@ -178,6 +177,22 @@ export type SaveIntakeResult =
   | { ok: true; message: string; sourceId?: string; editionId?: string }
   | { ok: false; error: string; matches?: IntakeMatch[] };
 
+export type ApproveIntakeResult =
+  | {
+      ok: true;
+      message: string;
+      sourceId?: string;
+      editionId: string;
+      published: boolean;
+      reviewReasons: string[];
+    }
+  | {
+      ok: false;
+      error: string;
+      matches?: IntakeMatch[];
+      blockers?: string[];
+    };
+
 function parseDraft(raw: string): IntakeEditableDraft | null {
   try {
     const parsed = JSON.parse(raw) as IntakeEditableDraft;
@@ -188,6 +203,109 @@ function parseDraft(raw: string): IntakeEditableDraft | null {
   }
 }
 
+/** Primary CTA: save source+event; publish only when approval gate passes. */
+export async function approveIntakeAction(
+  formData: FormData,
+): Promise<ApproveIntakeResult> {
+  const gate = await requireAdmin();
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  const draft = parseDraft(String(formData.get("draft") ?? ""));
+  if (!draft) return { ok: false, error: "Ongeldige draft." };
+  const assetId = String(formData.get("assetId") ?? "").trim() || null;
+  const force = String(formData.get("force") ?? "") === "1";
+  const needsSourceVerification =
+    String(formData.get("needsSourceVerification") ?? "") === "1";
+  const aiFailed = String(formData.get("aiFailed") ?? "") === "1";
+
+  const approval = evaluateIntakeApproval(draft, {
+    needsSourceVerification,
+    routeAdvice: draft.routeAdvice,
+    aiFailed,
+  });
+  if (approval.blockers.length > 0) {
+    return {
+      ok: false,
+      error: approval.blockers.join(" "),
+      blockers: approval.blockers,
+    };
+  }
+
+  const matches = await findIntakeMatches(draft);
+  if (
+    !force &&
+    matches.some((m) => m.kind === "catalog_source" || m.kind === "event_edition")
+  ) {
+    return {
+      ok: false,
+      error: "Dit event lijkt al in OfflineRadar te staan.",
+      matches,
+    };
+  }
+
+  let sourceId: string | undefined;
+  const hasUrl = Boolean(draft.sourceUrl.trim() || draft.organizerUrl.trim());
+  if (hasUrl) {
+    const source = await saveIntakeAsSource({
+      draft,
+      assetId,
+      force: true,
+    });
+    if (!source.ok) {
+      if (approval.canPublish) return source;
+    } else {
+      sourceId = source.sourceId;
+    }
+  }
+
+  const event = await saveIntakeAsEventCandidate({ draft, assetId });
+  if (!event.ok) return event;
+
+  let published = false;
+  if (approval.canPublish) {
+    const now = new Date().toISOString();
+    const updated = await updateEditionPublication({
+      id: event.editionId,
+      publicationStatus: "published",
+      publishedAt: now,
+      approvedAt: now,
+    });
+    published = Boolean(updated);
+    if (published) {
+      const tipIds = await neonListTipIdsForEdition(event.editionId);
+      for (const tipId of tipIds) {
+        await updateTipStatus({
+          tipId,
+          status: "published",
+          decisionReason: "Gekoppeld event goedgekeurd via /interne-aanvoer.",
+          publishedEventPath: `/event/${event.slug}`,
+        });
+      }
+    }
+  }
+
+  revalidatePath("/interne-aanvoer");
+  revalidatePath("/interne-events");
+  if (published) {
+    revalidatePath("/ontdek");
+    revalidatePath(`/event/${event.slug}`);
+  }
+
+  return {
+    ok: true,
+    editionId: event.editionId,
+    sourceId,
+    published,
+    reviewReasons: approval.reviewReasons,
+    message: published
+      ? "Goedgekeurd en toegevoegd. Het event staat live."
+      : approval.reviewReasons.length > 0
+        ? `Opgeslagen onder Te bekijken. ${approval.reviewReasons.join(" ")}`
+        : "Opgeslagen onder Te bekijken.",
+  };
+}
+
+/** Secondary: save URL/organizer only without creating an event. */
 export async function saveIntakeSourceAction(
   formData: FormData,
 ): Promise<SaveIntakeResult> {
@@ -203,7 +321,7 @@ export async function saveIntakeSourceAction(
   if (!force && matches.some((m) => m.kind === "catalog_source")) {
     return {
       ok: false,
-      error: "Mogelijke bestaande bron gevonden. Bevestig om toch op te slaan.",
+      error: "Deze bron lijkt al te bestaan. Bevestig om toch op te slaan.",
       matches,
     };
   }
@@ -216,82 +334,6 @@ export async function saveIntakeSourceAction(
     ok: true,
     message: result.message,
     sourceId: result.sourceId,
-  };
-}
-
-export async function saveIntakeEventAction(
-  formData: FormData,
-): Promise<SaveIntakeResult> {
-  const gate = await requireAdmin();
-  if (!gate.ok) return { ok: false, error: gate.error };
-
-  const draft = parseDraft(String(formData.get("draft") ?? ""));
-  if (!draft) return { ok: false, error: "Ongeldige draft." };
-  const assetId = String(formData.get("assetId") ?? "").trim() || null;
-  const force = String(formData.get("force") ?? "") === "1";
-
-  const matches = await findIntakeMatches(draft);
-  if (!force && matches.some((m) => m.kind === "event_edition")) {
-    return {
-      ok: false,
-      error:
-        "Mogelijke bestaande match. Kies expliciet opnieuw om toch een kandidaat te maken.",
-      matches,
-    };
-  }
-
-  const result = await saveIntakeAsEventCandidate({ draft, assetId });
-  if (!result.ok) return result;
-  revalidatePath("/interne-aanvoer");
-  revalidatePath("/interne-events");
-  return {
-    ok: true,
-    message: result.message,
-    editionId: result.editionId,
-  };
-}
-
-export async function saveIntakeCombinedAction(
-  formData: FormData,
-): Promise<SaveIntakeResult> {
-  const gate = await requireAdmin();
-  if (!gate.ok) return { ok: false, error: gate.error };
-
-  const draft = parseDraft(String(formData.get("draft") ?? ""));
-  if (!draft) return { ok: false, error: "Ongeldige draft." };
-  const assetId = String(formData.get("assetId") ?? "").trim() || null;
-  const force = String(formData.get("force") ?? "") === "1";
-
-  const matches = await findIntakeMatches(draft);
-  if (
-    !force &&
-    matches.some((m) => m.kind === "catalog_source" || m.kind === "event_edition")
-  ) {
-    return {
-      ok: false,
-      error: "Mogelijke bestaande match. Bevestig om toch bron + event te bewaren.",
-      matches,
-    };
-  }
-
-  const source = await saveIntakeAsSource({ draft, assetId, force: true });
-  if (!source.ok) return source;
-  const event = await saveIntakeAsEventCandidate({ draft, assetId });
-  if (!event.ok) {
-    return {
-      ok: false,
-      error: `Bron bewaard, maar event mislukt: ${event.error}`,
-      matches,
-    };
-  }
-
-  revalidatePath("/interne-aanvoer");
-  revalidatePath("/interne-events");
-  return {
-    ok: true,
-    message: `${source.message} ${event.message}`,
-    sourceId: source.sourceId,
-    editionId: event.editionId,
   };
 }
 
@@ -339,6 +381,7 @@ export async function updateAanvoerSourceAction(
   return { ok: true };
 }
 
+/** List actions with friendly intents (reject / review / publish). */
 export async function updateAanvoerCandidateStatusAction(
   formData: FormData,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -346,26 +389,58 @@ export async function updateAanvoerCandidateStatusAction(
   if (!gate.ok) return { ok: false, error: gate.error };
 
   const id = String(formData.get("editionId") ?? "").trim();
-  const status = String(formData.get("status") ?? "").trim();
-  if (!id) return { ok: false, error: "Kandidaat ontbreekt." };
-  if (!["draft", "under_review", "rejected", "candidate"].includes(status)) {
-    return {
-      ok: false,
-      error: "Ongeldige status (geen publicatie vanaf hier).",
-    };
+  const intent = String(
+    formData.get("intent") ?? formData.get("status") ?? "",
+  ).trim();
+  if (!id) return { ok: false, error: "Event ontbreekt." };
+
+  let status: "draft" | "under_review" | "rejected" | "candidate" | "published";
+  if (
+    intent === "reject" ||
+    intent === "rejected" ||
+    intent === "niet_toegevoegd"
+  ) {
+    status = "rejected";
+  } else if (
+    intent === "review" ||
+    intent === "under_review" ||
+    intent === "te_bekijken"
+  ) {
+    status = "under_review";
+  } else if (intent === "draft" || intent === "candidate") {
+    status = intent;
+  } else if (
+    intent === "publish" ||
+    intent === "published" ||
+    intent === "toegevoegd"
+  ) {
+    status = "published";
+  } else {
+    return { ok: false, error: "Ongeldige actie." };
   }
 
-  const { updateEditionPublication } = await import("@/lib/events/neon-store");
+  if (status === "published") {
+    const now = new Date().toISOString();
+    const updated = await updateEditionPublication({
+      id,
+      publicationStatus: "published",
+      publishedAt: now,
+      approvedAt: now,
+    });
+    if (!updated) return { ok: false, error: "Kon event niet toevoegen." };
+    revalidatePath("/interne-aanvoer");
+    revalidatePath("/interne-events");
+    revalidatePath("/ontdek");
+    revalidatePath(`/event/${updated.slug}`);
+    return { ok: true };
+  }
+
   const updated = await updateEditionPublication({
     id,
-    publicationStatus: status as
-      | "draft"
-      | "under_review"
-      | "rejected"
-      | "candidate",
+    publicationStatus: status,
     rejectedAt: status === "rejected" ? new Date().toISOString() : null,
   });
-  if (!updated) return { ok: false, error: "Kon kandidaat niet bijwerken." };
+  if (!updated) return { ok: false, error: "Kon status niet bijwerken." };
   revalidatePath("/interne-aanvoer");
   revalidatePath("/interne-events");
   return { ok: true };

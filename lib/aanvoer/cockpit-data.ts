@@ -58,6 +58,8 @@ export type AanvoerCockpitData = {
     userSupplied: number;
     candidates: number;
     reviewNeeded: number;
+    added: number;
+    dismissed: number;
   };
 };
 
@@ -122,6 +124,8 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       userSupplied: sources.filter((s) => isUserSuppliedNotes(s.notes)).length,
       candidates: 0,
       reviewNeeded: 0,
+      added: 0,
+      dismissed: 0,
     },
   };
 
@@ -239,10 +243,13 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       LIMIT 1
     ) s ON true
     WHERE
-      e.publication_status IN ('draft', 'under_review', 'candidate')
-      OR e.tags @> '["admin-intake"]'::jsonb
+      e.publication_status IN ('draft', 'under_review', 'candidate', 'published', 'rejected')
+      AND (
+        e.tags @> '["admin-intake"]'::jsonb
+        OR e.publication_status IN ('draft', 'under_review', 'candidate')
+      )
     ORDER BY e.created_at DESC
-    LIMIT 100
+    LIMIT 150
   `) as {
     id: string;
     slug: string;
@@ -295,9 +302,15 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
 
   const reviewNeeded = candidates.filter(
     (c) =>
+      c.publicationStatus === "draft" ||
       c.publicationStatus === "under_review" ||
-      c.publicationStatus === "candidate" ||
-      /Bronverificatie nodig/i.test(c.internalNotes ?? ""),
+      c.publicationStatus === "candidate",
+  ).length;
+  const added = candidates.filter(
+    (c) => c.publicationStatus === "published",
+  ).length;
+  const dismissed = candidates.filter(
+    (c) => c.publicationStatus === "rejected",
   ).length;
 
   return {
@@ -306,8 +319,10 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
     counts: {
       sources: cockpitSources.length,
       userSupplied: cockpitSources.filter((s) => s.userSupplied).length,
-      candidates: candidates.length,
+      candidates: reviewNeeded,
       reviewNeeded,
+      added,
+      dismissed,
     },
   };
 }

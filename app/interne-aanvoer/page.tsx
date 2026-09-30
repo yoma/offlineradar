@@ -41,8 +41,15 @@ export default async function InterneAanvoerPage({
   const raw = await searchParams;
   const tabRaw = Array.isArray(raw.tab) ? raw.tab[0] : raw.tab;
   const initialTab =
-    tabRaw === "bronnen" || tabRaw === "kandidaten" || tabRaw === "nieuw"
-      ? tabRaw
+    tabRaw === "bronnen" ||
+    tabRaw === "te_bekijken" ||
+    tabRaw === "toegevoegd" ||
+    tabRaw === "niet_toegevoegd" ||
+    tabRaw === "nieuw" ||
+    tabRaw === "kandidaten"
+      ? tabRaw === "kandidaten"
+        ? "te_bekijken"
+        : tabRaw
       : "nieuw";
   const highlightSourceId = Array.isArray(raw.sourceId)
     ? raw.sourceId[0]
@@ -116,14 +123,14 @@ export default async function InterneAanvoerPage({
       <InterneAdminNav active="aanvoer" newFeedbackCount={newFeedbackCount} />
       <header className="mb-6">
         <p className="text-xs font-semibold tracking-[0.14em] text-rose-700/80 uppercase">
-          Admin cockpit
+          Admin
         </p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">
           Aanvoer
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
-          Nieuwe bronnen en events toevoegen, je user-supplied bronnen beheren
-          en kandidaten reviewen. Geen auto-publish.
+          Screenshot of link aanleveren, AI laten uitzoeken, controleren en
+          goedkeuren. Geen auto-publicatie zonder jouw klik.
         </p>
       </header>
       <Suspense fallback={<p className="text-sm text-stone-500">Laden…</p>}>

@@ -15,13 +15,27 @@ import {
   type CockpitSourceRow,
 } from "@/lib/aanvoer/cockpit-data";
 
-type TabId = "nieuw" | "bronnen" | "kandidaten";
+type TabId = "nieuw" | "te_bekijken" | "toegevoegd" | "niet_toegevoegd" | "bronnen";
 
 const TABS: { id: TabId; label: string }[] = [
-  { id: "nieuw", label: "Nieuwe aanvoer" },
-  { id: "bronnen", label: "Mijn bronnen" },
-  { id: "kandidaten", label: "Event-kandidaten" },
+  { id: "nieuw", label: "Nieuw event" },
+  { id: "te_bekijken", label: "Te bekijken" },
+  { id: "toegevoegd", label: "Toegevoegd" },
+  { id: "niet_toegevoegd", label: "Niet toegevoegd" },
+  { id: "bronnen", label: "Bronnen" },
 ];
+
+function uiStatusLabel(status: string): string {
+  if (status === "published") return "Toegevoegd";
+  if (status === "rejected") return "Niet toegevoegd";
+  return "Te bekijken";
+}
+
+function bucketForStatus(status: string): "te_bekijken" | "toegevoegd" | "niet_toegevoegd" {
+  if (status === "published") return "toegevoegd";
+  if (status === "rejected") return "niet_toegevoegd";
+  return "te_bekijken";
+}
 
 const PAGE_SIZE = 50;
 
@@ -65,7 +79,7 @@ export function AanvoerCockpit({
   highlightEditionId = null,
 }: {
   data: AanvoerCockpitData;
-  initialTab?: TabId;
+  initialTab?: TabId | "kandidaten";
   highlightSourceId?: string | null;
   highlightEditionId?: string | null;
 }) {
@@ -74,9 +88,18 @@ export function AanvoerCockpit({
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
   const tab: TabId =
-    tabParam === "bronnen" || tabParam === "kandidaten" || tabParam === "nieuw"
-      ? tabParam
-      : initialTab;
+    tabParam === "bronnen" ||
+    tabParam === "te_bekijken" ||
+    tabParam === "toegevoegd" ||
+    tabParam === "niet_toegevoegd" ||
+    tabParam === "nieuw" ||
+    tabParam === "kandidaten"
+      ? tabParam === "kandidaten"
+        ? "te_bekijken"
+        : (tabParam as TabId)
+      : initialTab === "kandidaten"
+        ? "te_bekijken"
+        : (initialTab as TabId);
 
   const [highlightSource, setHighlightSource] = useState(highlightSourceId);
   const [highlightEdition, setHighlightEdition] = useState(highlightEditionId);
@@ -103,10 +126,10 @@ export function AanvoerCockpit({
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
+          { label: "Te bekijken", value: data.counts.reviewNeeded },
+          { label: "Toegevoegd", value: data.counts.added },
           { label: "Bronnen", value: data.counts.sources },
           { label: "Door jou", value: data.counts.userSupplied },
-          { label: "Kandidaten", value: data.counts.candidates },
-          { label: "Review", value: data.counts.reviewNeeded },
         ].map((item) => (
           <div
             key={item.label}
@@ -153,7 +176,12 @@ export function AanvoerCockpit({
       {tab === "nieuw" ? (
         <AanvoerClient
           onSavedSource={(sourceId) => setTab("bronnen", { sourceId })}
-          onSavedCandidate={(editionId) => setTab("kandidaten", { editionId })}
+          onSavedCandidate={(editionId) =>
+            setTab("te_bekijken", { editionId })
+          }
+          onApprovedPublished={(editionId) =>
+            setTab("toegevoegd", { editionId })
+          }
         />
       ) : null}
       {tab === "bronnen" ? (
@@ -163,11 +191,14 @@ export function AanvoerCockpit({
           highlightId={highlightSource}
         />
       ) : null}
-      {tab === "kandidaten" ? (
-        <CandidatesPanel
-          key={highlightEdition ?? "kandidaten"}
+      {tab === "te_bekijken" ||
+      tab === "toegevoegd" ||
+      tab === "niet_toegevoegd" ? (
+        <EventsPanel
+          key={`${tab}-${highlightEdition ?? "list"}`}
           candidates={data.candidates}
           highlightId={highlightEdition}
+          bucket={tab}
         />
       ) : null}
     </div>
@@ -507,15 +538,16 @@ function SourcesPanel({
   );
 }
 
-function CandidatesPanel({
+function EventsPanel({
   candidates,
   highlightId,
+  bucket,
 }: {
   candidates: CockpitCandidateRow[];
   highlightId: string | null;
+  bucket: "te_bekijken" | "toegevoegd" | "niet_toegevoegd";
 }) {
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState("all");
   const [expanded, setExpanded] = useState<string | null>(highlightId);
   const [pending, startTransition] = useTransition();
 
@@ -528,21 +560,7 @@ function CandidatesPanel({
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return candidates.filter((c) => {
-      if (status === "draft" && c.publicationStatus !== "draft") return false;
-      if (status === "under_review" && c.publicationStatus !== "under_review") {
-        return false;
-      }
-      if (status === "rejected" && c.publicationStatus !== "rejected") return false;
-      if (
-        status === "review" &&
-        !(
-          c.publicationStatus === "under_review" ||
-          c.publicationStatus === "candidate" ||
-          /Bronverificatie nodig/i.test(c.internalNotes ?? "")
-        )
-      ) {
-        return false;
-      }
+      if (bucketForStatus(c.publicationStatus) !== bucket) return false;
       if (!needle) return true;
       const hay = [
         c.title,
@@ -555,32 +573,34 @@ function CandidatesPanel({
         .toLowerCase();
       return hay.includes(needle);
     });
-  }, [candidates, q, status]);
+  }, [candidates, q, bucket]);
+
+  const emptyLabel =
+    bucket === "toegevoegd"
+      ? "Nog geen toegevoegde events via intake."
+      : bucket === "niet_toegevoegd"
+        ? "Nog geen afgewezen items."
+        : "Niets te bekijken.";
 
   return (
     <section className="space-y-4">
-      <div className="grid gap-2 sm:grid-cols-2">
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Zoek kandidaten…"
-          className="h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm"
-        />
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm"
-        >
-          <option value="all">Alle</option>
-          <option value="review">Review nodig</option>
-          <option value="draft">Draft</option>
-          <option value="under_review">Under review</option>
-          <option value="rejected">Afgewezen</option>
-        </select>
-      </div>
+      <input
+        type="search"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Zoek events…"
+        className="h-10 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm sm:max-w-md"
+      />
 
-      <p className="text-sm text-stone-500">{filtered.length} kandidaten</p>
+      <p className="text-sm text-stone-500">
+        {filtered.length} {filtered.length === 1 ? "event" : "events"}
+      </p>
+
+      {filtered.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-stone-300 bg-white/70 px-4 py-6 text-sm text-stone-600">
+          {emptyLabel}
+        </p>
+      ) : null}
 
       <div className="space-y-3">
         {filtered.map((c) => {
@@ -609,21 +629,9 @@ function CandidatesPanel({
                       {formatDate(c.startsAt)}
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {c.fromIntake ? (
-                      <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-800">
-                        Intake
-                      </span>
-                    ) : null}
-                    <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-semibold text-stone-700">
-                      {c.publicationStatus}
-                    </span>
-                    {c.eligibilityRoute ? (
-                      <span className="rounded-full bg-stone-900/5 px-2 py-0.5 text-[11px] font-semibold text-stone-700">
-                        {c.eligibilityRoute}
-                      </span>
-                    ) : null}
-                  </div>
+                  <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-semibold text-stone-700">
+                    {uiStatusLabel(c.publicationStatus)}
+                  </span>
                 </div>
               </button>
 
@@ -632,16 +640,16 @@ function CandidatesPanel({
                   <dl className="grid gap-2 sm:grid-cols-2">
                     <div>
                       <dt className="text-stone-500">Prijs</dt>
-                      <dd>{c.priceNote || "-"}</dd>
+                      <dd>{c.priceNote || "onbekend"}</dd>
                     </div>
                     <div>
                       <dt className="text-stone-500">Leeftijd</dt>
                       <dd>
-                        {c.minAge ?? "?"}-{c.maxAge ?? "?"} ({c.ageRule ?? "-"})
+                        {c.minAge ?? "?"}-{c.maxAge ?? "?"}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-stone-500">singlesOnly</dt>
+                      <dt className="text-stone-500">Singles only</dt>
                       <dd>
                         {c.singlesOnly == null
                           ? "onbekend"
@@ -651,7 +659,7 @@ function CandidatesPanel({
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-stone-500">singlesgericht</dt>
+                      <dt className="text-stone-500">Singlesgericht</dt>
                       <dd>
                         {c.singlesOriented == null
                           ? "onbekend"
@@ -660,80 +668,81 @@ function CandidatesPanel({
                             : "nee"}
                       </dd>
                     </div>
-                    <div className="sm:col-span-2">
-                      <dt className="text-stone-500">Bron-URL</dt>
-                      <dd className="break-all">
-                        {c.sourceUrl ? (
-                          <a
-                            href={c.sourceUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="underline-offset-4 hover:underline"
-                          >
-                            {c.sourceUrl}
-                          </a>
-                        ) : (
-                          "-"
-                        )}
-                      </dd>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <dt className="text-stone-500">Evidence / notes</dt>
-                      <dd className="whitespace-pre-wrap text-stone-700">
-                        {c.internalNotes || "-"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-stone-500">Screenshot</dt>
-                      <dd>
-                        {c.hasScreenshot
-                          ? "Ja (privé evidence in notes)"
-                          : "Nee"}
-                      </dd>
-                    </div>
                   </dl>
-
-                  <form
-                    className="flex flex-wrap items-end gap-2"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      const formData = new FormData(event.currentTarget);
-                      startTransition(async () => {
-                        await updateAanvoerCandidateStatusAction(formData);
-                      });
-                    }}
-                  >
-                    <input type="hidden" name="editionId" value={c.id} />
-                    <label className="text-sm">
-                      <span className="mb-1 block font-medium">Status</span>
-                      <select
-                        name="status"
-                        defaultValue={c.publicationStatus}
-                        className="h-10 rounded-xl border border-stone-200 bg-white px-3"
+                  {c.sourceUrl ? (
+                    <p className="break-all text-xs text-stone-500">
+                      <a
+                        href={c.sourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline-offset-4 hover:underline"
                       >
-                        <option value="draft">Draft</option>
-                        <option value="under_review">Under review</option>
-                        <option value="candidate">Candidate</option>
-                        <option value="rejected">Afgewezen</option>
-                      </select>
-                    </label>
-                    <button
-                      type="submit"
-                      disabled={pending}
-                      className="h-10 rounded-full bg-stone-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
-                    >
-                      Status bewaren
-                    </button>
-                    <Link
-                      href="/interne-events"
-                      className="inline-flex h-10 items-center rounded-full border border-stone-300 px-4 text-sm font-semibold text-stone-700"
-                    >
-                      Open in Events
-                    </Link>
-                  </form>
-                  <p className="text-xs text-stone-500">
-                    Geen publiceren vanaf intake. Publicatie blijft via Events.
-                  </p>
+                        {c.sourceUrl}
+                      </a>
+                    </p>
+                  ) : null}
+                  {c.hasScreenshot ? (
+                    <p className="text-xs text-stone-500">
+                      Screenshot bewaard als privé-evidence.
+                    </p>
+                  ) : null}
+                  {c.internalNotes ? (
+                    <p className="whitespace-pre-wrap rounded-xl bg-stone-50 px-3 py-2 text-xs text-stone-600">
+                      {c.internalNotes}
+                    </p>
+                  ) : null}
+
+                  <div className="flex flex-wrap gap-2">
+                    {bucket === "te_bekijken" ? (
+                      <>
+                        <button
+                          type="button"
+                          disabled={pending}
+                          className="h-10 rounded-full bg-stone-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                          onClick={() => {
+                            const formData = new FormData();
+                            formData.set("editionId", c.id);
+                            formData.set("intent", "toegevoegd");
+                            startTransition(async () => {
+                              await updateAanvoerCandidateStatusAction(formData);
+                            });
+                          }}
+                        >
+                          Toch toevoegen
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending}
+                          className="h-10 rounded-full border border-stone-300 px-4 text-sm font-semibold text-stone-700 disabled:opacity-60"
+                          onClick={() => {
+                            const formData = new FormData();
+                            formData.set("editionId", c.id);
+                            formData.set("intent", "niet_toegevoegd");
+                            startTransition(async () => {
+                              await updateAanvoerCandidateStatusAction(formData);
+                            });
+                          }}
+                        >
+                          Niet toevoegen
+                        </button>
+                      </>
+                    ) : null}
+                    {c.publicationStatus === "published" ? (
+                      <Link
+                        href={`/event/${c.slug}`}
+                        className="inline-flex h-10 items-center rounded-full border border-stone-300 px-4 text-sm font-semibold text-stone-700"
+                      >
+                        Bekijk event
+                      </Link>
+                    ) : (
+                      <Link
+                        href="/interne-events"
+                        className="inline-flex h-10 items-center rounded-full border border-stone-300 px-4 text-sm font-semibold text-stone-700"
+                      >
+                        Open in Events
+                      </Link>
+                    )}
+                  </div>
                 </div>
               ) : null}
             </article>
