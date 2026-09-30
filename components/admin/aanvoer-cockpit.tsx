@@ -104,7 +104,7 @@ export function AanvoerCockpit({
   const [highlightSource, setHighlightSource] = useState(highlightSourceId);
   const [highlightEdition, setHighlightEdition] = useState(highlightEditionId);
 
-  function setTab(next: TabId, opts?: { sourceId?: string; editionId?: string }) {
+  function setTab(next: TabId, opts?: { sourceId?: string; editionId?: string; refresh?: boolean }) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", next);
     if (opts?.sourceId) {
@@ -120,6 +120,9 @@ export function AanvoerCockpit({
       params.delete("editionId");
     }
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    if (opts?.refresh !== false && (opts?.sourceId || opts?.editionId)) {
+      router.refresh();
+    }
   }
 
   return (
@@ -547,6 +550,7 @@ function EventsPanel({
   highlightId: string | null;
   bucket: "te_bekijken" | "toegevoegd" | "niet_toegevoegd";
 }) {
+  const router = useRouter();
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState<string | null>(highlightId);
   const [pending, startTransition] = useTransition();
@@ -705,6 +709,7 @@ function EventsPanel({
                             formData.set("intent", "toegevoegd");
                             startTransition(async () => {
                               await updateAanvoerCandidateStatusAction(formData);
+                              router.refresh();
                             });
                           }}
                         >
@@ -720,6 +725,7 @@ function EventsPanel({
                             formData.set("intent", "niet_toegevoegd");
                             startTransition(async () => {
                               await updateAanvoerCandidateStatusAction(formData);
+                              router.refresh();
                             });
                           }}
                         >
