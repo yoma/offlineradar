@@ -63,7 +63,11 @@ function validateScreenshotFile(file: File | null): string | null {
 }
 
 function formatDateNl(value: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value || "Datum onbekend";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return "Datum onbekend";
+  const year = Number(value.slice(0, 4));
+  if (!Number.isFinite(year) || year < 2020 || year >= 2090) {
+    return "Datum onbekend";
+  }
   try {
     return new Intl.DateTimeFormat("nl-BE", {
       weekday: "short",
@@ -72,7 +76,7 @@ function formatDateNl(value: string): string {
       year: "numeric",
     }).format(new Date(`${value}T12:00:00`));
   } catch {
-    return value;
+    return "Datum onbekend";
   }
 }
 
@@ -547,9 +551,15 @@ export function AanvoerClient({
               }
             />
             <CheckRow
-              ok={fieldOk(proposal.startDate.status, draft.startDate)}
+              ok={
+                fieldOk(proposal.startDate.status, draft.startDate) &&
+                /^\d{4}-\d{2}-\d{2}$/.test(draft.startDate) &&
+                Number(draft.startDate.slice(0, 4)) < 2090
+              }
               label={
-                fieldOk(proposal.startDate.status, draft.startDate)
+                fieldOk(proposal.startDate.status, draft.startDate) &&
+                /^\d{4}-\d{2}-\d{2}$/.test(draft.startDate) &&
+                Number(draft.startDate.slice(0, 4)) < 2090
                   ? "Datum bevestigd"
                   : "Datum niet gevonden"
               }
@@ -613,7 +623,8 @@ export function AanvoerClient({
               </ul>
               {forceNeeded ? (
                 <p className="mt-2 text-xs">
-                  Klik opnieuw op Goedkeuren om toch als nieuw toe te voegen.
+                  Primaire actie: Bekijk bestaand event. Of klik opnieuw op
+                  Toevoegen om toch als nieuw toe te voegen.
                 </p>
               ) : null}
             </div>
@@ -683,25 +694,37 @@ export function AanvoerClient({
 
           {!message ? (
             <div className="grid gap-2">
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => approve(forceNeeded)}
-                className="rounded-2xl bg-stone-900 px-4 py-3.5 text-left text-white transition hover:bg-stone-800 disabled:opacity-60"
-              >
-                <span className="block text-sm font-semibold">
-                  {pending
-                    ? "Bezig…"
-                    : editing
-                      ? "Opslaan en toevoegen"
-                      : "Goedkeuren & toevoegen"}
-                </span>
-                <span className="mt-1 block text-xs text-white/75">
-                  {approval?.canPublish
-                    ? "Voegt het event toe (live na goedkeuring)."
-                    : "Slaat op onder Te bekijken als er nog controle nodig is."}
-                </span>
-              </button>
+              {approval?.canPublish ? (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => approve(forceNeeded)}
+                  className="rounded-2xl bg-stone-900 px-4 py-3.5 text-left text-white transition hover:bg-stone-800 disabled:opacity-60"
+                >
+                  <span className="block text-sm font-semibold">
+                    {pending ? "Bezig…" : "Toevoegen aan OfflineRadar"}
+                  </span>
+                  <span className="mt-1 block text-xs text-white/75">
+                    Jouw akkoord publiceert het event. AI publiceert nooit
+                    zelfstandig.
+                  </span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => approve(forceNeeded)}
+                  className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3.5 text-left transition hover:border-amber-500 disabled:opacity-60"
+                >
+                  <span className="block text-sm font-semibold text-amber-950">
+                    {pending ? "Bezig…" : "Bewaar — controle nodig"}
+                  </span>
+                  <span className="mt-1 block text-xs text-amber-900/80">
+                    {approval?.reviewReasons[0] ??
+                      "Er ontbreekt nog iets om live te zetten."}
+                  </span>
+                </button>
+              )}
               <button
                 type="button"
                 disabled={pending}
@@ -709,10 +732,10 @@ export function AanvoerClient({
                 className="rounded-2xl border border-stone-300 bg-white px-4 py-3.5 text-left transition hover:border-stone-900 disabled:opacity-60"
               >
                 <span className="block text-sm font-semibold text-stone-900">
-                  {editing ? "Aanpassen verbergen" : "Iets aanpassen"}
+                  {editing ? "Aanpassen verbergen" : "Aanpassen"}
                 </span>
                 <span className="mt-1 block text-xs text-stone-600">
-                  Alleen tonen als AI iets mist of fout heeft.
+                  Corrigeer datum, locatie, bron of singlesinfo.
                 </span>
               </button>
               <button

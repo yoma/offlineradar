@@ -9,46 +9,56 @@ import {
   updateAanvoerSourceAction,
 } from "@/app/interne-aanvoer/actions";
 import {
+  ADMIN_STATUS_LABEL,
+  type AdminQueueStatus,
+} from "@/lib/aanvoer/admin-status";
+import {
   SOURCE_STATUS_LABEL,
   type AanvoerCockpitData,
   type CockpitCandidateRow,
   type CockpitSourceRow,
 } from "@/lib/aanvoer/cockpit-data";
 
-type TabId = "nieuw" | "te_bekijken" | "toegevoegd" | "niet_toegevoegd" | "bronnen";
+type TabId =
+  | "nieuw"
+  | "klaar"
+  | "controle"
+  | "toegevoegd"
+  | "niet_toegevoegd"
+  | "bronnen";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "nieuw", label: "Nieuw event" },
-  { id: "te_bekijken", label: "Te bekijken" },
+  { id: "klaar", label: "Klaar om toe te voegen" },
+  { id: "controle", label: "Controle nodig" },
   { id: "toegevoegd", label: "Toegevoegd" },
   { id: "niet_toegevoegd", label: "Niet toegevoegd" },
   { id: "bronnen", label: "Bronnen" },
 ];
 
-function uiStatusLabel(status: string): string {
-  if (status === "published") return "Toegevoegd";
-  if (status === "rejected") return "Niet toegevoegd";
-  return "Te bekijken";
-}
-
-function bucketForStatus(status: string): "te_bekijken" | "toegevoegd" | "niet_toegevoegd" {
-  if (status === "published") return "toegevoegd";
-  if (status === "rejected") return "niet_toegevoegd";
-  return "te_bekijken";
+function tabFromParam(raw: string | null, initial: TabId | "kandidaten" | "te_bekijken"): TabId {
+  if (
+    raw === "bronnen" ||
+    raw === "klaar" ||
+    raw === "controle" ||
+    raw === "toegevoegd" ||
+    raw === "niet_toegevoegd" ||
+    raw === "nieuw"
+  ) {
+    return raw;
+  }
+  // Legacy deep-links
+  if (raw === "te_bekijken" || raw === "kandidaten") return "controle";
+  if (initial === "kandidaten" || initial === "te_bekijken") return "controle";
+  return initial as TabId;
 }
 
 const PAGE_SIZE = 50;
 
-function formatDate(value: string | null | undefined | Date): string {
-  if (!value) return "-";
-  const raw =
-    value instanceof Date
-      ? value.toISOString()
-      : typeof value === "string"
-        ? value
-        : String(value);
-  const d = raw.slice(0, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : raw.slice(0, 16);
+function formatDate(value: string | null | undefined): string {
+  if (!value) return "Datum onbekend";
+  const d = value.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : "Datum onbekend";
 }
 
 function sortKey(value: string | null | undefined | Date): string {
@@ -79,27 +89,14 @@ export function AanvoerCockpit({
   highlightEditionId = null,
 }: {
   data: AanvoerCockpitData;
-  initialTab?: TabId | "kandidaten";
+  initialTab?: TabId | "kandidaten" | "te_bekijken";
   highlightSourceId?: string | null;
   highlightEditionId?: string | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const tabParam = searchParams.get("tab");
-  const tab: TabId =
-    tabParam === "bronnen" ||
-    tabParam === "te_bekijken" ||
-    tabParam === "toegevoegd" ||
-    tabParam === "niet_toegevoegd" ||
-    tabParam === "nieuw" ||
-    tabParam === "kandidaten"
-      ? tabParam === "kandidaten"
-        ? "te_bekijken"
-        : (tabParam as TabId)
-      : initialTab === "kandidaten"
-        ? "te_bekijken"
-        : (initialTab as TabId);
+  const tab = tabFromParam(searchParams.get("tab"), initialTab);
 
   const [highlightSource, setHighlightSource] = useState(highlightSourceId);
   const [highlightEdition, setHighlightEdition] = useState(highlightEditionId);
@@ -129,10 +126,10 @@ export function AanvoerCockpit({
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
-          { label: "Te bekijken", value: data.counts.reviewNeeded },
+          { label: "Klaar om toe te voegen", value: data.counts.klaar },
+          { label: "Controle nodig", value: data.counts.controle },
           { label: "Toegevoegd", value: data.counts.added },
           { label: "Bronnen", value: data.counts.sources },
-          { label: "Door jou", value: data.counts.userSupplied },
         ].map((item) => (
           <div
             key={item.label}
@@ -147,6 +144,9 @@ export function AanvoerCockpit({
           </div>
         ))}
       </div>
+      <p className="text-xs text-stone-500">
+        Door jou aangebracht: {data.counts.userSupplied} bronnen
+      </p>
 
       <div className="overflow-x-auto">
         <div
@@ -180,7 +180,7 @@ export function AanvoerCockpit({
         <AanvoerClient
           onSavedSource={(sourceId) => setTab("bronnen", { sourceId })}
           onSavedCandidate={(editionId) =>
-            setTab("te_bekijken", { editionId })
+            setTab("controle", { editionId })
           }
           onApprovedPublished={(editionId) =>
             setTab("toegevoegd", { editionId })
@@ -194,7 +194,8 @@ export function AanvoerCockpit({
           highlightId={highlightSource}
         />
       ) : null}
-      {tab === "te_bekijken" ||
+      {tab === "klaar" ||
+      tab === "controle" ||
       tab === "toegevoegd" ||
       tab === "niet_toegevoegd" ? (
         <EventsPanel
@@ -541,6 +542,15 @@ function SourcesPanel({
   );
 }
 
+function bucketForAdmin(
+  status: AdminQueueStatus,
+): "klaar" | "controle" | "toegevoegd" | "niet_toegevoegd" {
+  if (status === "klaar_om_toe_te_voegen") return "klaar";
+  if (status === "controle_nodig") return "controle";
+  if (status === "toegevoegd") return "toegevoegd";
+  return "niet_toegevoegd";
+}
+
 function EventsPanel({
   candidates,
   highlightId,
@@ -548,12 +558,13 @@ function EventsPanel({
 }: {
   candidates: CockpitCandidateRow[];
   highlightId: string | null;
-  bucket: "te_bekijken" | "toegevoegd" | "niet_toegevoegd";
+  bucket: "klaar" | "controle" | "toegevoegd" | "niet_toegevoegd";
 }) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState<string | null>(highlightId);
   const [pending, startTransition] = useTransition();
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!highlightId) return;
@@ -564,13 +575,14 @@ function EventsPanel({
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return candidates.filter((c) => {
-      if (bucketForStatus(c.publicationStatus) !== bucket) return false;
+      if (bucketForAdmin(c.adminStatus) !== bucket) return false;
       if (!needle) return true;
       const hay = [
         c.title,
         c.organizerName ?? "",
         c.city,
         c.sourceUrl ?? "",
+        c.blockReason ?? "",
         c.internalNotes ?? "",
       ]
         .join(" ")
@@ -581,10 +593,27 @@ function EventsPanel({
 
   const emptyLabel =
     bucket === "toegevoegd"
-      ? "Nog geen toegevoegde events via intake."
+      ? "Nog geen live events via deze aanvoer."
       : bucket === "niet_toegevoegd"
         ? "Nog geen afgewezen items."
-        : "Niets te bekijken.";
+        : bucket === "klaar"
+          ? "Niets klaar om toe te voegen."
+          : "Niets dat controle nodig heeft.";
+
+  function runIntent(editionId: string, intent: string) {
+    setActionError(null);
+    const formData = new FormData();
+    formData.set("editionId", editionId);
+    formData.set("intent", intent);
+    startTransition(async () => {
+      const result = await updateAanvoerCandidateStatusAction(formData);
+      if (!result.ok) {
+        setActionError(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  }
 
   return (
     <section className="space-y-4">
@@ -599,6 +628,11 @@ function EventsPanel({
       <p className="text-sm text-stone-500">
         {filtered.length} {filtered.length === 1 ? "event" : "events"}
       </p>
+      {actionError ? (
+        <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+          {actionError}
+        </p>
+      ) : null}
 
       {filtered.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-stone-300 bg-white/70 px-4 py-6 text-sm text-stone-600">
@@ -630,17 +664,49 @@ function EventsPanel({
                     <h3 className="font-semibold text-stone-900">{c.title}</h3>
                     <p className="mt-1 text-sm text-stone-600">
                       {c.organizerName ?? "Onbekende organisator"} · {c.city} ·{" "}
-                      {formatDate(c.startsAt)}
+                      {formatDate(c.displayDate)}
                     </p>
+                    {c.blockReason && bucket === "controle" ? (
+                      <p className="mt-1 text-sm font-medium text-amber-800">
+                        {c.blockReason}
+                      </p>
+                    ) : null}
                   </div>
                   <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-semibold text-stone-700">
-                    {uiStatusLabel(c.publicationStatus)}
+                    {ADMIN_STATUS_LABEL[c.adminStatus]}
                   </span>
                 </div>
               </button>
 
               {open ? (
                 <div className="mt-4 space-y-3 border-t border-stone-100 pt-4 text-sm">
+                  {bucket === "klaar" ? (
+                    <div className="space-y-1 text-emerald-800">
+                      <p>{c.checks.singles ? "✓" : "?"} Singlesevent bevestigd</p>
+                      <p>{c.checks.date ? "✓" : "?"} Datum bevestigd</p>
+                      <p>{c.checks.location ? "✓" : "?"} Locatie bevestigd</p>
+                      <p>{c.checks.source ? "✓" : "?"} Bron bevestigd</p>
+                    </div>
+                  ) : null}
+
+                  {bucket === "controle" && c.blockReason ? (
+                    <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                      {c.blockReason}
+                    </p>
+                  ) : null}
+
+                  {c.duplicateSlug ? (
+                    <p className="text-sm text-stone-700">
+                      Dit event lijkt al in OfflineRadar te staan.{" "}
+                      <Link
+                        href={`/event/${c.duplicateSlug}`}
+                        className="font-semibold underline-offset-4 hover:underline"
+                      >
+                        Bekijk bestaand event
+                      </Link>
+                    </p>
+                  ) : null}
+
                   <dl className="grid gap-2 sm:grid-cols-2">
                     <div>
                       <dt className="text-stone-500">Prijs</dt>
@@ -650,26 +716,6 @@ function EventsPanel({
                       <dt className="text-stone-500">Leeftijd</dt>
                       <dd>
                         {c.minAge ?? "?"}-{c.maxAge ?? "?"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-stone-500">Singles only</dt>
-                      <dd>
-                        {c.singlesOnly == null
-                          ? "onbekend"
-                          : c.singlesOnly
-                            ? "ja"
-                            : "nee"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-stone-500">Singlesgericht</dt>
-                      <dd>
-                        {c.singlesOriented == null
-                          ? "onbekend"
-                          : c.singlesOriented
-                            ? "ja"
-                            : "nee"}
                       </dd>
                     </div>
                   </dl>
@@ -690,64 +736,82 @@ function EventsPanel({
                       Screenshot bewaard als privé-evidence.
                     </p>
                   ) : null}
-                  {c.internalNotes ? (
-                    <p className="whitespace-pre-wrap rounded-xl bg-stone-50 px-3 py-2 text-xs text-stone-600">
-                      {c.internalNotes}
-                    </p>
-                  ) : null}
 
                   <div className="flex flex-wrap gap-2">
-                    {bucket === "te_bekijken" ? (
+                    {bucket === "klaar" ? (
                       <>
                         <button
                           type="button"
                           disabled={pending}
                           className="h-10 rounded-full bg-stone-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
-                          onClick={() => {
-                            const formData = new FormData();
-                            formData.set("editionId", c.id);
-                            formData.set("intent", "toegevoegd");
-                            startTransition(async () => {
-                              await updateAanvoerCandidateStatusAction(formData);
-                              router.refresh();
-                            });
-                          }}
+                          onClick={() => runIntent(c.id, "toevoegen")}
                         >
-                          Toch toevoegen
+                          Toevoegen aan OfflineRadar
                         </button>
                         <button
                           type="button"
                           disabled={pending}
                           className="h-10 rounded-full border border-stone-300 px-4 text-sm font-semibold text-stone-700 disabled:opacity-60"
-                          onClick={() => {
-                            const formData = new FormData();
-                            formData.set("editionId", c.id);
-                            formData.set("intent", "niet_toegevoegd");
-                            startTransition(async () => {
-                              await updateAanvoerCandidateStatusAction(formData);
-                              router.refresh();
-                            });
-                          }}
+                          onClick={() => runIntent(c.id, "niet_toegevoegd")}
                         >
                           Niet toevoegen
                         </button>
                       </>
                     ) : null}
-                    {c.publicationStatus === "published" ? (
+
+                    {bucket === "controle" ? (
+                      <>
+                        {c.duplicateSlug ? (
+                          <Link
+                            href={`/event/${c.duplicateSlug}`}
+                            className="inline-flex h-10 items-center rounded-full bg-stone-900 px-4 text-sm font-semibold text-white"
+                          >
+                            Bekijk bestaand event
+                          </Link>
+                        ) : null}
+                        <button
+                          type="button"
+                          disabled={pending}
+                          className="h-10 rounded-full border border-stone-300 px-4 text-sm font-semibold text-stone-700 disabled:opacity-60"
+                          onClick={() => runIntent(c.id, "opnieuw_controleren")}
+                        >
+                          Opnieuw laten controleren
+                        </button>
+                        <Link
+                          href="/interne-events"
+                          className="inline-flex h-10 items-center rounded-full border border-stone-300 px-4 text-sm font-semibold text-stone-700"
+                        >
+                          Aanpassen
+                        </Link>
+                        <button
+                          type="button"
+                          disabled={pending}
+                          className="h-10 rounded-full px-4 text-sm font-medium text-stone-500 underline-offset-4 hover:underline disabled:opacity-60"
+                          onClick={() => runIntent(c.id, "niet_toegevoegd")}
+                        >
+                          Niet toevoegen
+                        </button>
+                        {c.duplicateSlug ? (
+                          <button
+                            type="button"
+                            disabled={pending}
+                            className="h-10 rounded-full px-4 text-xs font-medium text-stone-400 underline-offset-4 hover:underline disabled:opacity-60"
+                            onClick={() => runIntent(c.id, "toevoegen")}
+                          >
+                            Toch als nieuw toevoegen
+                          </button>
+                        ) : null}
+                      </>
+                    ) : null}
+
+                    {bucket === "toegevoegd" ? (
                       <Link
                         href={`/event/${c.slug}`}
-                        className="inline-flex h-10 items-center rounded-full border border-stone-300 px-4 text-sm font-semibold text-stone-700"
+                        className="inline-flex h-10 items-center rounded-full bg-stone-900 px-4 text-sm font-semibold text-white"
                       >
                         Bekijk event
                       </Link>
-                    ) : (
-                      <Link
-                        href="/interne-events"
-                        className="inline-flex h-10 items-center rounded-full border border-stone-300 px-4 text-sm font-semibold text-stone-700"
-                      >
-                        Open in Events
-                      </Link>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               ) : null}

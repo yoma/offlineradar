@@ -45,15 +45,20 @@ function buildStartsAt(draft: IntakeEditableDraft): {
 } {
   const date = draft.startDate.trim();
   if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    const time =
-      draft.startTime && /^\d{2}:\d{2}/.test(draft.startTime)
-        ? draft.startTime.slice(0, 5)
-        : "12:00";
-    return {
-      startsAt: `${date}T${time}:00+02:00`,
-      dateUnknown: false,
-    };
+    const year = Number(date.slice(0, 4));
+    // Never treat sentinel/placeholder years as real event dates.
+    if (Number.isFinite(year) && year >= 2020 && year < 2090) {
+      const time =
+        draft.startTime && /^\d{2}:\d{2}/.test(draft.startTime)
+          ? draft.startTime.slice(0, 5)
+          : "12:00";
+      return {
+        startsAt: `${date}T${time}:00+02:00`,
+        dateUnknown: false,
+      };
+    }
   }
+  // starts_at is NOT NULL in DB; keep a technical sentinel that UI never shows.
   return {
     startsAt: "2099-12-31T12:00:00+01:00",
     dateUnknown: true,
@@ -205,7 +210,7 @@ export async function saveIntakeAsEventCandidate(input: {
     `routeAdvice=${draft.routeAdvice}`,
     draft.routeReason,
     needsVerification ? "status=Bronverificatie nodig" : null,
-    dateUnknown ? "Startdatum onbekend; placeholder 2099-12-31." : null,
+    dateUnknown ? "date_unknown=1 | Startdatum onbekend." : null,
     input.assetId
       ? `intake_asset=${input.assetId} (review evidence, nooit public image)`
       : null,
@@ -246,7 +251,11 @@ export async function saveIntakeAsEventCandidate(input: {
           ? "social"
           : "dating",
     subCategory: draft.category.trim() || null,
-    tags: ["admin-intake", "draft", "discovered_by=user"],
+    tags: [
+      "admin-intake",
+      "discovered_by=user",
+      ...(dateUnknown ? ["date_unknown"] : []),
+    ],
     priceNote: draft.priceNotes.trim() || null,
     priceCurrency: draft.currency.trim() || "EUR",
     availabilityNote: draft.availability.trim() || null,

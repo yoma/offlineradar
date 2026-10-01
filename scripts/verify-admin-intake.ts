@@ -1,10 +1,14 @@
 /**
- * FASE 26.12 Admin Quick Intake — structural + unit checks.
+ * FASE 26.13 Admin aanvoer status UX — structural + unit checks.
  * Usage: npm run verify:admin-intake
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import {
+  classifyAdminStatus,
+  isPlaceholderStartsAt,
+} from "../lib/aanvoer/admin-status";
 import { evaluateIntakeApproval } from "../lib/aanvoer/approval";
 import { validateIntakeImage } from "../lib/aanvoer/assets";
 import { USER_SUPPLIED_MANDATORY_FUTURE_SCAN } from "../lib/aanvoer/future-discovery";
@@ -47,15 +51,15 @@ assert.ok(notes.includes("discovered_by=user"));
 assert.ok(notes.includes(USER_SUPPLIED_MANDATORY_FUTURE_SCAN));
 ok("2 discovered_by=user + mandatory future scan note");
 
-const proposal = blankProposal({
+const proposal2 = blankProposal({
   title: { value: "Karaoke", status: "found", evidence: "Karaoke night" },
   needsSourceVerification: true,
   aiFailed: true,
   aiError: "no key",
 });
-const draft = proposalToDraft(proposal);
+const draft = proposalToDraft(proposal2);
 assert.equal(draft.title, "Karaoke");
-assert.equal(proposal.needsSourceVerification, true);
+assert.equal(proposal2.needsSourceVerification, true);
 ok("3 AI failure still yields editable draft");
 
 const gate = evaluateIntakeApproval(
@@ -83,20 +87,68 @@ const blocked = evaluateIntakeApproval(draft, {
 });
 assert.equal(blocked.canPublish, false);
 assert.ok(blocked.reviewReasons.length > 0);
-ok("5 incomplete intake stays under Te bekijken");
+ok("5 incomplete intake stays controle nodig");
+
+assert.equal(isPlaceholderStartsAt("2099-12-31T12:00:00+01:00"), true);
+assert.equal(isPlaceholderStartsAt("2026-10-15T19:00:00+02:00"), false);
+
+const placeholderClass = classifyAdminStatus({
+  publicationStatus: "draft",
+  startsAt: "2099-12-31T12:00:00+01:00",
+  sourceUrl: null,
+  eligibilityRoute: "route_b",
+  singlesOnly: null,
+  singlesOriented: true,
+  internalNotes: "date_unknown=1",
+  tags: ["date_unknown"],
+});
+assert.equal(placeholderClass.status, "controle_nodig");
+assert.equal(placeholderClass.displayDate, null);
+assert.match(placeholderClass.reason ?? "", /Datum/);
+
+const klaarClass = classifyAdminStatus({
+  publicationStatus: "draft",
+  startsAt: "2026-11-10T19:00:00+01:00",
+  sourceUrl: "https://example.com/e",
+  eligibilityRoute: "route_a",
+  singlesOnly: true,
+  singlesOriented: true,
+  internalNotes: "",
+  tags: [],
+  city: "Gent",
+});
+assert.equal(klaarClass.status, "klaar_om_toe_te_voegen");
+
+const publishedClass = classifyAdminStatus({
+  publicationStatus: "published",
+  startsAt: "2026-11-10T19:00:00+01:00",
+  sourceUrl: "https://example.com/e",
+  eligibilityRoute: "route_a",
+  singlesOnly: true,
+  singlesOriented: true,
+  internalNotes: "",
+});
+assert.equal(publishedClass.status, "toegevoegd");
+ok("5b admin status classifier");
 
 mustInclude("app/interne-aanvoer/page.tsx", "resolveTipsAdminAccess");
 mustInclude("components/admin/interne-admin-nav.tsx", "Aanvoer");
-mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Goedkeuren & toevoegen");
-mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Iets aanpassen");
+mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Toevoegen aan OfflineRadar");
+mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Aanpassen");
 mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Niet toevoegen");
 mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Analyseer event");
 mustNotInclude("app/interne-aanvoer/aanvoer-client.tsx", "Bron + event voorbereiden");
 mustNotInclude("app/interne-aanvoer/aanvoer-client.tsx", "Maak event-kandidaat");
+mustNotInclude("components/admin/aanvoer-cockpit.tsx", "Te bekijken");
+mustInclude("components/admin/aanvoer-cockpit.tsx", "Klaar om toe te voegen");
+mustInclude("components/admin/aanvoer-cockpit.tsx", "Controle nodig");
+mustInclude("components/admin/aanvoer-cockpit.tsx", "Toegevoegd");
+mustInclude("components/admin/aanvoer-cockpit.tsx", "Bekijk event");
 mustInclude("app/interne-aanvoer/actions.ts", "approveIntakeAction");
 mustInclude("lib/aanvoer/save.ts", 'publicationStatus: "draft"');
 mustInclude("lib/aanvoer/save.ts", "source_checked_at niet gezet");
 mustInclude("lib/aanvoer/save.ts", "nooit public image");
+mustInclude("lib/aanvoer/save.ts", "date_unknown");
 mustInclude(
   "app/api/interne-aanvoer/asset/[id]/route.ts",
   "private, no-store",
@@ -104,8 +156,6 @@ mustInclude(
 mustInclude("lib/aanvoer/extract.ts", "geen instructie");
 mustInclude("lib/aanvoer/future-discovery.ts", "mandatory future discovery");
 mustInclude("db/migrations/20260929_admin_intake_v1.sql", "admin_intake_assets");
-mustInclude("components/admin/aanvoer-cockpit.tsx", "Te bekijken");
-mustInclude("components/admin/aanvoer-cockpit.tsx", "Toegevoegd");
 ok("6 simplified UX + security/migration strings");
 
 console.log("\nAll admin-intake checks passed.");

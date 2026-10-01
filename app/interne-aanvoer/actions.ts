@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { signIn, signOut } from "@/auth";
 import { evaluateIntakeApproval } from "@/lib/aanvoer/approval";
 import {
+  isPlaceholderStartsAt,
+} from "@/lib/aanvoer/admin-status";
+import {
   resolveIntakeImageMime,
   storeIntakeAsset,
   validateIntakeImage,
@@ -14,6 +17,7 @@ import {
   saveIntakeAsEventCandidate,
   saveIntakeAsSource,
 } from "@/lib/aanvoer/save";
+import { getEventsSql } from "@/lib/events/db";
 import { updateEditionPublication } from "@/lib/events/neon-store";
 import { resolveTipsAdminAccess } from "@/lib/tips/admin-auth";
 import { neonListTipIdsForEdition } from "@/lib/tips/neon-store";
@@ -298,10 +302,10 @@ export async function approveIntakeAction(
     published,
     reviewReasons: approval.reviewReasons,
     message: published
-      ? "Goedgekeurd en toegevoegd. Het event staat live."
+      ? "Toegevoegd aan OfflineRadar. Het event staat live."
       : approval.reviewReasons.length > 0
-        ? `Opgeslagen onder Te bekijken. ${approval.reviewReasons.join(" ")}`
-        : "Opgeslagen onder Te bekijken.",
+        ? `Bewaard onder Controle nodig. ${approval.reviewReasons[0]}`
+        : "Bewaard onder Controle nodig.",
   };
 }
 
@@ -381,10 +385,10 @@ export async function updateAanvoerSourceAction(
   return { ok: true };
 }
 
-/** List actions with friendly intents (reject / review / publish). */
+/** List actions: Toevoegen / Niet toevoegen / Opnieuw laten controleren. */
 export async function updateAanvoerCandidateStatusAction(
   formData: FormData,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; message?: string } | { ok: false; error: string }> {
   const gate = await requireAdmin();
   if (!gate.ok) return { ok: false, error: gate.error };
 
@@ -393,6 +397,24 @@ export async function updateAanvoerCandidateStatusAction(
     formData.get("intent") ?? formData.get("status") ?? "",
   ).trim();
   if (!id) return { ok: false, error: "Event ontbreekt." };
+
+  if (intent === "opnieuw_controleren" || intent === "reclassify") {
+    const sql = getEventsSql();
+    if (!sql) return { ok: false, error: "Database niet beschikbaar." };
+    const stamp = `reclassified_at=${new Date().toISOString()}`;
+    await sql`
+      UPDATE event_editions SET
+        internal_notes = CASE
+          WHEN internal_notes IS NULL OR internal_notes = '' THEN ${stamp}
+          WHEN internal_notes LIKE ${"%" + "reclassified_at=%"} THEN internal_notes
+          ELSE internal_notes || ${"\n" + stamp}
+        END,
+        updated_at = now()
+      WHERE id = ${id}::uuid
+    `;
+    revalidatePath("/interne-aanvoer");
+    return { ok: true, message: "Opnieuw beoordeeld op basis van beschikbare gegevens." };
+  }
 
   let status: "draft" | "under_review" | "rejected" | "candidate" | "published";
   if (
@@ -404,7 +426,8 @@ export async function updateAanvoerCandidateStatusAction(
   } else if (
     intent === "review" ||
     intent === "under_review" ||
-    intent === "te_bekijken"
+    intent === "te_bekijken" ||
+    intent === "controle_nodig"
   ) {
     status = "under_review";
   } else if (intent === "draft" || intent === "candidate") {
@@ -412,7 +435,8 @@ export async function updateAanvoerCandidateStatusAction(
   } else if (
     intent === "publish" ||
     intent === "published" ||
-    intent === "toegevoegd"
+    intent === "toegevoegd" ||
+    intent === "toevoegen"
   ) {
     status = "published";
   } else {
@@ -420,6 +444,34 @@ export async function updateAanvoerCandidateStatusAction(
   }
 
   if (status === "published") {
+    const sql = getEventsSql();
+    if (sql) {
+      const rows = (await sql`
+        SELECT starts_at::text AS starts_at, tags, internal_notes, title
+        FROM event_editions WHERE id = ${id}::uuid LIMIT 1
+      `) as {
+        starts_at: string;
+        tags: unknown;
+        internal_notes: string | null;
+        title: string;
+      }[];
+      const row = rows[0];
+      if (!row) return { ok: false, error: "Event niet gevonden." };
+      const tags = Array.isArray(row.tags)
+        ? row.tags.filter((t): t is string => typeof t === "string")
+        : [];
+      if (
+        isPlaceholderStartsAt(row.starts_at) ||
+        tags.includes("date_unknown") ||
+        /date_unknown=1|Startdatum onbekend/i.test(row.internal_notes ?? "")
+      ) {
+        return {
+          ok: false,
+          error: "Datum kon niet worden bevestigd. Pas de datum eerst aan.",
+        };
+      }
+    }
+
     const now = new Date().toISOString();
     const updated = await updateEditionPublication({
       id,
@@ -432,7 +484,7 @@ export async function updateAanvoerCandidateStatusAction(
     revalidatePath("/interne-events");
     revalidatePath("/ontdek");
     revalidatePath(`/event/${updated.slug}`);
-    return { ok: true };
+    return { ok: true, message: "Toegevoegd aan OfflineRadar." };
   }
 
   const updated = await updateEditionPublication({

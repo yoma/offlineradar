@@ -42,13 +42,15 @@ export default async function InterneAanvoerPage({
   const tabRaw = Array.isArray(raw.tab) ? raw.tab[0] : raw.tab;
   const initialTab =
     tabRaw === "bronnen" ||
+    tabRaw === "klaar" ||
+    tabRaw === "controle" ||
     tabRaw === "te_bekijken" ||
     tabRaw === "toegevoegd" ||
     tabRaw === "niet_toegevoegd" ||
     tabRaw === "nieuw" ||
     tabRaw === "kandidaten"
-      ? tabRaw === "kandidaten"
-        ? "te_bekijken"
+      ? tabRaw === "kandidaten" || tabRaw === "te_bekijken"
+        ? "controle"
         : tabRaw
       : "nieuw";
   const highlightSourceId = Array.isArray(raw.sourceId)
@@ -129,8 +131,8 @@ export default async function InterneAanvoerPage({
           Aanvoer
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
-          Screenshot of link aanleveren, AI laten uitzoeken, controleren en
-          goedkeuren. Geen auto-publicatie zonder jouw klik.
+          Screenshot of link aanleveren. AI analyseert. Jij geeft finaal akkoord
+          via Toevoegen aan OfflineRadar. Geen auto-publicatie.
         </p>
       </header>
       <Suspense fallback={<p className="text-sm text-stone-500">Laden…</p>}>

@@ -3,7 +3,7 @@ import type { IntakeEditableDraft, IntakeProposal } from "@/lib/aanvoer/types";
 export type IntakeApprovalGate = {
   /** Hard fail: cannot save at all. */
   blockers: string[];
-  /** Soft: save as draft under Te bekijken, do not publish yet. */
+  /** Soft: lands under Controle nodig; do not publish yet. */
   reviewReasons: string[];
   canPublish: boolean;
 };
@@ -15,8 +15,8 @@ function hasConcreteDate(value: string): boolean {
 }
 
 /**
- * Decide whether "Goedkeuren & toevoegen" may publish immediately
- * or must land under Te bekijken.
+ * Decide whether "Toevoegen aan OfflineRadar" may publish immediately
+ * or must land under Controle nodig.
  */
 export function evaluateIntakeApproval(
   draft: IntakeEditableDraft,
@@ -33,13 +33,13 @@ export function evaluateIntakeApproval(
   }
 
   if (!hasConcreteDate(draft.startDate)) {
-    reviewReasons.push("Geen concrete eventdatum bevestigd.");
+    reviewReasons.push("Datum kon niet worden bevestigd");
   }
 
   if (draft.routeAdvice === "not_suitable") {
     reviewReasons.push(
       draft.routeReason.trim() ||
-        "Dit lijkt geen singlesgericht offline event.",
+        "We konden niet bevestigen dat dit singlesgericht is",
     );
   }
 
@@ -50,7 +50,9 @@ export function evaluateIntakeApproval(
       draft.routeAdvice !== "route_a" &&
       draft.routeAdvice !== "route_b")
   ) {
-    reviewReasons.push("Singlesgerichtheid is nog niet duidelijk genoeg.");
+    reviewReasons.push(
+      "We konden niet bevestigen dat dit singlesgericht is",
+    );
   }
 
   const hasUrl = Boolean(
@@ -60,13 +62,11 @@ export function evaluateIntakeApproval(
     (proposal?.needsSourceVerification || !hasUrl) &&
     !hasUrl
   ) {
-    reviewReasons.push(
-      "Nog geen officiële of social URL om het event te verifiëren.",
-    );
+    reviewReasons.push("Bron ontbreekt");
   }
 
   if (proposal?.aiFailed) {
-    reviewReasons.push("AI-analyse was onvolledig; controleer de gegevens.");
+    reviewReasons.push("Analyse was onvolledig — opnieuw controleren");
   }
 
   const canPublish =

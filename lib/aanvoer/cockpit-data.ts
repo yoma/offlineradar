@@ -1,6 +1,10 @@
 /**
  * Batched data for /interne-aanvoer cockpit (no N+1).
  */
+import {
+  classifyAdminStatus,
+  type AdminQueueStatus,
+} from "@/lib/aanvoer/admin-status";
 import { getEventsSql } from "@/lib/events/db";
 import {
   listCatalogSources,
@@ -34,7 +38,18 @@ export type CockpitCandidateRow = {
   organizerName: string | null;
   city: string;
   startsAt: string;
+  /** UI date; null when placeholder/unknown — never show 2099. */
+  displayDate: string | null;
   publicationStatus: string;
+  adminStatus: AdminQueueStatus;
+  blockReason: string | null;
+  checks: {
+    singles: boolean;
+    date: boolean;
+    location: boolean;
+    source: boolean;
+  };
+  duplicateSlug: string | null;
   eligibilityRoute: string | null;
   singlesOnly: boolean | null;
   singlesOriented: boolean | null;
@@ -56,10 +71,13 @@ export type AanvoerCockpitData = {
   counts: {
     sources: number;
     userSupplied: number;
-    candidates: number;
-    reviewNeeded: number;
+    klaar: number;
+    controle: number;
     added: number;
     dismissed: number;
+    /** @deprecated alias for controle — keep for old callers */
+    reviewNeeded: number;
+    candidates: number;
   };
 };
 
@@ -122,10 +140,12 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
     counts: {
       sources: sources.length,
       userSupplied: sources.filter((s) => isUserSuppliedNotes(s.notes)).length,
-      candidates: 0,
-      reviewNeeded: 0,
+      klaar: 0,
+      controle: 0,
       added: 0,
       dismissed: 0,
+      reviewNeeded: 0,
+      candidates: 0,
     },
   };
 
@@ -219,6 +239,7 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       e.slug,
       e.title,
       e.city,
+      e.venue_name,
       e.starts_at,
       e.publication_status,
       e.eligibility_route,
@@ -232,7 +253,17 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       e.tags,
       e.created_at,
       o.name AS organizer_name,
-      s.url AS source_url
+      s.url AS source_url,
+      (
+        SELECT p.slug
+        FROM event_editions p
+        WHERE p.publication_status = 'published'
+          AND p.id <> e.id
+          AND lower(p.title) = lower(e.title)
+          AND p.starts_at::date = e.starts_at::date
+          AND e.starts_at::date < '2090-01-01'::date
+        LIMIT 1
+      ) AS duplicate_slug
     FROM event_editions e
     LEFT JOIN organizers o ON o.id = e.organizer_id
     LEFT JOIN LATERAL (
@@ -255,6 +286,7 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
     slug: string;
     title: string;
     city: string;
+    venue_name: string | null;
     starts_at: string;
     publication_status: string;
     eligibility_route: string | null;
@@ -269,6 +301,7 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
     created_at: string;
     organizer_name: string | null;
     source_url: string | null;
+    duplicate_slug: string | null;
   }[];
 
   const candidates: CockpitCandidateRow[] = candidateRows.map((row) => {
@@ -276,6 +309,19 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       ? row.tags.filter((t): t is string => typeof t === "string")
       : [];
     const notes = row.internal_notes ?? "";
+    const classified = classifyAdminStatus({
+      publicationStatus: row.publication_status,
+      startsAt: toIsoString(row.starts_at),
+      sourceUrl: row.source_url,
+      eligibilityRoute: row.eligibility_route,
+      singlesOnly: row.singles_only,
+      singlesOriented: row.singles_oriented,
+      internalNotes: notes,
+      tags,
+      publishedDuplicateSlug: row.duplicate_slug,
+      city: row.city,
+      venueName: row.venue_name,
+    });
     return {
       id: row.id,
       slug: row.slug,
@@ -283,7 +329,12 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       organizerName: row.organizer_name,
       city: row.city,
       startsAt: toIsoString(row.starts_at),
+      displayDate: classified.displayDate,
       publicationStatus: row.publication_status,
+      adminStatus: classified.status,
+      blockReason: classified.reason,
+      checks: classified.checks,
+      duplicateSlug: row.duplicate_slug,
       eligibilityRoute: row.eligibility_route,
       singlesOnly: row.singles_only,
       singlesOriented: row.singles_oriented,
@@ -300,17 +351,15 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
     };
   });
 
-  const reviewNeeded = candidates.filter(
-    (c) =>
-      c.publicationStatus === "draft" ||
-      c.publicationStatus === "under_review" ||
-      c.publicationStatus === "candidate",
+  const klaar = candidates.filter(
+    (c) => c.adminStatus === "klaar_om_toe_te_voegen",
   ).length;
-  const added = candidates.filter(
-    (c) => c.publicationStatus === "published",
+  const controle = candidates.filter(
+    (c) => c.adminStatus === "controle_nodig",
   ).length;
+  const added = candidates.filter((c) => c.adminStatus === "toegevoegd").length;
   const dismissed = candidates.filter(
-    (c) => c.publicationStatus === "rejected",
+    (c) => c.adminStatus === "niet_toegevoegd",
   ).length;
 
   return {
@@ -319,10 +368,12 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
     counts: {
       sources: cockpitSources.length,
       userSupplied: cockpitSources.filter((s) => s.userSupplied).length,
-      candidates: reviewNeeded,
-      reviewNeeded,
+      klaar,
+      controle,
       added,
       dismissed,
+      reviewNeeded: controle,
+      candidates: klaar + controle,
     },
   };
 }
