@@ -14,8 +14,17 @@ import type {
   IntakeMode,
   IntakeProposal,
 } from "@/lib/aanvoer/types";
-import { INTAKE_MAX_BYTES } from "@/lib/aanvoer/types";
+import { INTAKE_MAX_BYTES, INTAKE_MAX_TEXT_CHARS } from "@/lib/aanvoer/types";
 import { CATEGORY_LABEL } from "@/lib/format";
+
+function validatePastedIntakeTextLocal(text: string): string | null {
+  const trimmed = text.trim();
+  if (!trimmed) return "Plak eerst info over het event.";
+  if (trimmed.length > INTAKE_MAX_TEXT_CHARS) {
+    return `Tekst is te lang (max ${INTAKE_MAX_TEXT_CHARS.toLocaleString("nl-BE")} tekens).`;
+  }
+  return null;
+}
 
 type InputKind = "screenshot" | "url" | "text";
 
@@ -102,6 +111,7 @@ export function AanvoerClient({
   onApprovedPublished?: (editionId: string) => void;
 } = {}) {
   const [inputKind, setInputKind] = useState<InputKind | null>(null);
+  const [analyzedKind, setAnalyzedKind] = useState<InputKind | null>(null);
   const [url, setUrl] = useState("");
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -122,6 +132,7 @@ export function AanvoerClient({
 
   function resetAll() {
     setInputKind(null);
+    setAnalyzedKind(null);
     setUrl("");
     setText("");
     setFile(null);
@@ -159,12 +170,19 @@ export function AanvoerClient({
         return;
       }
     }
+    if (inputKind === "text") {
+      const textError = validatePastedIntakeTextLocal(text);
+      if (textError) {
+        setError(textError);
+        return;
+      }
+    }
     if (inputKind === "url" && !url.trim()) {
       setError("Plak eerst een link.");
       return;
     }
     if (inputKind === "text" && !text.trim()) {
-      setError("Plak eerst tekst.");
+      setError("Plak eerst info over het event.");
       return;
     }
 
@@ -177,7 +195,11 @@ export function AanvoerClient({
     setAnalyzeStep("Afbeelding/link lezen…");
     startTransition(async () => {
       try {
-        setAnalyzeStep("Eventgegevens herkennen…");
+        setAnalyzeStep(
+          inputKind === "text"
+            ? "Info uitlezen en bronnen controleren…"
+            : "Eventgegevens herkennen…",
+        );
         const result = await analyzeIntakeAction(formData);
         if (!result.ok) {
           setError(
@@ -191,6 +213,7 @@ export function AanvoerClient({
         setDraft(result.draft);
         setMatches(result.matches);
         setAssetId(result.assetId);
+        setAnalyzedKind(inputKind);
         setEditing(false);
         setAnalyzeStep(null);
         if (result.proposal.aiFailed) {
@@ -338,8 +361,8 @@ export function AanvoerClient({
             Voeg een singlesevent toe
           </h2>
           <p className="mt-2 text-sm leading-6 text-stone-600 sm:text-base">
-            Upload een screenshot of plak een link. AI zoekt de gegevens voor je
-            uit.
+            Upload een screenshot, plak een link, of plak info die je elders
+            vond. AI haalt de eventgegevens eruit.
           </p>
 
           {!inputKind ? (
@@ -347,12 +370,12 @@ export function AanvoerClient({
               <button
                 type="button"
                 onClick={() => setInputKind("screenshot")}
-                className="rounded-2xl border border-stone-300 bg-stone-900 px-4 py-4 text-left text-white shadow-sm transition hover:bg-stone-800"
+                className="rounded-2xl border border-stone-300 bg-white px-4 py-4 text-left transition hover:border-stone-900"
               >
-                <span className="block text-base font-semibold">
+                <span className="block text-base font-semibold text-stone-900">
                   Screenshot uploaden
                 </span>
-                <span className="mt-1 block text-sm text-white/75">
+                <span className="mt-1 block text-sm text-stone-600">
                   PNG, JPG of WEBP · max 4 MB
                 </span>
               </button>
@@ -371,9 +394,14 @@ export function AanvoerClient({
               <button
                 type="button"
                 onClick={() => setInputKind("text")}
-                className="px-1 py-2 text-left text-sm font-medium text-stone-500 underline-offset-4 hover:underline"
+                className="rounded-2xl border border-stone-300 bg-white px-4 py-4 text-left transition hover:border-stone-900"
               >
-                Of plak tekst
+                <span className="block text-base font-semibold text-stone-900">
+                  Info plakken
+                </span>
+                <span className="mt-1 block text-sm text-stone-600">
+                  Tekst, AI-samenvatting, post of meerdere links
+                </span>
               </button>
             </div>
           ) : null}
@@ -467,17 +495,27 @@ export function AanvoerClient({
                 ← Terug
               </button>
               <label className="block text-sm">
-                <span className="mb-1 block font-medium text-stone-800">
-                  Tekst
+                <span className="mb-1 block font-semibold text-stone-900">
+                  Plak hier alles wat je over het event gevonden hebt.
+                </span>
+                <span className="mb-2 block text-xs leading-5 text-stone-600">
+                  Je mag een volledige tekst, AI-samenvatting, Facebook-post of
+                  meerdere links plakken. Wij halen de eventgegevens er zelf
+                  uit.
                 </span>
                 <textarea
                   value={text}
                   onChange={(event) => setText(event.target.value)}
-                  rows={7}
-                  placeholder="Plak hier de advertentie of post…"
-                  className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2"
+                  rows={12}
+                  maxLength={INTAKE_MAX_TEXT_CHARS}
+                  placeholder={`Voorbeeld:\nFlirt & Stride – The Breakfast Edition\n10 oktober 2026 · 09:00–12:30\nAlix – Maison d'Amis, Gent\nhttps://instagram.com/…\nhttps://allevents.in/…`}
+                  className="min-h-[220px] w-full resize-y rounded-xl border border-stone-200 bg-white px-3 py-3 text-[15px] leading-6 text-stone-900"
                   autoFocus
                 />
+                <span className="mt-1 block text-[11px] text-stone-500">
+                  {text.trim().length.toLocaleString("nl-BE")} /{" "}
+                  {INTAKE_MAX_TEXT_CHARS.toLocaleString("nl-BE")} tekens
+                </span>
               </label>
             </div>
           ) : null}
@@ -605,17 +643,19 @@ export function AanvoerClient({
                 /^\d{4}-\d{2}-\d{2}$/.test(draft.startDate) &&
                 Number(draft.startDate.slice(0, 4)) < 2090
                   ? proposal.deepScan?.fieldsConfirmed.includes("date")
-                    ? "Datum bevestigd (uitgebreid zoeken)"
-                    : "Datum bevestigd"
+                    ? "Datum bevestigd via bron"
+                    : analyzedKind === "text"
+                      ? "Datum gevonden in geplakte tekst"
+                      : "Datum bevestigd"
                   : proposal.deepScan?.triggered
                     ? "Datum kon ook na uitgebreid zoeken niet bevestigd worden"
                     : "Datum niet gevonden"
               }
             />
-            {proposal.deepScan?.triggered ? (
+            {analyzedKind === "text" ? (
               <p className="text-xs text-stone-500">
-                Uitgebreid gezocht · {proposal.deepScan.sourcesChecked.length} bronnen ·{" "}
-                {proposal.deepScan.queries.length} queries
+                Geplakte tekst is hulpinformatie. Waar mogelijk controleren we
+                links en webbronnen mee.
               </p>
             ) : null}
             <CheckRow

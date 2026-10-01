@@ -99,6 +99,8 @@ export const INTAKE_ALLOWED_MIME = [
 ] as const;
 
 export const INTAKE_MAX_BYTES = 4 * 1024 * 1024;
+/** Safe max length for free-text "Info plakken" intake. */
+export const INTAKE_MAX_TEXT_CHARS = 60_000;
 
 export function emptyIntakeField<T>(value: T): IntakeField<T> {
   return { value, status: "unknown", evidence: null };

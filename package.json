@@ -88,6 +88,7 @@
     "verify:result-refinement": "npx tsx scripts/verify-result-refinement.ts",
     "verify:admin-intake": "npx tsx scripts/verify-admin-intake.ts",
     "verify:deep-scan": "npx tsx scripts/verify-deep-scan.ts",
+    "verify:paste-info": "npx tsx scripts/verify-paste-info.ts",
     "db:migrate:admin-intake": "node --env-file=.env.local --import tsx scripts/migrate-admin-intake.ts",
     "audit:geo": "node --env-file=.env.local --import tsx scripts/audit-edition-geo.ts",
     "backfill:coords": "node --env-file=.env.local --import tsx scripts/backfill-edition-coords.ts"

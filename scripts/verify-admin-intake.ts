@@ -228,6 +228,8 @@ mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Toevoegen aan DateOffline
 mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Aanpassen");
 mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Niet toevoegen");
 mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Analyseer event");
+mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Info plakken");
+mustNotInclude("app/interne-aanvoer/aanvoer-client.tsx", "Of plak tekst");
 mustNotInclude("app/interne-aanvoer/aanvoer-client.tsx", "Bron + event voorbereiden");
 mustNotInclude("app/interne-aanvoer/aanvoer-client.tsx", "Maak event-kandidaat");
 mustNotInclude("components/admin/aanvoer-cockpit.tsx", "Klaar om toe te voegen");
