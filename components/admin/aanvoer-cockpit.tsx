@@ -7,6 +7,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AanvoerClient } from "@/app/interne-aanvoer/aanvoer-client";
 import {
   updateAanvoerCandidateStatusAction,
+  pasteInfoOntoAandachtCandidateAction,
   scanSourceNowAction,
   updateSourceFollowAction,
 } from "@/app/interne-aanvoer/actions";
@@ -25,6 +26,7 @@ import {
   SOURCE_FOLLOW_LABEL,
   type SourceFollowStatus,
 } from "@/lib/aanvoer/source-follow";
+import { INTAKE_MAX_TEXT_CHARS } from "@/lib/aanvoer/types";
 
 type TabId =
   | "nieuw"
@@ -761,6 +763,8 @@ function EventsPanel({
   const [removeId, setRemoveId] = useState<string | null>(null);
   const [aiOpen, setAiOpen] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
+  const [pasteId, setPasteId] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!highlightId) return;
@@ -801,6 +805,7 @@ function EventsPanel({
 
   function runIntent(editionId: string, intent: string) {
     setActionError(null);
+    setActionMessage(null);
     const formData = new FormData();
     formData.set("editionId", editionId);
     formData.set("intent", intent);
@@ -810,6 +815,25 @@ function EventsPanel({
         setActionError(result.error);
         return;
       }
+      if (result.message) setActionMessage(result.message);
+      router.refresh();
+    });
+  }
+
+  function runPasteInfo(editionId: string, text: string) {
+    setActionError(null);
+    setActionMessage(null);
+    const formData = new FormData();
+    formData.set("editionId", editionId);
+    formData.set("text", text);
+    startTransition(async () => {
+      const result = await pasteInfoOntoAandachtCandidateAction(formData);
+      if (!result.ok) {
+        setActionError(result.error);
+        return;
+      }
+      setPasteId(null);
+      if (result.message) setActionMessage(result.message);
       router.refresh();
     });
   }
@@ -871,6 +895,11 @@ function EventsPanel({
           {actionError}
         </p>
       ) : null}
+      {actionMessage ? (
+        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-950">
+          {actionMessage}
+        </p>
+      ) : null}
 
       {filtered.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-stone-300 bg-white/70 px-4 py-6 text-sm text-stone-600">
@@ -888,11 +917,17 @@ function EventsPanel({
             pending={pending}
             aiOpen={aiOpen === c.id}
             editOpen={editId === c.id}
+            pasteOpen={pasteId === c.id}
             removeOpen={removeId === c.id}
             onToggleAi={() => setAiOpen(aiOpen === c.id ? null : c.id)}
             onToggleEdit={() => setEditId(editId === c.id ? null : c.id)}
+            onTogglePaste={() => {
+              setPasteId(pasteId === c.id ? null : c.id);
+              if (editId === c.id) setEditId(null);
+            }}
             onToggleRemove={() => setRemoveId(removeId === c.id ? null : c.id)}
             onIntent={runIntent}
+            onPasteInfo={runPasteInfo}
             onRemove={removeFromHub}
           />
         ))}
@@ -908,11 +943,14 @@ function AdminEventCard({
   pending,
   aiOpen,
   editOpen,
+  pasteOpen,
   removeOpen,
   onToggleAi,
   onToggleEdit,
+  onTogglePaste,
   onToggleRemove,
   onIntent,
+  onPasteInfo,
   onRemove,
 }: {
   candidate: CockpitCandidateRow;
@@ -921,13 +959,17 @@ function AdminEventCard({
   pending: boolean;
   aiOpen: boolean;
   editOpen: boolean;
+  pasteOpen: boolean;
   removeOpen: boolean;
   onToggleAi: () => void;
   onToggleEdit: () => void;
+  onTogglePaste: () => void;
   onToggleRemove: () => void;
   onIntent: (id: string, intent: string) => void;
+  onPasteInfo: (id: string, text: string) => void;
   onRemove: (id: string, reason: string) => void;
 }) {
+  const [pasteText, setPasteText] = useState("");
   const age = formatAge(c.minAge, c.maxAge);
   const when = [
     formatDateNl(c.displayDate),
@@ -1056,6 +1098,14 @@ function AdminEventCard({
                 type="button"
                 disabled={pending}
                 className="h-11 w-full rounded-full border border-stone-300 text-sm font-semibold text-stone-800 disabled:opacity-60"
+                onClick={onTogglePaste}
+              >
+                Info plakken
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                className="h-11 w-full rounded-full border border-stone-300 text-sm font-semibold text-stone-800 disabled:opacity-60"
                 onClick={() => onIntent(c.id, "opnieuw_controleren")}
               >
                 Opnieuw laten zoeken
@@ -1112,6 +1162,43 @@ function AdminEventCard({
             {aiOpen ? "Verberg AI-details" : "Bekijk AI-details"}
           </button>
         </div>
+
+        {pasteOpen ? (
+          <div className="space-y-2 rounded-xl border border-rose-200 bg-rose-50/60 p-3">
+            <p className="text-sm font-semibold text-stone-900">Info plakken</p>
+            <p className="text-xs leading-5 text-stone-600">
+              Plak hier alles wat je over dit event gevonden hebt: tekst,
+              AI-samenvatting, links. Geplakte tekst is hulpinformatie; AI
+              controleert waar mogelijk opnieuw.
+            </p>
+            <textarea
+              value={pasteText}
+              onChange={(e) => setPasteText(e.target.value)}
+              rows={6}
+              maxLength={INTAKE_MAX_TEXT_CHARS}
+              placeholder="Plak hier alles wat je over het event gevonden hebt."
+              className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 outline-none focus:border-stone-400"
+              disabled={pending}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={pending || !pasteText.trim()}
+                className="h-10 rounded-full bg-stone-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                onClick={() => onPasteInfo(c.id, pasteText)}
+              >
+                {pending ? "Verwerken…" : "Info verwerken"}
+              </button>
+              <button
+                type="button"
+                className="text-xs text-stone-500 underline-offset-4 hover:underline"
+                onClick={onTogglePaste}
+              >
+                Annuleren
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {editOpen ? (
           <div className="space-y-2 rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm">

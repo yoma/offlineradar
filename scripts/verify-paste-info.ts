@@ -68,6 +68,12 @@ mustInclude(
 mustInclude("app/interne-aanvoer/actions.ts", "preferredSourceUrlFromPaste");
 mustInclude("app/interne-aanvoer/actions.ts", "GEÏMBOORDE LINK");
 mustInclude("lib/aanvoer/paste-info.ts", "INTAKE_MAX_TEXT_CHARS");
-ok("4 UI/wiring strings");
+mustInclude(
+  "components/admin/aanvoer-cockpit.tsx",
+  "pasteInfoOntoAandachtCandidateAction",
+);
+mustInclude("app/interne-aanvoer/actions.ts", "pasteInfoOntoAandachtCandidateAction");
+mustInclude("components/admin/aanvoer-cockpit.tsx", "Info verwerken");
+ok("4 UI/wiring strings + aandacht paste");
 
 console.log("\nAll paste-info checks passed.");
