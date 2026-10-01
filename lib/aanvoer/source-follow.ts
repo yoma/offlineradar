@@ -1,17 +1,23 @@
 /**
  * Human-facing follow status for catalog sources (admin Bronnen).
  * Backend keeps catalog status + refresh_enabled; UI never shows those raw.
+ * Auto-follow is NOT limited to dedicated parsers.
  */
 import {
   DEFAULT_REFRESH_INTERVAL_HOURS,
 } from "@/lib/source-refresh/schedule-config";
 import {
   getRefreshPilot,
-  isRefreshSupported,
 } from "@/lib/source-refresh/registry";
 import type { SourceScheduleState } from "@/lib/source-refresh/store";
 import { computeNextRefreshAtIso } from "@/lib/source-refresh/scheduler";
 import type { SourceRefreshRunRecord } from "@/lib/source-refresh/types";
+import {
+  defaultFollowIntervalHours,
+  resolveSourceFollowCapability,
+  type FollowMethod,
+  type SourceFollowCapability,
+} from "@/lib/aanvoer/follow-capability";
 
 export const FOLLOW_PAUSED_TAG = "follow_paused=1";
 export const FOLLOW_DISABLED_TAG = "follow_disabled=1";
@@ -27,7 +33,7 @@ export type SourceFollowStatus =
 export const SOURCE_FOLLOW_LABEL: Record<SourceFollowStatus, string> = {
   gevolgd: "Wordt automatisch gevolgd",
   gepauzeerd: "Gepauzeerd",
-  handmatig: "Handmatig",
+  handmatig: "Handmatige bron",
   uitgeschakeld: "Uitgeschakeld",
   aandacht_nodig: "Aandacht nodig",
 };
@@ -39,6 +45,7 @@ export function notesHasTag(notes: string | null | undefined, tag: string): bool
 export function classifySourceFollowStatus(input: {
   catalogStatus: string;
   notes: string | null | undefined;
+  /** True when any automatic follow method exists (parser/website/agenda/websearch). */
   refreshSupported: boolean;
   refreshEnabled: boolean;
   consecutiveFailures: number;
@@ -55,20 +62,16 @@ export function classifySourceFollowStatus(input: {
   if (notesHasTag(notes, FOLLOW_PAUSED_TAG)) {
     return "gepauzeerd";
   }
-  if (input.consecutiveFailures >= 2 && input.refreshSupported) {
-    return "aandacht_nodig";
-  }
-  if (
-    !input.refreshSupported ||
-    input.intakeSourceType === "social" ||
-    input.intakeSourceType === "handmatig"
-  ) {
+  if (!input.refreshSupported) {
     return "handmatig";
+  }
+  if (input.consecutiveFailures >= 2 && input.refreshEnabled) {
+    return "aandacht_nodig";
   }
   if (input.refreshEnabled) {
     return "gevolgd";
   }
-  // Parser exists but not scheduled → treat as handmatig until enabled
+  // Auto-followable but not yet enabled → handmatig until admin enables.
   return "handmatig";
 }
 
@@ -76,6 +79,7 @@ export function frequencyLabel(input: {
   catalogSourceId: string;
   refreshIntervalHours: number | null;
   followStatus: SourceFollowStatus;
+  followMethods?: FollowMethod[];
 }): string {
   if (
     input.followStatus === "handmatig" ||
@@ -87,7 +91,9 @@ export function frequencyLabel(input: {
   const pilot = getRefreshPilot(input.catalogSourceId);
   const hours =
     input.refreshIntervalHours ??
-    (pilot ? DEFAULT_REFRESH_INTERVAL_HOURS[pilot.parserKey] : null);
+    (pilot
+      ? DEFAULT_REFRESH_INTERVAL_HOURS[pilot.parserKey]
+      : defaultFollowIntervalHours(input.followMethods ?? ["website"]));
   if (hours == null) return "handmatig";
   if (hours <= 24) return "dagelijks";
   if (hours <= 48) return "om de 2 dagen";
@@ -191,14 +197,37 @@ export function summarizeLastRun(
 export function resolveNextScanAt(
   catalogSourceId: string,
   schedule: SourceScheduleState | null | undefined,
+  followMethods?: FollowMethod[],
 ): string | null {
+  if (!schedule || !schedule.refreshEnabled) return null;
   const pilot = getRefreshPilot(catalogSourceId);
-  if (!pilot || !schedule) return null;
-  return computeNextRefreshAtIso(schedule, pilot.parserKey);
+  if (pilot) {
+    return computeNextRefreshAtIso(schedule, pilot.parserKey);
+  }
+  const hours =
+    schedule.refreshIntervalHours ??
+    defaultFollowIntervalHours(followMethods ?? ["website"]);
+  if (!schedule.lastScheduledRefreshAt) return new Date().toISOString();
+  return new Date(
+    new Date(schedule.lastScheduledRefreshAt).getTime() + hours * 60 * 60 * 1000,
+  ).toISOString();
 }
 
-export function sourceIsAutoFollowable(catalogSourceId: string): boolean {
-  return isRefreshSupported(catalogSourceId);
+export function sourceIsAutoFollowable(input: {
+  catalogSourceId: string;
+  officialUrl: string;
+  intakeSourceType?: string | null;
+}): boolean {
+  return resolveSourceFollowCapability(input).autoFollowable;
+}
+
+export function getSourceFollowCapability(input: {
+  catalogSourceId: string;
+  officialUrl: string;
+  name?: string | null;
+  intakeSourceType?: string | null;
+}): SourceFollowCapability {
+  return resolveSourceFollowCapability(input);
 }
 
 /** Append or remove a follow tag in notes without wiping other content. */
@@ -234,3 +263,5 @@ export function patchFollowNotes(
   }
   return next.replace(/\n{3,}/g, "\n\n").trim();
 }
+
+export type { FollowMethod, SourceFollowCapability };

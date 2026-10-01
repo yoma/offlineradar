@@ -24,10 +24,17 @@ export type DeepScanReportLite = {
   triggered: boolean;
   reason: string;
   queries: string[];
+  searchResultCount?: number;
   sourcesChecked: Array<{ url: string; ok: boolean; note?: string }>;
   fieldsConfirmed: string[];
   conflicts: string[];
+  fieldsBefore?: Record<string, string | null>;
+  fieldsAfter?: Record<string, string | null>;
+  startedAt?: string;
+  completedAt?: string;
   timestamp: string;
+  outcome?: "skipped" | "new_info" | "no_new_info" | "failed";
+  outcomeMessage?: string;
 };
 
 export type IntakeProposal = {

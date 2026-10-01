@@ -518,6 +518,24 @@ function SourcesPanel({
 
               <FollowBadge status={s.followStatus} />
 
+              {s.followMethods.length > 0 ? (
+                <p className="text-sm text-stone-700">
+                  <span className="text-xs font-semibold text-stone-500">
+                    Followmethode:{" "}
+                  </span>
+                  {s.followMethodLabel}
+                </p>
+              ) : null}
+
+              {s.followStatus === "handmatig" && s.manualFollowReason ? (
+                <p className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700">
+                  Automatische opvolging momenteel niet mogelijk
+                  <span className="mt-1 block text-xs text-stone-500">
+                    {s.manualFollowReason}
+                  </span>
+                </p>
+              ) : null}
+
               {s.followStatus === "aandacht_nodig" ? (
                 <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950">
                   {s.consecutiveFailures} opeenvolgende scans mislukt
@@ -585,17 +603,30 @@ function SourcesPanel({
 
               <div className="mt-auto flex flex-col gap-2">
                 {s.refreshSupported ? (
-                  <button
-                    type="button"
-                    disabled={pending || scanning}
-                    onClick={() => runScan(s.id)}
-                    className="h-11 w-full rounded-full bg-stone-900 text-sm font-semibold text-white disabled:opacity-60"
-                  >
-                    {scanning ? "Bezig met controleren…" : "Nu controleren"}
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      disabled={pending || scanning}
+                      onClick={() => runScan(s.id)}
+                      className="h-11 w-full rounded-full bg-stone-900 text-sm font-semibold text-white disabled:opacity-60"
+                    >
+                      {scanning ? "Bezig met controleren…" : "Nu controleren"}
+                    </button>
+                    {s.followStatus === "handmatig" ? (
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => runFollow(s.id, "enable")}
+                        className="h-11 w-full rounded-full border border-stone-300 text-sm font-semibold text-stone-800 disabled:opacity-60"
+                      >
+                        Automatisch volgen aanzetten
+                      </button>
+                    ) : null}
+                  </>
                 ) : (
                   <p className="text-xs text-stone-500">
-                    Automatisch volgen niet beschikbaar
+                    Handmatige bron — automatische opvolging momenteel niet
+                    mogelijk
                   </p>
                 )}
 
@@ -769,6 +800,11 @@ function EventsPanel({
   const [editId, setEditId] = useState<string | null>(null);
   const [pasteId, setPasteId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [searchingId, setSearchingId] = useState<string | null>(null);
+  const [searchFeedback, setSearchFeedback] = useState<Record<
+    string,
+    { kind: "loading" | "new_info" | "no_new_info" | "failed"; text: string }
+  >>({});
 
   useEffect(() => {
     if (!highlightId) return;
@@ -810,6 +846,13 @@ function EventsPanel({
   function runIntent(editionId: string, intent: string) {
     setActionError(null);
     setActionMessage(null);
+    if (intent === "opnieuw_controleren") {
+      setSearchingId(editionId);
+      setSearchFeedback((prev) => ({
+        ...prev,
+        [editionId]: { kind: "loading", text: "Zoeken op het web…" },
+      }));
+    }
     const formData = new FormData();
     formData.set("editionId", editionId);
     formData.set("intent", intent);
@@ -817,7 +860,34 @@ function EventsPanel({
       const result = await updateAanvoerCandidateStatusAction(formData);
       if (!result.ok) {
         setActionError(result.error);
+        if (intent === "opnieuw_controleren") {
+          setSearchFeedback((prev) => ({
+            ...prev,
+            [editionId]: {
+              kind: "failed",
+              text: `Zoeken mislukt — ${result.error}`,
+            },
+          }));
+          setSearchingId(null);
+        }
         return;
+      }
+      if (intent === "opnieuw_controleren") {
+        const outcome = result.deepOutcome ?? "no_new_info";
+        const kind =
+          outcome === "new_info"
+            ? "new_info"
+            : outcome === "failed"
+              ? "failed"
+              : "no_new_info";
+        setSearchFeedback((prev) => ({
+          ...prev,
+          [editionId]: {
+            kind,
+            text: result.deepOutcomeMessage || result.message || "Klaar",
+          },
+        }));
+        setSearchingId(null);
       }
       if (result.message) setActionMessage(result.message);
       router.refresh();
@@ -919,6 +989,8 @@ function EventsPanel({
             bucket={bucket}
             highlighted={highlightId === c.id}
             pending={pending}
+            searching={searchingId === c.id}
+            searchFeedback={searchFeedback[c.id] ?? null}
             aiOpen={aiOpen === c.id}
             editOpen={editId === c.id}
             pasteOpen={pasteId === c.id}
@@ -945,6 +1017,8 @@ function AdminEventCard({
   bucket,
   highlighted,
   pending,
+  searching,
+  searchFeedback,
   aiOpen,
   editOpen,
   pasteOpen,
@@ -961,6 +1035,11 @@ function AdminEventCard({
   bucket: "aandacht" | "toegevoegd" | "niet_toegevoegd";
   highlighted: boolean;
   pending: boolean;
+  searching: boolean;
+  searchFeedback: {
+    kind: "loading" | "new_info" | "no_new_info" | "failed";
+    text: string;
+  } | null;
   aiOpen: boolean;
   editOpen: boolean;
   pasteOpen: boolean;
@@ -969,9 +1048,9 @@ function AdminEventCard({
   onToggleEdit: () => void;
   onTogglePaste: () => void;
   onToggleRemove: () => void;
-  onIntent: (id: string, intent: string) => void;
-  onPasteInfo: (id: string, text: string) => void;
-  onRemove: (id: string, reason: string) => void;
+  onIntent: (editionId: string, intent: string) => void;
+  onPasteInfo: (editionId: string, text: string) => void;
+  onRemove: (editionId: string, reason: string) => void;
 }) {
   const [pasteText, setPasteText] = useState("");
   const age = formatAge(c.minAge, c.maxAge);
@@ -1098,6 +1177,21 @@ function AdminEventCard({
         <div className="mt-auto flex flex-col gap-2">
           {bucket === "aandacht" ? (
             <>
+              {searchFeedback ? (
+                <p
+                  className={`rounded-xl px-3 py-2 text-sm font-medium ${
+                    searchFeedback.kind === "loading"
+                      ? "border border-sky-200 bg-sky-50 text-sky-950"
+                      : searchFeedback.kind === "new_info"
+                        ? "border border-emerald-200 bg-emerald-50 text-emerald-950"
+                        : searchFeedback.kind === "failed"
+                          ? "border border-red-200 bg-red-50 text-red-900"
+                          : "border border-stone-200 bg-stone-50 text-stone-800"
+                  }`}
+                >
+                  {searchFeedback.text}
+                </p>
+              ) : null}
               <button
                 type="button"
                 disabled={pending}
@@ -1108,11 +1202,11 @@ function AdminEventCard({
               </button>
               <button
                 type="button"
-                disabled={pending}
+                disabled={pending || searching}
                 className="h-11 w-full rounded-full border border-stone-300 text-sm font-semibold text-stone-800 disabled:opacity-60"
                 onClick={() => onIntent(c.id, "opnieuw_controleren")}
               >
-                Opnieuw laten zoeken
+                {searching ? "Zoeken op het web…" : "Opnieuw laten zoeken"}
               </button>
               <button
                 type="button"

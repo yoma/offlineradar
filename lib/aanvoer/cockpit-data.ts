@@ -22,11 +22,12 @@ import {
   formatNextScan,
   formatScanWhen,
   frequencyLabel,
+  getSourceFollowCapability,
   resolveNextScanAt,
   summarizeLastRun,
+  type FollowMethod,
   type SourceFollowStatus,
 } from "@/lib/aanvoer/source-follow";
-import { isRefreshSupported } from "@/lib/source-refresh/registry";
 import {
   countConsecutiveRefreshFailuresBatch,
   getSourceScheduleStates,
@@ -50,6 +51,9 @@ export type CockpitSourceRow = CatalogSourceRecord & {
   domain: string;
   followStatus: import("@/lib/aanvoer/source-follow").SourceFollowStatus;
   followLabel: string;
+  followMethods: FollowMethod[];
+  followMethodLabel: string;
+  manualFollowReason: string | null;
   refreshSupported: boolean;
   refreshEnabled: boolean;
   frequencyLabel: string;
@@ -197,10 +201,16 @@ function emptySourceExtras(s: CatalogSourceRecord): Omit<
   keyof CatalogSourceRecord
 > {
   const intakeSourceType = intakeTypeFromNotes(s.notes, s.sourceType);
+  const capability = getSourceFollowCapability({
+    catalogSourceId: s.id,
+    officialUrl: s.officialUrl,
+    name: s.name,
+    intakeSourceType,
+  });
   const followStatus = classifySourceFollowStatus({
     catalogStatus: s.status,
     notes: s.notes,
-    refreshSupported: false,
+    refreshSupported: capability.autoFollowable,
     refreshEnabled: false,
     consecutiveFailures: 0,
     intakeSourceType,
@@ -214,7 +224,10 @@ function emptySourceExtras(s: CatalogSourceRecord): Omit<
     domain: domainFromUrl(s.officialUrl),
     followStatus,
     followLabel: SOURCE_FOLLOW_LABEL[followStatus],
-    refreshSupported: false,
+    followMethods: capability.methods,
+    followMethodLabel: capability.methodLabel,
+    manualFollowReason: capability.manualReason,
+    refreshSupported: capability.autoFollowable,
     refreshEnabled: false,
     frequencyLabel: "handmatig",
     lastScanAt: null,
@@ -333,6 +346,12 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       a.startsAt.localeCompare(b.startsAt),
     );
     const intakeSourceType = intakeTypeFromNotes(source.notes, source.sourceType);
+    const capability = getSourceFollowCapability({
+      catalogSourceId: source.id,
+      officialUrl: source.officialUrl,
+      name: source.name,
+      intakeSourceType,
+    });
     return {
       ...source,
       createdAt: toIsoString(source.createdAt),
@@ -346,7 +365,10 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       domain: domainFromUrl(source.officialUrl),
       followStatus: "handmatig" as SourceFollowStatus,
       followLabel: SOURCE_FOLLOW_LABEL.handmatig,
-      refreshSupported: isRefreshSupported(source.id),
+      followMethods: capability.methods,
+      followMethodLabel: capability.methodLabel,
+      manualFollowReason: capability.manualReason,
+      refreshSupported: capability.autoFollowable,
       refreshEnabled: false,
       frequencyLabel: "handmatig",
       lastScanAt: null,
@@ -421,7 +443,13 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
     const schedule = schedules.get(source.id) ?? null;
     const run = latestRuns.get(source.id) ?? null;
     const failures = failureCounts.get(source.id) ?? 0;
-    const refreshSupported = isRefreshSupported(source.id);
+    const capability = getSourceFollowCapability({
+      catalogSourceId: source.id,
+      officialUrl: source.officialUrl,
+      name: source.name,
+      intakeSourceType: source.intakeSourceType,
+    });
+    const refreshSupported = capability.autoFollowable;
     const refreshEnabled = Boolean(schedule?.refreshEnabled);
     const followStatus = classifySourceFollowStatus({
       catalogStatus: source.status,
@@ -431,7 +459,11 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       consecutiveFailures: failures,
       intakeSourceType: source.intakeSourceType,
     });
-    const nextScanAt = resolveNextScanAt(source.id, schedule);
+    const nextScanAt = resolveNextScanAt(
+      source.id,
+      schedule,
+      capability.methods,
+    );
     const lastScanAt = run?.startedAt ?? null;
 
     const publishedSet = new Map<string, (typeof publishedRows)[number]>();
@@ -454,12 +486,16 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
 
     source.followStatus = followStatus;
     source.followLabel = SOURCE_FOLLOW_LABEL[followStatus];
+    source.followMethods = capability.methods;
+    source.followMethodLabel = capability.methodLabel;
+    source.manualFollowReason = capability.manualReason;
     source.refreshSupported = refreshSupported;
     source.refreshEnabled = refreshEnabled;
     source.frequencyLabel = frequencyLabel({
       catalogSourceId: source.id,
       refreshIntervalHours: schedule?.refreshIntervalHours ?? null,
       followStatus,
+      followMethods: capability.methods,
     });
     source.lastScanAt = lastScanAt;
     source.lastScanLabel = formatScanWhen(lastScanAt);

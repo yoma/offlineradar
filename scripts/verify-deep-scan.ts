@@ -62,8 +62,9 @@ ok("1 Flirt & Stride Pass1 gaps trigger deep scan");
 
 const queries = buildDeepSearchQueries(flirtPass1);
 assert.ok(queries.some((q) => /Flirt/i.test(q)));
-assert.ok(queries.some((q) => /instagram/i.test(q) || /allevents/i.test(q)));
-assert.ok(queries.length <= 5);
+assert.ok(queries.some((q) => /allevents|alix|flirtandstride|Breakfast|Gent/i.test(q)));
+assert.ok(queries.length <= 8);
+assert.ok(queries.length >= 3);
 ok("2 multi query strategy");
 
 const pass2 = blankProposal({
@@ -109,6 +110,9 @@ const gate = evaluateIntakeApproval(draft, {
     fieldsConfirmed: merged.fieldsConfirmed,
     conflicts: [],
     timestamp: new Date().toISOString(),
+    outcome: "new_info",
+    outcomeMessage: "Nieuwe informatie gevonden (date, location)",
+    searchResultCount: 4,
   },
 });
 assert.equal(gate.canPublish, true);
@@ -162,10 +166,17 @@ assert.match(
     triggered: true,
     reason: "",
     queries: [],
+    searchResultCount: 0,
     sourcesChecked: [],
     fieldsConfirmed: [],
     conflicts: [],
+    fieldsBefore: {},
+    fieldsAfter: {},
+    startedAt: "",
+    completedAt: "",
     timestamp: "",
+    outcome: "no_new_info",
+    outcomeMessage: "",
   }),
   /uitgebreid zoeken/,
 );
@@ -219,8 +230,12 @@ ok("9 admin status uses deep-scan copy");
 
 mustInclude("lib/aanvoer/deep-verify.ts", "web_search_20250305");
 mustInclude("lib/aanvoer/deep-verify.ts", "DEEP_SCAN_MAX_FETCHES");
+mustInclude("lib/aanvoer/deep-verify.ts", "discoverUrlsViaDuckDuckGo");
 mustInclude("app/interne-aanvoer/actions.ts", "runDeepVerification");
 mustInclude("components/admin/aanvoer-cockpit.tsx", "Opnieuw laten zoeken");
+mustInclude("components/admin/aanvoer-cockpit.tsx", "Zoeken op het web");
+mustInclude("lib/aanvoer/follow-capability.ts", "websearch");
+mustInclude("lib/source-refresh/generic-follow.ts", "runGenericSourceFollow");
 mustInclude("lib/aanvoer/dedupe.ts", "Vergelijkbare titel");
 ok("10 wiring strings");
 

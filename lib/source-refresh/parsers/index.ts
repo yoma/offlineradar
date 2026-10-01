@@ -23,6 +23,14 @@ export function runRefreshParser(
       return parseTomeetoHtml(html);
     case "juntas":
       return parseJuntasHtml(html);
+    case "generic-website":
+    case "websearch":
+      return {
+        candidates: [],
+        warnings: [
+          `Parser key ${parserKey} runs via generic-follow engine, not HTML parse.`,
+        ],
+      };
     default: {
       const _exhaustive: never = parserKey;
       return { candidates: [], warnings: [`Onbekende parser: ${_exhaustive}`] };

@@ -22,6 +22,8 @@ export const DEFAULT_REFRESH_INTERVAL_HOURS: Record<RefreshParserKey, number> = 
   "sportieve-singles": 48,
   tomeeto: 84,
   juntas: 84,
+  "generic-website": 72,
+  websearch: 96,
 };
 
 /**

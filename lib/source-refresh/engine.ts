@@ -67,6 +67,7 @@ export type StartRefreshResult =
 
 /**
  * Shared refresh entrypoint for admin + scheduler.
+ * Dedicated parsers OR generic website/websearch follow.
  * Parsing/matching/diff is identical regardless of triggerType.
  */
 export async function startSourceRefresh(input: {
@@ -76,11 +77,34 @@ export async function startSourceRefresh(input: {
 }): Promise<StartRefreshResult> {
   const triggerType: SourceRefreshTriggerType = input.triggerType ?? "manual";
   const pilot = getRefreshPilot(input.catalogSourceId);
-  if (!pilot) {
+
+  const { listCatalogSources } = await import("@/lib/events/catalog-sources");
+  const { getSourceFollowCapability } = await import(
+    "@/lib/aanvoer/source-follow"
+  );
+  const allSources = await listCatalogSources();
+  const catalogSource = allSources.find((s) => s.id === input.catalogSourceId);
+  if (!catalogSource) {
     return {
       ok: false,
       code: "unsupported",
-      error: "Deze bron heeft nog geen refresh-parser in V1.",
+      error: "Catalogusbron niet gevonden.",
+    };
+  }
+
+  const capability = getSourceFollowCapability({
+    catalogSourceId: catalogSource.id,
+    officialUrl: catalogSource.officialUrl,
+    name: catalogSource.name,
+  });
+
+  if (!pilot && !capability.autoFollowable) {
+    return {
+      ok: false,
+      code: "unsupported",
+      error:
+        capability.manualReason ??
+        "Automatische opvolging momenteel niet mogelijk voor deze bron.",
     };
   }
 
@@ -109,6 +133,16 @@ export async function startSourceRefresh(input: {
         run: latest,
       };
     }
+  }
+
+  if (!pilot) {
+    return startGenericSourceRefresh({
+      catalogSourceId: input.catalogSourceId,
+      catalogSource,
+      capability,
+      triggeredBy: input.triggeredBy,
+      triggerType,
+    });
   }
 
   const run = await createRefreshRun({
@@ -283,6 +317,85 @@ export async function startSourceRefresh(input: {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Onbekende refresh-fout";
+    const completed = await completeRefreshRun({
+      id: run.id,
+      status: "failed",
+      fetchState: "exception",
+      error: message,
+    });
+    return { ok: false, code: "failed", error: message, run: completed ?? run };
+  }
+}
+
+async function startGenericSourceRefresh(input: {
+  catalogSourceId: string;
+  catalogSource: { id: string; name: string; officialUrl: string };
+  capability: {
+    methods: import("@/lib/aanvoer/follow-capability").FollowMethod[];
+  };
+  triggeredBy: string;
+  triggerType: SourceRefreshTriggerType;
+}): Promise<StartRefreshResult> {
+  const parserKey = input.capability.methods.includes("website") ||
+    input.capability.methods.includes("agenda")
+    ? "generic-website"
+    : "websearch";
+
+  const run = await createRefreshRun({
+    catalogSourceId: input.catalogSourceId,
+    parserKey,
+    parserVersion: SOURCE_REFRESH_PARSER_VERSION,
+    triggeredBy: input.triggeredBy,
+    triggerType: input.triggerType,
+  });
+  if (!run) {
+    return { ok: false, code: "failed", error: "Kon refresh-run niet starten." };
+  }
+
+  try {
+    const { runGenericSourceFollow } = await import(
+      "@/lib/source-refresh/generic-follow"
+    );
+    const result = await runGenericSourceFollow({
+      sourceName: input.catalogSource.name,
+      officialUrl: input.catalogSource.officialUrl,
+      methods: input.capability.methods,
+    });
+
+    let newCount = 0;
+    for (const candidate of result.candidates) {
+      await insertRefreshItem({
+        refreshRunId: run.id,
+        catalogSourceId: input.catalogSourceId,
+        candidate,
+        detectionType: "new",
+        matchConfidence: "none",
+        status: "needs_review",
+      });
+      newCount++;
+    }
+
+    const completed = await completeRefreshRun({
+      id: run.id,
+      status: "completed",
+      fetchedUrl: result.fetchedUrl,
+      httpStatus: result.httpStatus,
+      fetchState: "ok",
+      candidateCount: result.candidates.length,
+      newCount,
+      unchangedCount: 0,
+      changedCount: 0,
+      removedCount: 0,
+      error:
+        result.warnings.length > 0
+          ? `${result.methodUsed}: ${result.warnings.slice(0, 3).join("; ")}`
+          : `method=${result.methodUsed}`,
+    });
+
+    return { ok: true, run: completed ?? run };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Onbekende generic refresh-fout";
     const completed = await completeRefreshRun({
       id: run.id,
       status: "failed",

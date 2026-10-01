@@ -335,24 +335,32 @@ export async function approveIntakeAction(
       if (approval.canPublish) return source;
     } else {
       sourceId = source.sourceId;
-      const { isRefreshSupported } = await import(
-        "@/lib/source-refresh/registry"
-      );
       const { setSourceRefreshEnabled } = await import(
         "@/lib/source-refresh/store"
       );
       const { listCatalogSources } = await import(
         "@/lib/events/catalog-sources"
       );
+      const { getSourceFollowCapability } = await import(
+        "@/lib/aanvoer/source-follow"
+      );
       const catalog = (await listCatalogSources()).find(
         (s) => s.id === source.sourceId,
       );
       const name = (catalog?.name ?? draft.organizer.trim()) || "Bron";
-      if (isRefreshSupported(source.sourceId)) {
+      const capability = getSourceFollowCapability({
+        catalogSourceId: source.sourceId,
+        officialUrl:
+          catalog?.officialUrl ||
+          draft.sourceUrl.trim() ||
+          draft.organizerUrl.trim(),
+        name,
+      });
+      if (capability.autoFollowable) {
         await setSourceRefreshEnabled(source.sourceId, true);
-        sourceFollowMessage = `Bron herkend: ${name}. ✓ Toegevoegd aan bronnen. ✓ Wordt voortaan automatisch gevolgd.`;
+        sourceFollowMessage = `Bron herkend: ${name}. ✓ Toegevoegd aan bronnen. ✓ Wordt voortaan automatisch gevolgd (${capability.methodLabel}).`;
       } else {
-        sourceFollowMessage = `Bron herkend: ${name}. Event toegevoegd, maar deze bron kan momenteel niet automatisch gevolgd worden.`;
+        sourceFollowMessage = `Bron herkend: ${name}. Handmatige bron — ${capability.manualReason ?? "automatische opvolging momenteel niet mogelijk"}.`;
       }
     }
   }
@@ -500,17 +508,23 @@ export async function updateSourceFollowAction(
     "@/lib/events/catalog-sources"
   );
   const { setSourceRefreshEnabled } = await import("@/lib/source-refresh/store");
-  const { isRefreshSupported } = await import("@/lib/source-refresh/registry");
   const {
     FOLLOW_ARCHIVED_TAG,
     FOLLOW_DISABLED_TAG,
     FOLLOW_PAUSED_TAG,
+    getSourceFollowCapability,
     patchFollowNotes,
   } = await import("@/lib/aanvoer/source-follow");
 
   const all = await listCatalogSources();
   const source = all.find((s) => s.id === id);
   if (!source) return { ok: false, error: "Bron niet gevonden." };
+
+  const capability = getSourceFollowCapability({
+    catalogSourceId: source.id,
+    officialUrl: source.officialUrl,
+    name: source.name,
+  });
 
   const now = new Date().toISOString();
   let notes = source.notes ?? "";
@@ -531,11 +545,11 @@ export async function updateSourceFollowAction(
       stamp: `resumed_at=${now}`,
     });
     if (status === "inactive") status = "active";
-    if (isRefreshSupported(id)) {
+    if (capability.autoFollowable) {
       await setSourceRefreshEnabled(id, true);
-      message = "Bron wordt opnieuw automatisch gevolgd.";
+      message = `Bron wordt opnieuw automatisch gevolgd (${capability.methodLabel}).`;
     } else {
-      message = "Bron hervat (handmatig — geen automatische parser).";
+      message = `Handmatige bron — ${capability.manualReason ?? "automatische opvolging niet mogelijk"}.`;
     }
   } else if (intent === "disable") {
     notes = patchFollowNotes(notes, {
@@ -552,11 +566,11 @@ export async function updateSourceFollowAction(
       stamp: `enabled_at=${now}`,
     });
     status = "active";
-    if (isRefreshSupported(id)) {
+    if (capability.autoFollowable) {
       await setSourceRefreshEnabled(id, true);
-      message = "Bron opnieuw ingeschakeld en automatisch gevolgd.";
+      message = `Bron opnieuw ingeschakeld en automatisch gevolgd (${capability.methodLabel}).`;
     } else {
-      message = "Bron opnieuw ingeschakeld (handmatig).";
+      message = `Bron opnieuw ingeschakeld. ${capability.manualReason ?? "Automatische opvolging niet mogelijk."}`;
     }
   } else if (intent === "archive") {
     notes = patchFollowNotes(notes, {
@@ -584,7 +598,7 @@ export async function updateSourceFollowAction(
   return { ok: true, message };
 }
 
-/** Manual scan-now for one parser-backed source. */
+/** Manual scan-now for any auto-followable source (parser or generic). */
 export async function scanSourceNowAction(
   formData: FormData,
 ): Promise<SourceFollowActionResult & { runId?: string }> {
@@ -594,11 +608,23 @@ export async function scanSourceNowAction(
   const id = String(formData.get("sourceId") ?? "").trim();
   if (!id) return { ok: false, error: "Bron ontbreekt." };
 
-  const { isRefreshSupported } = await import("@/lib/source-refresh/registry");
-  if (!isRefreshSupported(id)) {
+  const { listCatalogSources } = await import("@/lib/events/catalog-sources");
+  const { getSourceFollowCapability } = await import(
+    "@/lib/aanvoer/source-follow"
+  );
+  const source = (await listCatalogSources()).find((s) => s.id === id);
+  if (!source) return { ok: false, error: "Bron niet gevonden." };
+  const capability = getSourceFollowCapability({
+    catalogSourceId: source.id,
+    officialUrl: source.officialUrl,
+    name: source.name,
+  });
+  if (!capability.autoFollowable) {
     return {
       ok: false,
-      error: "Deze bron kan momenteel niet automatisch gescand worden.",
+      error:
+        capability.manualReason ??
+        "Automatische opvolging momenteel niet mogelijk.",
     };
   }
 
@@ -626,7 +652,18 @@ export async function scanSourceNowAction(
 /** List actions: Toevoegen / Niet toevoegen / Opnieuw laten controleren. */
 export async function updateAanvoerCandidateStatusAction(
   formData: FormData,
-): Promise<{ ok: true; message?: string } | { ok: false; error: string }> {
+): Promise<
+  | {
+      ok: true;
+      message?: string;
+      deepOutcome?: string;
+      deepOutcomeMessage?: string;
+      searchResultCount?: number;
+      sourcesChecked?: number;
+      fieldsConfirmed?: string[];
+    }
+  | { ok: false; error: string }
+> {
   const gate = await requireAdmin();
   if (!gate.ok) return { ok: false, error: gate.error };
 
@@ -829,19 +866,48 @@ export async function updateAanvoerCandidateStatusAction(
         revalidatePath("/ontdek");
         return {
           ok: true,
-          message: "✓ Opnieuw gezocht — toegevoegd aan DateOfflineHub",
+          message: `Nieuwe informatie gevonden — toegevoegd aan DateOfflineHub (${deep.report.fieldsConfirmed.join(", ") || "bevestigd"})`,
+          deepOutcome: deep.report.outcome,
+          deepOutcomeMessage: deep.report.outcomeMessage,
+          searchResultCount: deep.report.searchResultCount,
+          sourcesChecked: deep.report.sourcesChecked.length,
+          fieldsConfirmed: deep.report.fieldsConfirmed,
         };
       }
     }
 
     revalidatePath("/interne-aanvoer");
     revalidatePath("/interne-events");
-    const reason = approval.reviewReasons[0];
+    if (deep.report.outcome === "new_info") {
+      return {
+        ok: true,
+        message: deep.report.outcomeMessage,
+        deepOutcome: deep.report.outcome,
+        deepOutcomeMessage: deep.report.outcomeMessage,
+        searchResultCount: deep.report.searchResultCount,
+        sourcesChecked: deep.report.sourcesChecked.length,
+        fieldsConfirmed: deep.report.fieldsConfirmed,
+      };
+    }
+    if (deep.report.outcome === "failed") {
+      return {
+        ok: true,
+        message: `Zoeken mislukt — ${deep.report.outcomeMessage}`,
+        deepOutcome: deep.report.outcome,
+        deepOutcomeMessage: deep.report.outcomeMessage,
+        searchResultCount: deep.report.searchResultCount,
+        sourcesChecked: deep.report.sourcesChecked.length,
+        fieldsConfirmed: deep.report.fieldsConfirmed,
+      };
+    }
     return {
       ok: true,
-      message: reason
-        ? `Opnieuw gezocht. ⚠ ${reason}`
-        : "Opnieuw gezocht op basis van bredere bronnen.",
+      message: deep.report.outcomeMessage,
+      deepOutcome: deep.report.outcome,
+      deepOutcomeMessage: deep.report.outcomeMessage,
+      searchResultCount: deep.report.searchResultCount,
+      sourcesChecked: deep.report.sourcesChecked.length,
+      fieldsConfirmed: deep.report.fieldsConfirmed,
     };
   }
 

@@ -42,7 +42,9 @@ export type RefreshParserKey =
   | "hoptodate"
   | "sportieve-singles"
   | "tomeeto"
-  | "juntas";
+  | "juntas"
+  | "generic-website"
+  | "websearch";
 
 /** Deterministic normalized candidate from a source-specific parser. */
 export type RefreshNormalizedCandidate = {
