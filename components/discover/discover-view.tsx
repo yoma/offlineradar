@@ -17,10 +17,7 @@ import { USER_PLACES } from "@/data/places";
 import { track } from "@/lib/analytics";
 import { brusselsToday } from "@/lib/dates";
 import { matchingEvents, placeLabel } from "@/lib/filters";
-import { AVAILABILITY_LABEL, CATEGORY_LABEL, formatAgeRange, formatMeetPreference, MEET_GENDER_LABEL, PRICE_LABEL, WHEN_LABEL } from "@/lib/format";
-import {
-  publicActivityChipsFromSelection,
-} from "@/lib/public-activity-groups";
+import { formatMeetPreference } from "@/lib/format";
 import {
   hasAnyStrongPreferenceMatch,
   userHasMeetPreference,
@@ -28,11 +25,17 @@ import {
 import {
   applyResultRefinement,
   defaultResultRefinement,
+  normalizeOrganizerParam,
+  organizerSlugsFromParam,
   organizersFromEvents,
   refinementFiltersActive,
   serializeResultRefinement,
   type ResultRefinement,
 } from "@/lib/result-refinement";
+import {
+  activeFilterChips,
+  removeChipFromState,
+} from "@/lib/search-chips";
 import {
   applySearchPatch,
   applyStoredProfile,
@@ -208,6 +211,20 @@ export function DiscoverView({
   }
 
   function removeChip(chipId: string) {
+    if (chipId.startsWith("org-")) {
+      const slug = chipId.slice(4);
+      setRefinement((current) => {
+        const remaining = organizerSlugsFromParam(current.organizer).filter(
+          (item) => item !== slug,
+        );
+        return {
+          ...current,
+          organizer: normalizeOrganizerParam(remaining.join(",")),
+        };
+      });
+      track("filter_change", { removed: chipId });
+      return;
+    }
     setState((current) => {
       const next = removeChipFromState(current, chipId);
       track("filter_change", {
@@ -248,7 +265,17 @@ export function DiscoverView({
     setRefinement((current) => ({ ...current, organizer: "" }));
   }
 
-  const chips = activeChips(state);
+  const organizerNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const item of organizerOptions) map[item.slug] = item.name;
+    return map;
+  }, [organizerOptions]);
+
+  const chips = activeFilterChips(state, {
+    includeCoreTiming: true,
+    organizerSlugs: organizerSlugsFromParam(refinement.organizer),
+    organizerNames: organizerNameMap,
+  });
 
   const resultHeading =
     state.age == null
@@ -285,7 +312,10 @@ export function DiscoverView({
           <Button
             variant="outline"
             className="h-10 rounded-full px-4"
-            onClick={() => setFiltersOpen(true)}
+            onClick={() => {
+              setFiltersOpen(true);
+              track("more_filters_opened", { source: "ontdek" });
+            }}
           >
             <SlidersHorizontal className="size-4" />
             Filters
@@ -560,133 +590,26 @@ export function DiscoverView({
         state={state}
         count={state.age == null ? 0 : visible.length}
         onChange={update}
+        organizerOptions={organizerOptions.map((item) => ({
+          id: item.slug,
+          slug: item.slug,
+          name: item.name,
+          blurb: null,
+        }))}
+        selectedOrganizers={organizerSlugsFromParam(refinement.organizer)}
+        onOrganizersChange={(slugs) => {
+          setRefinement((current) => ({
+            ...current,
+            organizer: normalizeOrganizerParam(slugs.join(",")),
+          }));
+          track("filter_change", {
+            organizer: normalizeOrganizerParam(slugs.join(",")),
+          });
+        }}
       />
       <p className="sr-only">{USER_PLACES.length} plaatsen</p>
     </div>
   );
-}
-
-function activeChips(state: SearchState): {
-  id: string;
-  label: string;
-  kind: "filter" | "preference" | "date";
-}[] {
-  const chips: {
-    id: string;
-    label: string;
-    kind: "filter" | "preference" | "date";
-  }[] = [];
-  if (state.when !== "any") {
-    chips.push({
-      id: "when",
-      label: state.when === "date" && state.date ? state.date : WHEN_LABEL[state.when],
-      kind: "date",
-    });
-  }
-  if (state.maxDistanceKm !== 100) {
-    chips.push({
-      id: "distance",
-      label: `Binnen ${state.maxDistanceKm} km`,
-      kind: "filter",
-    });
-  }
-  if (state.preferredMeetGender !== "anyone") {
-    chips.push({
-      id: "meet-gender",
-      label: `Ontmoet ${MEET_GENDER_LABEL[state.preferredMeetGender].toLowerCase()}`,
-      kind: "preference",
-    });
-  }
-  if (state.preferredAgeMin != null || state.preferredAgeMax != null) {
-    chips.push({
-      id: "pref-age",
-      label: formatAgeRange(state.preferredAgeMin, state.preferredAgeMax) ?? "Leeftijd",
-      kind: "preference",
-    });
-  }
-  for (const category of state.categories) {
-    chips.push({
-      id: `cat-${category}`,
-      label: CATEGORY_LABEL[category],
-      kind: "filter",
-    });
-  }
-  for (const activityChip of publicActivityChipsFromSelection(state.activities)) {
-    chips.push({
-      id: `act-${activityChip.id}`,
-      label: activityChip.label,
-      kind: "filter",
-    });
-  }
-  if (state.price !== "any") {
-    chips.push({
-      id: "price",
-      label: PRICE_LABEL[state.price],
-      kind: "filter",
-    });
-  }
-  if (state.singlesOnly) {
-    chips.push({
-      id: "singles",
-      label: "Alleen singles",
-      kind: "filter",
-    });
-  }
-  if (state.availability !== "any") {
-    chips.push({
-      id: "avail",
-      label: AVAILABILITY_LABEL[state.availability],
-      kind: "filter",
-    });
-  }
-  if (state.strictOnly) {
-    chips.push({
-      id: "strict",
-      label: "Alleen strikte leeftijd",
-      kind: "filter",
-    });
-  }
-  return chips;
-}
-
-function removeChipFromState(state: SearchState, chipId: string): SearchState {
-  if (chipId === "when") return applySearchPatch(state, { when: "any", date: null });
-  if (chipId === "distance") return applySearchPatch(state, { maxDistanceKm: 100 });
-  if (chipId === "meet-gender") {
-    return applySearchPatch(state, { preferredMeetGender: "anyone" });
-  }
-  if (chipId === "pref-age") {
-    return applySearchPatch(state, {
-      preferredAgeMin: null,
-      preferredAgeMax: null,
-    });
-  }
-  if (chipId === "price") return applySearchPatch(state, { price: "any" });
-  if (chipId === "singles") return applySearchPatch(state, { singlesOnly: false });
-  if (chipId === "avail") return applySearchPatch(state, { availability: "any" });
-  if (chipId === "strict") return applySearchPatch(state, { strictOnly: false });
-  if (chipId.startsWith("cat-")) {
-    const category = chipId.slice(4);
-    return applySearchPatch(state, {
-      categories: state.categories.filter((item) => item !== category),
-    });
-  }
-  if (chipId.startsWith("act-")) {
-    const activityKey = chipId.slice(4);
-    const groupChip = publicActivityChipsFromSelection(state.activities).find(
-      (chip) => chip.id === activityKey,
-    );
-    if (groupChip) {
-      const remove = new Set(groupChip.activities);
-      return applySearchPatch(state, {
-        activities: state.activities.filter((item) => !remove.has(item)),
-      });
-    }
-    return applySearchPatch(state, {
-      activities: state.activities.filter((item) => item !== activityKey),
-    });
-  }
-  return state;
 }
 
 function suggestions(state: SearchState): { id: string; label: string; patch: Partial<SearchState> }[] {

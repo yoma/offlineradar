@@ -3,6 +3,7 @@ export type AnalyticsEventName =
   | "page_view"
   | "discovery_search"
   | "filter_change"
+  | "more_filters_opened"
   | "event_card_click"
   | "event_view"
   | "event_saved"
@@ -58,6 +59,7 @@ export const ALLOWED_ANALYTICS_NAMES = new Set([
   "page_view",
   "discovery_search",
   "filter_change",
+  "more_filters_opened",
   "event_card_click",
   "event_view",
   "event_saved",

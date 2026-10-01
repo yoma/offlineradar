@@ -1,14 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import {
-  Check,
-  ChevronDown,
-  Plus,
-  Search,
-  SlidersHorizontal,
-  X,
-} from "lucide-react";
+import { Plus, Search, SlidersHorizontal, X } from "lucide-react";
 import {
   useEffect,
   useMemo,
@@ -16,113 +9,50 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { markSearchPending } from "@/components/discover/search-loading";
 import { UpcomingStrip } from "@/components/discover/upcoming-strip";
+import { FilterSheet } from "@/components/filters/filter-sheet";
 import { USER_PLACES, findPlace } from "@/data/places";
 import { track } from "@/lib/analytics";
-import { DISTANCES, GENDER_LABEL, MEET_GENDER_LABEL, WHEN_LABEL } from "@/lib/format";
+import { matchingEvents } from "@/lib/filters";
+import { DISTANCES, GENDER_LABEL } from "@/lib/format";
 import { heroImageUrl } from "@/lib/images";
 import type { PublishedOrganizerOption } from "@/lib/organizers/published-options";
-import { normalizeOrganizerParam } from "@/lib/result-refinement";
-import { profileFromSearch, serializeSearchState } from "@/lib/search-state";
-import { readProfile, writeProfile } from "@/lib/storage";
-import { markSearchPending } from "@/components/discover/search-loading";
-import type { Event } from "@/types/event";
-import type {
-  ActivityId,
-  EventCategory,
-  PreferredMeetGender,
-  UserGender,
-} from "@/types/event";
-import type { SearchState, WhenFilter } from "@/types/search";
 import {
-  expandActivityFilterSelection,
-  isPublicActivityGroupSelected,
-  PUBLIC_ACTIVITY_GROUPS,
-  type PublicActivityGroupId,
-  togglePublicActivityGroup,
-} from "@/lib/public-activity-groups";
-
-type QuickChip =
-  | {
-      kind: "when";
-      label: string;
-      when: WhenFilter;
-    }
-  | {
-      kind: "category";
-      label: string;
-      categories: EventCategory[];
-    }
-  | {
-      kind: "activity_group";
-      label: string;
-      groupId: PublicActivityGroupId;
-    };
-
-const TYPE_QUICK: QuickChip[] = [
-  { kind: "activity_group", label: "Speeddate", groupId: "speeddate" },
-  { kind: "category", label: "Dating", categories: ["dating"] },
-  { kind: "category", label: "Nieuwe mensen", categories: ["meet_new_people"] },
-  { kind: "activity_group", label: "Sport & actief", groupId: "sport_active" },
-  { kind: "activity_group", label: "Dinner / food", groupId: "eten" },
-  { kind: "activity_group", label: "Drinks / apero", groupId: "drinken" },
-  { kind: "activity_group", label: "Party", groupId: "party" },
-  { kind: "activity_group", label: "Workshop", groupId: "workshop" },
-  { kind: "activity_group", label: "Weekend / reis", groupId: "travel" },
-];
-
-/** Full category set: empty filter means "all" (same as selecting every value). */
-const ALL_CATEGORIES: EventCategory[] = [
-  "dating",
-  "meet_new_people",
-  "social",
-];
-
-const ALL_ACTIVITY_IDS: ActivityId[] = Array.from(
-  new Set(PUBLIC_ACTIVITY_GROUPS.flatMap((group) => [...group.activities])),
-);
-
-function includesAll<T>(haystack: T[], needles: T[]) {
-  return needles.every((item) => haystack.includes(item));
-}
-
-function sameSet<T>(a: T[], b: readonly T[]) {
-  return a.length === b.length && includesAll(a, [...b]);
-}
-
-function toggleList<T>(current: T[], next: T[]) {
-  if (includesAll(current, next)) {
-    return current.filter((item) => !next.includes(item));
-  }
-  return [...new Set([...current, ...next])];
-}
+  normalizeOrganizerParam,
+} from "@/lib/result-refinement";
+import {
+  activeFilterChips,
+  countExtraFilters,
+  extraFiltersSummary,
+  removeChipFromState,
+} from "@/lib/search-chips";
+import {
+  applySearchPatch,
+  defaultSearchState,
+  profileFromSearch,
+  serializeSearchState,
+} from "@/lib/search-state";
+import { expandActivityFilterSelection } from "@/lib/public-activity-groups";
+import { readProfile, writeProfile } from "@/lib/storage";
+import type { Event, UserGender } from "@/types/event";
+import type { SearchState, WhenFilter } from "@/types/search";
 
 export function HomeHero({
   organizerOptions = [],
   upcomingEvents = [],
+  events = [],
   today,
 }: {
   organizerOptions?: PublishedOrganizerOption[];
   upcomingEvents?: Event[];
+  /** Catalog events for live Meer-filters result count (client-side). */
+  events?: Event[];
   today?: string;
 }) {
-  const [age, setAge] = useState("");
-  const [gender, setGender] = useState<UserGender | "">("");
-  const [placeId, setPlaceId] = useState("antwerpen");
-  const [distance, setDistance] = useState(100);
-  const [when, setWhen] = useState<WhenFilter>("any");
-  const [date, setDate] = useState("");
-  const [activities, setActivities] = useState<ActivityId[]>([]);
-  const [categories, setCategories] = useState<EventCategory[]>([]);
-  /** Explicit "Alle soorten" toggle (empty lists alone cannot mean both on and off). */
-  const [allTypes, setAllTypes] = useState(true);
+  const [state, setState] = useState<SearchState>(() => defaultSearchState());
+  const [ageDraft, setAgeDraft] = useState("");
   const [selectedOrganizers, setSelectedOrganizers] = useState<string[]>([]);
-  const [organizerQuery, setOrganizerQuery] = useState("");
-  const [organizerOpen, setOrganizerOpen] = useState(false);
-  const [prefMin, setPrefMin] = useState("");
-  const [prefMax, setPrefMax] = useState("");
-  const [meetGender, setMeetGender] =
-    useState<PreferredMeetGender>("anyone");
   const [error, setError] = useState("");
   const [invalidFields, setInvalidFields] = useState<{
     age?: boolean;
@@ -132,142 +62,108 @@ export function HomeHero({
   const [searching, setSearching] = useState(false);
   const ageInputRef = useRef<HTMLInputElement>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
-  const organizerBoxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const profile = readProfile();
     queueMicrotask(() => {
-      if (profile.age) setAge(String(profile.age));
-      if (profile.gender) setGender(profile.gender);
-      if (profile.placeId) setPlaceId(findPlace(profile.placeId).id);
-      if (profile.maxDistanceKm) setDistance(profile.maxDistanceKm);
-      if (profile.interests.length) {
-        setAllTypes(false);
-        setActivities(expandActivityFilterSelection(profile.interests));
-      }
-      if (profile.preferredAgeMin) setPrefMin(String(profile.preferredAgeMin));
-      if (profile.preferredAgeMax) setPrefMax(String(profile.preferredAgeMax));
-      if (profile.preferredMeetGender) setMeetGender(profile.preferredMeetGender);
+      setState((current) => {
+        let next = { ...current };
+        if (profile.placeId) next.placeId = findPlace(profile.placeId).id;
+        if (profile.maxDistanceKm) next.maxDistanceKm = profile.maxDistanceKm;
+        if (profile.gender) next.gender = profile.gender;
+        if (profile.preferredAgeMin != null) {
+          next.preferredAgeMin = profile.preferredAgeMin;
+        }
+        if (profile.preferredAgeMax != null) {
+          next.preferredAgeMax = profile.preferredAgeMax;
+        }
+        if (profile.preferredMeetGender) {
+          next.preferredMeetGender = profile.preferredMeetGender;
+        }
+        if (profile.interests.length) {
+          next.activities = expandActivityFilterSelection(profile.interests);
+        }
+        return next;
+      });
+      if (profile.age) setAgeDraft(String(profile.age));
     });
   }, []);
 
-  useEffect(() => {
-    function onPointerDown(event: MouseEvent) {
-      if (!organizerBoxRef.current) return;
-      if (!organizerBoxRef.current.contains(event.target as Node)) {
-        setOrganizerOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
-  }, []);
+  const organizerNames = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const item of organizerOptions) map[item.slug] = item.name;
+    return map;
+  }, [organizerOptions]);
 
-  const selectedOrganizerRecords = useMemo(
+  const advancedChips = useMemo(
     () =>
-      selectedOrganizers
-        .map((slug) => organizerOptions.find((item) => item.slug === slug))
-        .filter((item): item is PublishedOrganizerOption => Boolean(item)),
-    [organizerOptions, selectedOrganizers],
+      activeFilterChips(state, {
+        includeCoreTiming: false,
+        organizerSlugs: selectedOrganizers,
+        organizerNames,
+      }),
+    [state, selectedOrganizers, organizerNames],
   );
 
-  const filteredOrganizers = useMemo(() => {
-    const needle = organizerQuery.trim().toLowerCase();
-    return organizerOptions.filter((item) => {
-      if (selectedOrganizers.includes(item.slug)) return false;
-      if (!needle) return true;
-      return (
-        item.name.toLowerCase().includes(needle) ||
-        item.slug.includes(needle) ||
-        (item.blurb?.toLowerCase().includes(needle) ?? false)
-      );
+  const extraCount = countExtraFilters(state, selectedOrganizers);
+  const extraSummary = extraFiltersSummary(
+    state,
+    selectedOrganizers,
+    organizerNames,
+  );
+
+  const filterCount = useMemo(() => {
+    const age = Number(ageDraft.trim());
+    const searchAge =
+      Number.isFinite(age) && age >= 18 && age <= 99 ? age : null;
+    const forCount: SearchState = { ...state, age: searchAge };
+    return matchingEvents(events, forCount).visible.length;
+  }, [events, state, ageDraft]);
+
+  function update(patch: Partial<SearchState>) {
+    setState((current) => {
+      const next = applySearchPatch(current, patch);
+      track("filter_change", {
+        when: next.when,
+        distance: next.maxDistanceKm,
+        categories: next.categories.join(","),
+        activities: next.activities.join(","),
+        price: next.price,
+        singlesOnly: next.singlesOnly,
+        availability: next.availability,
+        strictOnly: next.strictOnly,
+        sort: next.sort,
+      });
+      return next;
     });
-  }, [organizerOptions, organizerQuery, selectedOrganizers]);
-
-  function addOrganizer(slug: string) {
-    setSelectedOrganizers((current) =>
-      current.includes(slug) ? current : [...current, slug],
-    );
-    setOrganizerQuery("");
-    setOrganizerOpen(false);
   }
 
-  function removeOrganizer(slug: string) {
-    setSelectedOrganizers((current) => current.filter((item) => item !== slug));
+  function removeChip(chipId: string) {
+    if (chipId.startsWith("org-")) {
+      const slug = chipId.slice(4);
+      setSelectedOrganizers((current) =>
+        current.filter((item) => item !== slug),
+      );
+      track("filter_change", { removed: chipId, organizer: slug });
+      return;
+    }
+    setState((current) => {
+      const next = removeChipFromState(current, chipId);
+      track("filter_change", { removed: chipId });
+      return next;
+    });
   }
 
-  function isChipActive(chip: QuickChip) {
-    if (chip.kind === "when") return when === chip.when;
-    // Alle soorten aan = alle soort-pillen ook visueel aan.
-    if (allTypes) return true;
-    if (chip.kind === "category") {
-      return includesAll(categories, chip.categories);
-    }
-    return isPublicActivityGroupSelected(activities, chip.groupId);
-  }
-
-  function applyTypeSelection(
-    nextCategories: EventCategory[],
-    nextActivities: ActivityId[],
-  ) {
-    if (
-      sameSet(nextCategories, ALL_CATEGORIES) &&
-      sameSet(nextActivities, ALL_ACTIVITY_IDS)
-    ) {
-      setAllTypes(true);
-      setCategories([]);
-      setActivities([]);
-      return;
-    }
-    setAllTypes(false);
-    setCategories(nextCategories);
-    setActivities(nextActivities);
-  }
-
-  function toggleChip(chip: QuickChip) {
-    if (chip.kind === "when") {
-      setWhen((current) => (current === chip.when ? "any" : chip.when));
-      if (chip.when !== "date") setDate("");
-      return;
-    }
-
-    // Leaving “Alle soorten”: start with only this chip.
-    if (allTypes) {
-      if (chip.kind === "category") {
-        applyTypeSelection([...chip.categories], []);
-        return;
-      }
-      applyTypeSelection([], togglePublicActivityGroup([], chip.groupId));
-      return;
-    }
-
-    if (chip.kind === "category") {
-      applyTypeSelection(toggleList(categories, chip.categories), activities);
-      return;
-    }
-
-    applyTypeSelection(
-      categories,
-      togglePublicActivityGroup(activities, chip.groupId),
-    );
-  }
-
-  function toggleAlleSoorten() {
-    if (allTypes) {
-      setAllTypes(false);
-      setCategories([]);
-      setActivities([]);
-      return;
-    }
-    setAllTypes(true);
-    setCategories([]);
-    setActivities([]);
+  function openMoreFilters() {
+    setMoreOpen(true);
+    track("more_filters_opened", { source: "homepage" });
   }
 
   function go() {
     if (searching) return;
     const missing: string[] = [];
     const nextInvalid: { age?: boolean; date?: boolean } = {};
-    const ageTrimmed = age.trim();
+    const ageTrimmed = ageDraft.trim();
     const parsedAge = Number(ageTrimmed);
 
     if (!ageTrimmed) {
@@ -282,7 +178,7 @@ export function HomeHero({
       nextInvalid.age = true;
     }
 
-    if (when === "date" && !date) {
+    if (state.when === "date" && !state.date) {
       missing.push("kies een datum");
       nextInvalid.date = true;
     }
@@ -303,40 +199,25 @@ export function HomeHero({
       return;
     }
 
-    const state: SearchState = {
+    const searchState: SearchState = {
+      ...state,
       age: parsedAge,
-      gender: gender || null,
-      placeId: findPlace(placeId).id,
-      maxDistanceKm: distance,
-      preferredAgeMin: prefMin ? Number(prefMin) : null,
-      preferredAgeMax: prefMax ? Number(prefMax) : null,
-      preferredMeetGender: meetGender,
-      when,
-      date: when === "date" ? date || null : null,
-      // "Alles" (allTypes of volledige set) = geen typefilter in de zoek-URL.
-      categories:
-        allTypes || sameSet(categories, ALL_CATEGORIES) ? [] : categories,
-      activities:
-        allTypes || sameSet(activities, ALL_ACTIVITY_IDS) ? [] : activities,
-      price: "any",
-      singlesOnly: false,
-      availability: "any",
-      strictOnly: false,
-      sort: "match",
+      placeId: findPlace(state.placeId).id,
+      date: state.when === "date" ? state.date : null,
     };
     setError("");
     setInvalidFields({});
     setSearching(true);
     try {
-      writeProfile(profileFromSearch(state));
+      writeProfile(profileFromSearch(searchState));
       track("discovery_search", {
-        age: state.age,
-        placeId: state.placeId,
-        distance: state.maxDistanceKm,
-        when: state.when,
+        age: searchState.age,
+        placeId: searchState.placeId,
+        distance: searchState.maxDistanceKm,
+        when: searchState.when,
       });
       markSearchPending();
-      const query = serializeSearchState(state);
+      const query = serializeSearchState(searchState);
       const params = new URLSearchParams(query);
       const organizerParam = normalizeOrganizerParam(
         selectedOrganizers.join(","),
@@ -344,8 +225,6 @@ export function HomeHero({
       if (organizerParam) params.set("organizer", organizerParam);
       const qs = params.toString();
       const url = qs ? `/ontdek?${qs}` : "/ontdek";
-      // Hard navigation: client soft-nav from the hero was intermittently a no-op
-      // on production (submit ran, profile wrote, URL stayed on /).
       window.location.assign(url);
       window.setTimeout(() => {
         if (window.location.pathname === "/") {
@@ -363,11 +242,6 @@ export function HomeHero({
       setError("Zoeken lukte even niet. Probeer opnieuw.");
     }
   }
-
-  const extraFilterCount = [
-    meetGender !== "anyone",
-    Boolean(prefMin || prefMax),
-  ].filter(Boolean).length;
 
   return (
     <section className="relative -mt-16 min-h-[100svh] min-w-0 overflow-x-clip">
@@ -415,8 +289,8 @@ export function HomeHero({
             <div className="grid grid-cols-1 lg:grid-cols-5 lg:items-stretch">
               <Field label="Waar" chevron>
                 <select
-                  value={placeId}
-                  onChange={(event) => setPlaceId(event.target.value)}
+                  value={state.placeId}
+                  onChange={(event) => update({ placeId: event.target.value })}
                   className="search-field-control w-full bg-transparent text-[15px] font-semibold leading-6 outline-none"
                 >
                   {USER_PLACES.map((place) => (
@@ -428,12 +302,14 @@ export function HomeHero({
               </Field>
               <Field label="Wanneer" divide chevron>
                 <select
-                  value={when}
+                  value={state.when}
                   onChange={(event) => {
                     const next = event.target.value as WhenFilter;
-                    setWhen(next);
+                    update({
+                      when: next,
+                      date: next === "date" ? state.date : null,
+                    });
                     if (next !== "date") {
-                      setDate("");
                       setInvalidFields((current) => ({
                         ...current,
                         date: false,
@@ -442,7 +318,7 @@ export function HomeHero({
                   }}
                   className="search-field-control w-full bg-transparent text-[15px] font-semibold leading-6 outline-none"
                 >
-                  <option value="any">{WHEN_LABEL.any}</option>
+                  <option value="any">Alle datums</option>
                   <option value="today">Vandaag</option>
                   <option value="tomorrow">Morgen</option>
                   <option value="weekend">Dit weekend</option>
@@ -464,13 +340,18 @@ export function HomeHero({
                   max={99}
                   inputMode="numeric"
                   placeholder="bv. 49"
-                  value={age}
+                  value={ageDraft}
                   aria-invalid={invalidFields.age || undefined}
-                  aria-describedby={invalidFields.age ? "home-search-error" : undefined}
+                  aria-describedby={
+                    invalidFields.age ? "home-search-error" : undefined
+                  }
                   onChange={(event) => {
-                    setAge(event.target.value);
+                    setAgeDraft(event.target.value);
                     if (invalidFields.age) {
-                      setInvalidFields((current) => ({ ...current, age: false }));
+                      setInvalidFields((current) => ({
+                        ...current,
+                        age: false,
+                      }));
                       setError("");
                     }
                   }}
@@ -479,9 +360,11 @@ export function HomeHero({
               </Field>
               <Field label="Gender" divide chevron optional>
                 <select
-                  value={gender}
+                  value={state.gender ?? ""}
                   onChange={(event) =>
-                    setGender(event.target.value as UserGender | "")
+                    update({
+                      gender: (event.target.value || null) as UserGender | null,
+                    })
                   }
                   className="search-field-control w-full bg-transparent text-[15px] font-semibold leading-6 outline-none"
                 >
@@ -495,8 +378,10 @@ export function HomeHero({
               </Field>
               <Field label="Afstand" divide chevron>
                 <select
-                  value={distance}
-                  onChange={(event) => setDistance(Number(event.target.value))}
+                  value={state.maxDistanceKm}
+                  onChange={(event) =>
+                    update({ maxDistanceKm: Number(event.target.value) })
+                  }
                   className="search-field-control w-full bg-transparent text-[15px] font-semibold leading-6 outline-none"
                 >
                   {DISTANCES.map((km) => (
@@ -507,7 +392,7 @@ export function HomeHero({
                 </select>
               </Field>
             </div>
-            {when === "date" ? (
+            {state.when === "date" ? (
               <div
                 className={`border-t px-5 py-3.5 sm:px-6 ${
                   invalidFields.date
@@ -518,7 +403,9 @@ export function HomeHero({
                 <label className="block">
                   <span
                     className={`mb-1.5 block text-[11px] font-semibold tracking-[0.08em] uppercase ${
-                      invalidFields.date ? "text-[#e61e4d]" : "text-muted-foreground"
+                      invalidFields.date
+                        ? "text-[#e61e4d]"
+                        : "text-muted-foreground"
                     }`}
                   >
                     Datum {invalidFields.date ? "(verplicht)" : ""}
@@ -526,13 +413,16 @@ export function HomeHero({
                   <input
                     ref={dateInputRef}
                     type="date"
-                    value={date}
+                    value={state.date ?? ""}
                     aria-invalid={invalidFields.date || undefined}
                     aria-describedby={
                       invalidFields.date ? "home-search-error" : undefined
                     }
                     onChange={(event) => {
-                      setDate(event.target.value);
+                      update({
+                        when: "date",
+                        date: event.target.value || null,
+                      });
                       if (invalidFields.date) {
                         setInvalidFields((current) => ({
                           ...current,
@@ -561,232 +451,45 @@ export function HomeHero({
             <button
               type="button"
               aria-expanded={moreOpen}
-              onClick={() => setMoreOpen((value) => !value)}
+              onClick={openMoreFilters}
               className="inline-flex min-h-10 items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20"
             >
               <SlidersHorizontal className="size-4 shrink-0" />
               Meer filters
-              {extraFilterCount > 0 ? (
+              {extraCount > 0 ? (
                 <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-xs font-bold text-[#e61e4d]">
-                  {extraFilterCount}
+                  {extraCount}
                 </span>
               ) : null}
-              <ChevronDown
-                className={`size-4 shrink-0 transition ${moreOpen ? "rotate-180" : ""}`}
-              />
             </button>
-            <p className="max-w-[16rem] pl-1 text-sm leading-5 text-white/70 sm:max-w-none sm:pl-0">
-              Extra: voorkeuren voor wie je wilt ontmoeten
-            </p>
+            {extraCount > 0 && extraSummary ? (
+              <p className="max-w-[20rem] truncate pl-1 text-sm leading-5 text-white/70 sm:max-w-md sm:pl-0">
+                {extraCount} extra {extraCount === 1 ? "filter" : "filters"}:{" "}
+                {extraSummary}
+              </p>
+            ) : (
+              <p className="max-w-[16rem] pl-1 text-sm leading-5 text-white/70 sm:max-w-none sm:pl-0">
+                Organisator, type, prijs en meer
+              </p>
+            )}
           </div>
 
-          {moreOpen ? (
-            <div className="mt-3 space-y-5 rounded-2xl bg-white p-4 text-foreground shadow-lg sm:p-5">
-              <section className="space-y-3">
-                <h2 className="text-sm font-semibold tracking-wide uppercase">
-                  Wie wil je graag ontmoeten?
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  Optioneel. Dit rangschikt resultaten, het verbergt geen activiteiten.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {(Object.keys(MEET_GENDER_LABEL) as PreferredMeetGender[]).map(
-                    (key) => (
-                      <button
-                        key={key}
-                        type="button"
-                        aria-pressed={meetGender === key}
-                        onClick={() => setMeetGender(key)}
-                        className={`rounded-full border px-3 py-1.5 text-sm ${
-                          meetGender === key
-                            ? "border-foreground bg-foreground text-white"
-                            : "border-border bg-white"
-                        }`}
-                      >
-                        {MEET_GENDER_LABEL[key]}
-                      </button>
-                    ),
-                  )}
-                </div>
-              </section>
-
-              <section className="space-y-3 border-t border-border pt-4">
-                <h2 className="text-sm font-semibold tracking-wide uppercase">
-                  Gewenste leeftijd
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  Dit is een voorkeur. We tonen ook andere activiteiten waarvoor je
-                  kunt deelnemen.
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="text-sm">
-                    <span className="mb-1 block font-medium">Van</span>
-                    <input
-                      type="number"
-                      min={18}
-                      max={99}
-                      value={prefMin}
-                      onChange={(event) => setPrefMin(event.target.value)}
-                      placeholder="40"
-                      className="h-11 w-full rounded-xl border border-border px-3"
-                    />
-                  </label>
-                  <label className="text-sm">
-                    <span className="mb-1 block font-medium">Tot</span>
-                    <input
-                      type="number"
-                      min={18}
-                      max={99}
-                      value={prefMax}
-                      onChange={(event) => setPrefMax(event.target.value)}
-                      placeholder="52"
-                      className="h-11 w-full rounded-xl border border-border px-3"
-                    />
-                  </label>
-                </div>
-              </section>
+          {advancedChips.length > 0 ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {advancedChips.map((chip) => (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={() => removeChip(chip.id)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/35 bg-white/15 px-3 py-1.5 text-sm text-white backdrop-blur-sm hover:bg-white/25"
+                >
+                  {chip.label}
+                  <X className="size-3.5 opacity-80" aria-hidden />
+                  <span className="sr-only">Verwijder filter {chip.label}</span>
+                </button>
+              ))}
             </div>
           ) : null}
-
-          <div className="mt-5 space-y-4">
-            {organizerOptions.length > 0 ? (
-              <div ref={organizerBoxRef} className="relative max-w-xl">
-                <p className="mb-2 text-xs font-semibold tracking-wide text-white/70 uppercase">
-                  Organisator
-                </p>
-                <label className="relative block">
-                  <span className="sr-only">Zoek of kies een organisator</span>
-                  <Search
-                    className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-                    aria-hidden
-                  />
-                  <input
-                    type="search"
-                    value={organizerQuery}
-                    onChange={(event) => {
-                      setOrganizerQuery(event.target.value);
-                      setOrganizerOpen(true);
-                    }}
-                    onFocus={() => setOrganizerOpen(true)}
-                    placeholder="Zoek of kies een organisator…"
-                    className="h-11 w-full rounded-full border border-white/30 bg-white pr-3 pl-9 text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground focus:border-white"
-                    autoComplete="off"
-                  />
-                </label>
-                {organizerOpen ? (
-                  <ul
-                    role="listbox"
-                    className="absolute z-20 mt-1.5 max-h-64 w-full overflow-auto rounded-2xl border border-border bg-white py-1 shadow-lg"
-                  >
-                    {filteredOrganizers.length === 0 ? (
-                      <li className="px-3 py-2.5 text-sm text-muted-foreground">
-                        Geen organisator gevonden
-                      </li>
-                    ) : (
-                      filteredOrganizers.map((item) => (
-                        <li key={item.id}>
-                          <button
-                            type="button"
-                            role="option"
-                            className="flex w-full flex-col items-start gap-0.5 px-3 py-2.5 text-left hover:bg-black/[0.04]"
-                            onClick={() => addOrganizer(item.slug)}
-                          >
-                            <span className="text-sm font-semibold text-foreground">
-                              {item.name}
-                            </span>
-                            {item.blurb ? (
-                              <span className="text-xs text-muted-foreground">
-                                {item.blurb}
-                              </span>
-                            ) : null}
-                          </button>
-                        </li>
-                      ))
-                    )}
-                  </ul>
-                ) : null}
-              </div>
-            ) : null}
-
-            <div>
-              <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                <p className="text-xs font-semibold tracking-wide text-white/70 uppercase">
-                  Waar heb je zin in?
-                </p>
-                <p className="text-[11px] text-white/55">
-                  Tik om aan of uit te zetten
-                </p>
-              </div>
-              <div className="space-y-2.5">
-                <div
-                  className="flex flex-wrap items-center gap-2"
-                  role="group"
-                  aria-label="Alle soorten"
-                >
-                  <button
-                    type="button"
-                    aria-pressed={allTypes}
-                    onClick={toggleAlleSoorten}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold backdrop-blur-sm transition ${
-                      allTypes
-                        ? "border-[#e61e4d] bg-[#e61e4d] text-white"
-                        : "border-[#e61e4d]/55 bg-[#e61e4d]/15 text-white hover:border-[#e61e4d]/80 hover:bg-[#e61e4d]/30"
-                    }`}
-                  >
-                    {allTypes ? (
-                      <Check className="size-3.5 shrink-0" aria-hidden />
-                    ) : null}
-                    Alle soorten
-                  </button>
-                  <span className="text-[11px] text-white/45" aria-hidden>
-                    of kies specifiek
-                  </span>
-                </div>
-                <div
-                  className="flex flex-wrap items-center gap-2 border-t border-white/15 pt-2.5"
-                  role="group"
-                  aria-label="Specifieke soorten, tik om aan of uit te zetten"
-                >
-                  {TYPE_QUICK.map((item) => {
-                    const active = isChipActive(item);
-                    return (
-                      <button
-                        key={item.label}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => toggleChip(item)}
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium backdrop-blur-sm transition ${
-                          active
-                            ? "border-white bg-white text-foreground"
-                            : "border-dashed border-white/35 bg-transparent text-white/75 hover:border-white/55 hover:bg-white/10 hover:text-white"
-                        }`}
-                      >
-                        {active ? (
-                          <Check
-                            className="size-3.5 shrink-0 opacity-80"
-                            aria-hidden
-                          />
-                        ) : null}
-                        {item.label}
-                      </button>
-                    );
-                  })}
-                  {selectedOrganizerRecords.map((item) => (
-                    <button
-                      key={item.slug}
-                      type="button"
-                      onClick={() => removeOrganizer(item.slug)}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-white bg-white px-3.5 py-1.5 text-sm font-semibold text-foreground"
-                      aria-label={`${item.name} verwijderen`}
-                    >
-                      {item.name}
-                      <X className="size-3.5 opacity-70" aria-hidden />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
 
           <div className="mt-5 space-y-3 sm:mt-6">
             {searching ? (
@@ -842,6 +545,28 @@ export function HomeHero({
           </div>
         </form>
       </div>
+
+      <FilterSheet
+        open={moreOpen}
+        onOpenChange={setMoreOpen}
+        state={{
+          ...state,
+          age: (() => {
+            const n = Number(ageDraft.trim());
+            return Number.isFinite(n) && n >= 18 && n <= 99 ? n : null;
+          })(),
+        }}
+        count={filterCount}
+        onChange={update}
+        organizerOptions={organizerOptions}
+        selectedOrganizers={selectedOrganizers}
+        onOrganizersChange={(slugs) => {
+          setSelectedOrganizers(slugs);
+          track("filter_change", {
+            organizer: normalizeOrganizerParam(slugs.join(",")),
+          });
+        }}
+      />
     </section>
   );
 }
@@ -891,10 +616,12 @@ function Field({
       >
         {children}
         {chevron ? (
-          <ChevronDown
-            className="pointer-events-none absolute top-1/2 right-0 size-4 -translate-y-1/2 text-muted-foreground"
+          <span
+            className="pointer-events-none absolute right-0 text-muted-foreground"
             aria-hidden
-          />
+          >
+            ▾
+          </span>
         ) : null}
       </span>
     </label>
