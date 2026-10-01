@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { auth } from "@/auth";
 import { EventDetail } from "@/components/events/event-detail";
 import {
   EventsCatalogUnavailableError,
   getEventBySlug,
   isCanonicalEventsFeedEnabled,
 } from "@/lib/events";
+import { isFollowingOrganizer } from "@/lib/users/store";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +30,27 @@ export default async function EventPage({
   try {
     const event = await getEventBySlug(slug);
     if (!event) notFound();
-    return <EventDetail event={event} />;
+
+    let initialFollowingOrganizer = false;
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (userId && event.organizerId) {
+      try {
+        initialFollowingOrganizer = await isFollowingOrganizer(
+          userId,
+          event.organizerId,
+        );
+      } catch {
+        initialFollowingOrganizer = false;
+      }
+    }
+
+    return (
+      <EventDetail
+        event={event}
+        initialFollowingOrganizer={initialFollowingOrganizer}
+      />
+    );
   } catch (error) {
     if (
       isCanonicalEventsFeedEnabled() &&

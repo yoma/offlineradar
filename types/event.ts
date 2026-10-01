@@ -76,6 +76,8 @@ export type Event = {
    * Display name stays in organizerName.
    */
   organizerId: string | null;
+  /** Canonical organizer slug for URL filters (e.g. party4singles). */
+  organizerSlug?: string | null;
   city: string;
   region: string;
   venue: string | null;

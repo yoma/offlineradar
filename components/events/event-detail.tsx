@@ -6,6 +6,7 @@ import { CapacityStatus } from "@/components/events/capacity-status";
 import { EventLabels } from "@/components/events/event-labels";
 import { EventVisual } from "@/components/events/event-visual";
 import { FreshnessLabel } from "@/components/events/freshness-label";
+import { FollowOrganizerButton } from "@/components/events/follow-organizer-button";
 import { ReportSinglesCta } from "@/components/events/report-singles-cta";
 import { SaveButton } from "@/components/events/save-button";
 import { Button } from "@/components/ui/button";
@@ -41,12 +42,15 @@ export function EventDetail({
   event,
   backHref = "/ontdek",
   showInternalReview = false,
+  initialFollowingOrganizer = false,
 }: {
   event: Event;
   /** List path for internal preview back navigation. */
   backHref?: string;
   /** Preview/admin only: show internal warnings & source conflicts. */
   showInternalReview?: boolean;
+  /** Server-resolved follow state for the event organizer. */
+  initialFollowingOrganizer?: boolean;
 }) {
   const [state, setState] = useState<SearchState>(defaultSearchState());
 
@@ -166,6 +170,15 @@ export function EventDetail({
             <p className="text-[15px]">
               {formatSchedule(event)} · {priceLabel} · {event.organizerName}
             </p>
+            {event.organizerId ? (
+              <div className="pt-1">
+                <FollowOrganizerButton
+                  organizerId={event.organizerId}
+                  organizerName={event.organizerName}
+                  initialFollowing={initialFollowingOrganizer}
+                />
+              </div>
+            ) : null}
           </header>
 
           {showInternalReview &&

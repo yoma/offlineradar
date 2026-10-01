@@ -91,6 +91,8 @@ const catalog: Event[] = [
     slug: "karaoke-antwerp",
     title: "Karaoke Night Singles",
     organizerName: "FunFactory",
+    organizerId: "org-fun",
+    organizerSlug: "funfactory",
     city: "Antwerpen",
     venue: "Cafe Central",
     tags: ["karaoke", "avond"],
@@ -103,6 +105,8 @@ const catalog: Event[] = [
     slug: "bowling-mechelen",
     title: "Bowling avond",
     organizerName: "Strike Club",
+    organizerId: "org-strike",
+    organizerSlug: "strike-club",
     city: "Mechelen",
     tags: ["bowling"],
     activities: ["sport"],
@@ -114,6 +118,8 @@ const catalog: Event[] = [
     slug: "wandelen-gent",
     title: "Singles wandeling",
     organizerName: "Thursday Walks",
+    organizerId: "org-thursday",
+    organizerSlug: "thursday-walks",
     city: "Gent",
     tags: ["wandelen"],
     activities: ["wandelen"],
@@ -125,9 +131,22 @@ const catalog: Event[] = [
     slug: "dinner-far",
     title: "Dinner date",
     organizerName: "Tomeeto",
+    organizerId: "org-tomeeto",
+    organizerSlug: "tomeeto",
     city: "Brussel",
     startDate: "2026-11-01",
     addedAt: "2026-09-25T10:00:00.000Z",
+  }),
+  stub({
+    id: "5",
+    slug: "party4singles-next",
+    title: "Party4singles & Friends – The Next Chapter",
+    organizerName: "Party4singles",
+    organizerId: "org-p4s",
+    organizerSlug: "party4singles",
+    city: "Antwerpen",
+    startDate: "2026-10-20",
+    addedAt: "2026-09-28T10:00:00.000Z",
   }),
 ];
 
@@ -209,7 +228,7 @@ function refine(partial: Partial<ResultRefinement>): ResultRefinement {
   );
   assert.deepEqual(
     out.map((e) => e.id).sort(),
-    ["1", "2", "3"],
+    ["1", "2", "3", "5"],
   );
   ok("8 30 days");
 }
@@ -227,7 +246,7 @@ function refine(partial: Partial<ResultRefinement>): ResultRefinement {
   );
   assert.deepEqual(
     out.map((e) => e.id).sort(),
-    ["2", "3"],
+    ["2", "3", "5"],
   );
   ok("9 custom from/to");
 }
@@ -241,7 +260,7 @@ function refine(partial: Partial<ResultRefinement>): ResultRefinement {
   );
   assert.deepEqual(
     out.map((e) => e.id),
-    ["1", "2", "3", "4"],
+    ["1", "2", "3", "5", "4"],
   );
   ok("10 first upcoming sort");
 }
@@ -251,7 +270,7 @@ function refine(partial: Partial<ResultRefinement>): ResultRefinement {
   const out = applyResultRefinement(catalog, refine({ sort: "newest" }), TODAY);
   assert.deepEqual(
     out.map((e) => e.id),
-    ["4", "2", "1", "3"],
+    ["5", "4", "2", "1", "3"],
   );
   ok("11 newest added sort");
 }
@@ -358,6 +377,41 @@ function refine(partial: Partial<ResultRefinement>): ResultRefinement {
   const range = refineDateRange(refine({ datePreset: "weekend" }), sat);
   assert.deepEqual(range, { start: "2026-10-03", end: "2026-10-04" });
   ok("18 weekend on Saturday is current weekend");
+}
+
+// 19 Party4singles text + organizer filter
+{
+  assert.equal(matchesTextQuery(catalog[4]!, "Party4singles"), true);
+  const byOrg = applyResultRefinement(
+    catalog,
+    refine({ organizer: "party4singles" }),
+    TODAY,
+  );
+  assert.deepEqual(
+    byOrg.map((e) => e.id),
+    ["5"],
+  );
+  const params = serializeResultRefinement(
+    refine({ organizer: "party4singles" }),
+  );
+  assert.equal(params.get("organizer"), "party4singles");
+  assert.equal(parseResultRefinement(params).organizer, "party4singles");
+  ok("19 Party4singles search + organizer URL");
+}
+
+// 20 followed organizers filter
+{
+  const out = applyResultRefinement(
+    catalog,
+    refine({ organizer: "followed" }),
+    TODAY,
+    { followedOrganizerIds: ["org-p4s", "org-tomeeto"] },
+  );
+  assert.deepEqual(
+    out.map((e) => e.id).sort(),
+    ["4", "5"],
+  );
+  ok("20 followed organizers filter");
 }
 
 console.log("\nAll result-refinement checks passed.");

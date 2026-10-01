@@ -1,11 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { Search, X } from "lucide-react";
 import {
+  FOLLOWED_ORGANIZERS_FILTER,
   REFINE_DATE_LABEL,
   REFINE_SORT_LABEL,
   refinementFiltersActive,
   refinementIsActive,
+  type OrganizerFilterOption,
   type RefineDatePreset,
   type RefineSort,
   type ResultRefinement,
@@ -26,17 +29,27 @@ export function ResultRefinementBar({
   refinement,
   baseCount,
   refinedCount,
+  organizerOptions,
+  isLoggedIn = false,
+  followedCount = 0,
   onChange,
   onClear,
+  onClearOrganizer,
 }: {
   refinement: ResultRefinement;
   baseCount: number;
   refinedCount: number;
+  organizerOptions: OrganizerFilterOption[];
+  isLoggedIn?: boolean;
+  followedCount?: number;
   onChange: (next: ResultRefinement) => void;
   onClear: () => void;
+  onClearOrganizer?: () => void;
 }) {
   const filtersActive = refinementFiltersActive(refinement);
   const active = refinementIsActive(refinement);
+  const organizerActive = Boolean(refinement.organizer.trim());
+  const noOrganizerHits = organizerActive && refinedCount === 0;
 
   return (
     <section
@@ -59,7 +72,7 @@ export function ResultRefinementBar({
 
       <div className="mt-3 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
         <label className="relative min-w-0 flex-1 sm:min-w-[14rem] sm:max-w-md">
-          <span className="sr-only">Zoek in resultaten</span>
+          <span className="sr-only">Zoek op event, organisator of plaats</span>
           <Search
             className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden
@@ -70,7 +83,7 @@ export function ResultRefinementBar({
             onChange={(event) =>
               onChange({ ...refinement, q: event.target.value })
             }
-            placeholder="Zoek in resultaten…"
+            placeholder="Zoek op event, organisator of plaats…"
             className="h-10 w-full rounded-full border border-border bg-white pr-3 pl-9 text-sm outline-none focus:border-foreground"
           />
         </label>
@@ -99,6 +112,35 @@ export function ResultRefinementBar({
           </select>
         </label>
 
+        <label className="flex min-w-0 max-w-full items-center gap-2">
+          <span className="sr-only">Organisator</span>
+          <select
+            value={refinement.organizer}
+            onChange={(event) =>
+              onChange({ ...refinement, organizer: event.target.value })
+            }
+            className="h-10 max-w-[min(100%,16rem)] rounded-full border border-border bg-white px-3 text-sm sm:max-w-xs"
+            aria-label="Organisator"
+          >
+            <option value="">Alle organisatoren</option>
+            {isLoggedIn ? (
+              <option value={FOLLOWED_ORGANIZERS_FILTER}>
+                Organisatoren die ik volg
+                {followedCount > 0 ? ` (${followedCount})` : ""}
+              </option>
+            ) : (
+              <option value={FOLLOWED_ORGANIZERS_FILTER} disabled>
+                Organisatoren die ik volg (log in)
+              </option>
+            )}
+            {organizerOptions.map((org) => (
+              <option key={org.id} value={org.slug}>
+                {org.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <label className="flex min-w-0 items-center gap-2">
           <span className="sr-only">Sorteren</span>
           <select
@@ -120,6 +162,18 @@ export function ResultRefinementBar({
           </select>
         </label>
       </div>
+
+      {!isLoggedIn && refinement.organizer === FOLLOWED_ORGANIZERS_FILTER ? (
+        <p className="mt-2 text-sm text-muted-foreground">
+          <Link
+            href="/inloggen?callbackUrl=/ontdek"
+            className="font-medium underline-offset-4 hover:underline"
+          >
+            Log in
+          </Link>{" "}
+          om organisatoren te volgen.
+        </p>
+      ) : null}
 
       {refinement.datePreset === "custom" ? (
         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
@@ -158,11 +212,30 @@ export function ResultRefinementBar({
         </div>
       ) : null}
 
-      <p className="mt-3 text-sm text-muted-foreground" role="status">
-        {filtersActive
-          ? `${refinedCount} van ${baseCount} ${baseCount === 1 ? "event" : "events"}`
-          : `${refinedCount} ${refinedCount === 1 ? "event" : "events"} gevonden`}
-      </p>
+      {noOrganizerHits ? (
+        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950">
+          <p>
+            {refinement.organizer === FOLLOWED_ORGANIZERS_FILTER
+              ? "Geen events van organisatoren die je volgt binnen je huidige filters."
+              : "Geen events gevonden van deze organisator binnen je huidige filters."}
+          </p>
+          {onClearOrganizer ? (
+            <button
+              type="button"
+              onClick={onClearOrganizer}
+              className="mt-2 font-semibold underline-offset-4 hover:underline"
+            >
+              Wis organisatorfilter
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-muted-foreground" role="status">
+          {filtersActive
+            ? `${refinedCount} van ${baseCount} ${baseCount === 1 ? "event" : "events"}`
+            : `${refinedCount} ${refinedCount === 1 ? "event" : "events"} gevonden`}
+        </p>
+      )}
     </section>
   );
 }

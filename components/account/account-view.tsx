@@ -7,6 +7,7 @@ import {
   deleteAccountAction,
   publicSignOut,
   savePreferencesAction,
+  unfollowOrganizerAction,
 } from "@/app/account/actions";
 import { Button } from "@/components/ui/button";
 import { USER_PLACES } from "@/data/places";
@@ -14,6 +15,7 @@ import { writeProfile } from "@/lib/storage";
 import type { PreferredMeetGender, UserGender } from "@/types/event";
 import type { StoredProfile } from "@/types/search";
 import { emptyProfile } from "@/lib/storage-shared";
+import type { FollowedOrganizerRecord } from "@/lib/users/store";
 
 const DISTANCES = [10, 25, 50, 100] as const;
 
@@ -21,10 +23,12 @@ export function AccountView({
   email,
   savedCount,
   preferences,
+  followedOrganizers = [],
 }: {
   email: string;
   savedCount: number;
   preferences: StoredProfile | null;
+  followedOrganizers?: FollowedOrganizerRecord[];
 }) {
   const router = useRouter();
   const initial = preferences ?? emptyProfile;
@@ -43,6 +47,8 @@ export function AccountView({
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [followed, setFollowed] = useState(followedOrganizers);
+  const [unfollowBusy, setUnfollowBusy] = useState<string | null>(null);
 
   async function onSavePreferences(event: React.FormEvent) {
     event.preventDefault();
@@ -99,6 +105,64 @@ export function AccountView({
           </dd>
         </div>
       </dl>
+
+      <section className="mt-10 space-y-3 border-t border-border pt-8">
+        <h2 className="text-lg font-semibold tracking-tight">
+          Organisatoren die je volgt
+        </h2>
+        {followed.length === 0 ? (
+          <div className="text-sm text-muted-foreground">
+            <p>Je volgt nog geen organisatoren.</p>
+            <p className="mt-1">
+              Volg een organisator bij een event om hun activiteiten makkelijk
+              terug te vinden.
+            </p>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {followed.map((org) => (
+              <li
+                key={org.organizerId}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-3 py-2.5 text-sm"
+              >
+                <span className="font-medium">{org.name}</span>
+                <button
+                  type="button"
+                  disabled={unfollowBusy === org.organizerId}
+                  className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-50"
+                  onClick={async () => {
+                    setUnfollowBusy(org.organizerId);
+                    const result = await unfollowOrganizerAction(org.organizerId);
+                    setUnfollowBusy(null);
+                    if (!result.ok) {
+                      setStatus(result.error);
+                      return;
+                    }
+                    setFollowed((current) =>
+                      current.filter((item) => item.organizerId !== org.organizerId),
+                    );
+                    router.refresh();
+                  }}
+                >
+                  Niet meer volgen
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {followed.length > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Filter op{" "}
+            <Link
+              href="/ontdek?organizer=followed"
+              className="underline-offset-4 hover:underline"
+            >
+              Organisatoren die ik volg
+            </Link>{" "}
+            in Ontdek.
+          </p>
+        ) : null}
+      </section>
 
       <form onSubmit={onSavePreferences} className="mt-10 space-y-5 border-t border-border pt-8">
         <h2 className="text-lg font-semibold tracking-tight">Voorkeuren</h2>

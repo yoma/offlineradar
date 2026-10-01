@@ -173,6 +173,7 @@ export function mapEditionToConsumerEvent(
     ),
     organizerName: organizer?.name ?? "Onbekende organisator",
     organizerId: organizer?.id ?? edition.organizerId,
+    organizerSlug: organizer?.slug ?? null,
     city: edition.city,
     region: edition.region ?? edition.city,
     venue: edition.venueName,

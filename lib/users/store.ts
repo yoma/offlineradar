@@ -291,3 +291,94 @@ export async function deleteAppUser(userId: string): Promise<boolean> {
   `;
   return rows.length > 0;
 }
+
+export type FollowedOrganizerRecord = {
+  organizerId: string;
+  slug: string;
+  name: string;
+  followedAt: string;
+};
+
+export async function listFollowedOrganizerIds(userId: string): Promise<string[]> {
+  const sql = getEventsSql();
+  if (!sql) return [];
+  const rows = (await sql`
+    SELECT organizer_id
+    FROM user_followed_organizers
+    WHERE user_id = ${userId}
+    ORDER BY created_at DESC
+  `) as { organizer_id: string }[];
+  return rows.map((r) => r.organizer_id);
+}
+
+export async function listFollowedOrganizers(
+  userId: string,
+): Promise<FollowedOrganizerRecord[]> {
+  const sql = getEventsSql();
+  if (!sql) return [];
+  const rows = (await sql`
+    SELECT
+      f.organizer_id,
+      f.created_at,
+      o.slug,
+      o.name
+    FROM user_followed_organizers f
+    JOIN organizers o ON o.id = f.organizer_id
+    WHERE f.user_id = ${userId}
+    ORDER BY o.name ASC
+  `) as {
+    organizer_id: string;
+    created_at: string | Date;
+    slug: string;
+    name: string;
+  }[];
+  return rows.map((r) => ({
+    organizerId: r.organizer_id,
+    slug: r.slug,
+    name: r.name,
+    followedAt: iso(r.created_at)!,
+  }));
+}
+
+export async function setFollowedOrganizer(
+  userId: string,
+  organizerId: string,
+  follow: boolean,
+): Promise<boolean> {
+  const sql = getEventsSql();
+  if (!sql) return false;
+  const id = organizerId.trim();
+  if (!id) return false;
+  if (follow) {
+    const exists = await sql`
+      SELECT id FROM organizers WHERE id = ${id}::uuid LIMIT 1
+    `;
+    if (exists.length === 0) return false;
+    await sql`
+      INSERT INTO user_followed_organizers (user_id, organizer_id)
+      VALUES (${userId}, ${id}::uuid)
+      ON CONFLICT DO NOTHING
+    `;
+    return true;
+  }
+  await sql`
+    DELETE FROM user_followed_organizers
+    WHERE user_id = ${userId} AND organizer_id = ${id}::uuid
+  `;
+  return true;
+}
+
+export async function isFollowingOrganizer(
+  userId: string,
+  organizerId: string,
+): Promise<boolean> {
+  const sql = getEventsSql();
+  if (!sql) return false;
+  const rows = (await sql`
+    SELECT 1
+    FROM user_followed_organizers
+    WHERE user_id = ${userId} AND organizer_id = ${organizerId}::uuid
+    LIMIT 1
+  `) as { "?column?"?: number }[];
+  return rows.length > 0;
+}

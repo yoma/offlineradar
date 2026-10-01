@@ -12,12 +12,23 @@ export type RefineDatePreset =
 
 export type RefineSort = "soonest" | "newest";
 
+/** Special organizer filter: only events from followed organizers. */
+export const FOLLOWED_ORGANIZERS_FILTER = "followed";
+
 export type ResultRefinement = {
   q: string;
   datePreset: RefineDatePreset;
   dateFrom: string | null;
   dateTo: string | null;
   sort: RefineSort;
+  /** "" = all, "followed" = followed orgs, else organizer slug. */
+  organizer: string;
+};
+
+export type OrganizerFilterOption = {
+  id: string;
+  slug: string;
+  name: string;
 };
 
 export const REFINE_DATE_LABEL: Record<RefineDatePreset, string> = {
@@ -51,6 +62,7 @@ export function defaultResultRefinement(): ResultRefinement {
     dateFrom: null,
     dateTo: null,
     sort: "soonest",
+    organizer: "",
   };
 }
 
@@ -88,12 +100,20 @@ export function parseResultRefinement(
   else if (rawSort === "soonest" || rawSort === "soon") sort = "soonest";
   // Do not hijack main filter sort=match|distance into refinement.
 
+  const rawOrganizer = (get("organizer") ?? "").trim().toLowerCase();
+  const organizer =
+    rawOrganizer === FOLLOWED_ORGANIZERS_FILTER ||
+    /^[a-z0-9][a-z0-9-]{0,80}$/.test(rawOrganizer)
+      ? rawOrganizer
+      : "";
+
   return {
     q,
     datePreset,
     dateFrom,
     dateTo,
     sort,
+    organizer,
   };
 }
 
@@ -111,6 +131,7 @@ export function serializeResultRefinement(
   params.delete("dateFrom");
   params.delete("dateTo");
   params.delete("rsort");
+  params.delete("organizer");
 
   const q = refinement.q.trim();
   if (q) params.set("q", q);
@@ -124,6 +145,8 @@ export function serializeResultRefinement(
   if (refinement.sort !== "soonest") {
     params.set("rsort", refinement.sort);
   }
+  const organizer = refinement.organizer.trim().toLowerCase();
+  if (organizer) params.set("organizer", organizer);
   return params;
 }
 
@@ -131,13 +154,15 @@ export function refinementIsActive(refinement: ResultRefinement): boolean {
   return (
     Boolean(refinement.q.trim()) ||
     refinement.datePreset !== "all" ||
-    refinement.sort !== "soonest"
+    refinement.sort !== "soonest" ||
+    Boolean(refinement.organizer.trim())
   );
 }
 
-/** True when text or date filter actually narrows results (sort alone does not). */
+/** True when text, date, or organizer filter actually narrows results. */
 export function refinementFiltersActive(refinement: ResultRefinement): boolean {
   if (refinement.q.trim()) return true;
+  if (refinement.organizer.trim()) return true;
   if (refinement.datePreset === "all") return false;
   if (refinement.datePreset === "custom") {
     return Boolean(refinement.dateFrom || refinement.dateTo);
@@ -195,6 +220,7 @@ export function eventSearchHaystack(event: Event): string {
   const parts = [
     event.title,
     event.organizerName,
+    event.organizerSlug ?? "",
     event.city,
     event.venue ?? "",
     event.region,
@@ -216,15 +242,58 @@ export function matchesTextQuery(event: Event, query: string): boolean {
   return tokens.every((token) => haystack.includes(token));
 }
 
+/** Unique organizers present in a result set (canonical ids, display names). */
+export function organizersFromEvents(events: Event[]): OrganizerFilterOption[] {
+  const byId = new Map<string, OrganizerFilterOption>();
+  for (const event of events) {
+    const id = event.organizerId?.trim();
+    if (!id) continue;
+    if (byId.has(id)) continue;
+    const slug = (event.organizerSlug ?? "").trim().toLowerCase();
+    if (!slug) continue;
+    byId.set(id, {
+      id,
+      slug,
+      name: event.organizerName.trim() || slug,
+    });
+  }
+  return [...byId.values()].sort((a, b) =>
+    a.name.localeCompare(b.name, "nl", { sensitivity: "base" }),
+  );
+}
+
+function matchesOrganizerFilter(
+  event: Event,
+  organizer: string,
+  followedOrganizerIds: ReadonlySet<string>,
+): boolean {
+  const key = organizer.trim().toLowerCase();
+  if (!key) return true;
+  if (key === FOLLOWED_ORGANIZERS_FILTER) {
+    return Boolean(event.organizerId && followedOrganizerIds.has(event.organizerId));
+  }
+  const slug = (event.organizerSlug ?? "").trim().toLowerCase();
+  if (slug && slug === key) return true;
+  // Allow id match as fallback for deep links.
+  return event.organizerId === key;
+}
+
 export function applyResultRefinement<T extends Event>(
   events: T[],
   refinement: ResultRefinement,
   today = brusselsToday(),
+  options?: { followedOrganizerIds?: readonly string[] },
 ): T[] {
   const range = refineDateRange(refinement, today);
+  const followed = new Set(options?.followedOrganizerIds ?? []);
   let next = events;
   if (refinement.q.trim()) {
     next = next.filter((event) => matchesTextQuery(event, refinement.q));
+  }
+  if (refinement.organizer.trim()) {
+    next = next.filter((event) =>
+      matchesOrganizerFilter(event, refinement.organizer, followed),
+    );
   }
   if (range) {
     next = next.filter((event) => eventOverlapsRange(event, range));

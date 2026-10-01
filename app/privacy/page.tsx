@@ -51,6 +51,7 @@ export default function PrivacyPage() {
         <ul className="list-disc space-y-1 pl-5 text-[15px] leading-7 text-muted-foreground">
           <li>zoekvoorkeuren te onthouden</li>
           <li>bewaarde activiteiten te synchroniseren</li>
+          <li>organisatoren die je volgt te onthouden</li>
         </ul>
         <p className="text-[15px] leading-7 text-muted-foreground">
           We vragen geen wachtwoord, telefoonnummer, adres of exacte
@@ -102,7 +103,8 @@ export default function PrivacyPage() {
             Mijn account
           </Link>{" "}
           kun je je OfflineRadar-account verwijderen. Dan wissen we je
-          voorkeuren en bewaarde activiteiten. Je Google-account zelf blijft
+          voorkeuren, bewaarde activiteiten en gevolgde organisatoren. Je
+          Google-account zelf blijft
           bestaan.
         </p>
       </section>

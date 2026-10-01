@@ -7,10 +7,14 @@ import {
   countSavedEvents,
   deleteAppUser,
   getUserPreferences,
+  listFollowedOrganizerIds,
+  listFollowedOrganizers,
   listSavedEventIds,
   mergeSavedEventIds,
+  setFollowedOrganizer,
   setSavedEvent,
   upsertUserPreferences,
+  type FollowedOrganizerRecord,
 } from "@/lib/users/store";
 import type { StoredProfile } from "@/types/search";
 import { emptyProfile } from "@/lib/storage-shared";
@@ -160,5 +164,52 @@ export async function deleteAccountAction(): Promise<
     return { ok: false, error: "Account verwijderen mislukt." };
   }
   await signOut({ redirectTo: "/" });
+  return { ok: true };
+}
+
+export async function toggleFollowOrganizerAction(
+  organizerId: string,
+  follow: boolean,
+): Promise<
+  | { ok: true; following: boolean; ids: string[] }
+  | { ok: false; error: string }
+> {
+  const gate = await requireSessionAppUser();
+  if (!gate.ok) return gate;
+  const id = typeof organizerId === "string" ? organizerId.trim() : "";
+  if (!id) return { ok: false, error: "Ongeldige organisator." };
+  try {
+    const ok = await setFollowedOrganizer(gate.user.id, id, follow);
+    if (!ok && follow) {
+      return { ok: false, error: "Organisator niet gevonden." };
+    }
+    const ids = await listFollowedOrganizerIds(gate.user.id);
+    revalidatePath("/account");
+    revalidatePath("/ontdek");
+    return { ok: true, following: ids.includes(id), ids };
+  } catch {
+    return { ok: false, error: "Volgen mislukt. Probeer later opnieuw." };
+  }
+}
+
+export async function listFollowedOrganizersAction(): Promise<
+  | { ok: true; organizers: FollowedOrganizerRecord[] }
+  | { ok: false; error: string }
+> {
+  const gate = await requireSessionAppUser();
+  if (!gate.ok) return gate;
+  try {
+    const organizers = await listFollowedOrganizers(gate.user.id);
+    return { ok: true, organizers };
+  } catch {
+    return { ok: false, error: "Gevolgde organisatoren laden mislukt." };
+  }
+}
+
+export async function unfollowOrganizerAction(
+  organizerId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const result = await toggleFollowOrganizerAction(organizerId, false);
+  if (!result.ok) return result;
   return { ok: true };
 }

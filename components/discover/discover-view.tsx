@@ -28,6 +28,7 @@ import {
 import {
   applyResultRefinement,
   defaultResultRefinement,
+  organizersFromEvents,
   refinementFiltersActive,
   serializeResultRefinement,
   type ResultRefinement,
@@ -55,10 +56,11 @@ export function DiscoverView({
   catalogError = null,
   isLoggedIn = false,
   serverPreferences = null,
+  followedOrganizerIds = [],
 }: {
   events: Event[];
   initial: SearchState;
-  /** Soft result refinement (q / date / sort). Not saved to profile. */
+  /** Soft result refinement (q / date / organizer / sort). Not saved to profile. */
   initialRefinement?: ResultRefinement;
   /** Discover URL path for filter sync (internal preview uses /interne-preview). */
   listPath?: string;
@@ -74,6 +76,8 @@ export function DiscoverView({
   isLoggedIn?: boolean;
   /** Account preferences used as defaults after URL (never override explicit URL). */
   serverPreferences?: StoredProfile | null;
+  /** Batch-loaded followed organizer ids for logged-in users. */
+  followedOrganizerIds?: string[];
 }) {
   const [state, setState] = useState(initial);
   const [refinement, setRefinement] =
@@ -153,9 +157,16 @@ export function DiscoverView({
   const today = useMemo(() => brusselsToday(), []);
   const result = useMemo(() => matchingEvents(events, state), [events, state]);
   const baseVisible = result.visible;
+  const organizerOptions = useMemo(
+    () => organizersFromEvents(baseVisible),
+    [baseVisible],
+  );
   const visible = useMemo(
-    () => applyResultRefinement(baseVisible, refinement, today),
-    [baseVisible, refinement, today],
+    () =>
+      applyResultRefinement(baseVisible, refinement, today, {
+        followedOrganizerIds,
+      }),
+    [baseVisible, refinement, today, followedOrganizerIds],
   );
   // Global infosstrip: never recompute from filters/age/location/activity.
   const upcoming = useMemo(() => selectUpcomingEvents(events), [events]);
@@ -231,6 +242,10 @@ export function DiscoverView({
 
   function clearRefinement() {
     setRefinement(defaultResultRefinement());
+  }
+
+  function clearOrganizerFilter() {
+    setRefinement((current) => ({ ...current, organizer: "" }));
   }
 
   const chips = activeChips(state);
@@ -401,8 +416,12 @@ export function DiscoverView({
               refinement={refinement}
               baseCount={baseVisible.length}
               refinedCount={visible.length}
+              organizerOptions={organizerOptions}
+              isLoggedIn={isLoggedIn}
+              followedCount={followedOrganizerIds.length}
               onChange={setRefinement}
               onClear={clearRefinement}
+              onClearOrganizer={clearOrganizerFilter}
             />
           ) : null}
 
@@ -487,20 +506,35 @@ export function DiscoverView({
           ) : visible.length === 0 ? (
             <div className="mt-12 max-w-xl">
               <h2 className="text-2xl font-semibold tracking-tight">
-                Geen events binnen deze verfijning.
+                {refinement.organizer.trim()
+                  ? refinement.organizer === "followed"
+                    ? "Geen events van organisatoren die je volgt binnen je huidige filters."
+                    : "Geen events gevonden van deze organisator binnen je huidige filters."
+                  : "Geen events binnen deze verfijning."}
               </h2>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
                 Je hoofdzoekopdracht heeft wel {baseVisible.length}{" "}
                 {baseVisible.length === 1 ? "resultaat" : "resultaten"}. Pas de
                 verfijning aan of wis die.
               </p>
-              <button
-                type="button"
-                onClick={clearRefinement}
-                className="mt-6 h-11 rounded-full border border-border px-5 text-sm font-semibold hover:border-foreground"
-              >
-                Wis verfijning
-              </button>
+              <div className="mt-6 flex flex-wrap gap-2">
+                {refinement.organizer.trim() ? (
+                  <button
+                    type="button"
+                    onClick={clearOrganizerFilter}
+                    className="h-11 rounded-full border border-border px-5 text-sm font-semibold hover:border-foreground"
+                  >
+                    Wis organisatorfilter
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={clearRefinement}
+                  className="h-11 rounded-full border border-border px-5 text-sm font-semibold hover:border-foreground"
+                >
+                  Wis verfijning
+                </button>
+              </div>
             </div>
           ) : (
             <div className="mt-8 min-w-0">
