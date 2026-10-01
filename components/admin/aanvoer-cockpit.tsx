@@ -27,6 +27,10 @@ import {
   type SourceFollowStatus,
 } from "@/lib/aanvoer/source-follow";
 import { INTAKE_MAX_TEXT_CHARS } from "@/lib/aanvoer/types";
+import {
+  publicImageKindLabel,
+  resolvePublicEventImage,
+} from "@/lib/image-compatibility";
 
 type TabId =
   | "nieuw"
@@ -1256,6 +1260,7 @@ function AdminEventCard({
             </p>
             <p>Oorsprong: {ORIGIN_LABEL[c.origin]}</p>
             {c.blockReason ? <p>Reden: {c.blockReason}</p> : null}
+            <ImageWhyBlock candidate={c} />
             {c.internalNotes ? (
               <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-words font-sans text-[11px] text-stone-500">
                 {c.internalNotes.slice(0, 800)}
@@ -1265,5 +1270,34 @@ function AdminEventCard({
         ) : null}
       </div>
     </article>
+  );
+}
+
+function ImageWhyBlock({ candidate: c }: { candidate: CockpitCandidateRow }) {
+  const resolved = resolvePublicEventImage(
+    {
+      category: (c.category as "dating" | "meet_new_people" | "social") || "social",
+      activities: [],
+      tags: c.tags,
+      title: c.title,
+      minAge: c.minAge,
+      maxAge: c.maxAge,
+    },
+    c.imageUrl,
+    true,
+    `event:${c.id}`,
+  );
+  return (
+    <div className="mt-2 rounded-lg border border-stone-200 bg-white px-2.5 py-2">
+      <p className="font-semibold text-stone-800">
+        Beeld: {publicImageKindLabel(resolved.imageKind)}
+      </p>
+      <p className="mt-0.5 text-stone-600">
+        Waarom gekozen: {(resolved.why ?? []).slice(0, 3).join(" · ") || "—"}
+      </p>
+      <p className="mt-0.5 text-stone-500">
+        Activiteit: {resolved.profile?.primaryActivity?.replace(/_/g, " ")}
+      </p>
+    </div>
   );
 }

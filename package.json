@@ -82,6 +82,8 @@
     "verify:scheduled-source-refresh": "npx tsx scripts/verify-scheduled-source-refresh.ts",
     "refresh:scheduled-pilot": "node --env-file=.env.local --import tsx scripts/run-scheduled-refresh-pilot.ts",
     "verify:image-compatibility": "npx tsx scripts/verify-image-compatibility.ts",
+    "verify:semantic-event-images": "npx tsx scripts/verify-semantic-event-images.ts",
+    "audit:semantic-event-images": "node --env-file=.env.local --import tsx scripts/audit-semantic-event-images.ts",
     "fix:event-image-mismatches": "node --env-file=.env.local --import tsx scripts/fix-event-image-mismatches.ts",
     "verify:beta-welcome": "npx tsx scripts/verify-beta-welcome.ts",
     "verify:geo": "npx tsx scripts/verify-geo-distance.ts",

@@ -54,4 +54,12 @@ export {
   CATEGORY_MOOD_POOLS,
   pickCategoryMoodUrl,
   eventImageDiversityKey,
+  publicImageKindLabel,
+  profileForEvent,
+  getMoodAssetMeta,
 } from "@/lib/image-compatibility";
+
+export {
+  buildVisualProfile,
+  buildVisualGenerationPrompt,
+} from "@/lib/event-visual-profile";

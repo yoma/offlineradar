@@ -2,6 +2,7 @@ import Image from "next/image";
 import {
   eventImageDiversityKey,
   inferRequiredImageCategory,
+  publicImageKindLabel,
   resolvePublicEventImage,
 } from "@/lib/image-compatibility";
 import type { ActivityId, EventCategory } from "@/types/event";
@@ -24,6 +25,7 @@ export function EventVisual({
   className = "",
   label = true,
   priority = false,
+  showImageMeta = false,
 }: {
   category: EventCategory;
   city: string;
@@ -41,6 +43,8 @@ export function EventVisual({
   className?: string;
   label?: boolean;
   priority?: boolean;
+  /** Admin: show image kind + why chosen. */
+  showImageMeta?: boolean;
 }) {
   const ctx = {
     category,
@@ -65,11 +69,13 @@ export function EventVisual({
   );
   const src = resolved.url;
   const showAtmosphere = resolved.keptAtmosphere;
+  const kindLabel = publicImageKindLabel(resolved.imageKind);
+  const whyLine = resolved.why?.slice(0, 3).join(" · ");
   const alt =
     imageAlt?.trim() && !resolved.usedFallback
       ? imageAlt.trim()
       : showAtmosphere
-        ? `Sfeerbeeld voor een ${category}-activiteit in ${city}`
+        ? `Sfeerbeeld · ${resolved.profile?.primaryActivity?.replace(/_/g, " ") ?? category} in ${city}`
         : `Beeld bij activiteit in ${city}`;
 
   return (
@@ -86,10 +92,15 @@ export function EventVisual({
       <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
       {showAtmosphere ? (
         <p className="absolute top-3 left-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium tracking-wide text-white">
-          Sfeerbeeld
+          {kindLabel === "Neutraal fallbackbeeld" ? kindLabel : "Sfeerbeeld"}
         </p>
       ) : null}
-      {label ? (
+      {showImageMeta ? (
+        <div className="absolute right-3 bottom-3 left-3 rounded-xl bg-black/65 px-2.5 py-2 text-[11px] leading-4 text-white">
+          <p className="font-semibold">{kindLabel}</p>
+          {whyLine ? <p className="mt-0.5 opacity-90">Waarom: {whyLine}</p> : null}
+        </div>
+      ) : label ? (
         <p className="absolute bottom-3 left-3 text-xs font-semibold tracking-wide text-white uppercase">
           {city}
         </p>
