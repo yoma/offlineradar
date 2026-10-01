@@ -329,7 +329,7 @@ export function HomeHero({
     setSearching(true);
     try {
       writeProfile(profileFromSearch(state));
-      track("search_performed", {
+      track("discovery_search", {
         age: state.age,
         placeId: state.placeId,
         distance: state.maxDistanceKm,

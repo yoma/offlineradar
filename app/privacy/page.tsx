@@ -95,6 +95,19 @@ export default function PrivacyPage() {
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">
+          Gebruiksstatistieken
+        </h2>
+        <p className="text-[15px] leading-7 text-muted-foreground">
+          We gebruiken geaggregeerde gebruiksstatistieken om te begrijpen welke
+          events en functies populair zijn. Dat gebeurt anoniem (geen naam,
+          e-mail of Google-account in analytics). We bewaren geen precieze
+          persoonlijke klikgeschiedenis. Analytics gebruikt geen trackingcookies;
+          een willekeurige sessie-id kan lokaal in je browser blijven.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold tracking-tight">
           Account verwijderen
         </h2>
         <p className="text-[15px] leading-7 text-muted-foreground">
@@ -110,7 +123,7 @@ export default function PrivacyPage() {
       </section>
 
       <p className="text-sm text-muted-foreground">
-        Laatst bijgewerkt: 28 september 2026 (beta).
+        Laatst bijgewerkt: 1 oktober 2026 (beta).
       </p>
     </div>
   );

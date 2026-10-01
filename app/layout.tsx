@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { AuthSessionProvider } from "@/components/auth/session-provider";
+import { AnalyticsBeacon } from "@/components/analytics/analytics-beacon";
 import { BetaWelcomeModal } from "@/components/beta/beta-welcome-modal";
 import { FeedbackLauncher } from "@/components/feedback/feedback-launcher";
 import { MobileNav, SiteHeader } from "@/components/layout/site-nav";
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="nl" className={`${jakarta.variable} h-full`}>
       <body className="min-h-full min-w-0 bg-background font-sans text-foreground">
         <AuthSessionProvider>
+          <AnalyticsBeacon />
           <SiteHeader />
           <main className="min-w-0 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-8">
             {children}

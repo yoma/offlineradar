@@ -192,7 +192,7 @@ export function DiscoverView({
   function update(patch: Partial<SearchState>) {
     setState((current) => {
       const next = applySearchPatch(current, patch);
-      track("filter_changed", {
+      track("filter_change", {
         when: next.when,
         distance: next.maxDistanceKm,
         categories: next.categories.join(","),
@@ -210,7 +210,7 @@ export function DiscoverView({
   function removeChip(chipId: string) {
     setState((current) => {
       const next = removeChipFromState(current, chipId);
-      track("filter_changed", {
+      track("filter_change", {
         when: next.when,
         distance: next.maxDistanceKm,
         categories: next.categories.join(","),

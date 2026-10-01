@@ -9,6 +9,7 @@ import { FreshnessLabel } from "@/components/events/freshness-label";
 import { FollowOrganizerButton } from "@/components/events/follow-organizer-button";
 import { ReportSinglesCta } from "@/components/events/report-singles-cta";
 import { SaveButton } from "@/components/events/save-button";
+import { OutboundLink } from "@/components/analytics/outbound-link";
 import { Button } from "@/components/ui/button";
 import { findPlace } from "@/data/places";
 import { track } from "@/lib/analytics";
@@ -55,7 +56,12 @@ export function EventDetail({
   const [state, setState] = useState<SearchState>(defaultSearchState());
 
   useEffect(() => {
-    track("event_opened", { eventId: event.id, slug: event.slug });
+    track("event_view", {
+      eventId: event.id,
+      slug: event.slug,
+      organizerId: event.organizerId ?? null,
+      category: event.category ?? null,
+    });
     const profile = readProfile();
     const params = new URLSearchParams(window.location.search);
     const ageFromQuery = Number(params.get("age"));
@@ -366,20 +372,18 @@ export function EventDetail({
               asChild
               className="hidden h-12 w-full rounded-full text-base md:inline-flex"
             >
-              <a
+              <OutboundLink
                 href={ticketHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() =>
-                  track("ticket_clicked", {
-                    eventId: event.id,
-                    slug: event.slug,
-                  })
-                }
+                eventId={event.id}
+                organizerId={event.organizerId}
+                category={event.category}
+                originPage="event_detail"
+                linkKind={event.ticketUrl ? "ticket" : "official"}
+                className="inline-flex h-12 w-full items-center justify-center gap-2"
               >
                 {primaryCtaLabel}
                 <ArrowUpRight className="size-4" />
-              </a>
+              </OutboundLink>
             </Button>
 
             <div className="space-y-2 border-t border-border pt-4">
@@ -390,22 +394,18 @@ export function EventDetail({
               <p className="text-sm text-muted-foreground">
                 Bron: {event.sourceName}
               </p>
-              <a
+              <OutboundLink
                 href={event.officialUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() =>
-                  track("organizer_clicked", {
-                    eventId: event.id,
-                    slug: event.slug,
-                    source: "detail",
-                  })
-                }
+                eventId={event.id}
+                organizerId={event.organizerId}
+                category={event.category}
+                originPage="event_detail"
+                linkKind="source"
                 className="inline-flex items-center gap-1 text-sm font-semibold underline-offset-4 hover:underline"
               >
                 Bekijk officiële bron
                 <ArrowUpRight className="size-4" />
-              </a>
+              </OutboundLink>
             </div>
           </div>
         </aside>
@@ -413,17 +413,18 @@ export function EventDetail({
 
       <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-30 border-t border-border bg-white/95 p-3 backdrop-blur md:hidden">
         <Button asChild className="h-12 w-full rounded-full text-base">
-          <a
+          <OutboundLink
             href={ticketHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() =>
-              track("ticket_clicked", { eventId: event.id, slug: event.slug })
-            }
+            eventId={event.id}
+            organizerId={event.organizerId}
+            category={event.category}
+            originPage="event_detail_mobile"
+            linkKind={event.ticketUrl ? "ticket" : "official"}
+            className="inline-flex h-12 w-full items-center justify-center gap-2"
           >
             {primaryCtaLabel}
             <ArrowUpRight className="size-4" />
-          </a>
+          </OutboundLink>
         </Button>
       </div>
     </article>

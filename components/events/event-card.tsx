@@ -6,6 +6,7 @@ import { EventVisual } from "@/components/events/event-visual";
 import { FreshnessLabel } from "@/components/events/freshness-label";
 import { ReportSinglesCta } from "@/components/events/report-singles-cta";
 import { SaveButton } from "@/components/events/save-button";
+import { track } from "@/lib/analytics";
 import { displayEligibilityAge } from "@/lib/eligibility";
 import {
   formatAgeRange,
@@ -45,10 +46,20 @@ export function EventCard({
   const capacityBadge = publicCapacityBadge(event.capacityStatus);
   const showReport = hrefBase === "/event";
 
+  function onCardClick() {
+    if (hrefBase !== "/event") return;
+    track("event_card_click", {
+      eventId: event.id,
+      slug: event.slug,
+      organizerId: event.organizerId ?? null,
+      category: event.category ?? null,
+    });
+  }
+
   return (
     <article className="group min-w-0">
       <div className="relative min-w-0">
-        <Link href={detailHref} className="block min-w-0">
+        <Link href={detailHref} className="block min-w-0" onClick={onCardClick}>
           <EventVisual
             category={event.category}
             city={event.city}
@@ -74,7 +85,11 @@ export function EventCard({
 
       <div className="mt-3 min-w-0 space-y-1.5">
         <div className="flex items-start justify-between gap-3">
-          <Link href={detailHref} className="min-w-0 flex-1">
+          <Link
+            href={detailHref}
+            className="min-w-0 flex-1"
+            onClick={onCardClick}
+          >
             <h2 className="line-clamp-2 break-words text-[15px] font-semibold tracking-tight">
               {event.title}
             </h2>

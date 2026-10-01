@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useState, useTransition } from "react";
 import { toggleFollowOrganizerAction } from "@/app/account/actions";
+import { track } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
 export function FollowOrganizerButton({
@@ -73,6 +74,10 @@ export function FollowOrganizerButton({
         return;
       }
       setFollowing(result.following);
+      track(next ? "organizer_follow" : "organizer_unfollow", {
+        organizerId: organizerId ?? null,
+        organizerName: organizerName ?? null,
+      });
     });
   }
 

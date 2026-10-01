@@ -43,7 +43,10 @@ export function SaveButton({
     // Optimistic local update (anonymous + logged-in).
     writeFavorites(nextLocal);
     setSaved(nextSaved);
-    if (nextSaved) track("favorite_added", { eventId, title });
+    track(nextSaved ? "event_saved" : "event_unsaved", {
+      eventId,
+      title,
+    });
 
     if (!loggedIn) return;
 

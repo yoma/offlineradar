@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { Search, X } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { track } from "@/lib/analytics";
 import {
   FOLLOWED_ORGANIZERS_FILTER,
   REFINE_DATE_LABEL,
@@ -66,6 +68,19 @@ export function ResultRefinementBar({
   const nameBySlug = new Map(
     organizerOptions.map((org) => [org.slug, org.name] as const),
   );
+  const lastTrackedQ = useRef("");
+
+  useEffect(() => {
+    const q = refinement.q.trim().toLowerCase();
+    if (q.length < 2) return;
+    if (q.includes("@")) return;
+    const handle = window.setTimeout(() => {
+      if (lastTrackedQ.current === q) return;
+      lastTrackedQ.current = q;
+      track("discovery_search", { q, source: "result_refinement" });
+    }, 800);
+    return () => window.clearTimeout(handle);
+  }, [refinement.q]);
 
   function removeOrganizerSlug(slug: string) {
     const next = selectedSlugs.filter((item) => item !== slug).join(",");
@@ -123,6 +138,10 @@ export function ResultRefinementBar({
             value={refinement.datePreset}
             onChange={(event) => {
               const datePreset = event.target.value as RefineDatePreset;
+              track("filter_change", {
+                datePreset,
+                source: "result_refinement",
+              });
               onChange({
                 ...refinement,
                 datePreset,
@@ -145,9 +164,13 @@ export function ResultRefinementBar({
           <span className="sr-only">Organisator</span>
           <select
             value={selectValue}
-            onChange={(event) =>
-              onChange({ ...refinement, organizer: event.target.value })
-            }
+            onChange={(event) => {
+              track("filter_change", {
+                organizer: event.target.value ? "set" : "cleared",
+                source: "result_refinement",
+              });
+              onChange({ ...refinement, organizer: event.target.value });
+            }}
             className={selectClassName}
             aria-label="Organisator"
           >

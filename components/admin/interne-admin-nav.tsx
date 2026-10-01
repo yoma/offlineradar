@@ -1,16 +1,21 @@
 import Link from "next/link";
 
 /**
- * Shared internal admin nav for tips / events / feedback / aanvoer.
+ * Shared internal admin nav for tips / events / feedback / aanvoer / dashboard.
  */
 export function InterneAdminNav({
   active,
   newFeedbackCount = 0,
 }: {
-  active: "events" | "tips" | "feedback" | "aanvoer";
+  active: "dashboard" | "events" | "tips" | "feedback" | "aanvoer";
   newFeedbackCount?: number;
 }) {
   const items = [
+    {
+      href: "/interne-dashboard",
+      key: "dashboard" as const,
+      label: "Dashboard",
+    },
     { href: "/interne-aanvoer", key: "aanvoer" as const, label: "Aanvoer" },
     { href: "/interne-events", key: "events" as const, label: "Events" },
     { href: "/interne-tips", key: "tips" as const, label: "Tips" },
