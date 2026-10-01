@@ -381,13 +381,7 @@ export function HomeHero({
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/60" />
 
-      <div
-        className={`relative mx-auto flex min-h-[100svh] w-full min-w-0 max-w-6xl flex-col justify-center px-4 pt-24 sm:px-6 sm:pt-28 ${
-          upcomingEvents.length > 0
-            ? "pb-32 sm:pb-28"
-            : "pb-24 sm:pb-16"
-        }`}
-      >
+      <div className="relative mx-auto flex min-h-[100svh] w-full min-w-0 max-w-6xl flex-col justify-center px-4 pt-24 pb-24 sm:px-6 sm:pt-28 sm:pb-16">
         <p className="text-[11px] font-medium tracking-[0.22em] text-white/65 uppercase sm:text-xs">
           DateOfflineHub
         </p>
@@ -399,8 +393,19 @@ export function HomeHero({
           het echt kunt ontmoeten.
         </p>
 
+        {upcomingEvents.length > 0 && today ? (
+          <div className="mt-5 w-full min-w-0 max-w-4xl sm:mt-6">
+            <UpcomingStrip
+              events={upcomingEvents}
+              today={today}
+              variant="onDark"
+              headingId="home-binnenkort-heading"
+            />
+          </div>
+        ) : null}
+
         <form
-          className="mt-8 w-full min-w-0 max-w-4xl sm:mt-10"
+          className="mt-6 w-full min-w-0 max-w-4xl sm:mt-8"
           onSubmit={(event) => {
             event.preventDefault();
             go();
@@ -837,19 +842,6 @@ export function HomeHero({
           </div>
         </form>
       </div>
-
-      {upcomingEvents.length > 0 && today ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 via-black/35 to-transparent pt-10 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-3">
-          <div className="pointer-events-auto mx-auto w-full min-w-0 max-w-6xl px-4 sm:px-6">
-            <UpcomingStrip
-              events={upcomingEvents}
-              today={today}
-              variant="onDark"
-              headingId="home-binnenkort-heading"
-            />
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }

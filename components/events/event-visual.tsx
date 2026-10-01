@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { EventVisualImage } from "@/components/events/event-visual-image";
 import {
   eventImageDiversityKey,
   inferRequiredImageCategory,
@@ -80,12 +80,10 @@ export function EventVisual({
 
   return (
     <div className={cn("relative min-w-0 overflow-hidden bg-stone-200", className)}>
-      <Image
+      <EventVisualImage
         src={src}
         alt={alt}
-        fill
         priority={priority}
-        unoptimized={src.startsWith("data:")}
         sizes="(max-width: 768px) 100vw, 33vw"
         className="object-cover transition duration-500 group-hover:scale-[1.03]"
       />

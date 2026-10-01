@@ -49,6 +49,7 @@ export {
   inferImageAgeBand,
   parseAgeHintsFromTitle,
   resolvePublicEventImage,
+  rewriteDeadMoodUrl,
   NEUTRAL_FALLBACK_DATA_URI,
   CATEGORY_MOOD_URLS,
   CATEGORY_MOOD_POOLS,

@@ -323,6 +323,7 @@ check("known-dead Unsplash ids are not in mood pools", () => {
     "photo-1595435742656",
     "photo-1511632765486",
     "photo-1515187029135",
+    "photo-1547592160-406d259ca962",
   ];
   const blob = JSON.stringify(CATEGORY_MOOD_POOLS);
   for (const id of dead) {

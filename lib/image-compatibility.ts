@@ -71,6 +71,21 @@ function assetKey(url: string): string {
   return lower;
 }
 
+/**
+ * Dead remote mood assets (Unsplash 404s). Rewrite so stored DB rows and
+ * cached URLs still resolve to a working soup / food image.
+ */
+const DEAD_MOOD_URL_REWRITES: Record<string, string> = {
+  "photo-1547592160-406d259ca962":
+    "https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=1200&q=80",
+};
+
+export function rewriteDeadMoodUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const key = assetKey(url);
+  return DEAD_MOOD_URL_REWRITES[key] ?? url;
+}
+
 /** Subject tags for known mood / Unsplash assets. */
 export const MOOD_ASSET_META: Record<string, MoodAssetMeta> = {
   // outdoor / walking
@@ -232,7 +247,7 @@ export const MOOD_ASSET_META: Record<string, MoodAssetMeta> = {
     subjects: ["food", "table", "dining", "pasta"],
     setting: ["indoor", "restaurant"],
   },
-  "photo-1547592160-406d259ca962": {
+  "photo-1547592166-23ac45744acd": {
     subjects: ["soup", "food", "bowls", "table", "tasting"],
     setting: ["indoor", "restaurant"],
   },
@@ -366,7 +381,8 @@ export const CATEGORY_MOOD_POOLS: Record<
     "https://images.unsplash.com/photo-1572116469696-31de0f17cc34?auto=format&fit=crop&w=1200&q=80",
   ],
   food: [
-    "https://images.unsplash.com/photo-1547592160-406d259ca962?auto=format&fit=crop&w=1200&q=80",
+    // photo-1547592160-406d259ca962 used to live here but Unsplash now 404s it.
+    "https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1476718406336-bb5a9690ee2a?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1200&q=80",
@@ -789,6 +805,7 @@ export function resolvePublicEventImage(
   const ageBand = visualAgeToLegacyBand(profile.ageBand);
   const key = diversityKey ?? null;
   const why = profile.why;
+  imageUrl = rewriteDeadMoodUrl(imageUrl);
 
   if (options?.adminLocked && imageUrl) {
     return {
