@@ -527,11 +527,13 @@ function SourcesPanel({
                 </p>
               ) : null}
 
-              {s.followStatus === "handmatig" && s.manualFollowReason ? (
+              {s.followStatus === "handmatig" && !s.refreshSupported ? (
                 <p className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700">
                   Automatische opvolging momenteel niet mogelijk
                   <span className="mt-1 block text-xs text-stone-500">
-                    {s.manualFollowReason}
+                    Reden:{" "}
+                    {s.manualFollowReason ??
+                      "Geen betrouwbare website-, agenda- of websearch-route."}
                   </span>
                 </p>
               ) : null}
@@ -624,9 +626,13 @@ function SourcesPanel({
                     ) : null}
                   </>
                 ) : (
-                  <p className="text-xs text-stone-500">
-                    Handmatige bron — automatische opvolging momenteel niet
-                    mogelijk
+                  <p className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-600">
+                    Automatische opvolging momenteel niet mogelijk
+                    <span className="mt-1 block text-stone-500">
+                      Reden:{" "}
+                      {s.manualFollowReason ??
+                        "Geen betrouwbare website-, agenda- of websearch-route."}
+                    </span>
                   </p>
                 )}
 

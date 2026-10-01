@@ -128,16 +128,29 @@ export function formatScanWhen(iso: string | null | undefined, now = new Date())
 export function formatNextScan(input: {
   followStatus: SourceFollowStatus;
   nextScanAt: string | null;
+  /** True when auto-follow is on but no scan has completed yet. */
+  neverScanned?: boolean;
   now?: Date;
 }): string {
   if (input.followStatus === "gepauzeerd") return "Scans gepauzeerd";
   if (input.followStatus === "uitgeschakeld") return "Uitgeschakeld";
-  if (input.followStatus === "handmatig" || !input.nextScanAt) {
+  if (input.followStatus === "handmatig") {
+    return "Geen automatische volgende scan";
+  }
+  if (!input.nextScanAt) {
+    if (
+      input.followStatus === "gevolgd" ||
+      input.followStatus === "aandacht_nodig"
+    ) {
+      return "Volgens huidige scheduler / eerstvolgende due window";
+    }
     return "Geen automatische volgende scan";
   }
   const now = input.now ?? new Date();
   const d = new Date(input.nextScanAt);
-  if (Number.isNaN(d.getTime())) return "Geen automatische volgende scan";
+  if (Number.isNaN(d.getTime())) {
+    return "Volgens huidige scheduler / eerstvolgende due window";
+  }
   const startToday = new Date(now);
   startToday.setHours(0, 0, 0, 0);
   const startThat = new Date(d);
@@ -150,7 +163,9 @@ export function formatNextScan(input: {
     minute: "2-digit",
   }).format(d);
   if (dayDiff < 0 || d.getTime() <= now.getTime()) {
-    return "nu (achterstallig)";
+    return input.neverScanned
+      ? "Volgens huidige scheduler / eerstvolgende due window"
+      : "nu (achterstallig)";
   }
   if (dayDiff === 0) return `vandaag rond ${time}`;
   if (dayDiff === 1) return "morgen";
@@ -207,7 +222,7 @@ export function resolveNextScanAt(
   const hours =
     schedule.refreshIntervalHours ??
     defaultFollowIntervalHours(followMethods ?? ["website"]);
-  if (!schedule.lastScheduledRefreshAt) return new Date().toISOString();
+  if (!schedule.lastScheduledRefreshAt) return null;
   return new Date(
     new Date(schedule.lastScheduledRefreshAt).getTime() + hours * 60 * 60 * 1000,
   ).toISOString();

@@ -322,6 +322,43 @@ export async function setSourceRefreshEnabled(
   return rows.length > 0;
 }
 
+/**
+ * Enable auto-follow with cadence + optional last_scheduled anchor
+ * (used to spread first due windows without a scanstorm).
+ */
+export async function setSourceAutoFollowSchedule(input: {
+  catalogSourceId: string;
+  enabled: boolean;
+  refreshIntervalHours: number;
+  /** When set, anchors next-due calc without inventing a completed scan. */
+  lastScheduledRefreshAt?: string | null;
+}): Promise<boolean> {
+  const sql = getEventsSql();
+  if (!sql) return false;
+  const hours = Math.max(6, Math.min(168, Math.round(input.refreshIntervalHours)));
+  const lastAt = input.lastScheduledRefreshAt ?? null;
+  const rows = await sql`
+    UPDATE catalog_sources SET
+      refresh_enabled = ${input.enabled},
+      refresh_interval_hours = ${hours},
+      last_scheduled_refresh_at = COALESCE(${lastAt}, last_scheduled_refresh_at),
+      updated_at = now()
+    WHERE id = ${input.catalogSourceId}
+    RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+/** All catalog source ids with refresh_enabled = true. */
+export async function listAutoFollowEnabledSourceIds(): Promise<string[]> {
+  const sql = getEventsSql();
+  if (!sql) return [];
+  const rows = (await sql`
+    SELECT id FROM catalog_sources WHERE refresh_enabled = true
+  `) as { id: string }[];
+  return rows.map((r) => r.id);
+}
+
 /** Open review queue: new + changed + possibly_removed still needs_review. */
 export async function countOpenRefreshReviewItems(): Promise<number> {
   const sql = getEventsSql();

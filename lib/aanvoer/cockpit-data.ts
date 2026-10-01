@@ -500,7 +500,11 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
     source.lastScanAt = lastScanAt;
     source.lastScanLabel = formatScanWhen(lastScanAt);
     source.nextScanAt = nextScanAt;
-    source.nextScanLabel = formatNextScan({ followStatus, nextScanAt });
+    source.nextScanLabel = formatNextScan({
+      followStatus,
+      nextScanAt,
+      neverScanned: !lastScanAt,
+    });
     source.lastResultLabel = summarizeLastRun(run);
     source.consecutiveFailures = failures;
     source.lastRunError = run?.error ?? null;

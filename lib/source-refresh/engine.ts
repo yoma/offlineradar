@@ -98,6 +98,28 @@ export async function startSourceRefresh(input: {
     name: catalogSource.name,
   });
 
+  // Human pause/disable always wins over scheduler / discovery / AI.
+  if (triggerType === "scheduled") {
+    const {
+      FOLLOW_PAUSED_TAG,
+      FOLLOW_DISABLED_TAG,
+      FOLLOW_ARCHIVED_TAG,
+      notesHasTag,
+    } = await import("@/lib/aanvoer/source-follow");
+    if (
+      notesHasTag(catalogSource.notes, FOLLOW_PAUSED_TAG) ||
+      notesHasTag(catalogSource.notes, FOLLOW_DISABLED_TAG) ||
+      notesHasTag(catalogSource.notes, FOLLOW_ARCHIVED_TAG) ||
+      catalogSource.status === "inactive"
+    ) {
+      return {
+        ok: false,
+        code: "unsupported",
+        error: "Bron is gepauzeerd of uitgeschakeld door admin.",
+      };
+    }
+  }
+
   if (!pilot && !capability.autoFollowable) {
     return {
       ok: false,
