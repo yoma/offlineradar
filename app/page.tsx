@@ -2,11 +2,23 @@ import Link from "next/link";
 import { Lock } from "lucide-react";
 import { HomeHero } from "@/components/home/home-search";
 import { TipSection } from "@/components/tips/tip-section";
+import { listPublishedOrganizerOptions } from "@/lib/organizers/published-options";
 
-export default function HomePage() {
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  let organizerOptions: Awaited<
+    ReturnType<typeof listPublishedOrganizerOptions>
+  > = [];
+  try {
+    organizerOptions = await listPublishedOrganizerOptions();
+  } catch {
+    organizerOptions = [];
+  }
+
   return (
     <div>
-      <HomeHero />
+      <HomeHero organizerOptions={organizerOptions} />
       {/* Tip section sits where the first discovery strip would continue:
           visible after the hero, before the product explainer. */}
       <TipSection />

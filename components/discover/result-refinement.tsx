@@ -125,14 +125,20 @@ export function ResultRefinementBar({
         <label className="min-w-0">
           <span className="sr-only">Organisator</span>
           <select
-            value={refinement.organizer}
+            value={
+              refinement.organizer.includes(",") ? "" : refinement.organizer
+            }
             onChange={(event) =>
               onChange({ ...refinement, organizer: event.target.value })
             }
             className={selectClassName}
             aria-label="Organisator"
           >
-            <option value="">Alle organisatoren</option>
+            <option value="">
+              {refinement.organizer.includes(",")
+                ? "Meerdere organisatoren (homepage)"
+                : "Alle organisatoren"}
+            </option>
             {isLoggedIn ? (
               <option value={FOLLOWED_ORGANIZERS_FILTER}>
                 Organisatoren die ik volg

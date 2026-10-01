@@ -1,12 +1,20 @@
 "use client";
 
 import Image from "next/image";
-import { ChevronDown, Plus, Search, SlidersHorizontal } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ChevronDown, Plus, Search, SlidersHorizontal, X } from "lucide-react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { USER_PLACES, findPlace } from "@/data/places";
 import { track } from "@/lib/analytics";
 import { DISTANCES, GENDER_LABEL, MEET_GENDER_LABEL, WHEN_LABEL } from "@/lib/format";
 import { heroImageUrl } from "@/lib/images";
+import type { PublishedOrganizerOption } from "@/lib/organizers/published-options";
+import { normalizeOrganizerParam } from "@/lib/result-refinement";
 import { profileFromSearch, serializeSearchState } from "@/lib/search-state";
 import { readProfile, writeProfile } from "@/lib/storage";
 import { markSearchPending } from "@/components/discover/search-loading";
@@ -80,7 +88,11 @@ function toggleList<T>(current: T[], next: T[]) {
   return [...new Set([...current, ...next])];
 }
 
-export function HomeHero() {
+export function HomeHero({
+  organizerOptions = [],
+}: {
+  organizerOptions?: PublishedOrganizerOption[];
+}) {
   const [age, setAge] = useState("");
   const [gender, setGender] = useState<UserGender | "">("");
   const [placeId, setPlaceId] = useState("antwerpen");
@@ -91,6 +103,9 @@ export function HomeHero() {
   const [categories, setCategories] = useState<EventCategory[]>([]);
   /** Explicit "Alle soorten" toggle (empty lists alone cannot mean both on and off). */
   const [allTypes, setAllTypes] = useState(true);
+  const [selectedOrganizers, setSelectedOrganizers] = useState<string[]>([]);
+  const [organizerQuery, setOrganizerQuery] = useState("");
+  const [organizerOpen, setOrganizerOpen] = useState(false);
   const [prefMin, setPrefMin] = useState("");
   const [prefMax, setPrefMax] = useState("");
   const [meetGender, setMeetGender] =
@@ -104,6 +119,7 @@ export function HomeHero() {
   const [searching, setSearching] = useState(false);
   const ageInputRef = useRef<HTMLInputElement>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
+  const organizerBoxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const profile = readProfile();
@@ -121,6 +137,50 @@ export function HomeHero() {
       if (profile.preferredMeetGender) setMeetGender(profile.preferredMeetGender);
     });
   }, []);
+
+  useEffect(() => {
+    function onPointerDown(event: MouseEvent) {
+      if (!organizerBoxRef.current) return;
+      if (!organizerBoxRef.current.contains(event.target as Node)) {
+        setOrganizerOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, []);
+
+  const selectedOrganizerRecords = useMemo(
+    () =>
+      selectedOrganizers
+        .map((slug) => organizerOptions.find((item) => item.slug === slug))
+        .filter((item): item is PublishedOrganizerOption => Boolean(item)),
+    [organizerOptions, selectedOrganizers],
+  );
+
+  const filteredOrganizers = useMemo(() => {
+    const needle = organizerQuery.trim().toLowerCase();
+    return organizerOptions.filter((item) => {
+      if (selectedOrganizers.includes(item.slug)) return false;
+      if (!needle) return true;
+      return (
+        item.name.toLowerCase().includes(needle) ||
+        item.slug.includes(needle) ||
+        (item.blurb?.toLowerCase().includes(needle) ?? false)
+      );
+    });
+  }, [organizerOptions, organizerQuery, selectedOrganizers]);
+
+  function addOrganizer(slug: string) {
+    setSelectedOrganizers((current) =>
+      current.includes(slug) ? current : [...current, slug],
+    );
+    setOrganizerQuery("");
+    setOrganizerOpen(false);
+  }
+
+  function removeOrganizer(slug: string) {
+    setSelectedOrganizers((current) => current.filter((item) => item !== slug));
+  }
 
   function isChipActive(chip: QuickChip) {
     if (chip.kind === "when") return when === chip.when;
@@ -283,7 +343,13 @@ export function HomeHero() {
       });
       markSearchPending();
       const query = serializeSearchState(state);
-      const url = query ? `/ontdek?${query}` : "/ontdek";
+      const params = new URLSearchParams(query);
+      const organizerParam = normalizeOrganizerParam(
+        selectedOrganizers.join(","),
+      );
+      if (organizerParam) params.set("organizer", organizerParam);
+      const qs = params.toString();
+      const url = qs ? `/ontdek?${qs}` : "/ontdek";
       // Hard navigation: client soft-nav from the hero was intermittently a no-op
       // on production (submit ran, profile wrote, URL stayed on /).
       window.location.assign(url);
@@ -578,6 +644,65 @@ export function HomeHero() {
           ) : null}
 
           <div className="mt-5 space-y-4">
+            {organizerOptions.length > 0 ? (
+              <div ref={organizerBoxRef} className="relative max-w-xl">
+                <p className="mb-2 text-xs font-semibold tracking-wide text-white/70 uppercase">
+                  Organisator
+                </p>
+                <label className="relative block">
+                  <span className="sr-only">Zoek of kies een organisator</span>
+                  <Search
+                    className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden
+                  />
+                  <input
+                    type="search"
+                    value={organizerQuery}
+                    onChange={(event) => {
+                      setOrganizerQuery(event.target.value);
+                      setOrganizerOpen(true);
+                    }}
+                    onFocus={() => setOrganizerOpen(true)}
+                    placeholder="Zoek of kies een organisator…"
+                    className="h-11 w-full rounded-full border border-white/30 bg-white pr-3 pl-9 text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground focus:border-white"
+                    autoComplete="off"
+                  />
+                </label>
+                {organizerOpen ? (
+                  <ul
+                    role="listbox"
+                    className="absolute z-20 mt-1.5 max-h-64 w-full overflow-auto rounded-2xl border border-border bg-white py-1 shadow-lg"
+                  >
+                    {filteredOrganizers.length === 0 ? (
+                      <li className="px-3 py-2.5 text-sm text-muted-foreground">
+                        Geen organisator gevonden
+                      </li>
+                    ) : (
+                      filteredOrganizers.map((item) => (
+                        <li key={item.id}>
+                          <button
+                            type="button"
+                            role="option"
+                            className="flex w-full flex-col items-start gap-0.5 px-3 py-2.5 text-left hover:bg-black/[0.04]"
+                            onClick={() => addOrganizer(item.slug)}
+                          >
+                            <span className="text-sm font-semibold text-foreground">
+                              {item.name}
+                            </span>
+                            {item.blurb ? (
+                              <span className="text-xs text-muted-foreground">
+                                {item.blurb}
+                              </span>
+                            ) : null}
+                          </button>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
+
             <div>
               <p className="mb-2 text-xs font-semibold tracking-wide text-white/70 uppercase">
                 Waar heb je zin in?
@@ -613,6 +738,18 @@ export function HomeHero() {
                     </button>
                   );
                 })}
+                {selectedOrganizerRecords.map((item) => (
+                  <button
+                    key={item.slug}
+                    type="button"
+                    onClick={() => removeOrganizer(item.slug)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-white bg-white px-3.5 py-1.5 text-sm font-semibold text-foreground"
+                    aria-label={`${item.name} verwijderen`}
+                  >
+                    {item.name}
+                    <X className="size-3.5 opacity-70" aria-hidden />
+                  </button>
+                ))}
               </div>
             </div>
           </div>

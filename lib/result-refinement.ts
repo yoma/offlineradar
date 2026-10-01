@@ -101,11 +101,7 @@ export function parseResultRefinement(
   // Do not hijack main filter sort=match|distance into refinement.
 
   const rawOrganizer = (get("organizer") ?? "").trim().toLowerCase();
-  const organizer =
-    rawOrganizer === FOLLOWED_ORGANIZERS_FILTER ||
-    /^[a-z0-9][a-z0-9-]{0,80}$/.test(rawOrganizer)
-      ? rawOrganizer
-      : "";
+  const organizer = normalizeOrganizerParam(rawOrganizer);
 
   return {
     q,
@@ -115,6 +111,24 @@ export function parseResultRefinement(
     sort,
     organizer,
   };
+}
+
+/** Accept single slug, "followed", or comma-separated slugs. */
+export function normalizeOrganizerParam(raw: string): string {
+  const value = raw.trim().toLowerCase();
+  if (!value) return "";
+  if (value === FOLLOWED_ORGANIZERS_FILTER) return FOLLOWED_ORGANIZERS_FILTER;
+  const parts = value
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => /^[a-z0-9][a-z0-9-]{0,80}$/.test(part));
+  return [...new Set(parts)].join(",");
+}
+
+export function organizerSlugsFromParam(organizer: string): string[] {
+  const normalized = normalizeOrganizerParam(organizer);
+  if (!normalized || normalized === FOLLOWED_ORGANIZERS_FILTER) return [];
+  return normalized.split(",").filter(Boolean);
 }
 
 /**
@@ -145,7 +159,7 @@ export function serializeResultRefinement(
   if (refinement.sort !== "soonest") {
     params.set("rsort", refinement.sort);
   }
-  const organizer = refinement.organizer.trim().toLowerCase();
+  const organizer = normalizeOrganizerParam(refinement.organizer);
   if (organizer) params.set("organizer", organizer);
   return params;
 }
@@ -267,15 +281,17 @@ function matchesOrganizerFilter(
   organizer: string,
   followedOrganizerIds: ReadonlySet<string>,
 ): boolean {
-  const key = organizer.trim().toLowerCase();
+  const key = normalizeOrganizerParam(organizer);
   if (!key) return true;
   if (key === FOLLOWED_ORGANIZERS_FILTER) {
-    return Boolean(event.organizerId && followedOrganizerIds.has(event.organizerId));
+    return Boolean(
+      event.organizerId && followedOrganizerIds.has(event.organizerId),
+    );
   }
+  const slugs = new Set(organizerSlugsFromParam(key));
   const slug = (event.organizerSlug ?? "").trim().toLowerCase();
-  if (slug && slug === key) return true;
-  // Allow id match as fallback for deep links.
-  return event.organizerId === key;
+  if (slug && slugs.has(slug)) return true;
+  return Boolean(event.organizerId && slugs.has(event.organizerId));
 }
 
 export function applyResultRefinement<T extends Event>(
