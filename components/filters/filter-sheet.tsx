@@ -225,7 +225,10 @@ export function FilterSheet({
                     return (
                       <Choice
                         key={chip.id}
-                        pressed={state.categories.includes(chip.id)}
+                        // Alle soorten = geen beperking → toon alle chips als actief
+                        pressed={
+                          allSoorten || state.categories.includes(chip.id)
+                        }
                         onClick={() => toggleCategory(chip.id)}
                       >
                         {chip.label}
@@ -235,10 +238,13 @@ export function FilterSheet({
                   return (
                     <Choice
                       key={chip.id}
-                      pressed={isPublicActivityGroupSelected(
-                        state.activities,
-                        chip.id,
-                      )}
+                      pressed={
+                        allSoorten ||
+                        isPublicActivityGroupSelected(
+                          state.activities,
+                          chip.id,
+                        )
+                      }
                       onClick={() => toggleActivityGroup(chip.id)}
                     >
                       {chip.label}
