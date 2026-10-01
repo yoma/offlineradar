@@ -469,7 +469,7 @@ export function HomeHero({
               </p>
             ) : (
               <p className="max-w-[16rem] pl-1 text-sm leading-5 text-white/70 sm:max-w-none sm:pl-0">
-                Organisator, type, prijs en meer
+                Organisator, categorie, prijs en meer
               </p>
             )}
           </div>

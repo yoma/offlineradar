@@ -1,10 +1,16 @@
 "use client";
 
-import { Search, SlidersHorizontal, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Sheet,
   SheetContent,
@@ -23,7 +29,6 @@ import {
 } from "@/lib/format";
 import {
   isPublicActivityGroupSelected,
-  PUBLIC_ACTIVITY_GROUPS,
   type PublicActivityGroupId,
   togglePublicActivityGroup,
 } from "@/lib/public-activity-groups";
@@ -45,10 +50,23 @@ const WHEN_OPTIONS: WhenFilter[] = [
   "date",
 ];
 
-const CATEGORIES: { id: EventCategory; label: string }[] = [
-  { id: "dating", label: "Dating" },
-  { id: "meet_new_people", label: "Nieuwe mensen" },
-  { id: "social", label: "Sociaal" },
+/** Unified Categorieën chips → existing categories[] / activities[] state. */
+type CategoryChip =
+  | { kind: "all"; label: string }
+  | { kind: "category"; id: EventCategory; label: string }
+  | { kind: "activity"; id: PublicActivityGroupId; label: string };
+
+const CATEGORY_CHIPS: CategoryChip[] = [
+  { kind: "all", label: "Alle soorten" },
+  { kind: "activity", id: "speeddate", label: "Speeddate" },
+  { kind: "category", id: "dating", label: "Dating" },
+  { kind: "category", id: "meet_new_people", label: "Nieuwe mensen" },
+  { kind: "activity", id: "sport_active", label: "Sport & actief" },
+  { kind: "activity", id: "eten", label: "Dinner / food" },
+  { kind: "activity", id: "drinken", label: "Drinks / apero" },
+  { kind: "activity", id: "party", label: "Party" },
+  { kind: "activity", id: "workshop", label: "Workshop" },
+  { kind: "activity", id: "travel", label: "Weekend / reis" },
 ];
 
 export function FilterSheet({
@@ -79,6 +97,13 @@ export function FilterSheet({
   onClearAdvanced?: () => void;
   footerLabel?: string;
 }) {
+  const allSoorten =
+    state.categories.length === 0 && state.activities.length === 0;
+
+  function selectAlleSoorten() {
+    onChange({ categories: [], activities: [] });
+  }
+
   function toggleCategory(id: EventCategory) {
     const categories = state.categories.includes(id)
       ? state.categories.filter((item) => item !== id)
@@ -89,9 +114,6 @@ export function FilterSheet({
   function toggleActivityGroup(id: PublicActivityGroupId) {
     onChange({ activities: togglePublicActivityGroup(state.activities, id) });
   }
-
-  const allTypes =
-    state.categories.length === 0 && state.activities.length === 0;
 
   function clearAdvanced() {
     onChange({
@@ -113,262 +135,274 @@ export function FilterSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="max-h-[min(88vh,100dvh)] gap-0 rounded-t-2xl pb-[env(safe-area-inset-bottom,0px)]"
+        className="gap-0 overflow-hidden p-0 max-h-[min(92vh,100dvh)] rounded-t-2xl pb-[env(safe-area-inset-bottom,0px)] md:data-[side=bottom]:inset-x-auto md:data-[side=bottom]:bottom-auto md:data-[side=bottom]:top-1/2 md:data-[side=bottom]:left-1/2 md:data-[side=bottom]:right-auto md:data-[side=bottom]:h-auto md:data-[side=bottom]:max-h-[min(85vh,840px)] md:data-[side=bottom]:w-[min(calc(100%-2rem),980px)] md:data-[side=bottom]:-translate-x-1/2 md:data-[side=bottom]:-translate-y-1/2 md:data-[side=bottom]:rounded-2xl md:data-[side=bottom]:border md:data-[side=bottom]:shadow-xl md:data-[side=bottom]:data-open:slide-in-from-bottom-0 md:data-[side=bottom]:data-open:fade-in-0"
       >
-        <SheetHeader>
-          <SheetTitle>Meer filters</SheetTitle>
-          <SheetDescription>
-            Leeftijd blijft een deelnamecheck. Je voorkeur voor een leeftijdsgroep
-            verbergt geen events.
+        <SheetHeader className="shrink-0 border-b border-border/70 px-5 py-4 md:px-6">
+          <SheetTitle className="text-lg font-semibold tracking-tight">
+            Meer filters
+          </SheetTitle>
+          <SheetDescription className="text-sm text-muted-foreground">
+            Verfijn je zoekresultaten. Leeftijd blijft een deelnamecheck.
           </SheetDescription>
         </SheetHeader>
-        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pb-4">
-          {organizerOptions.length > 0 && onOrganizersChange ? (
-            <OrganizerPicker
-              options={organizerOptions}
-              selected={selectedOrganizers}
-              onChange={onOrganizersChange}
-            />
-          ) : null}
 
-          <FilterGroup title="Wanneer">
-            <p className="mb-2 text-sm text-muted-foreground">
-              Kies één periode. {WHEN_HINT[state.when] ?? ""}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {WHEN_OPTIONS.map((option) => (
-                <Choice
-                  key={option}
-                  pressed={state.when === option}
-                  onClick={() =>
-                    onChange({
-                      when: option,
-                      date: option === "date" ? state.date : null,
-                    })
-                  }
-                >
-                  {WHEN_LABEL[option]}
-                </Choice>
-              ))}
-            </div>
-            {state.when === "date" ? (
-              <Input
-                type="date"
-                className="mt-3 h-11"
-                value={state.date ?? ""}
-                onChange={(event) =>
-                  onChange({ when: "date", date: event.target.value || null })
-                }
-              />
-            ) : null}
-          </FilterGroup>
-
-          <FilterGroup title="Afstand">
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {DISTANCES.map((km) => (
-                <Choice
-                  key={km}
-                  pressed={state.maxDistanceKm === km}
-                  onClick={() => onChange({ maxDistanceKm: km })}
-                >
-                  {km} km
-                </Choice>
-              ))}
-            </div>
-          </FilterGroup>
-
-          <FilterGroup title="Type">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <Choice
-                pressed={allTypes}
-                onClick={() => onChange({ categories: [], activities: [] })}
-              >
-                Alle soorten
-              </Choice>
-              <span className="text-xs text-muted-foreground">
-                of kies specifiek
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {CATEGORIES.map((category) => (
-                <Choice
-                  key={category.id}
-                  pressed={state.categories.includes(category.id)}
-                  onClick={() => toggleCategory(category.id)}
-                >
-                  {category.label}
-                </Choice>
-              ))}
-            </div>
-          </FilterGroup>
-
-          <FilterGroup title="Activiteit">
-            <div className="flex flex-wrap gap-2">
-              {PUBLIC_ACTIVITY_GROUPS.map((group) => (
-                <Choice
-                  key={group.id}
-                  pressed={isPublicActivityGroupSelected(
-                    state.activities,
-                    group.id,
-                  )}
-                  onClick={() => toggleActivityGroup(group.id)}
-                >
-                  {group.label}
-                </Choice>
-              ))}
-            </div>
-          </FilterGroup>
-
-          <FilterGroup title="Prijs">
-            <div className="flex flex-wrap gap-2">
-              {(Object.keys(PRICE_LABEL) as PriceFilter[])
-                .filter((price) => price !== "any")
-                .map((price) => (
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 md:px-6 md:py-5">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-x-8 md:gap-y-6">
+            <FilterGroup title="Wanneer">
+              <p className="mb-2 text-xs text-muted-foreground">
+                {WHEN_HINT[state.when] ?? "Kies één periode."}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {WHEN_OPTIONS.map((option) => (
                   <Choice
-                    key={price}
-                    pressed={state.price === price}
-                    onClick={() =>
-                      onChange({ price: state.price === price ? "any" : price })
-                    }
-                  >
-                    {PRICE_LABEL[price]}
-                  </Choice>
-                ))}
-            </div>
-          </FilterGroup>
-
-          <FilterGroup title="Beschikbaarheid">
-            <div className="flex flex-wrap gap-2">
-              {(Object.keys(AVAILABILITY_LABEL) as AvailabilityFilter[])
-                .filter((item) => item !== "any")
-                .map((item) => (
-                  <Choice
-                    key={item}
-                    pressed={state.availability === item}
+                    key={option}
+                    pressed={state.when === option}
                     onClick={() =>
                       onChange({
-                        availability:
-                          state.availability === item ? "any" : item,
+                        when: option,
+                        date: option === "date" ? state.date : null,
                       })
                     }
                   >
-                    {AVAILABILITY_LABEL[item]}
+                    {WHEN_LABEL[option]}
                   </Choice>
                 ))}
-            </div>
-          </FilterGroup>
+              </div>
+              {state.when === "date" ? (
+                <Input
+                  type="date"
+                  className="mt-2.5 h-10 max-w-xs"
+                  value={state.date ?? ""}
+                  onChange={(event) =>
+                    onChange({
+                      when: "date",
+                      date: event.target.value || null,
+                    })
+                  }
+                />
+              ) : null}
+            </FilterGroup>
 
-          <label className="flex items-center justify-between gap-4 rounded-xl border p-3">
-            <span>
-              <span className="block text-sm font-medium">Alleen singles</span>
-              <span className="text-sm text-muted-foreground">
-                Enkel events die expliciet singles-only zijn.
-              </span>
-            </span>
-            <input
-              type="checkbox"
-              checked={state.singlesOnly}
-              onChange={(event) =>
-                onChange({ singlesOnly: event.target.checked })
-              }
-              className="size-5 accent-[var(--primary)]"
-            />
-          </label>
-
-          <label className="flex items-center justify-between gap-4 rounded-xl border p-3">
-            <span>
-              <span className="block text-sm font-medium">
-                Alleen strikte leeftijdsgrenzen
-              </span>
-              <span className="text-sm text-muted-foreground">
-                Verbergt events die alleen een richtleeftijd vermelden.
-              </span>
-            </span>
-            <input
-              type="checkbox"
-              checked={state.strictOnly}
-              onChange={(event) =>
-                onChange({ strictOnly: event.target.checked })
-              }
-              className="size-5 accent-[var(--primary)]"
-            />
-          </label>
-
-          <div className="space-y-2">
-            <Label>Wie wil je graag ontmoeten?</Label>
-            <p className="text-xs text-muted-foreground">
-              Voorkeur voor sorteren. Verbergt geen activiteiten.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {(Object.keys(MEET_GENDER_LABEL) as PreferredMeetGender[]).map(
-                (key) => (
+            <FilterGroup title="Afstand">
+              <div
+                className="inline-flex max-w-full flex-wrap rounded-full border border-border bg-muted/40 p-1"
+                role="group"
+                aria-label="Afstand"
+              >
+                {DISTANCES.map((km) => (
                   <button
-                    key={key}
+                    key={km}
                     type="button"
-                    aria-pressed={state.preferredMeetGender === key}
-                    onClick={() => onChange({ preferredMeetGender: key })}
-                    className={`rounded-full border px-3 py-1.5 text-sm ${
-                      state.preferredMeetGender === key
-                        ? "border-foreground bg-foreground text-white"
-                        : "border-border bg-white"
+                    aria-pressed={state.maxDistanceKm === km}
+                    onClick={() => onChange({ maxDistanceKm: km })}
+                    className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                      state.maxDistanceKm === km
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    {MEET_GENDER_LABEL[key]}
+                    {km} km
                   </button>
-                ),
-              )}
-            </div>
-          </div>
+                ))}
+              </div>
+            </FilterGroup>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="pref-min">Gewenste leeftijd vanaf</Label>
-              <Input
-                id="pref-min"
-                type="number"
-                min={18}
-                max={99}
-                className="h-11"
-                value={state.preferredAgeMin ?? ""}
-                onChange={(event) =>
-                  onChange({
-                    preferredAgeMin: event.target.value
-                      ? Number(event.target.value)
-                      : null,
-                  })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="pref-max">tot</Label>
-              <Input
-                id="pref-max"
-                type="number"
-                min={18}
-                max={99}
-                className="h-11"
-                value={state.preferredAgeMax ?? ""}
-                onChange={(event) =>
-                  onChange({
-                    preferredAgeMax: event.target.value
-                      ? Number(event.target.value)
-                      : null,
-                  })
-                }
-              />
-            </div>
-          </div>
+            <FilterGroup title="Categorieën" className="md:col-span-2">
+              <div className="flex flex-wrap gap-1.5">
+                {CATEGORY_CHIPS.map((chip) => {
+                  if (chip.kind === "all") {
+                    return (
+                      <Choice
+                        key="all"
+                        pressed={allSoorten}
+                        onClick={selectAlleSoorten}
+                      >
+                        {chip.label}
+                      </Choice>
+                    );
+                  }
+                  if (chip.kind === "category") {
+                    return (
+                      <Choice
+                        key={chip.id}
+                        pressed={state.categories.includes(chip.id)}
+                        onClick={() => toggleCategory(chip.id)}
+                      >
+                        {chip.label}
+                      </Choice>
+                    );
+                  }
+                  return (
+                    <Choice
+                      key={chip.id}
+                      pressed={isPublicActivityGroupSelected(
+                        state.activities,
+                        chip.id,
+                      )}
+                      onClick={() => toggleActivityGroup(chip.id)}
+                    >
+                      {chip.label}
+                    </Choice>
+                  );
+                })}
+              </div>
+            </FilterGroup>
 
+            {organizerOptions.length > 0 && onOrganizersChange ? (
+              <OrganizerPicker
+                sheetOpen={open}
+                options={organizerOptions}
+                selected={selectedOrganizers}
+                onChange={onOrganizersChange}
+              />
+            ) : null}
+
+            <FilterGroup title="Prijs">
+              <div className="flex flex-wrap gap-1.5">
+                {(Object.keys(PRICE_LABEL) as PriceFilter[])
+                  .filter((price) => price !== "any")
+                  .map((price) => (
+                    <Choice
+                      key={price}
+                      pressed={state.price === price}
+                      onClick={() =>
+                        onChange({
+                          price: state.price === price ? "any" : price,
+                        })
+                      }
+                    >
+                      {PRICE_LABEL[price]}
+                    </Choice>
+                  ))}
+              </div>
+            </FilterGroup>
+
+            <FilterGroup title="Beschikbaarheid">
+              <div className="flex flex-wrap gap-1.5">
+                {(Object.keys(AVAILABILITY_LABEL) as AvailabilityFilter[])
+                  .filter((item) => item !== "any")
+                  .map((item) => (
+                    <Choice
+                      key={item}
+                      pressed={state.availability === item}
+                      onClick={() =>
+                        onChange({
+                          availability:
+                            state.availability === item ? "any" : item,
+                        })
+                      }
+                    >
+                      {AVAILABILITY_LABEL[item]}
+                    </Choice>
+                  ))}
+              </div>
+            </FilterGroup>
+
+            <FilterGroup title="Extra opties" className="md:col-span-2">
+              <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+                <ToggleRow
+                  title="Alleen singles"
+                  description="Enkel events die expliciet singles-only zijn."
+                  checked={state.singlesOnly}
+                  onChange={(checked) => onChange({ singlesOnly: checked })}
+                />
+                <ToggleRow
+                  title="Alleen strikte leeftijdsgrenzen"
+                  description="Verbergt events die alleen een richtleeftijd vermelden."
+                  checked={state.strictOnly}
+                  onChange={(checked) => onChange({ strictOnly: checked })}
+                />
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Wie wil je graag ontmoeten?
+                  </p>
+                  <p className="mb-1.5 text-[11px] text-muted-foreground/80">
+                    Voorkeur voor sorteren. Verbergt geen activiteiten.
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(
+                      Object.keys(MEET_GENDER_LABEL) as PreferredMeetGender[]
+                    ).map((key) => (
+                      <Choice
+                        key={key}
+                        pressed={state.preferredMeetGender === key}
+                        onClick={() =>
+                          onChange({ preferredMeetGender: key })
+                        }
+                      >
+                        {MEET_GENDER_LABEL[key]}
+                      </Choice>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid max-w-sm grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="pref-min"
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      Leeftijd vanaf
+                    </label>
+                    <Input
+                      id="pref-min"
+                      type="number"
+                      min={18}
+                      max={99}
+                      className="h-9"
+                      value={state.preferredAgeMin ?? ""}
+                      onChange={(event) =>
+                        onChange({
+                          preferredAgeMin: event.target.value
+                            ? Number(event.target.value)
+                            : null,
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="pref-max"
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      tot
+                    </label>
+                    <Input
+                      id="pref-max"
+                      type="number"
+                      min={18}
+                      max={99}
+                      className="h-9"
+                      value={state.preferredAgeMax ?? ""}
+                      onChange={(event) =>
+                        onChange({
+                          preferredAgeMax: event.target.value
+                            ? Number(event.target.value)
+                            : null,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            </FilterGroup>
+          </div>
+        </div>
+
+        <SheetFooter className="shrink-0 flex-row items-center justify-between gap-3 border-t border-border/70 bg-background/95 px-5 py-3 backdrop-blur md:px-6">
           <button
             type="button"
             onClick={clearAdvanced}
-            className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            className="shrink-0 text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
           >
             Wis extra filters
           </button>
-        </div>
-        <SheetFooter className="border-t">
-          <Button className="h-12 rounded-xl" onClick={() => onOpenChange(false)}>
+          <Button
+            className="h-11 min-w-0 flex-1 rounded-xl sm:max-w-xs sm:flex-none"
+            onClick={() => onOpenChange(false)}
+          >
             <SlidersHorizontal className="size-4" />
             {footerLabel ??
               `Toon ${count} ${count === 1 ? "activiteit" : "activiteiten"}`}
@@ -380,10 +414,12 @@ export function FilterSheet({
 }
 
 function OrganizerPicker({
+  sheetOpen,
   options,
   selected,
   onChange,
 }: {
+  sheetOpen: boolean;
   options: Array<{
     id: string;
     slug: string;
@@ -394,16 +430,33 @@ function OrganizerPicker({
   onChange: (slugs: string[]) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listId = useId();
+
+  useEffect(() => {
+    if (!sheetOpen) {
+      setExpanded(false);
+      setQuery("");
+    }
+  }, [sheetOpen]);
 
   useEffect(() => {
     function onPointerDown(event: MouseEvent) {
-      if (!boxRef.current?.contains(event.target as Node)) setOpen(false);
+      if (!boxRef.current?.contains(event.target as Node)) {
+        setExpanded(false);
+      }
     }
     document.addEventListener("mousedown", onPointerDown);
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, []);
+
+  useEffect(() => {
+    if (expanded) {
+      queueMicrotask(() => inputRef.current?.focus());
+    }
+  }, [expanded]);
 
   const selectedRecords = useMemo(
     () =>
@@ -435,11 +488,18 @@ function OrganizerPicker({
     });
   }, [options, query, selected]);
 
+  const triggerLabel =
+    selectedRecords.length === 0
+      ? "Alle organisatoren"
+      : selectedRecords.length === 1
+        ? selectedRecords[0]!.name
+        : `${selectedRecords.length} organisatoren`;
+
   return (
     <FilterGroup title="Organisator">
-      <div ref={boxRef} className="relative">
+      <div ref={boxRef} className="relative max-w-sm">
         {selectedRecords.length > 0 ? (
-          <div className="mb-2 flex flex-wrap gap-2">
+          <div className="mb-2 flex flex-wrap gap-1.5">
             {selectedRecords.map((item) => (
               <button
                 key={item.slug}
@@ -447,87 +507,142 @@ function OrganizerPicker({
                 onClick={() =>
                   onChange(selected.filter((slug) => slug !== item.slug))
                 }
-                className="inline-flex items-center gap-1.5 rounded-full border border-foreground bg-foreground px-3 py-1.5 text-sm text-white"
+                className="inline-flex items-center gap-1 rounded-full border border-primary bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground"
                 aria-label={`${item.name} verwijderen`}
               >
                 {item.name}
-                <X className="size-3.5 opacity-80" aria-hidden />
+                <X className="size-3 opacity-80" aria-hidden />
               </button>
             ))}
           </div>
         ) : null}
-        <label className="relative block">
-          <span className="sr-only">Zoek of kies een organisator</span>
-          <Search
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={listId}
+          onClick={() => setExpanded((value) => !value)}
+          className="flex h-10 w-full items-center justify-between gap-2 rounded-xl border border-border bg-card px-3 text-left text-sm font-medium transition hover:border-foreground/30"
+        >
+          <span
+            className={
+              selectedRecords.length > 0
+                ? "truncate text-foreground"
+                : "truncate text-muted-foreground"
+            }
+          >
+            {triggerLabel}
+          </span>
+          <ChevronDown
+            className={`size-4 shrink-0 text-muted-foreground transition ${
+              expanded ? "rotate-180" : ""
+            }`}
             aria-hidden
           />
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setOpen(true);
-            }}
-            onFocus={() => setOpen(true)}
-            placeholder="Zoek of kies een organisator…"
-            className="h-11 w-full rounded-full border border-border bg-white pr-3 pl-9 text-sm font-medium outline-none focus:border-foreground"
-            autoComplete="off"
-          />
-        </label>
-        {open ? (
-          <ul
-            role="listbox"
-            className="absolute z-20 mt-1.5 max-h-56 w-full overflow-auto rounded-2xl border border-border bg-white py-1 shadow-lg"
+        </button>
+
+        {expanded ? (
+          <div
+            id={listId}
+            className="absolute z-20 mt-1.5 w-full overflow-hidden rounded-xl border border-border bg-white shadow-lg"
           >
-            {filtered.length === 0 ? (
-              <li className="px-3 py-2.5 text-sm text-muted-foreground">
-                Geen organisator gevonden
-              </li>
-            ) : (
-              filtered.map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    role="option"
-                    className="flex w-full flex-col items-start gap-0.5 px-3 py-2.5 text-left hover:bg-black/[0.04]"
-                    onClick={() => {
-                      onChange(
-                        selected.includes(item.slug)
-                          ? selected
-                          : [...selected, item.slug],
-                      );
-                      setQuery("");
-                      setOpen(false);
-                    }}
-                  >
-                    <span className="text-sm font-semibold">{item.name}</span>
-                    {item.blurb ? (
-                      <span className="text-xs text-muted-foreground">
-                        {item.blurb}
-                      </span>
-                    ) : null}
-                  </button>
+            <label className="relative block border-b border-border">
+              <span className="sr-only">Zoek een organisator</span>
+              <Search
+                className="pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2 text-muted-foreground"
+                aria-hidden
+              />
+              <input
+                ref={inputRef}
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Zoeken…"
+                className="h-10 w-full bg-transparent pr-3 pl-9 text-sm outline-none"
+                autoComplete="off"
+              />
+            </label>
+            <ul role="listbox" className="max-h-48 overflow-auto py-1">
+              {filtered.length === 0 ? (
+                <li className="px-3 py-2.5 text-sm text-muted-foreground">
+                  Geen organisator gevonden
                 </li>
-              ))
-            )}
-          </ul>
+              ) : (
+                filtered.map((item) => (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      role="option"
+                      className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-black/[0.04]"
+                      onClick={() => {
+                        onChange(
+                          selected.includes(item.slug)
+                            ? selected
+                            : [...selected, item.slug],
+                        );
+                        setQuery("");
+                        setExpanded(false);
+                      }}
+                    >
+                      <span className="text-sm font-medium">{item.name}</span>
+                      {item.blurb ? (
+                        <span className="text-xs text-muted-foreground">
+                          {item.blurb}
+                        </span>
+                      ) : null}
+                    </button>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
         ) : null}
       </div>
     </FilterGroup>
   );
 }
 
+function ToggleRow({
+  title,
+  description,
+  checked,
+  onChange,
+}: {
+  title: string;
+  description: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-4 px-3 py-2.5">
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{title}</span>
+        <span className="block text-xs text-muted-foreground">{description}</span>
+      </span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="size-4 shrink-0 accent-[var(--primary)]"
+      />
+    </label>
+  );
+}
+
 function FilterGroup({
   title,
   children,
+  className = "",
 }: {
   title: string;
   children: ReactNode;
+  className?: string;
 }) {
   return (
-    <fieldset className="space-y-3">
-      <legend className="text-sm font-medium">{title}</legend>
+    <fieldset className={`min-w-0 space-y-2 ${className}`}>
+      <legend className="text-xs font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+        {title}
+      </legend>
       {children}
     </fieldset>
   );
@@ -547,8 +662,10 @@ function Choice({
       type="button"
       aria-pressed={pressed}
       onClick={onClick}
-      className={`rounded-full border px-3 py-2 text-sm ${
-        pressed ? "border-primary bg-primary text-primary-foreground" : "bg-card"
+      className={`rounded-full border px-2.5 py-1.5 text-sm transition ${
+        pressed
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-border bg-card text-foreground hover:border-foreground/25"
       }`}
     >
       {children}
