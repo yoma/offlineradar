@@ -189,6 +189,7 @@ export type ApproveIntakeResult =
       editionId: string;
       published: boolean;
       reviewReasons: string[];
+      sourceFollowMessage?: string | null;
     }
   | {
       ok: false;
@@ -248,6 +249,7 @@ export async function approveIntakeAction(
   }
 
   let sourceId: string | undefined;
+  let sourceFollowMessage: string | null = null;
   const hasUrl = Boolean(draft.sourceUrl.trim() || draft.organizerUrl.trim());
   if (hasUrl) {
     const source = await saveIntakeAsSource({
@@ -259,6 +261,25 @@ export async function approveIntakeAction(
       if (approval.canPublish) return source;
     } else {
       sourceId = source.sourceId;
+      const { isRefreshSupported } = await import(
+        "@/lib/source-refresh/registry"
+      );
+      const { setSourceRefreshEnabled } = await import(
+        "@/lib/source-refresh/store"
+      );
+      const { listCatalogSources } = await import(
+        "@/lib/events/catalog-sources"
+      );
+      const catalog = (await listCatalogSources()).find(
+        (s) => s.id === source.sourceId,
+      );
+      const name = (catalog?.name ?? draft.organizer.trim()) || "Bron";
+      if (isRefreshSupported(source.sourceId)) {
+        await setSourceRefreshEnabled(source.sourceId, true);
+        sourceFollowMessage = `Bron herkend: ${name}. ✓ Toegevoegd aan bronnen. ✓ Wordt voortaan automatisch gevolgd.`;
+      } else {
+        sourceFollowMessage = `Bron herkend: ${name}. Event toegevoegd, maar deze bron kan momenteel niet automatisch gevolgd worden.`;
+      }
     }
   }
 
@@ -301,6 +322,7 @@ export async function approveIntakeAction(
     sourceId,
     published,
     reviewReasons: approval.reviewReasons,
+    sourceFollowMessage,
     message: published
       ? "✓ Toegevoegd aan DateOfflineHub"
       : approval.reviewReasons.length > 0
@@ -383,6 +405,148 @@ export async function updateAanvoerSourceAction(
   revalidatePath("/interne-aanvoer");
   revalidatePath("/interne-events");
   return { ok: true };
+}
+
+export type SourceFollowActionResult =
+  | { ok: true; message: string }
+  | { ok: false; error: string };
+
+/** Pause / resume / disable / enable / archive catalog source (admin Bronnen). */
+export async function updateSourceFollowAction(
+  formData: FormData,
+): Promise<SourceFollowActionResult> {
+  const gate = await requireAdmin();
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  const id = String(formData.get("sourceId") ?? "").trim();
+  const intent = String(formData.get("intent") ?? "").trim();
+  if (!id) return { ok: false, error: "Bron ontbreekt." };
+
+  const { listCatalogSources, updateCatalogSourceFields } = await import(
+    "@/lib/events/catalog-sources"
+  );
+  const { setSourceRefreshEnabled } = await import("@/lib/source-refresh/store");
+  const { isRefreshSupported } = await import("@/lib/source-refresh/registry");
+  const {
+    FOLLOW_ARCHIVED_TAG,
+    FOLLOW_DISABLED_TAG,
+    FOLLOW_PAUSED_TAG,
+    patchFollowNotes,
+  } = await import("@/lib/aanvoer/source-follow");
+
+  const all = await listCatalogSources();
+  const source = all.find((s) => s.id === id);
+  if (!source) return { ok: false, error: "Bron niet gevonden." };
+
+  const now = new Date().toISOString();
+  let notes = source.notes ?? "";
+  let status = source.status;
+  let message = "Bijgewerkt.";
+
+  if (intent === "pause") {
+    notes = patchFollowNotes(notes, {
+      set: [FOLLOW_PAUSED_TAG],
+      clear: [FOLLOW_DISABLED_TAG],
+      stamp: `paused_at=${now}`,
+    });
+    await setSourceRefreshEnabled(id, false);
+    message = "Bron gepauzeerd. Automatische scans stoppen tijdelijk.";
+  } else if (intent === "resume") {
+    notes = patchFollowNotes(notes, {
+      clear: [FOLLOW_PAUSED_TAG, FOLLOW_DISABLED_TAG, FOLLOW_ARCHIVED_TAG],
+      stamp: `resumed_at=${now}`,
+    });
+    if (status === "inactive") status = "active";
+    if (isRefreshSupported(id)) {
+      await setSourceRefreshEnabled(id, true);
+      message = "Bron wordt opnieuw automatisch gevolgd.";
+    } else {
+      message = "Bron hervat (handmatig — geen automatische parser).";
+    }
+  } else if (intent === "disable") {
+    notes = patchFollowNotes(notes, {
+      set: [FOLLOW_DISABLED_TAG],
+      clear: [FOLLOW_PAUSED_TAG],
+      stamp: `disabled_at=${now}`,
+    });
+    status = "inactive";
+    await setSourceRefreshEnabled(id, false);
+    message = "Bron uitgeschakeld. Bestaande events blijven behouden.";
+  } else if (intent === "enable") {
+    notes = patchFollowNotes(notes, {
+      clear: [FOLLOW_DISABLED_TAG, FOLLOW_ARCHIVED_TAG, FOLLOW_PAUSED_TAG],
+      stamp: `enabled_at=${now}`,
+    });
+    status = "active";
+    if (isRefreshSupported(id)) {
+      await setSourceRefreshEnabled(id, true);
+      message = "Bron opnieuw ingeschakeld en automatisch gevolgd.";
+    } else {
+      message = "Bron opnieuw ingeschakeld (handmatig).";
+    }
+  } else if (intent === "archive") {
+    notes = patchFollowNotes(notes, {
+      set: [FOLLOW_ARCHIVED_TAG, FOLLOW_DISABLED_TAG],
+      clear: [FOLLOW_PAUSED_TAG],
+      stamp: `archived_at=${now}`,
+    });
+    status = "inactive";
+    await setSourceRefreshEnabled(id, false);
+    message =
+      "Bron gearchiveerd (veilige soft-delete). Events en historie blijven behouden.";
+  } else {
+    return { ok: false, error: "Ongeldige actie." };
+  }
+
+  const updated = await updateCatalogSourceFields({
+    id,
+    status,
+    notes,
+    touchChecked: false,
+  });
+  if (!updated) return { ok: false, error: "Kon bron niet bijwerken." };
+  revalidatePath("/interne-aanvoer");
+  revalidatePath("/interne-events");
+  return { ok: true, message };
+}
+
+/** Manual scan-now for one parser-backed source. */
+export async function scanSourceNowAction(
+  formData: FormData,
+): Promise<SourceFollowActionResult & { runId?: string }> {
+  const gate = await requireAdmin();
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  const id = String(formData.get("sourceId") ?? "").trim();
+  if (!id) return { ok: false, error: "Bron ontbreekt." };
+
+  const { isRefreshSupported } = await import("@/lib/source-refresh/registry");
+  if (!isRefreshSupported(id)) {
+    return {
+      ok: false,
+      error: "Deze bron kan momenteel niet automatisch gescand worden.",
+    };
+  }
+
+  const { startSourceRefresh } = await import("@/lib/source-refresh/engine");
+  const result = await startSourceRefresh({
+    catalogSourceId: id,
+    triggeredBy: gate.email,
+    triggerType: "manual",
+  });
+  revalidatePath("/interne-aanvoer");
+  revalidatePath("/interne-events");
+  if (result.run?.id) {
+    revalidatePath(`/interne-events/refresh/${result.run.id}`);
+  }
+  if (!result.ok) {
+    return { ok: false, error: result.error, runId: result.run?.id };
+  }
+  return {
+    ok: true,
+    message: `Scan klaar: ${result.run.newCount} nieuw, ${result.run.changedCount} gewijzigd, ${result.run.unchangedCount} ongewijzigd.`,
+    runId: result.run.id,
+  };
 }
 
 /** List actions: Toevoegen / Niet toevoegen / Opnieuw laten controleren. */

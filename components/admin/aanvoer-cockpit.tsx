@@ -7,7 +7,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AanvoerClient } from "@/app/interne-aanvoer/aanvoer-client";
 import {
   updateAanvoerCandidateStatusAction,
-  updateAanvoerSourceAction,
+  scanSourceNowAction,
+  updateSourceFollowAction,
 } from "@/app/interne-aanvoer/actions";
 import { takeEventOfflineAction } from "@/app/interne-events/actions";
 import {
@@ -16,11 +17,14 @@ import {
 } from "@/lib/aanvoer/admin-status";
 import {
   ORIGIN_LABEL,
-  SOURCE_STATUS_LABEL,
   type AanvoerCockpitData,
   type CockpitCandidateRow,
   type CockpitSourceRow,
 } from "@/lib/aanvoer/cockpit-data";
+import {
+  SOURCE_FOLLOW_LABEL,
+  type SourceFollowStatus,
+} from "@/lib/aanvoer/source-follow";
 
 type TabId =
   | "nieuw"
@@ -115,21 +119,6 @@ function sortKey(value: string | null | undefined | Date): string {
   if (!value) return "";
   if (value instanceof Date) return value.toISOString();
   return String(value);
-}
-
-function typeLabel(type: CockpitSourceRow["intakeSourceType"]): string {
-  switch (type) {
-    case "website":
-      return "Website";
-    case "social":
-      return "Social";
-    case "ticket":
-      return "Ticket";
-    case "handmatig":
-      return "Handmatig";
-    default:
-      return "Onbekend";
-  }
 }
 
 function StatusBadge({ status }: { status: AdminQueueStatus }) {
@@ -301,6 +290,42 @@ export function AanvoerCockpit({
   );
 }
 
+function FollowBadge({ status }: { status: SourceFollowStatus }) {
+  if (status === "gevolgd") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-900">
+        ✓ {SOURCE_FOLLOW_LABEL.gevolgd}
+      </span>
+    );
+  }
+  if (status === "aandacht_nodig") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-950">
+        ⚠ {SOURCE_FOLLOW_LABEL.aandacht_nodig}
+      </span>
+    );
+  }
+  if (status === "gepauzeerd") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-lg bg-sky-100 px-2.5 py-1 text-xs font-bold text-sky-950">
+        {SOURCE_FOLLOW_LABEL.gepauzeerd}
+      </span>
+    );
+  }
+  if (status === "uitgeschakeld") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-lg bg-stone-200 px-2.5 py-1 text-xs font-bold text-stone-800">
+        {SOURCE_FOLLOW_LABEL.uitgeschakeld}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-lg bg-violet-100 px-2.5 py-1 text-xs font-bold text-violet-950">
+      {SOURCE_FOLLOW_LABEL.handmatig}
+    </span>
+  );
+}
+
 function SourcesPanel({
   sources,
   highlightId,
@@ -308,13 +333,16 @@ function SourcesPanel({
   sources: CockpitSourceRow[];
   highlightId: string | null;
 }) {
+  const router = useRouter();
   const [q, setQ] = useState("");
-  const [origin, setOrigin] = useState("all");
-  const [status, setStatus] = useState("all");
-  const [type, setType] = useState("all");
-  const [sort, setSort] = useState("newest");
+  const [status, setStatus] = useState<SourceFollowStatus | "all">("all");
+  const [sort, setSort] = useState("next");
   const [page, setPage] = useState(0);
-  const [expanded, setExpanded] = useState<string | null>(highlightId);
+  const [moreId, setMoreId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [actionMsg, setActionMsg] = useState<string | null>(null);
+  const [actionErr, setActionErr] = useState<string | null>(null);
+  const [scanningId, setScanningId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -326,32 +354,78 @@ function SourcesPanel({
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     let list = sources.filter((s) => {
-      if (origin === "user" && !s.userSupplied) return false;
-      if (origin === "auto" && s.userSupplied) return false;
-      if (status !== "all" && s.status !== status) return false;
-      if (type !== "all" && s.intakeSourceType !== type) return false;
+      if (status !== "all" && s.followStatus !== status) return false;
       if (!needle) return true;
-      const hay = [
-        s.name,
-        s.officialUrl,
-        s.domain,
-        s.notes ?? "",
-        s.sourceType,
-      ]
+      const hay = [s.name, s.officialUrl, s.domain, s.notes ?? ""]
         .join(" ")
         .toLowerCase();
       return hay.includes(needle);
     });
     list = [...list].sort((a, b) => {
       if (sort === "name") return a.name.localeCompare(b.name, "nl");
-      if (sort === "events") return b.futureEventCount - a.futureEventCount;
-      return sortKey(b.createdAt).localeCompare(sortKey(a.createdAt));
+      if (sort === "newest") {
+        return sortKey(b.createdAt).localeCompare(sortKey(a.createdAt));
+      }
+      if (sort === "last") {
+        return sortKey(b.lastScanAt).localeCompare(sortKey(a.lastScanAt));
+      }
+      // next scan: due first, then soonest
+      const an = a.nextScanAt ? sortKey(a.nextScanAt) : "9999";
+      const bn = b.nextScanAt ? sortKey(b.nextScanAt) : "9999";
+      if (a.followStatus === "gevolgd" && b.followStatus !== "gevolgd") return -1;
+      if (b.followStatus === "gevolgd" && a.followStatus !== "gevolgd") return 1;
+      return an.localeCompare(bn);
     });
     return list;
-  }, [sources, q, origin, status, type, sort]);
+  }, [sources, q, status, sort]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageItems = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  function runFollow(sourceId: string, intent: string) {
+    setActionErr(null);
+    setActionMsg(null);
+    if (intent === "archive") {
+      const ok = window.confirm(
+        "Bron archiveren? Dit is een veilige soft-delete: events en historie blijven behouden, scans stoppen.",
+      );
+      if (!ok) return;
+    }
+    const fd = new FormData();
+    fd.set("sourceId", sourceId);
+    fd.set("intent", intent);
+    startTransition(async () => {
+      const result = await updateSourceFollowAction(fd);
+      if (!result.ok) {
+        setActionErr(result.error);
+        return;
+      }
+      setActionMsg(result.message);
+      setMoreId(null);
+      router.refresh();
+    });
+  }
+
+  function runScan(sourceId: string) {
+    setActionErr(null);
+    setActionMsg(null);
+    setScanningId(sourceId);
+    const fd = new FormData();
+    fd.set("sourceId", sourceId);
+    startTransition(async () => {
+      try {
+        const result = await scanSourceNowAction(fd);
+        if (!result.ok) {
+          setActionErr(result.error);
+          return;
+        }
+        setActionMsg(result.message);
+        router.refresh();
+      } finally {
+        setScanningId(null);
+      }
+    });
+  }
 
   return (
     <section className="space-y-4">
@@ -363,58 +437,33 @@ function SourcesPanel({
             setQ(e.target.value);
             setPage(0);
           }}
-          placeholder="Zoek bron…"
-          className="h-10 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm sm:max-w-xs"
+          placeholder="Zoek bron of organisator…"
+          className="h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm sm:max-w-md"
         />
-        <select
-          value={origin}
-          onChange={(e) => {
-            setOrigin(e.target.value);
-            setPage(0);
-          }}
-          className="h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm"
-        >
-          <option value="all">Alle oorsprong</option>
-          <option value="user">Door jou</option>
-          <option value="auto">Automatisch</option>
-        </select>
         <select
           value={status}
           onChange={(e) => {
-            setStatus(e.target.value);
+            setStatus(e.target.value as SourceFollowStatus | "all");
             setPage(0);
           }}
-          className="h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm"
+          className="h-11 rounded-xl border border-stone-200 bg-white px-3 text-sm"
         >
-          <option value="all">Alle statussen</option>
-          {Object.entries(SOURCE_STATUS_LABEL).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </select>
-        <select
-          value={type}
-          onChange={(e) => {
-            setType(e.target.value);
-            setPage(0);
-          }}
-          className="h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm"
-        >
-          <option value="all">Alle types</option>
-          <option value="website">Website</option>
-          <option value="social">Social</option>
-          <option value="ticket">Ticket</option>
+          <option value="all">Alle</option>
+          <option value="gevolgd">Wordt gevolgd</option>
           <option value="handmatig">Handmatig</option>
+          <option value="gepauzeerd">Gepauzeerd</option>
+          <option value="aandacht_nodig">Aandacht nodig</option>
+          <option value="uitgeschakeld">Uitgeschakeld</option>
         </select>
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value)}
-          className="h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm"
+          className="h-11 rounded-xl border border-stone-200 bg-white px-3 text-sm"
         >
-          <option value="newest">Nieuwste eerst</option>
-          <option value="name">Naam</option>
-          <option value="events">Meeste events</option>
+          <option value="next">Volgende scan</option>
+          <option value="last">Laatst gescand</option>
+          <option value="newest">Laatst toegevoegd</option>
+          <option value="name">Naam A–Z</option>
         </select>
       </div>
 
@@ -422,109 +471,247 @@ function SourcesPanel({
         {filtered.length} {filtered.length === 1 ? "bron" : "bronnen"}
       </p>
 
-      <div className="space-y-3">
+      {actionErr ? (
+        <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+          {actionErr}
+        </p>
+      ) : null}
+      {actionMsg ? (
+        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+          {actionMsg}
+        </p>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {pageItems.map((s) => {
-          const open = expanded === s.id;
           const highlighted = highlightId === s.id;
+          const moreOpen = moreId === s.id;
+          const detailOpen = detailId === s.id;
+          const scanning = scanningId === s.id;
           return (
             <article
               key={s.id}
               id={`source-${s.id}`}
-              className={`rounded-2xl border bg-white/90 p-4 shadow-sm ${
+              className={`flex min-w-0 flex-col gap-3 rounded-2xl border bg-white p-4 shadow-sm ${
                 highlighted
                   ? "border-rose-300 ring-2 ring-rose-200"
                   : "border-stone-200/80"
               }`}
             >
-              <button
-                type="button"
-                className="w-full text-left"
-                onClick={() => setExpanded(open ? null : s.id)}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-stone-900">{s.name}</h3>
-                    <p className="mt-1 truncate text-sm text-stone-600">
-                      {s.domain} · {typeLabel(s.intakeSourceType)} ·{" "}
-                      {s.futureEventCount} toekomstige events
+              <div className="space-y-1">
+                <h3 className="text-[15px] font-semibold tracking-tight text-stone-900">
+                  {s.name}
+                </h3>
+                <p className="truncate text-sm text-stone-600">{s.domain}</p>
+                <p className="text-[11px] font-medium text-stone-500">
+                  {s.userSupplied
+                    ? "Door jou aangebracht"
+                    : "Automatisch ontdekt"}
+                </p>
+              </div>
+
+              <FollowBadge status={s.followStatus} />
+
+              {s.followStatus === "aandacht_nodig" ? (
+                <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950">
+                  {s.consecutiveFailures} opeenvolgende scans mislukt
+                </p>
+              ) : null}
+
+              <dl className="space-y-1.5 text-sm text-stone-700">
+                <div>
+                  <dt className="text-xs font-semibold text-stone-500">
+                    Laatste scan
+                  </dt>
+                  <dd>{s.lastScanLabel}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold text-stone-500">
+                    Volgende scan
+                  </dt>
+                  <dd>{s.nextScanLabel}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold text-stone-500">
+                    Frequentie
+                  </dt>
+                  <dd>{s.frequencyLabel}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold text-stone-500">
+                    Laatste resultaat
+                  </dt>
+                  <dd>{s.lastResultLabel}</dd>
+                </div>
+              </dl>
+
+              <p className="text-sm text-stone-700">
+                <span className="font-semibold">{s.futureEventCount}</span>{" "}
+                toekomstige events
+                {s.publishedEventCount > 0 ? (
+                  <>
+                    {" · "}
+                    <span className="font-semibold">{s.publishedEventCount}</span>{" "}
+                    gepubliceerd
+                  </>
+                ) : null}
+              </p>
+
+              <div className="text-sm text-stone-700">
+                <p className="text-xs font-semibold text-stone-500">
+                  Laatste gevonden event
+                </p>
+                {s.lastFoundEvent ? (
+                  s.lastFoundEvent.slug ? (
+                    <Link
+                      href={`/event/${s.lastFoundEvent.slug}`}
+                      className="font-medium underline-offset-4 hover:underline"
+                    >
+                      {s.lastFoundEvent.title}
+                    </Link>
+                  ) : (
+                    <p className="font-medium">{s.lastFoundEvent.title}</p>
+                  )
+                ) : (
+                  <p>Nog geen geschikte events gevonden</p>
+                )}
+              </div>
+
+              <div className="mt-auto flex flex-col gap-2">
+                {s.refreshSupported ? (
+                  <button
+                    type="button"
+                    disabled={pending || scanning}
+                    onClick={() => runScan(s.id)}
+                    className="h-11 w-full rounded-full bg-stone-900 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    {scanning ? "Bezig met controleren…" : "Nu controleren"}
+                  </button>
+                ) : (
+                  <p className="text-xs text-stone-500">
+                    Automatisch volgen niet beschikbaar
+                  </p>
+                )}
+
+                {s.followStatus === "gevolgd" ||
+                s.followStatus === "aandacht_nodig" ? (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => runFollow(s.id, "pause")}
+                    className="h-11 w-full rounded-full border border-stone-300 text-sm font-semibold text-stone-800 disabled:opacity-60"
+                  >
+                    Pauzeren
+                  </button>
+                ) : null}
+
+                {s.followStatus === "gepauzeerd" ? (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => runFollow(s.id, "resume")}
+                    className="h-11 w-full rounded-full border border-stone-300 text-sm font-semibold text-stone-800 disabled:opacity-60"
+                  >
+                    Opnieuw volgen
+                  </button>
+                ) : null}
+
+                {s.followStatus === "uitgeschakeld" ? (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => runFollow(s.id, "enable")}
+                    className="h-11 w-full rounded-full border border-stone-300 text-sm font-semibold text-stone-800 disabled:opacity-60"
+                  >
+                    Opnieuw inschakelen
+                  </button>
+                ) : null}
+
+                <a
+                  href={s.officialUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-11 w-full items-center justify-center rounded-full border border-stone-300 text-sm font-semibold text-stone-800"
+                >
+                  Bekijk bron
+                </a>
+
+                {s.linkedFutureEvents.length > 0 ? (
+                  <details className="rounded-xl border border-stone-100 bg-stone-50 px-3 py-2 text-sm">
+                    <summary className="cursor-pointer font-semibold text-stone-800">
+                      Bekijk events ({s.linkedFutureEvents.length})
+                    </summary>
+                    <ul className="mt-2 space-y-1 text-stone-600">
+                      {s.linkedFutureEvents.slice(0, 8).map((ev) => (
+                        <li key={ev.id} className="truncate">
+                          {ev.title} · {ev.startsAt.slice(0, 10)}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
+
+                <button
+                  type="button"
+                  className="text-left text-xs font-medium text-stone-500 underline-offset-4 hover:underline"
+                  onClick={() => setMoreId(moreOpen ? null : s.id)}
+                >
+                  {moreOpen ? "Minder opties" : "Meer opties"}
+                </button>
+
+                {moreOpen ? (
+                  <div className="space-y-2 rounded-xl border border-stone-200 bg-stone-50 p-3">
+                    {s.followStatus !== "uitgeschakeld" &&
+                    s.followStatus !== "gepauzeerd" ? (
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => runFollow(s.id, "disable")}
+                        className="h-10 w-full rounded-full border border-stone-300 bg-white text-sm font-semibold text-stone-800 disabled:opacity-60"
+                      >
+                        Uitschakelen
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => runFollow(s.id, "archive")}
+                      className="h-10 w-full rounded-full text-sm font-medium text-red-800 underline-offset-4 hover:underline disabled:opacity-60"
+                    >
+                      Bron verwijderen (archiveren)
+                    </button>
+                    <p className="text-[11px] text-stone-500">
+                      Hard delete is niet veilig door gekoppelde events/historie.
+                      Archiveren schakelt de bron uit en bewaart alles.
                     </p>
                   </div>
-                  <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-semibold text-stone-700">
-                    {SOURCE_STATUS_LABEL[s.status]}
-                  </span>
-                </div>
-              </button>
+                ) : null}
 
-              {open ? (
-                <div className="mt-4 space-y-3 border-t border-stone-100 pt-4 text-sm">
-                  <a
-                    href={s.officialUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="break-all text-xs text-stone-500 underline-offset-4 hover:underline"
-                  >
-                    {s.officialUrl}
-                  </a>
-                  <form
-                    className="space-y-3"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      const fd = new FormData(e.currentTarget);
-                      startTransition(async () => {
-                        await updateAanvoerSourceAction(fd);
-                      });
-                    }}
-                  >
-                    <input type="hidden" name="sourceId" value={s.id} />
-                    <label className="block space-y-1">
-                      <span className="text-xs font-semibold text-stone-500">
-                        Status
-                      </span>
-                      <select
-                        name="status"
-                        defaultValue={s.status}
-                        className="h-10 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm"
-                      >
-                        {Object.entries(SOURCE_STATUS_LABEL).map(([k, v]) => (
-                          <option key={k} value={k}>
-                            {v}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="block space-y-1">
-                      <span className="text-xs font-semibold text-stone-500">
-                        Notities
-                      </span>
-                      <textarea
-                        name="notes"
-                        defaultValue={s.notes ?? ""}
-                        rows={3}
-                        className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm"
-                      />
-                    </label>
-                    <input type="hidden" name="sourceType" value={s.sourceType} />
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="submit"
-                        disabled={pending}
-                        className="h-10 rounded-full bg-stone-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
-                      >
-                        Opslaan
-                      </button>
-                      <button
-                        type="submit"
-                        name="markReview"
-                        value="1"
-                        disabled={pending}
-                        className="h-10 rounded-full border border-stone-300 px-4 text-sm font-semibold text-stone-700 disabled:opacity-60"
-                      >
-                        Opnieuw controleren (markeer)
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              ) : null}
+                {(s.lastRunError || s.consecutiveFailures > 0) && (
+                  <>
+                    <button
+                      type="button"
+                      className="text-left text-xs font-medium text-stone-500 underline-offset-4 hover:underline"
+                      onClick={() => setDetailId(detailOpen ? null : s.id)}
+                    >
+                      {detailOpen ? "Verberg details" : "Bekijk details"}
+                    </button>
+                    {detailOpen ? (
+                      <div className="rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs text-stone-600">
+                        {s.lastRunHttpStatus != null ? (
+                          <p>HTTP: {s.lastRunHttpStatus}</p>
+                        ) : null}
+                        {s.lastRunError ? (
+                          <p className="mt-1 break-words">{s.lastRunError}</p>
+                        ) : null}
+                        <p className="mt-1">
+                          Opeenvolgende mislukkingen: {s.consecutiveFailures}
+                        </p>
+                      </div>
+                    ) : null}
+                  </>
+                )}
+              </div>
             </article>
           );
         })}

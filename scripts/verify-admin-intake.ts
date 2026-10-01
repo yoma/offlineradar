@@ -165,6 +165,63 @@ assert.equal(suppressed.status, "niet_toegevoegd");
 assert.match(suppressed.reason ?? "", /Handmatig/);
 ok("5b admin status classifier + publication gate + suppress");
 
+import {
+  classifySourceFollowStatus,
+  formatScanWhen,
+  frequencyLabel,
+} from "../lib/aanvoer/source-follow";
+
+assert.equal(
+  classifySourceFollowStatus({
+    catalogStatus: "active",
+    notes: "",
+    refreshSupported: true,
+    refreshEnabled: true,
+    consecutiveFailures: 0,
+  }),
+  "gevolgd",
+);
+assert.equal(
+  classifySourceFollowStatus({
+    catalogStatus: "active",
+    notes: "follow_paused=1",
+    refreshSupported: true,
+    refreshEnabled: false,
+    consecutiveFailures: 0,
+  }),
+  "gepauzeerd",
+);
+assert.equal(
+  classifySourceFollowStatus({
+    catalogStatus: "inactive",
+    notes: "follow_disabled=1",
+    refreshSupported: true,
+    refreshEnabled: false,
+    consecutiveFailures: 0,
+  }),
+  "uitgeschakeld",
+);
+assert.equal(
+  classifySourceFollowStatus({
+    catalogStatus: "active",
+    notes: "",
+    refreshSupported: true,
+    refreshEnabled: true,
+    consecutiveFailures: 3,
+  }),
+  "aandacht_nodig",
+);
+assert.match(formatScanWhen(null), /Nog niet/);
+assert.equal(
+  frequencyLabel({
+    catalogSourceId: "de8d83b1-217b-4004-9a83-9c6378b2f764",
+    refreshIntervalHours: 24,
+    followStatus: "gevolgd",
+  }),
+  "dagelijks",
+);
+ok("5c source follow classifier");
+
 mustInclude("app/interne-aanvoer/page.tsx", "resolveTipsAdminAccess");
 mustInclude("components/admin/interne-admin-nav.tsx", "Aanvoer");
 mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Toevoegen aan DateOfflineHub");
@@ -180,6 +237,12 @@ mustInclude("components/admin/aanvoer-cockpit.tsx", "Toegevoegd");
 mustInclude("components/admin/aanvoer-cockpit.tsx", "Van DateOfflineHub halen");
 mustInclude("components/admin/aanvoer-cockpit.tsx", "Zoek event of organisator");
 mustInclude("components/admin/aanvoer-cockpit.tsx", "Bekijk AI-details");
+mustInclude("components/admin/aanvoer-cockpit.tsx", "Nu controleren");
+mustInclude("components/admin/aanvoer-cockpit.tsx", "Pauzeren");
+mustInclude("components/admin/aanvoer-cockpit.tsx", "Zoek bron of organisator");
+mustInclude("lib/aanvoer/source-follow.ts", "Wordt automatisch gevolgd");
+mustInclude("app/interne-aanvoer/actions.ts", "scanSourceNowAction");
+mustInclude("app/interne-aanvoer/actions.ts", "updateSourceFollowAction");
 mustInclude("lib/events/neon-store.ts", "manual_suppressed");
 mustInclude("lib/events/neon-store.ts", "removeEditionFromHub");
 mustInclude("lib/aanvoer/publication-gate.ts", "evaluateEventForPublication");

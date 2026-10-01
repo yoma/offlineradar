@@ -159,9 +159,45 @@ export async function listLatestRunsBySourceIds(
   if (sourceIds.length === 0) return map;
   const sql = getEventsSql();
   if (!sql) return map;
-  for (const id of sourceIds) {
-    const latest = await getLatestRefreshRun(id);
-    if (latest) map.set(id, latest);
+  // One query for all sources (DISTINCT ON), not N+1.
+  const rows = (await sql`
+    SELECT DISTINCT ON (catalog_source_id) *
+    FROM source_refresh_runs
+    WHERE catalog_source_id = ANY(${sourceIds})
+    ORDER BY catalog_source_id, started_at DESC
+  `) as RunRow[];
+  for (const row of rows) {
+    map.set(row.catalog_source_id, mapRun(row));
+  }
+  return map;
+}
+
+/** Consecutive failed/blocked runs per source, batched (stops at first success). */
+export async function countConsecutiveRefreshFailuresBatch(
+  sourceIds: string[],
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  for (const id of sourceIds) map.set(id, 0);
+  if (sourceIds.length === 0) return map;
+  const sql = getEventsSql();
+  if (!sql) return map;
+  const rows = (await sql`
+    SELECT catalog_source_id, status, started_at
+    FROM source_refresh_runs
+    WHERE catalog_source_id = ANY(${sourceIds})
+    ORDER BY catalog_source_id, started_at DESC
+  `) as { catalog_source_id: string; status: string; started_at: string }[];
+  const seenDone = new Set<string>();
+  for (const row of rows) {
+    if (seenDone.has(row.catalog_source_id)) continue;
+    if (row.status === "failed" || row.status === "blocked") {
+      map.set(
+        row.catalog_source_id,
+        (map.get(row.catalog_source_id) ?? 0) + 1,
+      );
+    } else {
+      seenDone.add(row.catalog_source_id);
+    }
   }
   return map;
 }

@@ -16,6 +16,22 @@ import {
 } from "@/lib/events/catalog-sources";
 import { isUserSuppliedNotes } from "@/lib/discovery/user-supplied";
 import { normalizeRefreshUrl } from "@/lib/source-refresh/normalize";
+import {
+  SOURCE_FOLLOW_LABEL,
+  classifySourceFollowStatus,
+  formatNextScan,
+  formatScanWhen,
+  frequencyLabel,
+  resolveNextScanAt,
+  summarizeLastRun,
+  type SourceFollowStatus,
+} from "@/lib/aanvoer/source-follow";
+import { isRefreshSupported } from "@/lib/source-refresh/registry";
+import {
+  countConsecutiveRefreshFailuresBatch,
+  getSourceScheduleStates,
+  listLatestRunsBySourceIds,
+} from "@/lib/source-refresh/store";
 
 export type CockpitLinkedEvent = {
   id: string;
@@ -29,8 +45,27 @@ export type CockpitSourceRow = CatalogSourceRecord & {
   userSupplied: boolean;
   intakeSourceType: "website" | "social" | "ticket" | "handmatig" | "onbekend";
   futureEventCount: number;
+  publishedEventCount: number;
   linkedFutureEvents: CockpitLinkedEvent[];
   domain: string;
+  followStatus: import("@/lib/aanvoer/source-follow").SourceFollowStatus;
+  followLabel: string;
+  refreshSupported: boolean;
+  refreshEnabled: boolean;
+  frequencyLabel: string;
+  lastScanAt: string | null;
+  lastScanLabel: string;
+  nextScanAt: string | null;
+  nextScanLabel: string;
+  lastResultLabel: string;
+  consecutiveFailures: number;
+  lastRunError: string | null;
+  lastRunHttpStatus: number | null;
+  lastFoundEvent: {
+    title: string;
+    slug: string | null;
+    startsAt: string;
+  } | null;
 };
 
 export type CockpitCandidateRow = {
@@ -86,6 +121,11 @@ export type AanvoerCockpitData = {
     aandacht: number;
     added: number;
     dismissed: number;
+    gevolgd: number;
+    handmatig: number;
+    gepauzeerd: number;
+    uitgeschakeld: number;
+    bronAandacht: number;
     /** @deprecated aliases kept for older callers */
     klaar: number;
     controle: number;
@@ -152,6 +192,43 @@ function intakeTypeFromNotes(
   return "onbekend";
 }
 
+function emptySourceExtras(s: CatalogSourceRecord): Omit<
+  CockpitSourceRow,
+  keyof CatalogSourceRecord
+> {
+  const intakeSourceType = intakeTypeFromNotes(s.notes, s.sourceType);
+  const followStatus = classifySourceFollowStatus({
+    catalogStatus: s.status,
+    notes: s.notes,
+    refreshSupported: false,
+    refreshEnabled: false,
+    consecutiveFailures: 0,
+    intakeSourceType,
+  });
+  return {
+    userSupplied: isUserSuppliedNotes(s.notes),
+    intakeSourceType,
+    futureEventCount: 0,
+    publishedEventCount: 0,
+    linkedFutureEvents: [],
+    domain: domainFromUrl(s.officialUrl),
+    followStatus,
+    followLabel: SOURCE_FOLLOW_LABEL[followStatus],
+    refreshSupported: false,
+    refreshEnabled: false,
+    frequencyLabel: "handmatig",
+    lastScanAt: null,
+    lastScanLabel: "Nog niet automatisch gescand",
+    nextScanAt: null,
+    nextScanLabel: "Geen automatische volgende scan",
+    lastResultLabel: "Nog geen scanresultaat",
+    consecutiveFailures: 0,
+    lastRunError: null,
+    lastRunHttpStatus: null,
+    lastFoundEvent: null,
+  };
+}
+
 export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
   const sources = await listCatalogSources();
   const sql = getEventsSql();
@@ -162,11 +239,7 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       createdAt: toIsoString(s.createdAt),
       updatedAt: toIsoString(s.updatedAt),
       lastCheckedAt: toIsoOrNull(s.lastCheckedAt),
-      userSupplied: isUserSuppliedNotes(s.notes),
-      intakeSourceType: intakeTypeFromNotes(s.notes, s.sourceType),
-      futureEventCount: 0,
-      linkedFutureEvents: [],
-      domain: domainFromUrl(s.officialUrl),
+      ...emptySourceExtras(s),
     })),
     candidates: [],
     counts: {
@@ -177,6 +250,11 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       controle: 0,
       added: 0,
       dismissed: 0,
+      gevolgd: 0,
+      handmatig: 0,
+      gepauzeerd: 0,
+      uitgeschakeld: 0,
+      bronAandacht: 0,
       reviewNeeded: 0,
       candidates: 0,
     },
@@ -254,18 +332,159 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
     const linkedFutureEvents = [...linked.values()].sort((a, b) =>
       a.startsAt.localeCompare(b.startsAt),
     );
+    const intakeSourceType = intakeTypeFromNotes(source.notes, source.sourceType);
     return {
       ...source,
       createdAt: toIsoString(source.createdAt),
       updatedAt: toIsoString(source.updatedAt),
       lastCheckedAt: toIsoOrNull(source.lastCheckedAt),
       userSupplied: isUserSuppliedNotes(source.notes),
-      intakeSourceType: intakeTypeFromNotes(source.notes, source.sourceType),
+      intakeSourceType,
       futureEventCount: linkedFutureEvents.length,
+      publishedEventCount: 0,
       linkedFutureEvents,
       domain: domainFromUrl(source.officialUrl),
+      followStatus: "handmatig" as SourceFollowStatus,
+      followLabel: SOURCE_FOLLOW_LABEL.handmatig,
+      refreshSupported: isRefreshSupported(source.id),
+      refreshEnabled: false,
+      frequencyLabel: "handmatig",
+      lastScanAt: null,
+      lastScanLabel: "Nog niet automatisch gescand",
+      nextScanAt: null,
+      nextScanLabel: "Geen automatische volgende scan",
+      lastResultLabel: "Nog geen scanresultaat",
+      consecutiveFailures: 0,
+      lastRunError: null,
+      lastRunHttpStatus: null,
+      lastFoundEvent: linkedFutureEvents[0]
+        ? {
+            title: linkedFutureEvents[0].title,
+            slug: null,
+            startsAt: linkedFutureEvents[0].startsAt,
+          }
+        : null,
     };
   });
+
+  // Batch enrich: schedule, latest runs, failures, published counts, slugs
+  const sourceIds = cockpitSources.map((s) => s.id);
+  const [schedules, latestRuns, failureCounts] = await Promise.all([
+    getSourceScheduleStates(sourceIds),
+    listLatestRunsBySourceIds(sourceIds),
+    countConsecutiveRefreshFailuresBatch(sourceIds),
+  ]);
+
+  const publishedRows = (await sql`
+    SELECT
+      e.id,
+      e.slug,
+      e.title,
+      e.starts_at,
+      e.organizer_id,
+      s.normalized_url
+    FROM event_editions e
+    LEFT JOIN LATERAL (
+      SELECT normalized_url
+      FROM event_sources
+      WHERE event_edition_id = e.id
+      ORDER BY is_primary DESC, created_at ASC
+      LIMIT 1
+    ) s ON true
+    WHERE e.publication_status = 'published'
+      AND e.starts_at >= (now() - interval '1 day')
+  `) as {
+    id: string;
+    slug: string;
+    title: string;
+    starts_at: string;
+    organizer_id: string | null;
+    normalized_url: string | null;
+  }[];
+
+  const publishedByOrganizer = new Map<string, typeof publishedRows>();
+  const publishedByUrl = new Map<string, typeof publishedRows>();
+  for (const row of publishedRows) {
+    if (row.organizer_id) {
+      const list = publishedByOrganizer.get(row.organizer_id) ?? [];
+      list.push(row);
+      publishedByOrganizer.set(row.organizer_id, list);
+    }
+    if (row.normalized_url) {
+      const list = publishedByUrl.get(row.normalized_url) ?? [];
+      list.push(row);
+      publishedByUrl.set(row.normalized_url, list);
+    }
+  }
+
+  for (const source of cockpitSources) {
+    const schedule = schedules.get(source.id) ?? null;
+    const run = latestRuns.get(source.id) ?? null;
+    const failures = failureCounts.get(source.id) ?? 0;
+    const refreshSupported = isRefreshSupported(source.id);
+    const refreshEnabled = Boolean(schedule?.refreshEnabled);
+    const followStatus = classifySourceFollowStatus({
+      catalogStatus: source.status,
+      notes: source.notes,
+      refreshSupported,
+      refreshEnabled,
+      consecutiveFailures: failures,
+      intakeSourceType: source.intakeSourceType,
+    });
+    const nextScanAt = resolveNextScanAt(source.id, schedule);
+    const lastScanAt = run?.startedAt ?? null;
+
+    const publishedSet = new Map<string, (typeof publishedRows)[number]>();
+    if (source.organizerId) {
+      for (const row of publishedByOrganizer.get(source.organizerId) ?? []) {
+        publishedSet.set(row.id, row);
+      }
+    }
+    for (const key of [
+      source.normalizedUrl,
+      normalizeRefreshUrl(source.officialUrl),
+    ]) {
+      for (const row of publishedByUrl.get(key) ?? []) {
+        publishedSet.set(row.id, row);
+      }
+    }
+    const publishedList = [...publishedSet.values()].sort((a, b) =>
+      String(a.starts_at).localeCompare(String(b.starts_at)),
+    );
+
+    source.followStatus = followStatus;
+    source.followLabel = SOURCE_FOLLOW_LABEL[followStatus];
+    source.refreshSupported = refreshSupported;
+    source.refreshEnabled = refreshEnabled;
+    source.frequencyLabel = frequencyLabel({
+      catalogSourceId: source.id,
+      refreshIntervalHours: schedule?.refreshIntervalHours ?? null,
+      followStatus,
+    });
+    source.lastScanAt = lastScanAt;
+    source.lastScanLabel = formatScanWhen(lastScanAt);
+    source.nextScanAt = nextScanAt;
+    source.nextScanLabel = formatNextScan({ followStatus, nextScanAt });
+    source.lastResultLabel = summarizeLastRun(run);
+    source.consecutiveFailures = failures;
+    source.lastRunError = run?.error ?? null;
+    source.lastRunHttpStatus = run?.httpStatus ?? null;
+    source.publishedEventCount = publishedList.length;
+    const first = publishedList[0] ?? null;
+    if (first) {
+      source.lastFoundEvent = {
+        title: first.title,
+        slug: first.slug,
+        startsAt: toIsoString(first.starts_at),
+      };
+    } else if (source.linkedFutureEvents[0]) {
+      source.lastFoundEvent = {
+        title: source.linkedFutureEvents[0].title,
+        slug: null,
+        startsAt: source.linkedFutureEvents[0].startsAt,
+      };
+    }
+  }
 
   const candidateRows = (await sql`
     SELECT
@@ -492,6 +711,17 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       controle: aandacht,
       added,
       dismissed,
+      gevolgd: cockpitSources.filter((s) => s.followStatus === "gevolgd").length,
+      handmatig: cockpitSources.filter((s) => s.followStatus === "handmatig")
+        .length,
+      gepauzeerd: cockpitSources.filter((s) => s.followStatus === "gepauzeerd")
+        .length,
+      uitgeschakeld: cockpitSources.filter(
+        (s) => s.followStatus === "uitgeschakeld",
+      ).length,
+      bronAandacht: cockpitSources.filter(
+        (s) => s.followStatus === "aandacht_nodig",
+      ).length,
       reviewNeeded: aandacht,
       candidates: aandacht,
     },

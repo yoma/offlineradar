@@ -217,7 +217,11 @@ export function AanvoerClient({
           const approved = await approveIntakeAction(formDataApprove);
           setAnalyzeStep(null);
           if (approved.ok) {
-            setMessage(approved.message);
+            setMessage(
+              [approved.message, approved.sourceFollowMessage]
+                .filter(Boolean)
+                .join("\n"),
+            );
             if (approved.published) {
               onApprovedPublished?.(approved.editionId);
             } else {
@@ -277,7 +281,11 @@ export function AanvoerClient({
         return;
       }
       setForceNeeded(false);
-      setMessage(result.message);
+      setMessage(
+        [result.message, result.sourceFollowMessage]
+          .filter(Boolean)
+          .join("\n"),
+      );
       if (result.published) {
         onApprovedPublished?.(result.editionId);
       } else {
@@ -715,7 +723,11 @@ export function AanvoerClient({
           ) : null}
           {message ? (
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-950">
-              <p className="font-semibold">{message}</p>
+              {message.split("\n").map((line) => (
+                <p key={line} className="font-semibold">
+                  {line}
+                </p>
+              ))}
               <button
                 type="button"
                 onClick={resetAll}
