@@ -21,18 +21,25 @@ export function evaluateIntakeApproval(
   draft: IntakeEditableDraft,
   proposal: Pick<
     IntakeProposal,
-    "needsSourceVerification" | "routeAdvice" | "aiFailed"
+    "needsSourceVerification" | "routeAdvice" | "aiFailed" | "deepScan"
   > | null,
 ): IntakeApprovalGate {
   const blockers: string[] = [];
   const reviewReasons: string[] = [];
+  const deep = proposal?.deepScan ?? null;
 
   if (!draft.title.trim()) {
     blockers.push("Geen eventtitel herkend.");
   }
 
-  if (!hasConcreteDate(draft.startDate)) {
-    reviewReasons.push("Datum kon niet worden bevestigd");
+  if (deep?.conflicts.some((c) => /datum/i.test(c))) {
+    reviewReasons.push("Bronnen geven verschillende datums.");
+  } else if (!hasConcreteDate(draft.startDate)) {
+    reviewReasons.push(
+      deep?.triggered
+        ? "Datum kon ook na uitgebreid zoeken niet bevestigd worden"
+        : "Datum kon niet worden bevestigd",
+    );
   }
 
   if (draft.routeAdvice === "not_suitable") {
@@ -65,7 +72,7 @@ export function evaluateIntakeApproval(
   }
 
   if (proposal?.aiFailed) {
-    reviewReasons.push("Analyse was onvolledig — opnieuw controleren");
+    reviewReasons.push("Analyse was onvolledig — opnieuw laten zoeken");
   }
 
   const canPublish =

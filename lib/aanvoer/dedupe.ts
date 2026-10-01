@@ -113,6 +113,34 @@ export async function findIntakeMatches(
     }
   }
 
+  // Soft title match without date: catch duplicate candidates (e.g. Flirt & Stride twice).
+  if (title.length >= 8) {
+    const soft = (await sql`
+      SELECT id, slug, title, city, starts_at, publication_status, organizer_id
+      FROM event_editions
+      WHERE lower(title) = ${title}
+         OR lower(title) LIKE ${"%" + title.slice(0, Math.min(40, title.length)) + "%"}
+      ORDER BY created_at DESC
+      LIMIT 8
+    `) as {
+      id: string;
+      slug: string;
+      title: string;
+      city: string;
+      starts_at: string;
+      publication_status: string;
+    }[];
+    for (const row of soft) {
+      matches.push({
+        kind: "event_edition",
+        id: row.id,
+        label: row.title,
+        detail: `${row.city} · ${String(row.starts_at).slice(0, 10)} · ${row.publication_status}`,
+        matchReason: "Vergelijkbare titel (mogelijk zelfde event)",
+      });
+    }
+  }
+
   const organizer = draft.organizer.trim().toLowerCase();
   if (organizer) {
     const rows = (await sql`

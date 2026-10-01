@@ -97,7 +97,11 @@ function singlesConfirmed(input: AdminStatusInput): boolean {
 }
 
 function hasDateConflict(notes: string): boolean {
-  return /conflict:\s*Datum|datumconflict/i.test(notes);
+  return (
+    /conflict:\s*Datum|datumconflict|Bronnen geven verschillende datums|deep_scan_conflicts=.*datum/i.test(
+      notes,
+    )
+  );
 }
 
 /**
@@ -165,7 +169,11 @@ export function classifyAdminStatus(input: AdminStatusInput): AdminStatusResult 
   if (dateUnknown || hasDateConflict(notes)) {
     return {
       status: "aandacht_nodig",
-      reason: "Datum kon niet worden bevestigd",
+      reason: hasDateConflict(notes)
+        ? "Bronnen geven verschillende datums."
+        : /deep_scan_at=/.test(notes)
+          ? "Datum kon ook na uitgebreid zoeken niet bevestigd worden"
+          : "Datum kon niet worden bevestigd",
       displayDate: null,
       dateUnknown: true,
       readyToPublish: false,

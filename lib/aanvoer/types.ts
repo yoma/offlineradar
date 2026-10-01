@@ -20,6 +20,16 @@ export type IntakeRouteAdvice =
   | "not_suitable"
   | "needs_review";
 
+export type DeepScanReportLite = {
+  triggered: boolean;
+  reason: string;
+  queries: string[];
+  sourcesChecked: Array<{ url: string; ok: boolean; note?: string }>;
+  fieldsConfirmed: string[];
+  conflicts: string[];
+  timestamp: string;
+};
+
 export type IntakeProposal = {
   organizer: IntakeField<string | null>;
   title: IntakeField<string | null>;
@@ -46,6 +56,8 @@ export type IntakeProposal = {
   modelHint: string | null;
   aiFailed: boolean;
   aiError: string | null;
+  /** Present after Pass 2 deep verification (FASE 26.16). */
+  deepScan?: DeepScanReportLite | null;
 };
 
 export type IntakeEditableDraft = {

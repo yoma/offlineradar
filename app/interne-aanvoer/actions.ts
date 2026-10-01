@@ -77,10 +77,12 @@ export async function analyzeIntakeAction(
   let image: { mimeType: string; base64: string } | null = null;
   let sourceText = text;
 
+  let seedHtml: string | null = null;
   if (mode === "url") {
     if (!url) return { ok: false, error: "Plak eerst een URL." };
     const fetched = await safeFetchTipSource(url);
     if (fetched.ok) {
+      seedHtml = fetched.text;
       sourceText = [text, htmlToPlainishText(fetched.text)]
         .filter(Boolean)
         .join("\n\n");
@@ -152,7 +154,7 @@ export async function analyzeIntakeAction(
     };
   }
 
-  const proposal = await runAdminIntakeExtract({
+  let proposal = await runAdminIntakeExtract({
     mode,
     url: url || null,
     text: sourceText || null,
@@ -161,6 +163,33 @@ export async function analyzeIntakeAction(
 
   if (mode === "screenshot") {
     proposal.needsSourceVerification = true;
+  }
+
+  // Pass 2: deep verification when essentials missing (FASE 26.16).
+  const forceDeep = String(formData.get("forceDeep") ?? "") === "1";
+  const {
+    shouldRunDeepVerification,
+    runDeepVerification,
+    formatDeepScanNotes,
+  } = await import("@/lib/aanvoer/deep-verify");
+  if (forceDeep || shouldRunDeepVerification(proposal)) {
+    const deep = await runDeepVerification({
+      proposal,
+      seedUrl: url || proposal.sourceUrl.value,
+      seedHtml,
+      seedText: sourceText,
+      force: forceDeep,
+    });
+    proposal = deep.proposal;
+    proposal.deepScan = deep.report;
+    const stamp = formatDeepScanNotes(deep.report);
+    if (stamp) {
+      proposal.notes = {
+        value: [proposal.notes.value, stamp].filter(Boolean).join("\n"),
+        status: "found",
+        evidence: proposal.notes.evidence,
+      };
+    }
   }
 
   const draft = proposalToDraft(proposal);
@@ -565,19 +594,210 @@ export async function updateAanvoerCandidateStatusAction(
   if (intent === "opnieuw_controleren" || intent === "reclassify") {
     const sql = getEventsSql();
     if (!sql) return { ok: false, error: "Database niet beschikbaar." };
-    const stamp = `reclassified_at=${new Date().toISOString()}`;
+
+    const rows = (await sql`
+      SELECT
+        e.id,
+        e.title,
+        e.city,
+        e.venue_name,
+        e.starts_at::text AS starts_at,
+        e.eligibility_route,
+        e.singles_only,
+        e.singles_oriented,
+        e.internal_notes,
+        e.tags,
+        e.publication_status,
+        o.name AS organizer_name,
+        s.url AS source_url
+      FROM event_editions e
+      LEFT JOIN organizers o ON o.id = e.organizer_id
+      LEFT JOIN LATERAL (
+        SELECT url FROM event_sources
+        WHERE event_edition_id = e.id
+        ORDER BY is_primary DESC, created_at ASC
+        LIMIT 1
+      ) s ON true
+      WHERE e.id = ${id}::uuid
+      LIMIT 1
+    `) as {
+      id: string;
+      title: string;
+      city: string;
+      venue_name: string | null;
+      starts_at: string;
+      eligibility_route: string | null;
+      singles_only: boolean | null;
+      singles_oriented: boolean | null;
+      internal_notes: string | null;
+      tags: unknown;
+      publication_status: string;
+      organizer_name: string | null;
+      source_url: string | null;
+    }[];
+    const row = rows[0];
+    if (!row) return { ok: false, error: "Event niet gevonden." };
+
+    const {
+      proposalToDraft,
+    } = await import("@/lib/aanvoer/types");
+    const {
+      isPlaceholderStartsAt,
+    } = await import("@/lib/aanvoer/admin-status");
+    const {
+      runDeepVerification,
+      formatDeepScanNotes,
+    } = await import("@/lib/aanvoer/deep-verify");
+    const { evaluateIntakeApproval } = await import("@/lib/aanvoer/approval");
+    const { runAdminIntakeExtract } = await import("@/lib/aanvoer/extract");
+    const { htmlToPlainishText, safeFetchTipSource } = await import(
+      "@/lib/tips/safe-fetch"
+    );
+
+    let seedHtml: string | null = null;
+    let sourceText = [
+      `Titel: ${row.title}`,
+      `Organisator: ${row.organizer_name ?? ""}`,
+      `Stad: ${row.city}`,
+      `Venue: ${row.venue_name ?? ""}`,
+      row.internal_notes ?? "",
+    ].join("\n");
+
+    if (row.source_url) {
+      const fetched = await safeFetchTipSource(row.source_url);
+      if (fetched.ok) {
+        seedHtml = fetched.text;
+        sourceText = `${sourceText}\n\n${htmlToPlainishText(fetched.text)}`;
+      }
+    }
+
+    let proposal = await runAdminIntakeExtract({
+      mode: row.source_url ? "url" : "text",
+      url: row.source_url,
+      text: sourceText,
+    });
+    // Prefer known title/org if extract weak
+    if (!proposal.title.value) {
+      proposal.title = {
+        value: row.title,
+        status: "found",
+        evidence: "Bestaande eventtitel",
+      };
+    }
+    if (!proposal.organizer.value && row.organizer_name) {
+      proposal.organizer = {
+        value: row.organizer_name,
+        status: "found",
+        evidence: "Bestaande organisator",
+      };
+    }
+    if (!isPlaceholderStartsAt(row.starts_at) && !proposal.startDate.value) {
+      proposal.startDate = {
+        value: row.starts_at.slice(0, 10),
+        status: "found",
+        evidence: "Bestaande datum",
+      };
+    }
+
+    const deep = await runDeepVerification({
+      proposal,
+      seedUrl: row.source_url,
+      seedHtml,
+      force: true,
+    });
+    proposal = deep.proposal;
+    proposal.deepScan = deep.report;
+    const stamp = [
+      `deep_rescan_at=${new Date().toISOString()}`,
+      formatDeepScanNotes(deep.report),
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const draft = proposalToDraft(proposal);
+    const approval = evaluateIntakeApproval(draft, {
+      needsSourceVerification: proposal.needsSourceVerification,
+      routeAdvice: draft.routeAdvice,
+      aiFailed: proposal.aiFailed,
+      deepScan: deep.report,
+    });
+
+    const dateKnown =
+      /^\d{4}-\d{2}-\d{2}$/.test(draft.startDate) &&
+      Number(draft.startDate.slice(0, 4)) < 2090;
+    const startsAt = dateKnown
+      ? `${draft.startDate}T${(draft.startTime || "12:00").slice(0, 5)}:00+02:00`
+      : row.starts_at;
+    const tags = Array.isArray(row.tags)
+      ? row.tags.filter((t): t is string => typeof t === "string")
+      : [];
+    const nextTags = dateKnown
+      ? tags.filter((t) => t !== "date_unknown")
+      : [...new Set([...tags, "date_unknown"])];
+    const nextNotes = `${row.internal_notes ?? ""}\n${stamp}`.trim();
+    const route =
+      draft.routeAdvice === "route_a" || draft.routeAdvice === "route_b"
+        ? draft.routeAdvice
+        : row.eligibility_route;
+
     await sql`
       UPDATE event_editions SET
-        internal_notes = CASE
-          WHEN internal_notes IS NULL OR internal_notes = '' THEN ${stamp}
-          WHEN internal_notes LIKE ${"%" + "reclassified_at=%"} THEN internal_notes
-          ELSE internal_notes || ${"\n" + stamp}
-        END,
+        title = ${draft.title || row.title},
+        city = ${draft.city || row.city},
+        venue_name = ${draft.venue || row.venue_name},
+        starts_at = ${startsAt}::timestamptz,
+        eligibility_route = ${route},
+        singles_only = ${
+          draft.singlesOnly === "true"
+            ? true
+            : draft.singlesOnly === "false"
+              ? false
+              : row.singles_only
+        },
+        singles_oriented = ${
+          draft.singlesOriented === "true"
+            ? true
+            : draft.singlesOriented === "false"
+              ? false
+              : row.singles_oriented
+        },
+        tags = ${JSON.stringify(nextTags)}::jsonb,
+        internal_notes = ${nextNotes},
         updated_at = now()
       WHERE id = ${id}::uuid
     `;
+
+    if (approval.canPublish && row.publication_status !== "published") {
+      const { editionIsManuallySuppressed } = await import(
+        "@/lib/events/neon-store"
+      );
+      if (!(await editionIsManuallySuppressed(id))) {
+        const now = new Date().toISOString();
+        await updateEditionPublication({
+          id,
+          publicationStatus: "published",
+          publishedAt: now,
+          approvedAt: now,
+        });
+        revalidatePath("/interne-aanvoer");
+        revalidatePath("/interne-events");
+        revalidatePath("/ontdek");
+        return {
+          ok: true,
+          message: "✓ Opnieuw gezocht — toegevoegd aan DateOfflineHub",
+        };
+      }
+    }
+
     revalidatePath("/interne-aanvoer");
-    return { ok: true, message: "Opnieuw beoordeeld op basis van beschikbare gegevens." };
+    revalidatePath("/interne-events");
+    const reason = approval.reviewReasons[0];
+    return {
+      ok: true,
+      message: reason
+        ? `Opnieuw gezocht. ⚠ ${reason}`
+        : "Opnieuw gezocht op basis van bredere bronnen.",
+    };
   }
 
   let status: "draft" | "under_review" | "rejected" | "candidate" | "published";

@@ -205,6 +205,7 @@ export function AanvoerClient({
           needsSourceVerification: result.proposal.needsSourceVerification,
           routeAdvice: result.draft.routeAdvice,
           aiFailed: result.proposal.aiFailed,
+          deepScan: result.proposal.deepScan ?? null,
         });
         const hasDup = result.matches.some(
           (m) => m.kind === "catalog_source" || m.kind === "event_edition",
@@ -323,6 +324,7 @@ export function AanvoerClient({
           needsSourceVerification: proposal.needsSourceVerification,
           routeAdvice: draft.routeAdvice,
           aiFailed: proposal.aiFailed,
+          deepScan: proposal.deepScan ?? null,
         })
       : null;
 
@@ -602,10 +604,20 @@ export function AanvoerClient({
                 fieldOk(proposal.startDate.status, draft.startDate) &&
                 /^\d{4}-\d{2}-\d{2}$/.test(draft.startDate) &&
                 Number(draft.startDate.slice(0, 4)) < 2090
-                  ? "Datum bevestigd"
-                  : "Datum niet gevonden"
+                  ? proposal.deepScan?.fieldsConfirmed.includes("date")
+                    ? "Datum bevestigd (uitgebreid zoeken)"
+                    : "Datum bevestigd"
+                  : proposal.deepScan?.triggered
+                    ? "Datum kon ook na uitgebreid zoeken niet bevestigd worden"
+                    : "Datum niet gevonden"
               }
             />
+            {proposal.deepScan?.triggered ? (
+              <p className="text-xs text-stone-500">
+                Uitgebreid gezocht · {proposal.deepScan.sourcesChecked.length} bronnen ·{" "}
+                {proposal.deepScan.queries.length} queries
+              </p>
+            ) : null}
             <CheckRow
               ok={Boolean(draft.venue.trim() || draft.city.trim())}
               label={

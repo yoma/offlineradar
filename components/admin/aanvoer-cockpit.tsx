@@ -1058,7 +1058,7 @@ function AdminEventCard({
                 className="h-11 w-full rounded-full border border-stone-300 text-sm font-semibold text-stone-800 disabled:opacity-60"
                 onClick={() => onIntent(c.id, "opnieuw_controleren")}
               >
-                Opnieuw laten controleren
+                Opnieuw laten zoeken
               </button>
               <button
                 type="button"

@@ -236,6 +236,7 @@ mustInclude("components/admin/aanvoer-cockpit.tsx", "Jouw aandacht nodig");
 mustInclude("components/admin/aanvoer-cockpit.tsx", "Toegevoegd");
 mustInclude("components/admin/aanvoer-cockpit.tsx", "Van DateOfflineHub halen");
 mustInclude("components/admin/aanvoer-cockpit.tsx", "Zoek event of organisator");
+mustInclude("components/admin/aanvoer-cockpit.tsx", "Opnieuw laten zoeken");
 mustInclude("components/admin/aanvoer-cockpit.tsx", "Bekijk AI-details");
 mustInclude("components/admin/aanvoer-cockpit.tsx", "Nu controleren");
 mustInclude("components/admin/aanvoer-cockpit.tsx", "Pauzeren");
