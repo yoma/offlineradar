@@ -341,7 +341,7 @@ export function HomeHero() {
           }}
         >
           <div className="search-divider overflow-hidden rounded-3xl bg-white lg:rounded-[2.5rem]">
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1.2fr)_minmax(0,0.68fr)_minmax(0,0.85fr)_minmax(0,0.72fr)]">
+            <div className="grid grid-cols-1 lg:grid-cols-5 lg:items-stretch">
               <Field label="Waar" chevron>
                 <select
                   value={placeId}
@@ -381,7 +381,7 @@ export function HomeHero() {
                 </select>
               </Field>
               <Field
-                label="Mijn leeftijd"
+                label="Leeftijd"
                 divide
                 invalid={Boolean(invalidFields.age)}
                 hint={invalidFields.age ? "Verplicht" : undefined}
@@ -406,7 +406,7 @@ export function HomeHero() {
                   className="search-field-control w-full bg-transparent text-[15px] font-semibold leading-6 outline-none placeholder:font-normal placeholder:text-muted-foreground"
                 />
               </Field>
-              <Field label="Mijn gender (optioneel)" divide chevron>
+              <Field label="Gender" divide chevron optional>
                 <select
                   value={gender}
                   onChange={(event) =>
@@ -675,6 +675,7 @@ function Field({
   divide = false,
   chevron = false,
   invalid = false,
+  optional = false,
   hint,
 }: {
   label: string;
@@ -682,20 +683,26 @@ function Field({
   divide?: boolean;
   chevron?: boolean;
   invalid?: boolean;
+  optional?: boolean;
   hint?: string;
 }) {
   return (
     <label
-      className={`block min-w-0 cursor-pointer px-4 py-3.5 transition hover:bg-black/[0.03] focus-within:bg-black/[0.03] sm:px-5 lg:px-5 lg:py-4 ${
+      className={`flex min-h-[4.75rem] min-w-0 cursor-pointer flex-col justify-center px-4 py-3.5 transition hover:bg-black/[0.03] focus-within:bg-black/[0.03] sm:px-5 lg:min-h-[5.25rem] lg:px-5 lg:py-4 ${
         divide ? "border-t border-border lg:border-t-0 lg:border-l" : ""
       } ${invalid ? "bg-[#fff5f7] ring-2 ring-inset ring-[#e61e4d]/70" : ""}`}
     >
       <span
-        className={`mb-2 flex items-center gap-2 text-[11px] font-semibold tracking-[0.08em] uppercase ${
+        className={`mb-1.5 flex h-4 items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold tracking-[0.08em] uppercase ${
           invalid ? "text-[#e61e4d]" : "text-muted-foreground"
         }`}
       >
-        {label}
+        <span className="truncate">{label}</span>
+        {optional ? (
+          <span className="truncate text-[10px] font-medium tracking-normal text-muted-foreground/80 normal-case">
+            optioneel
+          </span>
+        ) : null}
         {hint ? (
           <span className="rounded-full bg-[#e61e4d] px-1.5 py-0.5 text-[9px] font-bold tracking-normal text-white normal-case">
             {hint}
@@ -703,7 +710,7 @@ function Field({
         ) : null}
       </span>
       <span
-        className={`relative block min-h-6 min-w-0 ${chevron ? "pr-5" : ""}`}
+        className={`relative flex h-6 min-w-0 items-center ${chevron ? "pr-5" : ""}`}
       >
         {children}
         {chevron ? (

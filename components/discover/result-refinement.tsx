@@ -25,6 +25,9 @@ const DATE_OPTIONS: RefineDatePreset[] = [
 
 const SORT_OPTIONS: RefineSort[] = ["soonest", "newest"];
 
+const selectClassName =
+  "h-10 w-full min-w-0 rounded-full border border-border bg-white px-3 text-sm outline-none focus:border-foreground";
+
 export function ResultRefinementBar({
   refinement,
   baseCount,
@@ -57,7 +60,14 @@ export function ResultRefinementBar({
       aria-label="Verfijn resultaten"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold tracking-tight">Verfijn resultaten</h2>
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold tracking-tight">
+            Verfijn resultaten
+          </h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Zoek op event of organisator, of filter op één organisator.
+          </p>
+        </div>
         {active ? (
           <button
             type="button"
@@ -70,8 +80,8 @@ export function ResultRefinementBar({
         ) : null}
       </div>
 
-      <div className="mt-3 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
-        <label className="relative min-w-0 flex-1 sm:min-w-[14rem] sm:max-w-md">
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.5fr)_minmax(9rem,0.7fr)_minmax(10rem,0.9fr)_minmax(9rem,0.7fr)] lg:items-center">
+        <label className="relative min-w-0 sm:col-span-2 lg:col-span-1">
           <span className="sr-only">Zoek op event, organisator of plaats</span>
           <Search
             className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
@@ -88,7 +98,7 @@ export function ResultRefinementBar({
           />
         </label>
 
-        <label className="flex min-w-0 items-center gap-2">
+        <label className="min-w-0">
           <span className="sr-only">Datum</span>
           <select
             value={refinement.datePreset}
@@ -101,7 +111,7 @@ export function ResultRefinementBar({
                 dateTo: datePreset === "custom" ? refinement.dateTo : null,
               });
             }}
-            className="h-10 max-w-full rounded-full border border-border bg-white px-3 text-sm"
+            className={selectClassName}
             aria-label="Datum verfijnen"
           >
             {DATE_OPTIONS.map((preset) => (
@@ -112,14 +122,14 @@ export function ResultRefinementBar({
           </select>
         </label>
 
-        <label className="flex min-w-0 max-w-full items-center gap-2">
+        <label className="min-w-0">
           <span className="sr-only">Organisator</span>
           <select
             value={refinement.organizer}
             onChange={(event) =>
               onChange({ ...refinement, organizer: event.target.value })
             }
-            className="h-10 max-w-[min(100%,16rem)] rounded-full border border-border bg-white px-3 text-sm sm:max-w-xs"
+            className={selectClassName}
             aria-label="Organisator"
           >
             <option value="">Alle organisatoren</option>
@@ -141,7 +151,7 @@ export function ResultRefinementBar({
           </select>
         </label>
 
-        <label className="flex min-w-0 items-center gap-2">
+        <label className="min-w-0">
           <span className="sr-only">Sorteren</span>
           <select
             value={refinement.sort}
@@ -151,7 +161,7 @@ export function ResultRefinementBar({
                 sort: event.target.value as RefineSort,
               })
             }
-            className="h-10 max-w-full rounded-full border border-border bg-white px-3 text-sm"
+            className={selectClassName}
             aria-label="Sorteren"
           >
             {SORT_OPTIONS.map((sort) => (
