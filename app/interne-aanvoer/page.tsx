@@ -42,6 +42,7 @@ export default async function InterneAanvoerPage({
   const tabRaw = Array.isArray(raw.tab) ? raw.tab[0] : raw.tab;
   const initialTab =
     tabRaw === "bronnen" ||
+    tabRaw === "aandacht" ||
     tabRaw === "klaar" ||
     tabRaw === "controle" ||
     tabRaw === "te_bekijken" ||
@@ -49,8 +50,11 @@ export default async function InterneAanvoerPage({
     tabRaw === "niet_toegevoegd" ||
     tabRaw === "nieuw" ||
     tabRaw === "kandidaten"
-      ? tabRaw === "kandidaten" || tabRaw === "te_bekijken"
-        ? "controle"
+      ? tabRaw === "kandidaten" ||
+        tabRaw === "te_bekijken" ||
+        tabRaw === "klaar" ||
+        tabRaw === "controle"
+        ? "aandacht"
         : tabRaw
       : "nieuw";
   const highlightSourceId = Array.isArray(raw.sourceId)

@@ -3,7 +3,7 @@ import type { IntakeEditableDraft, IntakeProposal } from "@/lib/aanvoer/types";
 export type IntakeApprovalGate = {
   /** Hard fail: cannot save at all. */
   blockers: string[];
-  /** Soft: lands under Controle nodig; do not publish yet. */
+  /** Soft: lands under Jouw aandacht nodig; do not publish yet. */
   reviewReasons: string[];
   canPublish: boolean;
 };
@@ -15,8 +15,7 @@ function hasConcreteDate(value: string): boolean {
 }
 
 /**
- * Decide whether "Toevoegen aan DateOfflineHub" may publish immediately
- * or must land under Controle nodig.
+ * Decide whether intake may auto-publish or needs human attention.
  */
 export function evaluateIntakeApproval(
   draft: IntakeEditableDraft,

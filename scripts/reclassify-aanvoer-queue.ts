@@ -1,10 +1,14 @@
 /**
- * FASE 26.13 — one-time safe reclassification of aanvoer queue items.
- * - Tags placeholder dates (2099) as date_unknown (never shown as real dates)
- * - Does NOT auto-publish
+ * FASE 26.15 — re-evaluate aanvoer queue:
+ * - Tag placeholder dates
+ * - Auto-publish when gate fully passes
+ * - Leave essential doubt as aandacht_nodig
  * Usage: node --env-file=.env.local --import tsx scripts/reclassify-aanvoer-queue.ts
  */
-import { classifyAdminStatus } from "../lib/aanvoer/admin-status";
+import {
+  classifyAdminStatus,
+  isManuallySuppressed,
+} from "../lib/aanvoer/admin-status";
 import { getEventsSql } from "../lib/events/db";
 
 async function main() {
@@ -47,7 +51,7 @@ async function main() {
       WHERE event_edition_id = e.id
       ORDER BY is_primary DESC LIMIT 1
     ) s ON true
-    WHERE e.publication_status IN ('draft', 'under_review', 'candidate')
+    WHERE e.publication_status IN ('draft', 'under_review', 'candidate', 'rejected')
     ORDER BY e.created_at DESC
   `) as {
     id: string;
@@ -66,9 +70,10 @@ async function main() {
   }[];
 
   let placeholdersCleaned = 0;
+  let autoPublished = 0;
+  let skippedSuppressed = 0;
   const buckets = {
-    klaar_om_toe_te_voegen: 0,
-    controle_nodig: 0,
+    aandacht_nodig: 0,
     toegevoegd: 0,
     niet_toegevoegd: 0,
   };
@@ -80,24 +85,30 @@ async function main() {
     const tags = Array.isArray(row.tags)
       ? row.tags.filter((t): t is string => typeof t === "string")
       : [];
-    const notes = row.internal_notes ?? "";
+    let notes = row.internal_notes ?? "";
     const isIntake =
       tags.includes("admin-intake") || /Admin Quick Intake/i.test(notes);
     if (isIntake) fromIntake += 1;
     else legacyCandidates += 1;
 
+    if (isManuallySuppressed(tags, notes)) {
+      skippedSuppressed += 1;
+      buckets.niet_toegevoegd += 1;
+      reasons["Handmatig weggehaald"] =
+        (reasons["Handmatig weggehaald"] ?? 0) + 1;
+      continue;
+    }
+
     const year = Number(String(row.starts_at).slice(0, 4));
     const isPlaceholder = !Number.isFinite(year) || year >= 2090;
     if (isPlaceholder && !tags.includes("date_unknown")) {
-      const nextTags = [...new Set([...tags, "date_unknown", "admin-intake"].filter(Boolean))];
-      // Keep admin-intake only if already intake; otherwise don't invent intake tag
       const cleanedTags = isIntake
-        ? nextTags
+        ? [...new Set([...tags, "date_unknown", "admin-intake"])]
         : [...new Set([...tags, "date_unknown"])];
       const stamp =
         "date_unknown=1 | Startdatum onbekend (placeholder 2099 opgeschoond, niet als eventdatum tonen).";
       const nextNotes = /date_unknown=1/.test(notes)
-        ? notes.replace(/Startdatum onbekend; placeholder 2099-12-31\./g, stamp)
+        ? notes
         : `${notes}\n${stamp}`.trim();
       await sql`
         UPDATE event_editions SET
@@ -108,36 +119,20 @@ async function main() {
       `;
       placeholdersCleaned += 1;
       tags.push("date_unknown");
-      row.internal_notes = nextNotes;
-    } else if (
-      /placeholder 2099/i.test(notes) &&
-      !/date_unknown=1/.test(notes)
-    ) {
-      const nextNotes = notes.replace(
-        /Startdatum onbekend; placeholder 2099-12-31\./gi,
-        "date_unknown=1 | Startdatum onbekend (placeholder niet als eventdatum tonen).",
-      );
-      await sql`
-        UPDATE event_editions SET
-          internal_notes = ${nextNotes},
-          updated_at = now()
-        WHERE id = ${row.id}::uuid
-      `;
-      placeholdersCleaned += 1;
+      notes = nextNotes;
       row.internal_notes = nextNotes;
     }
 
-    // Stamp reclassification (idempotent)
-    if (!/fase26_13_reclassified_at=/.test(row.internal_notes ?? "")) {
-      const stamp = `fase26_13_reclassified_at=${new Date().toISOString()}`;
-      const nextNotes = `${row.internal_notes ?? ""}\n${stamp}`.trim();
+    if (!/fase26_15_reclassified_at=/.test(notes)) {
+      const stamp = `fase26_15_reclassified_at=${new Date().toISOString()}`;
+      notes = `${notes}\n${stamp}`.trim();
       await sql`
         UPDATE event_editions SET
-          internal_notes = ${nextNotes},
+          internal_notes = ${notes},
           updated_at = now()
         WHERE id = ${row.id}::uuid
       `;
-      row.internal_notes = nextNotes;
+      row.internal_notes = notes;
     }
 
     const classified = classifyAdminStatus({
@@ -147,13 +142,43 @@ async function main() {
       eligibilityRoute: row.eligibility_route,
       singlesOnly: row.singles_only,
       singlesOriented: row.singles_oriented,
-      internalNotes: row.internal_notes,
+      internalNotes: notes,
       tags,
       publishedDuplicateSlug: row.duplicate_slug,
       city: row.city,
       venueName: row.venue_name,
     });
-    buckets[classified.status] += 1;
+
+    if (
+      classified.readyToPublish &&
+      row.publication_status !== "rejected" &&
+      row.publication_status !== "published"
+    ) {
+      const now = new Date().toISOString();
+      const published = (await sql`
+        UPDATE event_editions
+        SET
+          publication_status = 'published',
+          published_at = ${now}::timestamptz,
+          approved_at = COALESCE(approved_at, ${now}::timestamptz),
+          updated_at = now()
+        WHERE id = ${row.id}::uuid
+          AND publication_status IN ('draft', 'under_review', 'candidate', 'approved')
+          AND NOT (COALESCE(tags, '[]'::jsonb) @> '["manual_suppressed"]'::jsonb)
+        RETURNING id
+      `) as { id: string }[];
+      if (published[0]) {
+        autoPublished += 1;
+        buckets.toegevoegd += 1;
+        continue;
+      }
+    }
+
+    if (row.publication_status === "rejected") {
+      buckets.niet_toegevoegd += 1;
+    } else {
+      buckets[classified.status] += 1;
+    }
     if (classified.reason) {
       reasons[classified.reason] = (reasons[classified.reason] ?? 0) + 1;
     }
@@ -170,11 +195,12 @@ async function main() {
         legacyCandidates,
         fromIntake,
         placeholdersCleaned,
+        autoPublished,
+        skippedSuppressed,
         buckets,
         reasons,
         publishedBefore: publishedBefore[0]?.n ?? null,
         publishedAfter: publishedAfter[0]?.n ?? null,
-        autoPublished: false,
       },
       null,
       2,

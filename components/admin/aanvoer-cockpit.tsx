@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -8,11 +9,13 @@ import {
   updateAanvoerCandidateStatusAction,
   updateAanvoerSourceAction,
 } from "@/app/interne-aanvoer/actions";
+import { takeEventOfflineAction } from "@/app/interne-events/actions";
 import {
   ADMIN_STATUS_LABEL,
   type AdminQueueStatus,
 } from "@/lib/aanvoer/admin-status";
 import {
+  ORIGIN_LABEL,
   SOURCE_STATUS_LABEL,
   type AanvoerCockpitData,
   type CockpitCandidateRow,
@@ -21,44 +24,91 @@ import {
 
 type TabId =
   | "nieuw"
-  | "klaar"
-  | "controle"
+  | "aandacht"
   | "toegevoegd"
   | "niet_toegevoegd"
   | "bronnen";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "nieuw", label: "Nieuw event" },
-  { id: "klaar", label: "Klaar om toe te voegen" },
-  { id: "controle", label: "Controle nodig" },
+  { id: "aandacht", label: "Jouw aandacht nodig" },
   { id: "toegevoegd", label: "Toegevoegd" },
   { id: "niet_toegevoegd", label: "Niet toegevoegd" },
   { id: "bronnen", label: "Bronnen" },
 ];
 
-function tabFromParam(raw: string | null, initial: TabId | "kandidaten" | "te_bekijken"): TabId {
+function tabFromParam(
+  raw: string | null,
+  initial: TabId | "klaar" | "controle" | "kandidaten" | "te_bekijken",
+): TabId {
   if (
     raw === "bronnen" ||
-    raw === "klaar" ||
-    raw === "controle" ||
+    raw === "aandacht" ||
     raw === "toegevoegd" ||
     raw === "niet_toegevoegd" ||
     raw === "nieuw"
   ) {
     return raw;
   }
-  // Legacy deep-links
-  if (raw === "te_bekijken" || raw === "kandidaten") return "controle";
-  if (initial === "kandidaten" || initial === "te_bekijken") return "controle";
+  // Legacy deep-links → aandacht
+  if (
+    raw === "klaar" ||
+    raw === "controle" ||
+    raw === "te_bekijken" ||
+    raw === "kandidaten"
+  ) {
+    return "aandacht";
+  }
+  if (
+    initial === "klaar" ||
+    initial === "controle" ||
+    initial === "kandidaten" ||
+    initial === "te_bekijken"
+  ) {
+    return "aandacht";
+  }
   return initial as TabId;
 }
 
 const PAGE_SIZE = 50;
 
-function formatDate(value: string | null | undefined): string {
+const REMOVE_REASONS = [
+  "Hoort hier niet thuis",
+  "Geen singlesevent",
+  "Duplicate",
+  "Foute informatie",
+  "Event geannuleerd",
+  "Anders",
+] as const;
+
+function formatDateNl(value: string | null | undefined): string {
   if (!value) return "Datum onbekend";
   const d = value.slice(0, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : "Datum onbekend";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return "Datum onbekend";
+  try {
+    return new Intl.DateTimeFormat("nl-BE", {
+      day: "numeric",
+      month: "long",
+    }).format(new Date(`${d}T12:00:00`));
+  } catch {
+    return d;
+  }
+}
+
+function formatAge(min: number | null, max: number | null): string | null {
+  if (min == null && max == null) return null;
+  if (min != null && max != null) return `${min}–${max} jaar`;
+  if (min != null) return `vanaf ${min} jaar`;
+  return `tot ${max} jaar`;
+}
+
+function formatPrice(c: CockpitCandidateRow): string {
+  if (c.priceAmount != null && Number.isFinite(c.priceAmount)) {
+    const cur = c.priceCurrency === "EUR" || !c.priceCurrency ? "€" : "";
+    return `${cur}${c.priceAmount}`;
+  }
+  if (c.priceNote?.trim()) return c.priceNote.trim();
+  return "Prijs onbekend";
 }
 
 function sortKey(value: string | null | undefined | Date): string {
@@ -82,6 +132,28 @@ function typeLabel(type: CockpitSourceRow["intakeSourceType"]): string {
   }
 }
 
+function StatusBadge({ status }: { status: AdminQueueStatus }) {
+  if (status === "toegevoegd") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-900">
+        ✓ Toegevoegd
+      </span>
+    );
+  }
+  if (status === "niet_toegevoegd") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-lg bg-stone-200 px-2.5 py-1 text-xs font-bold text-stone-800">
+        ✕ Niet toegevoegd
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-950">
+      ⚠ Jouw aandacht nodig
+    </span>
+  );
+}
+
 export function AanvoerCockpit({
   data,
   initialTab = "nieuw",
@@ -89,7 +161,7 @@ export function AanvoerCockpit({
   highlightEditionId = null,
 }: {
   data: AanvoerCockpitData;
-  initialTab?: TabId | "kandidaten" | "te_bekijken";
+  initialTab?: TabId | "klaar" | "controle" | "kandidaten" | "te_bekijken";
   highlightSourceId?: string | null;
   highlightEditionId?: string | null;
 }) {
@@ -101,7 +173,10 @@ export function AanvoerCockpit({
   const [highlightSource, setHighlightSource] = useState(highlightSourceId);
   const [highlightEdition, setHighlightEdition] = useState(highlightEditionId);
 
-  function setTab(next: TabId, opts?: { sourceId?: string; editionId?: string; refresh?: boolean }) {
+  function setTab(
+    next: TabId,
+    opts?: { sourceId?: string; editionId?: string; refresh?: boolean },
+  ) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", next);
     if (opts?.sourceId) {
@@ -126,9 +201,9 @@ export function AanvoerCockpit({
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
-          { label: "Klaar om toe te voegen", value: data.counts.klaar },
-          { label: "Controle nodig", value: data.counts.controle },
+          { label: "Jouw aandacht nodig", value: data.counts.aandacht },
           { label: "Toegevoegd", value: data.counts.added },
+          { label: "Niet toegevoegd", value: data.counts.dismissed },
           { label: "Bronnen", value: data.counts.sources },
         ].map((item) => (
           <div
@@ -144,9 +219,14 @@ export function AanvoerCockpit({
           </div>
         ))}
       </div>
-      <p className="text-xs text-stone-500">
-        Door jou aangebracht: {data.counts.userSupplied} bronnen
-      </p>
+
+      {data.autoPublishedIds.length > 0 ? (
+        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+          {data.autoPublishedIds.length} event
+          {data.autoPublishedIds.length === 1 ? "" : "s"} automatisch
+          toegevoegd (gate geslaagd).
+        </p>
+      ) : null}
 
       <div className="overflow-x-auto">
         <div
@@ -156,6 +236,16 @@ export function AanvoerCockpit({
         >
           {TABS.map((item) => {
             const active = tab === item.id;
+            const count =
+              item.id === "aandacht"
+                ? data.counts.aandacht
+                : item.id === "toegevoegd"
+                  ? data.counts.added
+                  : item.id === "niet_toegevoegd"
+                    ? data.counts.dismissed
+                    : item.id === "bronnen"
+                      ? data.counts.sources
+                      : null;
             return (
               <button
                 key={item.id}
@@ -170,6 +260,9 @@ export function AanvoerCockpit({
                 }`}
               >
                 {item.label}
+                {count != null ? (
+                  <span className="ml-1.5 opacity-70">{count}</span>
+                ) : null}
               </button>
             );
           })}
@@ -180,7 +273,7 @@ export function AanvoerCockpit({
         <AanvoerClient
           onSavedSource={(sourceId) => setTab("bronnen", { sourceId })}
           onSavedCandidate={(editionId) =>
-            setTab("controle", { editionId })
+            setTab("aandacht", { editionId })
           }
           onApprovedPublished={(editionId) =>
             setTab("toegevoegd", { editionId })
@@ -194,8 +287,7 @@ export function AanvoerCockpit({
           highlightId={highlightSource}
         />
       ) : null}
-      {tab === "klaar" ||
-      tab === "controle" ||
+      {tab === "aandacht" ||
       tab === "toegevoegd" ||
       tab === "niet_toegevoegd" ? (
         <EventsPanel
@@ -252,9 +344,7 @@ function SourcesPanel({
     });
     list = [...list].sort((a, b) => {
       if (sort === "name") return a.name.localeCompare(b.name, "nl");
-      if (sort === "checked") {
-        return sortKey(b.lastCheckedAt).localeCompare(sortKey(a.lastCheckedAt));
-      }
+      if (sort === "events") return b.futureEventCount - a.futureEventCount;
       return sortKey(b.createdAt).localeCompare(sortKey(a.createdAt));
     });
     return list;
@@ -265,12 +355,7 @@ function SourcesPanel({
 
   return (
     <section className="space-y-4">
-      <p className="text-sm text-stone-600">
-        User-supplied bronnen blijven mandatory input voor toekomstige discovery.
-        Ze verdwijnen niet als een scan ze tijdelijk niet opnieuw vindt.
-      </p>
-
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <input
           type="search"
           value={q}
@@ -278,8 +363,8 @@ function SourcesPanel({
             setQ(e.target.value);
             setPage(0);
           }}
-          placeholder="Zoek bronnen…"
-          className="h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm"
+          placeholder="Zoek bron…"
+          className="h-10 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm sm:max-w-xs"
         />
         <select
           value={origin}
@@ -289,9 +374,9 @@ function SourcesPanel({
           }}
           className="h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm"
         >
-          <option value="all">Alle herkomsten</option>
-          <option value="user">Door jou aangebracht</option>
-          <option value="auto">Automatisch gevonden</option>
+          <option value="all">Alle oorsprong</option>
+          <option value="user">Door jou</option>
+          <option value="auto">Automatisch</option>
         </select>
         <select
           value={status}
@@ -302,10 +387,11 @@ function SourcesPanel({
           className="h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm"
         >
           <option value="all">Alle statussen</option>
-          <option value="active">Actief</option>
-          <option value="promising">Promising</option>
-          <option value="low_yield">Low yield</option>
-          <option value="inactive">Inactief</option>
+          {Object.entries(SOURCE_STATUS_LABEL).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v}
+            </option>
+          ))}
         </select>
         <select
           value={type}
@@ -321,37 +407,30 @@ function SourcesPanel({
           <option value="ticket">Ticket</option>
           <option value="handmatig">Handmatig</option>
         </select>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-stone-500">
-          {filtered.length} bronnen · gesorteerd op{" "}
-          {sort === "newest"
-            ? "laatst toegevoegd"
-            : sort === "checked"
-              ? "laatst gecontroleerd"
-              : "naam"}
-        </p>
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value)}
-          className="h-9 rounded-full border border-stone-200 bg-white px-3 text-sm"
+          className="h-10 rounded-xl border border-stone-200 bg-white px-3 text-sm"
         >
-          <option value="newest">Laatst toegevoegd</option>
-          <option value="checked">Laatst gecontroleerd</option>
-          <option value="name">Naam A–Z</option>
+          <option value="newest">Nieuwste eerst</option>
+          <option value="name">Naam</option>
+          <option value="events">Meeste events</option>
         </select>
       </div>
 
+      <p className="text-sm text-stone-500">
+        {filtered.length} {filtered.length === 1 ? "bron" : "bronnen"}
+      </p>
+
       <div className="space-y-3">
-        {pageItems.map((source) => {
-          const open = expanded === source.id;
-          const highlighted = highlightId === source.id;
+        {pageItems.map((s) => {
+          const open = expanded === s.id;
+          const highlighted = highlightId === s.id;
           return (
             <article
-              key={source.id}
-              id={`source-${source.id}`}
-              className={`rounded-2xl border bg-white/90 p-4 shadow-sm transition ${
+              key={s.id}
+              id={`source-${s.id}`}
+              className={`rounded-2xl border bg-white/90 p-4 shadow-sm ${
                 highlighted
                   ? "border-rose-300 ring-2 ring-rose-200"
                   : "border-stone-200/80"
@@ -359,139 +438,79 @@ function SourcesPanel({
             >
               <button
                 type="button"
-                className="flex w-full flex-col gap-2 text-left"
-                onClick={() => setExpanded(open ? null : source.id)}
+                className="w-full text-left"
+                onClick={() => setExpanded(open ? null : s.id)}
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h3 className="text-base font-semibold text-stone-900">
-                      {source.name}
-                    </h3>
-                    <p className="mt-0.5 break-all text-xs text-stone-500">
-                      {source.domain}
+                    <h3 className="font-semibold text-stone-900">{s.name}</h3>
+                    <p className="mt-1 truncate text-sm text-stone-600">
+                      {s.domain} · {typeLabel(s.intakeSourceType)} ·{" "}
+                      {s.futureEventCount} toekomstige events
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {source.userSupplied ? (
-                      <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-800">
-                        Door jou aangebracht
-                      </span>
-                    ) : null}
-                    <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-semibold text-stone-700">
-                      {typeLabel(source.intakeSourceType)}
-                    </span>
-                    <span className="rounded-full bg-stone-900/5 px-2 py-0.5 text-[11px] font-semibold text-stone-700">
-                      {SOURCE_STATUS_LABEL[source.status]}
-                    </span>
-                  </div>
+                  <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-semibold text-stone-700">
+                    {SOURCE_STATUS_LABEL[s.status]}
+                  </span>
                 </div>
-                <p className="text-sm text-stone-600">
-                  {source.futureEventCount} toekomstige events · toegevoegd{" "}
-                  {formatDate(source.createdAt)} · check{" "}
-                  {formatDate(source.lastCheckedAt)}
-                </p>
-                {source.notes ? (
-                  <p className="line-clamp-2 text-xs text-stone-500">
-                    {source.notes}
-                  </p>
-                ) : null}
               </button>
 
               {open ? (
-                <div className="mt-4 space-y-4 border-t border-stone-100 pt-4">
-                  <p className="break-all text-sm">
-                    <a
-                      href={source.officialUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-medium text-stone-900 underline-offset-4 hover:underline"
-                    >
-                      {source.officialUrl}
-                    </a>
-                  </p>
-                  {source.notes ? (
-                    <p className="whitespace-pre-wrap text-sm text-stone-600">
-                      {source.notes}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-stone-400">Geen notes.</p>
-                  )}
-
-                  {source.linkedFutureEvents.length > 0 ? (
-                    <ul className="space-y-1 text-sm">
-                      {source.linkedFutureEvents.slice(0, 8).map((ev) => (
-                        <li key={ev.id} className="text-stone-700">
-                          {formatDate(ev.startsAt)} · {ev.title} · {ev.city} (
-                          {ev.publicationStatus})
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-sm text-stone-400">
-                      Geen gekoppelde toekomstige events.
-                    </p>
-                  )}
-
+                <div className="mt-4 space-y-3 border-t border-stone-100 pt-4 text-sm">
+                  <a
+                    href={s.officialUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="break-all text-xs text-stone-500 underline-offset-4 hover:underline"
+                  >
+                    {s.officialUrl}
+                  </a>
                   <form
-                    className="space-y-3 rounded-xl bg-stone-50 p-3"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      const formData = new FormData(event.currentTarget);
+                    className="space-y-3"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const fd = new FormData(e.currentTarget);
                       startTransition(async () => {
-                        await updateAanvoerSourceAction(formData);
+                        await updateAanvoerSourceAction(fd);
                       });
                     }}
                   >
-                    <input type="hidden" name="sourceId" value={source.id} />
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <label className="text-sm">
-                        <span className="mb-1 block font-medium">Status</span>
-                        <select
-                          name="status"
-                          defaultValue={source.status}
-                          className="h-10 w-full rounded-xl border border-stone-200 bg-white px-3"
-                        >
-                          <option value="active">Actief</option>
-                          <option value="promising">Promising</option>
-                          <option value="low_yield">Low yield</option>
-                          <option value="inactive">Inactief</option>
-                        </select>
-                      </label>
-                      <label className="text-sm">
-                        <span className="mb-1 block font-medium">Type</span>
-                        <select
-                          name="sourceType"
-                          defaultValue={source.sourceType}
-                          className="h-10 w-full rounded-xl border border-stone-200 bg-white px-3"
-                        >
-                          <option value="organizer">Website/organizer</option>
-                          <option value="community">Social/community</option>
-                          <option value="ticket_platform">Ticket</option>
-                          <option value="other">Handmatig/other</option>
-                          <option value="discovery_platform">Discovery</option>
-                          <option value="event_series">Event series</option>
-                          <option value="venue_with_singles_program">
-                            Venue singles
+                    <input type="hidden" name="sourceId" value={s.id} />
+                    <label className="block space-y-1">
+                      <span className="text-xs font-semibold text-stone-500">
+                        Status
+                      </span>
+                      <select
+                        name="status"
+                        defaultValue={s.status}
+                        className="h-10 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm"
+                      >
+                        {Object.entries(SOURCE_STATUS_LABEL).map(([k, v]) => (
+                          <option key={k} value={k}>
+                            {v}
                           </option>
-                        </select>
-                      </label>
-                    </div>
-                    <label className="block text-sm">
-                      <span className="mb-1 block font-medium">Notes</span>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block space-y-1">
+                      <span className="text-xs font-semibold text-stone-500">
+                        Notities
+                      </span>
                       <textarea
                         name="notes"
-                        defaultValue={source.notes ?? ""}
+                        defaultValue={s.notes ?? ""}
                         rows={3}
-                        className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2"
+                        className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm"
                       />
                     </label>
+                    <input type="hidden" name="sourceType" value={s.sourceType} />
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="submit"
                         disabled={pending}
                         className="h-10 rounded-full bg-stone-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
                       >
-                        Bewaar wijzigingen
+                        Opslaan
                       </button>
                       <button
                         type="submit"
@@ -499,14 +518,10 @@ function SourcesPanel({
                         value="1"
                         disabled={pending}
                         className="h-10 rounded-full border border-stone-300 px-4 text-sm font-semibold text-stone-700 disabled:opacity-60"
-                        title="Zet review-markering; vernieuwt geen freshness"
                       >
                         Opnieuw controleren (markeer)
                       </button>
                     </div>
-                    <p className="text-xs text-stone-500">
-                      “Opnieuw controleren” vernieuwt geen last_checked_at.
-                    </p>
                   </form>
                 </div>
               ) : null}
@@ -542,15 +557,6 @@ function SourcesPanel({
   );
 }
 
-function bucketForAdmin(
-  status: AdminQueueStatus,
-): "klaar" | "controle" | "toegevoegd" | "niet_toegevoegd" {
-  if (status === "klaar_om_toe_te_voegen") return "klaar";
-  if (status === "controle_nodig") return "controle";
-  if (status === "toegevoegd") return "toegevoegd";
-  return "niet_toegevoegd";
-}
-
 function EventsPanel({
   candidates,
   highlightId,
@@ -558,13 +564,16 @@ function EventsPanel({
 }: {
   candidates: CockpitCandidateRow[];
   highlightId: string | null;
-  bucket: "klaar" | "controle" | "toegevoegd" | "niet_toegevoegd";
+  bucket: "aandacht" | "toegevoegd" | "niet_toegevoegd";
 }) {
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [expanded, setExpanded] = useState<string | null>(highlightId);
+  const [origin, setOrigin] = useState("all");
   const [pending, startTransition] = useTransition();
   const [actionError, setActionError] = useState<string | null>(null);
+  const [removeId, setRemoveId] = useState<string | null>(null);
+  const [aiOpen, setAiOpen] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!highlightId) return;
@@ -575,30 +584,33 @@ function EventsPanel({
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return candidates.filter((c) => {
-      if (bucketForAdmin(c.adminStatus) !== bucket) return false;
+      if (bucket === "aandacht" && c.adminStatus !== "aandacht_nodig") return false;
+      if (bucket === "toegevoegd" && c.adminStatus !== "toegevoegd") return false;
+      if (bucket === "niet_toegevoegd" && c.adminStatus !== "niet_toegevoegd") {
+        return false;
+      }
+      if (origin !== "all" && c.origin !== origin) return false;
       if (!needle) return true;
       const hay = [
         c.title,
         c.organizerName ?? "",
         c.city,
+        c.venueName ?? "",
         c.sourceUrl ?? "",
         c.blockReason ?? "",
-        c.internalNotes ?? "",
       ]
         .join(" ")
         .toLowerCase();
       return hay.includes(needle);
     });
-  }, [candidates, q, bucket]);
+  }, [candidates, q, bucket, origin]);
 
   const emptyLabel =
     bucket === "toegevoegd"
       ? "Nog geen live events via deze aanvoer."
       : bucket === "niet_toegevoegd"
-        ? "Nog geen afgewezen items."
-        : bucket === "klaar"
-          ? "Niets klaar om toe te voegen."
-          : "Niets dat controle nodig heeft.";
+        ? "Nog geen weggehaalde of afgewezen events."
+        : "Geen events die jouw aandacht nodig hebben.";
 
   function runIntent(editionId: string, intent: string) {
     setActionError(null);
@@ -615,19 +627,58 @@ function EventsPanel({
     });
   }
 
+  function removeFromHub(editionId: string, reason: string) {
+    setActionError(null);
+    const formData = new FormData();
+    formData.set("editionId", editionId);
+    formData.set("reason", reason);
+    startTransition(async () => {
+      try {
+        await takeEventOfflineAction(formData);
+        setRemoveId(null);
+        router.refresh();
+      } catch (err) {
+        setActionError(
+          err instanceof Error ? err.message : "Kon event niet weghalen.",
+        );
+      }
+    });
+  }
+
   return (
     <section className="space-y-4">
-      <input
-        type="search"
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Zoek events…"
-        className="h-10 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm sm:max-w-md"
-      />
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Zoek event of organisator…"
+          className="h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm sm:max-w-md"
+        />
+        <select
+          value={origin}
+          onChange={(e) => setOrigin(e.target.value)}
+          className="h-11 rounded-xl border border-stone-200 bg-white px-3 text-sm"
+        >
+          <option value="all">Alle oorsprong</option>
+          <option value="admin_intake">Admin intake</option>
+          <option value="tip">Tip</option>
+          <option value="parser">Parser</option>
+          <option value="ai_scan">AI scan</option>
+        </select>
+      </div>
 
-      <p className="text-sm text-stone-500">
-        {filtered.length} {filtered.length === 1 ? "event" : "events"}
-      </p>
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="text-sm font-bold tracking-wide text-stone-700 uppercase">
+          {bucket === "aandacht"
+            ? "Jouw aandacht nodig"
+            : bucket === "toegevoegd"
+              ? "Toegevoegd"
+              : "Niet toegevoegd"}{" "}
+          — {filtered.length}
+        </h2>
+      </div>
+
       {actionError ? (
         <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
           {actionError}
@@ -640,185 +691,305 @@ function EventsPanel({
         </p>
       ) : null}
 
-      <div className="space-y-3">
-        {filtered.map((c) => {
-          const open = expanded === c.id;
-          const highlighted = highlightId === c.id;
-          return (
-            <article
-              key={c.id}
-              id={`candidate-${c.id}`}
-              className={`rounded-2xl border bg-white/90 p-4 shadow-sm ${
-                highlighted
-                  ? "border-rose-300 ring-2 ring-rose-200"
-                  : "border-stone-200/80"
-              }`}
-            >
-              <button
-                type="button"
-                className="w-full text-left"
-                onClick={() => setExpanded(open ? null : c.id)}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-stone-900">{c.title}</h3>
-                    <p className="mt-1 text-sm text-stone-600">
-                      {c.organizerName ?? "Onbekende organisator"} · {c.city} ·{" "}
-                      {formatDate(c.displayDate)}
-                    </p>
-                    {c.blockReason && bucket === "controle" ? (
-                      <p className="mt-1 text-sm font-medium text-amber-800">
-                        {c.blockReason}
-                      </p>
-                    ) : null}
-                  </div>
-                  <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-semibold text-stone-700">
-                    {ADMIN_STATUS_LABEL[c.adminStatus]}
-                  </span>
-                </div>
-              </button>
-
-              {open ? (
-                <div className="mt-4 space-y-3 border-t border-stone-100 pt-4 text-sm">
-                  {bucket === "klaar" ? (
-                    <div className="space-y-1 text-emerald-800">
-                      <p>{c.checks.singles ? "✓" : "?"} Singlesevent bevestigd</p>
-                      <p>{c.checks.date ? "✓" : "?"} Datum bevestigd</p>
-                      <p>{c.checks.location ? "✓" : "?"} Locatie bevestigd</p>
-                      <p>{c.checks.source ? "✓" : "?"} Bron bevestigd</p>
-                    </div>
-                  ) : null}
-
-                  {bucket === "controle" && c.blockReason ? (
-                    <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                      {c.blockReason}
-                    </p>
-                  ) : null}
-
-                  {c.duplicateSlug ? (
-                    <p className="text-sm text-stone-700">
-                      Dit event lijkt al in DateOfflineHub te staan.{" "}
-                      <Link
-                        href={`/event/${c.duplicateSlug}`}
-                        className="font-semibold underline-offset-4 hover:underline"
-                      >
-                        Bekijk bestaand event
-                      </Link>
-                    </p>
-                  ) : null}
-
-                  <dl className="grid gap-2 sm:grid-cols-2">
-                    <div>
-                      <dt className="text-stone-500">Prijs</dt>
-                      <dd>{c.priceNote || "onbekend"}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-stone-500">Leeftijd</dt>
-                      <dd>
-                        {c.minAge ?? "?"}-{c.maxAge ?? "?"}
-                      </dd>
-                    </div>
-                  </dl>
-                  {c.sourceUrl ? (
-                    <p className="break-all text-xs text-stone-500">
-                      <a
-                        href={c.sourceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="underline-offset-4 hover:underline"
-                      >
-                        {c.sourceUrl}
-                      </a>
-                    </p>
-                  ) : null}
-                  {c.hasScreenshot ? (
-                    <p className="text-xs text-stone-500">
-                      Screenshot bewaard als privé-evidence.
-                    </p>
-                  ) : null}
-
-                  <div className="flex flex-wrap gap-2">
-                    {bucket === "klaar" ? (
-                      <>
-                        <button
-                          type="button"
-                          disabled={pending}
-                          className="h-10 rounded-full bg-stone-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
-                          onClick={() => runIntent(c.id, "toevoegen")}
-                        >
-                          Toevoegen aan DateOfflineHub
-                        </button>
-                        <button
-                          type="button"
-                          disabled={pending}
-                          className="h-10 rounded-full border border-stone-300 px-4 text-sm font-semibold text-stone-700 disabled:opacity-60"
-                          onClick={() => runIntent(c.id, "niet_toegevoegd")}
-                        >
-                          Niet toevoegen
-                        </button>
-                      </>
-                    ) : null}
-
-                    {bucket === "controle" ? (
-                      <>
-                        {c.duplicateSlug ? (
-                          <Link
-                            href={`/event/${c.duplicateSlug}`}
-                            className="inline-flex h-10 items-center rounded-full bg-stone-900 px-4 text-sm font-semibold text-white"
-                          >
-                            Bekijk bestaand event
-                          </Link>
-                        ) : null}
-                        <button
-                          type="button"
-                          disabled={pending}
-                          className="h-10 rounded-full border border-stone-300 px-4 text-sm font-semibold text-stone-700 disabled:opacity-60"
-                          onClick={() => runIntent(c.id, "opnieuw_controleren")}
-                        >
-                          Opnieuw laten controleren
-                        </button>
-                        <Link
-                          href="/interne-events"
-                          className="inline-flex h-10 items-center rounded-full border border-stone-300 px-4 text-sm font-semibold text-stone-700"
-                        >
-                          Aanpassen
-                        </Link>
-                        <button
-                          type="button"
-                          disabled={pending}
-                          className="h-10 rounded-full px-4 text-sm font-medium text-stone-500 underline-offset-4 hover:underline disabled:opacity-60"
-                          onClick={() => runIntent(c.id, "niet_toegevoegd")}
-                        >
-                          Niet toevoegen
-                        </button>
-                        {c.duplicateSlug ? (
-                          <button
-                            type="button"
-                            disabled={pending}
-                            className="h-10 rounded-full px-4 text-xs font-medium text-stone-400 underline-offset-4 hover:underline disabled:opacity-60"
-                            onClick={() => runIntent(c.id, "toevoegen")}
-                          >
-                            Toch als nieuw toevoegen
-                          </button>
-                        ) : null}
-                      </>
-                    ) : null}
-
-                    {bucket === "toegevoegd" ? (
-                      <Link
-                        href={`/event/${c.slug}`}
-                        className="inline-flex h-10 items-center rounded-full bg-stone-900 px-4 text-sm font-semibold text-white"
-                      >
-                        Bekijk event
-                      </Link>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
-            </article>
-          );
-        })}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {filtered.map((c) => (
+          <AdminEventCard
+            key={c.id}
+            candidate={c}
+            bucket={bucket}
+            highlighted={highlightId === c.id}
+            pending={pending}
+            aiOpen={aiOpen === c.id}
+            editOpen={editId === c.id}
+            removeOpen={removeId === c.id}
+            onToggleAi={() => setAiOpen(aiOpen === c.id ? null : c.id)}
+            onToggleEdit={() => setEditId(editId === c.id ? null : c.id)}
+            onToggleRemove={() => setRemoveId(removeId === c.id ? null : c.id)}
+            onIntent={runIntent}
+            onRemove={removeFromHub}
+          />
+        ))}
       </div>
     </section>
+  );
+}
+
+function AdminEventCard({
+  candidate: c,
+  bucket,
+  highlighted,
+  pending,
+  aiOpen,
+  editOpen,
+  removeOpen,
+  onToggleAi,
+  onToggleEdit,
+  onToggleRemove,
+  onIntent,
+  onRemove,
+}: {
+  candidate: CockpitCandidateRow;
+  bucket: "aandacht" | "toegevoegd" | "niet_toegevoegd";
+  highlighted: boolean;
+  pending: boolean;
+  aiOpen: boolean;
+  editOpen: boolean;
+  removeOpen: boolean;
+  onToggleAi: () => void;
+  onToggleEdit: () => void;
+  onToggleRemove: () => void;
+  onIntent: (id: string, intent: string) => void;
+  onRemove: (id: string, reason: string) => void;
+}) {
+  const age = formatAge(c.minAge, c.maxAge);
+  const when = [
+    formatDateNl(c.displayDate),
+    c.startTime && c.startTime !== "12:00" ? c.startTime : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const place = [c.venueName, c.city].filter(Boolean).join(" · ");
+
+  return (
+    <article
+      id={`candidate-${c.id}`}
+      className={`flex min-w-0 flex-col overflow-hidden rounded-2xl border bg-white shadow-sm ${
+        highlighted
+          ? "border-rose-300 ring-2 ring-rose-200"
+          : "border-stone-200/80"
+      }`}
+    >
+      <div className="relative aspect-[16/10] w-full bg-stone-200">
+        {c.imageUrl ? (
+          <Image
+            src={c.imageUrl}
+            alt=""
+            fill
+            className="object-cover"
+            sizes="(max-width: 640px) 100vw, 33vw"
+            unoptimized={c.imageUrl.startsWith("http") === false}
+          />
+        ) : (
+          <div className="flex h-full w-full items-end bg-gradient-to-br from-stone-300 via-stone-200 to-rose-100 p-4">
+            <p className="text-sm font-semibold text-stone-700">
+              {c.category ?? "Event"}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-1 flex-col gap-3 p-4">
+        <div className="space-y-1.5">
+          <h3 className="line-clamp-2 text-[15px] font-semibold tracking-tight text-stone-900">
+            {c.title}
+          </h3>
+          <p className="text-sm text-stone-600">{when}</p>
+          <p className="truncate text-sm text-stone-600">
+            {c.organizerName ?? "Onbekende organisator"}
+            {place ? ` · ${place}` : ""}
+          </p>
+          <p className="text-sm text-stone-500">
+            {[age, formatPrice(c), c.category].filter(Boolean).join(" · ")}
+          </p>
+        </div>
+
+        <StatusBadge status={c.adminStatus} />
+
+        {bucket === "aandacht" && c.blockReason ? (
+          <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950">
+            {c.blockReason}
+          </p>
+        ) : null}
+
+        {bucket === "aandacht" ? (
+          <ul className="space-y-0.5 text-xs text-stone-600">
+            <li>{c.checks.date ? "✓" : "?"} Datum bevestigd</li>
+            <li>{c.checks.source ? "✓" : "?"} Bron bevestigd</li>
+            <li>{c.checks.singles ? "✓" : "?"} Singlesevent bevestigd</li>
+            <li>{c.checks.location ? "✓" : "?"} Locatie bevestigd</li>
+            <li>
+              {c.priceAmount != null || c.priceNote
+                ? `✓ ${formatPrice(c)}`
+                : "? Prijs onbekend"}
+            </li>
+          </ul>
+        ) : null}
+
+        {bucket === "toegevoegd" ? (
+          <p className="text-xs text-stone-500">
+            Toegevoegd{" "}
+            {c.publishedAt
+              ? formatDateNl(c.publishedAt)
+              : formatDateNl(c.createdAt)}{" "}
+            · {ORIGIN_LABEL[c.origin]}
+          </p>
+        ) : null}
+
+        {bucket === "niet_toegevoegd" && c.manuallySuppressed ? (
+          <p className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-800">
+            <span className="font-semibold">Handmatig weggehaald</span>
+            {c.blockReason ? ` — ${c.blockReason}` : null}
+          </p>
+        ) : null}
+
+        {c.duplicateSlug ? (
+          <p className="text-sm text-stone-700">
+            <Link
+              href={`/event/${c.duplicateSlug}`}
+              className="font-semibold underline-offset-4 hover:underline"
+            >
+              Bekijk bestaand event
+            </Link>
+          </p>
+        ) : null}
+
+        {c.sourceDomain ? (
+          <p className="text-xs text-stone-500">
+            Bron: {c.sourceDomain}
+            {c.sourceUrl ? (
+              <>
+                {" · "}
+                <a
+                  href={c.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium underline-offset-4 hover:underline"
+                >
+                  Bekijk bron
+                </a>
+              </>
+            ) : null}
+          </p>
+        ) : null}
+
+        <div className="mt-auto flex flex-col gap-2">
+          {bucket === "aandacht" ? (
+            <>
+              <button
+                type="button"
+                disabled={pending}
+                className="h-11 w-full rounded-full border border-stone-300 text-sm font-semibold text-stone-800 disabled:opacity-60"
+                onClick={() => onIntent(c.id, "opnieuw_controleren")}
+              >
+                Opnieuw laten controleren
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                className="h-11 w-full rounded-full border border-stone-300 text-sm font-semibold text-stone-800 disabled:opacity-60"
+                onClick={onToggleEdit}
+              >
+                Aanpassen
+              </button>
+              <button
+                type="button"
+                disabled={pending}
+                className="h-11 w-full rounded-full text-sm font-medium text-stone-500 underline-offset-4 hover:underline disabled:opacity-60"
+                onClick={() => onIntent(c.id, "niet_toegevoegd")}
+              >
+                Niet toevoegen
+              </button>
+            </>
+          ) : null}
+
+          {bucket === "toegevoegd" ? (
+            <>
+              <Link
+                href={`/event/${c.slug}`}
+                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-stone-900 text-sm font-semibold text-white"
+              >
+                Bekijk live event
+              </Link>
+              <button
+                type="button"
+                disabled={pending}
+                className="h-11 w-full rounded-full border border-stone-300 text-sm font-semibold text-stone-800 disabled:opacity-60"
+                onClick={onToggleRemove}
+              >
+                Van DateOfflineHub halen
+              </button>
+            </>
+          ) : null}
+
+          {bucket === "niet_toegevoegd" ? (
+            <p className="text-xs text-stone-500">
+              Status: {ADMIN_STATUS_LABEL[c.adminStatus]}
+            </p>
+          ) : null}
+
+          <button
+            type="button"
+            className="text-left text-xs font-medium text-stone-500 underline-offset-4 hover:underline"
+            onClick={onToggleAi}
+          >
+            {aiOpen ? "Verberg AI-details" : "Bekijk AI-details"}
+          </button>
+        </div>
+
+        {editOpen ? (
+          <div className="space-y-2 rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm">
+            <p className="text-stone-700">
+              Pas het event aan via de eventsbeheerpagina. Na opslaan wordt de
+              gate opnieuw uitgevoerd.
+            </p>
+            <Link
+              href="/interne-events"
+              className="inline-flex h-10 items-center rounded-full bg-stone-900 px-4 text-sm font-semibold text-white"
+            >
+              Open aanpassen
+            </Link>
+          </div>
+        ) : null}
+
+        {removeOpen ? (
+          <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+            <p className="text-sm font-semibold text-amber-950">Waarom?</p>
+            <div className="flex flex-col gap-1.5">
+              {REMOVE_REASONS.map((reason) => (
+                <button
+                  key={reason}
+                  type="button"
+                  disabled={pending}
+                  className="h-10 rounded-full border border-amber-300 bg-white px-3 text-left text-sm font-medium text-stone-800 disabled:opacity-60"
+                  onClick={() => onRemove(c.id, reason)}
+                >
+                  {reason}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="text-xs text-stone-500 underline-offset-4 hover:underline"
+              onClick={onToggleRemove}
+            >
+              Annuleren
+            </button>
+          </div>
+        ) : null}
+
+        {aiOpen ? (
+          <div className="space-y-1 rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs text-stone-600">
+            <p>Route: {c.eligibilityRoute ?? "onbekend"}</p>
+            <p>
+              Singles only:{" "}
+              {c.singlesOnly == null ? "?" : c.singlesOnly ? "ja" : "nee"} ·
+              Oriented:{" "}
+              {c.singlesOriented == null
+                ? "?"
+                : c.singlesOriented
+                  ? "ja"
+                  : "nee"}
+            </p>
+            <p>Oorsprong: {ORIGIN_LABEL[c.origin]}</p>
+            {c.blockReason ? <p>Reden: {c.blockReason}</p> : null}
+            {c.internalNotes ? (
+              <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-words font-sans text-[11px] text-stone-500">
+                {c.internalNotes.slice(0, 800)}
+              </pre>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </article>
   );
 }

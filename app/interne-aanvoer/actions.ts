@@ -302,10 +302,10 @@ export async function approveIntakeAction(
     published,
     reviewReasons: approval.reviewReasons,
     message: published
-      ? "Toegevoegd aan DateOfflineHub. Het event staat live."
+      ? "✓ Toegevoegd aan DateOfflineHub"
       : approval.reviewReasons.length > 0
-        ? `Bewaard onder Controle nodig. ${approval.reviewReasons[0]}`
-        : "Bewaard onder Controle nodig.",
+        ? `⚠ Jouw aandacht nodig. ${approval.reviewReasons[0]}`
+        : "⚠ Jouw aandacht nodig",
   };
 }
 
@@ -444,6 +444,16 @@ export async function updateAanvoerCandidateStatusAction(
   }
 
   if (status === "published") {
+    const { editionIsManuallySuppressed } = await import(
+      "@/lib/events/neon-store"
+    );
+    if (await editionIsManuallySuppressed(id)) {
+      return {
+        ok: false,
+        error:
+          "Dit event is handmatig weggehaald. AI mag het niet opnieuw publiceren.",
+      };
+    }
     const sql = getEventsSql();
     if (sql) {
       const rows = (await sql`
@@ -484,13 +494,33 @@ export async function updateAanvoerCandidateStatusAction(
     revalidatePath("/interne-events");
     revalidatePath("/ontdek");
     revalidatePath(`/event/${updated.slug}`);
-    return { ok: true, message: "Toegevoegd aan DateOfflineHub." };
+    return { ok: true, message: "✓ Toegevoegd aan DateOfflineHub" };
+  }
+
+  if (status === "rejected") {
+    const { removeEditionFromHub } = await import("@/lib/events/neon-store");
+    const reason =
+      String(formData.get("reason") ?? "").trim() || "Niet toevoegen";
+    const updated = await removeEditionFromHub({ id, reason });
+    if (!updated) {
+      // Fallback for already non-live drafts
+      const fallback = await updateEditionPublication({
+        id,
+        publicationStatus: "rejected",
+        rejectedAt: new Date().toISOString(),
+      });
+      if (!fallback) return { ok: false, error: "Kon status niet bijwerken." };
+    }
+    revalidatePath("/interne-aanvoer");
+    revalidatePath("/interne-events");
+    revalidatePath("/ontdek");
+    return { ok: true, message: "Niet toegevoegd." };
   }
 
   const updated = await updateEditionPublication({
     id,
     publicationStatus: status,
-    rejectedAt: status === "rejected" ? new Date().toISOString() : null,
+    rejectedAt: null,
   });
   if (!updated) return { ok: false, error: "Kon status niet bijwerken." };
   revalidatePath("/interne-aanvoer");

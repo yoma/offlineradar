@@ -663,8 +663,14 @@ export async function updateEditionPublication(input: {
 }): Promise<EventEditionRecord | null> {
   const sql = getEventsSql();
   if (!sql) return null;
-  if (input.publicationStatus === "published" && !input.publishedAt) {
-    throw new Error("published editions require publishedAt");
+  if (input.publicationStatus === "published") {
+    if (!input.publishedAt) {
+      throw new Error("published editions require publishedAt");
+    }
+    const blocked = await editionIsManuallySuppressed(input.id);
+    if (blocked) {
+      return null;
+    }
   }
   const rows = (await sql`
     UPDATE event_editions
@@ -845,6 +851,71 @@ export async function takeEditionOffline(
     RETURNING *
   `) as EditionRow[];
   return rows[0] ? mapEdition(rows[0]) : null;
+}
+
+/**
+ * Human override: remove from public hub and block AI re-publish.
+ * Sets rejected + manual_suppressed tag. Record kept for audit.
+ */
+export async function removeEditionFromHub(input: {
+  id: string;
+  reason?: string | null;
+}): Promise<EventEditionRecord | null> {
+  const sql = getEventsSql();
+  if (!sql) return null;
+  const reason = (input.reason ?? "").trim() || "Handmatig weggehaald";
+  const stamp = `Handmatig weggehaald: ${reason}\nmanual_suppressed=1\nsuppressed_at=${new Date().toISOString()}`;
+  const rows = (await sql`
+    UPDATE event_editions
+    SET
+      publication_status = 'rejected',
+      published_at = NULL,
+      rejected_at = now(),
+      tags = CASE
+        WHEN tags @> '["manual_suppressed"]'::jsonb THEN tags
+        ELSE COALESCE(tags, '[]'::jsonb) || '["manual_suppressed"]'::jsonb
+      END,
+      internal_notes = CASE
+        WHEN internal_notes IS NULL OR internal_notes = '' THEN ${stamp}
+        ELSE internal_notes || ${"\n" + stamp}
+      END,
+      updated_at = now()
+    WHERE id = ${input.id}
+      AND publication_status IN ('published', 'draft', 'under_review', 'candidate', 'approved')
+    RETURNING *
+  `) as EditionRow[];
+  return rows[0] ? mapEdition(rows[0]) : null;
+}
+
+/** True when human suppression blocks any publish path. */
+export async function editionIsManuallySuppressed(
+  id: string,
+): Promise<boolean> {
+  const sql = getEventsSql();
+  if (!sql) return false;
+  const rows = (await sql`
+    SELECT tags, internal_notes, publication_status
+    FROM event_editions WHERE id = ${id} LIMIT 1
+  `) as {
+    tags: unknown;
+    internal_notes: string | null;
+    publication_status: string;
+  }[];
+  const row = rows[0];
+  if (!row) return false;
+  if (row.publication_status === "rejected") {
+    const tags = Array.isArray(row.tags)
+      ? row.tags.filter((t): t is string => typeof t === "string")
+      : [];
+    if (tags.includes("manual_suppressed")) return true;
+    if (/manual_suppressed=1|Handmatig weggehaald/i.test(row.internal_notes ?? "")) {
+      return true;
+    }
+  }
+  const tags = Array.isArray(row.tags)
+    ? row.tags.filter((t): t is string => typeof t === "string")
+    : [];
+  return tags.includes("manual_suppressed");
 }
 
 export async function listEditionBundlesForAdmin(

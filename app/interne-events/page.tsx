@@ -61,7 +61,7 @@ function GateShell({
 
 /**
  * Minimal canonical event admin + Source Map.
- * Soft unpublish only: published → under_review.
+ * Human override: Van DateOfflineHub halen → rejected + manual_suppressed.
  */
 export default async function InterneEventsPage() {
   const db = assertOfflineRadarDbConfig();
@@ -180,7 +180,8 @@ export default async function InterneEventsPage() {
             Events
           </h1>
           <p className="mt-2 text-sm leading-6 text-stone-600">
-            Soft offline: published → under_review. Geen hard delete.
+            Van DateOfflineHub halen: direct niet publiek + AI mag niet opnieuw
+            publiceren. Geen hard delete als standaardactie.
           </p>
         </div>
         <form action={signOutEventsAdmin}>
@@ -515,13 +516,37 @@ export default async function InterneEventsPage() {
                   ) : null}
                 </div>
                 {edition.publicationStatus === "published" ? (
-                  <form action={takeEventOfflineAction}>
+                  <form action={takeEventOfflineAction} className="space-y-2">
                     <input type="hidden" name="editionId" value={edition.id} />
+                    <label className="block text-xs text-muted-foreground">
+                      Waarom weghalen? (optioneel)
+                      <select
+                        name="reason"
+                        className="mt-1 block w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                        defaultValue=""
+                      >
+                        <option value="">Kies reden…</option>
+                        <option value="Hoort hier niet thuis">
+                          Hoort hier niet thuis
+                        </option>
+                        <option value="Geen singlesevent">
+                          Geen singlesevent
+                        </option>
+                        <option value="Duplicate">Duplicate</option>
+                        <option value="Foute informatie">
+                          Foute informatie
+                        </option>
+                        <option value="Event geannuleerd">
+                          Event geannuleerd
+                        </option>
+                        <option value="Anders">Anders</option>
+                      </select>
+                    </label>
                     <button
                       type="submit"
                       className="rounded-md border border-amber-400 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950"
                     >
-                      Haal offline
+                      Van DateOfflineHub halen
                     </button>
                   </form>
                 ) : edition.publicationStatus === "draft" ||

@@ -218,13 +218,44 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
     <div className="mt-8 space-y-6">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          Tipwachtrij
+          Tips
         </h1>
         <p className="text-sm text-muted-foreground">
-          {snapshot.tips.length} melding
-          {snapshot.tips.length === 1 ? "" : "en"} · AI op jouw knop · concept-event
-          na goedkeuring · publicatie via /interne-events · geen auto-live
+          {snapshot.tips.length} tip{snapshot.tips.length === 1 ? "" : "s"} · AI
+          scant → dezelfde publicatiegate · jouw aandacht alleen bij twijfel
         </p>
+        <div className="grid grid-cols-3 gap-2 pt-1">
+          {[
+            {
+              label: "Jouw aandacht nodig",
+              n: snapshot.tips.filter((t) =>
+                ["received", "in_review", "needs_info", "duplicate"].includes(
+                  t.status,
+                ),
+              ).length,
+            },
+            {
+              label: "Toegevoegd",
+              n: snapshot.tips.filter((t) => t.status === "published").length,
+            },
+            {
+              label: "Niet toegevoegd",
+              n: snapshot.tips.filter((t) =>
+                ["rejected", "expired_or_cancelled"].includes(t.status),
+              ).length,
+            },
+          ].map((c) => (
+            <div
+              key={c.label}
+              className="rounded-xl border border-stone-200 bg-white px-3 py-2"
+            >
+              <p className="text-[10px] font-semibold tracking-wide text-stone-500 uppercase">
+                {c.label}
+              </p>
+              <p className="text-xl font-semibold text-stone-900">{c.n}</p>
+            </div>
+          ))}
+        </div>
       </header>
 
       {error ? (
@@ -518,12 +549,15 @@ function AiPrepPanel({
   checkedAt: string | null;
   prep: TipAiPrep | null;
 }) {
+  const [open, setOpen] = useState(false);
+
   if (!prep) {
     return (
       <div className="mt-4 rounded-xl border border-dashed border-border bg-muted/30 p-4 text-sm">
-        <p className="font-medium">AI-controle nog niet uitgevoerd</p>
+        <p className="font-medium">Nog geen AI-scan</p>
         <p className="mt-1 text-muted-foreground">
-          Start de controle hieronder. De AI publiceert of keurt nooit zelf goed.
+          Start AI-controle. Resultaat: Toegevoegd, aandacht nodig, of niet
+          toegevoegd.
         </p>
       </div>
     );
@@ -532,119 +566,122 @@ function AiPrepPanel({
   if (prep.scanError && !prep.routeSuggestion) {
     return (
       <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm">
-        <p className="font-medium text-destructive">AI-controle mislukt</p>
+        <p className="font-medium text-destructive">⚠ Jouw aandacht nodig</p>
         <p className="mt-1 text-muted-foreground">{prep.scanError}</p>
-        <p className="mt-2 text-xs text-muted-foreground">
-          Vorige succesvolle resultaten blijven bewaard waar aanwezig. Probeer later opnieuw.
-        </p>
       </div>
     );
   }
 
+  const humanBadge =
+    prep.routeSuggestion === "not_eligible"
+      ? "✕ Niet toegevoegd"
+      : prep.routeSuggestion === "needs_manual_review" ||
+          prep.routeSuggestion === "insufficient_evidence"
+        ? "⚠ Jouw aandacht nodig"
+        : prep.proposedTitle
+          ? "AI-voorstel klaar"
+          : "⚠ Jouw aandacht nodig";
+
   return (
-    <div className="mt-4 space-y-3 rounded-xl border border-border bg-muted/20 p-4 text-sm">
-      <section className="space-y-1">
-        <h3 className="font-medium">Bron</h3>
-        <p className="break-all text-muted-foreground">Ingestuurd: {tipUrl}</p>
-        {sourceUrlChecked ? (
-          <p className="break-all text-muted-foreground">
-            Gecontroleerd: {sourceUrlChecked}
+    <div className="mt-4 space-y-3">
+      <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-3">
+        <p className="text-sm font-bold text-stone-900">{humanBadge}</p>
+        {prep.proposedTitle ? (
+          <p className="mt-1 text-[15px] font-semibold text-stone-900">
+            {prep.proposedTitle}
           </p>
         ) : null}
-        {prep.sourceUrlsUsed.length > 0 ? (
-          <p className="break-all text-muted-foreground">
-            Gebruikte bronnen: {prep.sourceUrlsUsed.join(" · ")}
+        <p className="mt-1 text-sm text-stone-600">
+          {[prep.proposedStartDate, prep.proposedCity, prep.proposedOrganizer]
+            .filter(Boolean)
+            .join(" · ") || "Gegevens onvolledig"}
+        </p>
+        {prep.routeReason ? (
+          <p className="mt-2 text-sm font-medium text-amber-900">
+            {prep.routeReason}
           </p>
         ) : null}
-        {checkedAt || prep.preparedAt ? (
-          <p className="text-muted-foreground">
-            Gecontroleerd op{" "}
-            {new Date(checkedAt ?? prep.preparedAt).toLocaleString("nl-BE")}
-            {prep.reusedFromTipId ? " · hergebruikt resultaat" : ""}
-            {prep.modelHint ? ` · ${prep.modelHint}` : ""}
-          </p>
-        ) : null}
-      </section>
+      </div>
 
-      {prep.routeSuggestion ? (
-        <section className="space-y-1">
-          <h3 className="font-medium">AI-advies (geen goedkeuring)</h3>
-          <p className="font-semibold">{ROUTE_LABEL[prep.routeSuggestion]}</p>
-          {prep.routeReason ? (
-            <p className="text-muted-foreground">{prep.routeReason}</p>
-          ) : null}
-          {prep.confidence ? (
-            <p className="text-muted-foreground">
-              Zekerheid: {prep.confidence}
-              {prep.singlesEvidence ? ` · ${prep.singlesEvidence}` : ""}
-            </p>
-          ) : null}
-        </section>
-      ) : null}
+      <button
+        type="button"
+        className="text-xs font-medium text-stone-500 underline-offset-4 hover:underline"
+        onClick={() => setOpen((v) => !v)}
+      >
+        {open ? "Verberg AI-details" : "Bekijk AI-details"}
+      </button>
 
-      <section className="space-y-1">
-        <h3 className="font-medium">Gevonden eventgegevens</h3>
-        <ul className="grid gap-1 text-muted-foreground sm:grid-cols-2">
-          <Fact label="Titel" value={prep.proposedTitle} />
-          <Fact label="Organisator" value={prep.proposedOrganizer} />
-          <Fact label="Datum" value={prep.proposedStartDate} />
-          <Fact
-            label="Tijd"
-            value={
-              prep.proposedStartTime
-                ? `${prep.proposedStartTime}${
-                    prep.proposedEndTime ? `–${prep.proposedEndTime}` : ""
-                  }`
-                : null
-            }
-          />
-          <Fact label="Locatie" value={prep.proposedVenue} />
-          <Fact label="Gemeente" value={prep.proposedCity} />
-          <Fact
-            label="Leeftijd"
-            value={
-              prep.ageNotes
-                ? `${prep.ageNotes}${prep.ageRule ? ` (${prep.ageRule})` : ""}`
-                : null
-            }
-          />
-          <Fact label="Prijs" value={prep.proposedPriceNotes ?? prep.priceNotes} />
-          <Fact
-            label="Singles only"
-            value={
-              prep.singlesOnly === "true"
-                ? "true (deelnamevoorwaarde)"
-                : prep.singlesOnly === "false"
-                  ? "false"
-                  : prep.singlesOnly === "unknown"
-                    ? "unknown"
+      {open ? (
+        <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4 text-sm">
+          <section className="space-y-1">
+            <h3 className="font-medium">Bron</h3>
+            <p className="break-all text-muted-foreground">Ingestuurd: {tipUrl}</p>
+            {sourceUrlChecked ? (
+              <p className="break-all text-muted-foreground">
+                Gecontroleerd: {sourceUrlChecked}
+              </p>
+            ) : null}
+            {prep.sourceUrlsUsed.length > 0 ? (
+              <p className="break-all text-muted-foreground">
+                Gebruikte bronnen: {prep.sourceUrlsUsed.join(" · ")}
+              </p>
+            ) : null}
+            {checkedAt || prep.preparedAt ? (
+              <p className="text-muted-foreground">
+                Gecontroleerd op{" "}
+                {new Date(checkedAt ?? prep.preparedAt).toLocaleString("nl-BE")}
+                {prep.reusedFromTipId ? " · hergebruikt resultaat" : ""}
+                {prep.modelHint ? ` · ${prep.modelHint}` : ""}
+              </p>
+            ) : null}
+          </section>
+
+          {prep.routeSuggestion ? (
+            <section className="space-y-1">
+              <h3 className="font-medium">Route / confidence</h3>
+              <p className="font-semibold">{ROUTE_LABEL[prep.routeSuggestion]}</p>
+              {prep.confidence ? (
+                <p className="text-muted-foreground">
+                  Zekerheid: {prep.confidence}
+                  {prep.singlesEvidence ? ` · ${prep.singlesEvidence}` : ""}
+                </p>
+              ) : null}
+            </section>
+          ) : null}
+
+          <section className="space-y-1">
+            <h3 className="font-medium">Gevonden eventgegevens</h3>
+            <ul className="grid gap-1 text-muted-foreground sm:grid-cols-2">
+              <Fact label="Titel" value={prep.proposedTitle} />
+              <Fact label="Organisator" value={prep.proposedOrganizer} />
+              <Fact label="Datum" value={prep.proposedStartDate} />
+              <Fact
+                label="Tijd"
+                value={
+                  prep.proposedStartTime
+                    ? `${prep.proposedStartTime}${
+                        prep.proposedEndTime ? `–${prep.proposedEndTime}` : ""
+                      }`
                     : null
-            }
-          />
-          <Fact label="Beschikbaarheid" value={prep.availabilityNotes} />
-          <Fact label="Ticketlink" value={prep.bookingUrl} />
-        </ul>
-      </section>
+                }
+              />
+              <Fact label="Locatie" value={prep.proposedVenue} />
+              <Fact label="Gemeente" value={prep.proposedCity} />
+              <Fact label="Prijs" value={prep.proposedPriceNotes ?? prep.priceNotes} />
+            </ul>
+          </section>
 
-      {(prep.gaps.length > 0 || prep.conflicts.length > 0) && (
-        <section className="space-y-1">
-          <h3 className="font-medium">Onzekerheden</h3>
-          <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-            {[...prep.gaps, ...prep.conflicts].map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {prep.suggestSourceWatch ? (
-        <section className="space-y-1 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
-          <h3 className="font-medium">Interessante bron voor opvolging</h3>
-          <p className="text-muted-foreground">
-            {prep.suggestSourceWatchReason ||
-              "AI stelt voor deze organisator/reeks te bekijken. Niet automatisch toegevoegd."}
-          </p>
-        </section>
+          {(prep.gaps.length > 0 || prep.conflicts.length > 0) && (
+            <section className="space-y-1">
+              <h3 className="font-medium">Onzekerheden</h3>
+              <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+                {[...prep.gaps, ...prep.conflicts].map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
       ) : null}
     </div>
   );

@@ -199,6 +199,40 @@ export function AanvoerClient({
               "We konden dit event niet automatisch uitlezen.",
           );
         }
+
+        // Auto-publish when gate fully passes and no duplicate matches.
+        const autoGate = evaluateIntakeApproval(result.draft, {
+          needsSourceVerification: result.proposal.needsSourceVerification,
+          routeAdvice: result.draft.routeAdvice,
+          aiFailed: result.proposal.aiFailed,
+        });
+        const hasDup = result.matches.some(
+          (m) => m.kind === "catalog_source" || m.kind === "event_edition",
+        );
+        if (autoGate.canPublish && !hasDup && !result.proposal.aiFailed) {
+          setAnalyzeStep("Automatisch toevoegen…");
+          const formDataApprove = new FormData();
+          formDataApprove.set("draft", JSON.stringify(result.draft));
+          if (result.assetId) formDataApprove.set("assetId", result.assetId);
+          const approved = await approveIntakeAction(formDataApprove);
+          setAnalyzeStep(null);
+          if (approved.ok) {
+            setMessage(approved.message);
+            if (approved.published) {
+              onApprovedPublished?.(approved.editionId);
+            } else {
+              onSavedCandidate?.(approved.editionId);
+            }
+            if (approved.sourceId) onSavedSource?.(approved.sourceId);
+          } else {
+            setError(approved.error);
+            if (approved.matches?.length) {
+              setMatches(approved.matches);
+              setForceNeeded(true);
+            }
+          }
+        }
+
         queueMicrotask(() => {
           resultRef.current?.scrollIntoView({
             behavior: "smooth",
@@ -600,7 +634,7 @@ export function AanvoerClient({
 
           {approval && approval.reviewReasons.length > 0 ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950">
-              <p className="font-semibold">Dit event heeft nog controle nodig</p>
+              <p className="font-semibold">⚠ Jouw aandacht nodig</p>
               <ul className="mt-2 list-disc space-y-1 pl-4 text-xs">
                 {approval.reviewReasons.map((reason) => (
                   <li key={reason}>{reason}</li>
@@ -705,8 +739,7 @@ export function AanvoerClient({
                     {pending ? "Bezig…" : "Toevoegen aan DateOfflineHub"}
                   </span>
                   <span className="mt-1 block text-xs text-white/75">
-                    Jouw akkoord publiceert het event. AI publiceert nooit
-                    zelfstandig.
+                    Gate geslaagd — wordt live gezet.
                   </span>
                 </button>
               ) : (
@@ -717,11 +750,11 @@ export function AanvoerClient({
                   className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3.5 text-left transition hover:border-amber-500 disabled:opacity-60"
                 >
                   <span className="block text-sm font-semibold text-amber-950">
-                    {pending ? "Bezig…" : "Bewaar — controle nodig"}
+                    {pending ? "Bezig…" : "Bewaar — jouw aandacht nodig"}
                   </span>
                   <span className="mt-1 block text-xs text-amber-900/80">
                     {approval?.reviewReasons[0] ??
-                      "Er ontbreekt nog iets om live te zetten."}
+                      "Er ontbreekt nog iets essentieels."}
                   </span>
                 </button>
               )}

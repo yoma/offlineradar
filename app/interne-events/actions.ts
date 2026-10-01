@@ -5,7 +5,6 @@ import { signIn, signOut } from "@/auth";
 import { resolveTipsAdminAccess } from "@/lib/tips/admin-auth";
 import {
   getEditionById,
-  takeEditionOffline,
   updateEditionPublication,
 } from "@/lib/events/neon-store";
 import {
@@ -36,11 +35,14 @@ export async function takeEventOfflineAction(formData: FormData) {
   }
   const id = String(formData.get("editionId") ?? "").trim();
   if (!id) throw new Error("editionId ontbreekt");
-  const updated = await takeEditionOffline(id);
+  const reason = String(formData.get("reason") ?? "").trim() || null;
+  const { removeEditionFromHub } = await import("@/lib/events/neon-store");
+  const updated = await removeEditionFromHub({ id, reason });
   if (!updated) {
-    throw new Error("Kon event niet offline halen (niet published of niet gevonden).");
+    throw new Error("Kon event niet van DateOfflineHub halen.");
   }
   revalidatePath("/interne-events");
+  revalidatePath("/interne-aanvoer");
   revalidatePath("/ontdek");
   revalidatePath(`/event/${updated.slug}`);
 }
@@ -51,6 +53,12 @@ export async function publishEventAction(formData: FormData) {
   if (!access.ok) throw new Error("Niet geautoriseerd");
   const id = String(formData.get("editionId") ?? "").trim();
   if (!id) throw new Error("editionId ontbreekt");
+  const { editionIsManuallySuppressed } = await import("@/lib/events/neon-store");
+  if (await editionIsManuallySuppressed(id)) {
+    throw new Error(
+      "Dit event is handmatig weggehaald. AI mag het niet opnieuw publiceren.",
+    );
+  }
   const bundle = await getEditionById(id);
   if (!bundle) throw new Error("Event niet gevonden");
   const status = bundle.edition.publicationStatus;

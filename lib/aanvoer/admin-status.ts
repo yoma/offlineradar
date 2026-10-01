@@ -1,13 +1,21 @@
 /**
  * Admin-facing queue status for /interne-aanvoer.
- * Backend publication_status stays as-is; this layer never shows draft/candidate/etc.
+ * Backend publication_status stays as-is; UI never shows draft/candidate/etc.
+ *
+ * FASE 26.15: three human statuses only.
+ * Ready-to-publish items are auto-published (no "Klaar" queue).
  */
 
 export type AdminQueueStatus =
-  | "klaar_om_toe_te_voegen"
-  | "controle_nodig"
+  | "aandacht_nodig"
   | "toegevoegd"
   | "niet_toegevoegd";
+
+/** @deprecated Keep for migrate/verify scripts that still mention the old label. */
+export type LegacyAdminQueueStatus =
+  | AdminQueueStatus
+  | "klaar_om_toe_te_voegen"
+  | "controle_nodig";
 
 export type AdminStatusInput = {
   publicationStatus: string;
@@ -26,11 +34,13 @@ export type AdminStatusInput = {
 
 export type AdminStatusResult = {
   status: AdminQueueStatus;
-  /** One concrete Dutch reason when status is controle_nodig. */
+  /** One concrete Dutch reason when status is aandacht_nodig / niet. */
   reason: string | null;
   /** Display date; null when unknown/placeholder (never show 2099). */
   displayDate: string | null;
   dateUnknown: boolean;
+  /** True when gate would allow auto-publish (caller may publish). */
+  readyToPublish: boolean;
   checks: {
     singles: boolean;
     date: boolean;
@@ -41,6 +51,8 @@ export type AdminStatusResult = {
 
 /** Sentinel used when starts_at is NOT NULL but date is unknown. */
 export const PLACEHOLDER_STARTS_AT = "2099-12-31T12:00:00+01:00";
+
+export const MANUAL_SUPPRESSED_TAG = "manual_suppressed";
 
 export function isPlaceholderStartsAt(value: string | null | undefined): boolean {
   if (!value) return true;
@@ -69,6 +81,14 @@ function hasDateUnknownMarker(
   return /date_unknown|Startdatum onbekend|datum onbekend/i.test(n);
 }
 
+export function isManuallySuppressed(
+  tags?: string[] | null,
+  notes?: string | null,
+): boolean {
+  if (tags?.includes(MANUAL_SUPPRESSED_TAG)) return true;
+  return /manual_suppressed=1|Handmatig weggehaald/i.test(notes ?? "");
+}
+
 function singlesConfirmed(input: AdminStatusInput): boolean {
   if (input.singlesOnly === true || input.singlesOriented === true) return true;
   return (
@@ -82,7 +102,7 @@ function hasDateConflict(notes: string): boolean {
 
 /**
  * Classify one edition for the admin queue.
- * Never auto-publishes; "toegevoegd" only when already published.
+ * Never returns a "klaar" bucket: ready items set readyToPublish instead.
  */
 export function classifyAdminStatus(input: AdminStatusInput): AdminStatusResult {
   const notes = input.internalNotes ?? "";
@@ -109,83 +129,103 @@ export function classifyAdminStatus(input: AdminStatusInput): AdminStatusResult 
       reason: null,
       displayDate,
       dateUnknown,
+      readyToPublish: false,
       checks: { singles: true, date: true, location: true, source: true },
     };
   }
 
-  if (input.publicationStatus === "rejected") {
+  if (
+    input.publicationStatus === "rejected" ||
+    isManuallySuppressed(tags, notes)
+  ) {
     return {
       status: "niet_toegevoegd",
-      reason: "Bewust niet toegevoegd",
+      reason: isManuallySuppressed(tags, notes)
+        ? "Handmatig weggehaald"
+        : "Bewust niet toegevoegd",
       displayDate,
       dateUnknown,
+      readyToPublish: false,
       checks,
     };
   }
 
-  // Remaining: draft / under_review / candidate / approved → queue
+  // Remaining: draft / under_review / candidate / approved → attention or auto-ready
   if (input.publishedDuplicateSlug) {
     return {
-      status: "controle_nodig",
-      reason: "Dit event lijkt al in DateOfflineHub te staan.",
+      status: "aandacht_nodig",
+      reason: "Mogelijk al aanwezig",
       displayDate,
       dateUnknown,
+      readyToPublish: false,
       checks,
     };
   }
 
   if (dateUnknown || hasDateConflict(notes)) {
     return {
-      status: "controle_nodig",
+      status: "aandacht_nodig",
       reason: "Datum kon niet worden bevestigd",
       displayDate: null,
       dateUnknown: true,
+      readyToPublish: false,
       checks: { ...checks, date: false },
     };
   }
 
   if (!hasSource) {
     return {
-      status: "controle_nodig",
-      reason: "Bron ontbreekt",
+      status: "aandacht_nodig",
+      reason: "Bron kon niet betrouwbaar worden geverifieerd",
       displayDate,
       dateUnknown: false,
+      readyToPublish: false,
       checks,
     };
   }
 
   if (!singles) {
     return {
-      status: "controle_nodig",
-      reason: "We konden niet bevestigen dat dit singlesgericht is",
+      status: "aandacht_nodig",
+      reason: "Niet duidelijk of dit echt een singlesevent is",
       displayDate,
       dateUnknown: false,
+      readyToPublish: false,
       checks,
     };
   }
 
-  if (/Bronverificatie nodig/i.test(notes) && !hasSource) {
+  if (!location) {
     return {
-      status: "controle_nodig",
-      reason: "Bron ontbreekt",
+      status: "aandacht_nodig",
+      reason: "Locatie kon niet worden bevestigd",
       displayDate,
       dateUnknown: false,
+      readyToPublish: false,
       checks,
     };
   }
 
+  // Gate fully passed: ready for automatic publish (not a human queue).
   return {
-    status: "klaar_om_toe_te_voegen",
+    status: "aandacht_nodig",
     reason: null,
     displayDate,
     dateUnknown: false,
+    readyToPublish: true,
     checks,
   };
 }
 
 export const ADMIN_STATUS_LABEL: Record<AdminQueueStatus, string> = {
-  klaar_om_toe_te_voegen: "Klaar om toe te voegen",
-  controle_nodig: "Controle nodig",
+  aandacht_nodig: "Jouw aandacht nodig",
   toegevoegd: "Toegevoegd",
   niet_toegevoegd: "Niet toegevoegd",
 };
+
+/** Backward-compat aliases used by older verify scripts. */
+export const ADMIN_STATUS_LABEL_LEGACY = {
+  ...ADMIN_STATUS_LABEL,
+  klaar_om_toe_te_voegen: "Klaar om toe te voegen",
+  controle_nodig: "Controle nodig",
+} as const;
