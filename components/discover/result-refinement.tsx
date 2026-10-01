@@ -6,6 +6,7 @@ import {
   FOLLOWED_ORGANIZERS_FILTER,
   REFINE_DATE_LABEL,
   REFINE_SORT_LABEL,
+  organizerSlugsFromParam,
   refinementFiltersActive,
   refinementIsActive,
   type OrganizerFilterOption,
@@ -53,6 +54,23 @@ export function ResultRefinementBar({
   const active = refinementIsActive(refinement);
   const organizerActive = Boolean(refinement.organizer.trim());
   const noOrganizerHits = organizerActive && refinedCount === 0;
+  const selectedSlugs = organizerSlugsFromParam(refinement.organizer);
+  const followedSelected =
+    refinement.organizer === FOLLOWED_ORGANIZERS_FILTER;
+  const multiOrganizer = selectedSlugs.length > 1;
+  const selectValue = multiOrganizer
+    ? ""
+    : followedSelected
+      ? FOLLOWED_ORGANIZERS_FILTER
+      : selectedSlugs[0] ?? "";
+  const nameBySlug = new Map(
+    organizerOptions.map((org) => [org.slug, org.name] as const),
+  );
+
+  function removeOrganizerSlug(slug: string) {
+    const next = selectedSlugs.filter((item) => item !== slug).join(",");
+    onChange({ ...refinement, organizer: next });
+  }
 
   return (
     <section
@@ -65,7 +83,8 @@ export function ResultRefinementBar({
             Verfijn resultaten
           </h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Zoek op event of organisator, of filter op één organisator.
+            Zoek op event of organisator. Gekozen organisatoren wis je via de
+            pillen.
           </p>
         </div>
         {active ? (
@@ -125,20 +144,14 @@ export function ResultRefinementBar({
         <label className="min-w-0">
           <span className="sr-only">Organisator</span>
           <select
-            value={
-              refinement.organizer.includes(",") ? "" : refinement.organizer
-            }
+            value={selectValue}
             onChange={(event) =>
               onChange({ ...refinement, organizer: event.target.value })
             }
             className={selectClassName}
             aria-label="Organisator"
           >
-            <option value="">
-              {refinement.organizer.includes(",")
-                ? "Meerdere organisatoren (homepage)"
-                : "Alle organisatoren"}
-            </option>
+            <option value="">Alle organisatoren</option>
             {isLoggedIn ? (
               <option value={FOLLOWED_ORGANIZERS_FILTER}>
                 Organisatoren die ik volg
@@ -178,6 +191,43 @@ export function ResultRefinementBar({
           </select>
         </label>
       </div>
+
+      {selectedSlugs.length > 0 || followedSelected ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {followedSelected ? (
+            <button
+              type="button"
+              onClick={() => onChange({ ...refinement, organizer: "" })}
+              className="inline-flex items-center gap-1.5 rounded-full border border-foreground/25 bg-secondary/40 px-3 py-1.5 text-sm font-medium hover:border-foreground"
+              aria-label="Organisatoren die ik volg verwijderen"
+            >
+              Organisatoren die ik volg
+              <X className="size-3.5" aria-hidden />
+            </button>
+          ) : null}
+          {selectedSlugs.map((slug) => (
+            <button
+              key={slug}
+              type="button"
+              onClick={() => removeOrganizerSlug(slug)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-foreground/25 bg-secondary/40 px-3 py-1.5 text-sm font-medium hover:border-foreground"
+              aria-label={`${nameBySlug.get(slug) ?? slug} verwijderen`}
+            >
+              {nameBySlug.get(slug) ?? slug}
+              <X className="size-3.5" aria-hidden />
+            </button>
+          ))}
+          {onClearOrganizer ? (
+            <button
+              type="button"
+              onClick={onClearOrganizer}
+              className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              Wis organisatoren
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {!isLoggedIn && refinement.organizer === FOLLOWED_ORGANIZERS_FILTER ? (
         <p className="mt-2 text-sm text-muted-foreground">

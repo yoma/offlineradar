@@ -320,7 +320,7 @@ export const NEUTRAL_FALLBACK_DATA_URI =
       </defs>
       <rect width="1200" height="900" fill="url(#g)"/>
       <circle cx="920" cy="180" r="120" fill="#e61e4d" fill-opacity="0.35"/>
-      <text x="72" y="780" fill="#f8fafc" font-family="system-ui,sans-serif" font-size="42" font-weight="600">OfflineRadar</text>
+      <text x="72" y="780" fill="#f8fafc" font-family="system-ui,sans-serif" font-size="42" font-weight="600">DateOfflineHub</text>
       <text x="72" y="830" fill="#cbd5e1" font-family="system-ui,sans-serif" font-size="28">Sfeerbeeld niet beschikbaar</text>
     </svg>`,
   );

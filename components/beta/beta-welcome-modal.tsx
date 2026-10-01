@@ -148,7 +148,7 @@ export function BetaWelcomeModal() {
                   className="mx-auto mt-3 max-w-[22rem] space-y-3 text-sm leading-6 text-muted-foreground"
                 >
                   <p>
-                    Fijn dat je erbij bent. OfflineRadar helpt je offline
+                    Fijn dat je erbij bent. DateOfflineHub helpt je offline
                     singlesactiviteiten te vinden.
                   </p>
                   <p>

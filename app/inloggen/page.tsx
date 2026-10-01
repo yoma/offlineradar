@@ -33,7 +33,7 @@ export default async function LoginPage({
     <div className="mx-auto w-full max-w-md px-4 py-12 sm:px-6">
       <h1 className="text-2xl font-semibold tracking-tight">Inloggen</h1>
       <p className="mt-3 text-sm leading-6 text-muted-foreground">
-        Optioneel. Zonder account kun je OfflineRadar volledig gebruiken. Met
+        Optioneel. Zonder account kun je DateOfflineHub volledig gebruiken. Met
         een account onthouden we je voorkeuren en bewaarde activiteiten op al
         je toestellen.
       </p>
@@ -44,7 +44,7 @@ export default async function LoginPage({
           role="alert"
         >
           {error === "AccessDenied"
-            ? "Inloggen geannuleerd of geweigerd. Je kunt OfflineRadar zonder account blijven gebruiken."
+            ? "Inloggen geannuleerd of geweigerd. Je kunt DateOfflineHub zonder account blijven gebruiken."
             : error === "Configuration"
               ? "Inloggen is tijdelijk niet beschikbaar."
               : "Er ging iets mis bij het inloggen. Probeer het opnieuw of ga verder zonder account."}

@@ -15,9 +15,9 @@ import type {
   TipRouteSuggestion,
 } from "@/types/tips";
 
-const SYSTEM_PROMPT = `Je bent een assistent voor OfflineRadar die tipbronnen analyseert.
+const SYSTEM_PROMPT = `Je bent een assistent voor DateOfflineHub die tipbronnen analyseert.
 
-OfflineRadar helpt singles andere singles offline te ontmoeten. Het is GEEN
+DateOfflineHub helpt singles andere singles offline te ontmoeten. Het is GEEN
 algemene evenementenkalender.
 
 Route A: concrete activiteit is aantoonbaar singlesgericht
@@ -215,7 +215,7 @@ export async function runTipClaudeScreening(input: {
 
   const client = new Anthropic({ apiKey });
   const userMessage = [
-    "Analyseer deze tipbron voor OfflineRadar.",
+    "Analyseer deze tipbron voor DateOfflineHub.",
     `Tip-URL: ${input.tipUrl}`,
     `Gebruikte bron-URL: ${input.sourceUrl}`,
     input.submitterNote

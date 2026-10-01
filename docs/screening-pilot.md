@@ -2,12 +2,12 @@
 
 Small, isolated pilot to test whether we can find, normalize and screen real
 activities so **only singles-oriented offline meeting opportunities** would
-appear on OfflineRadar. This pilot proves selection quality; it does not build
+appear on DateOfflineHub. This pilot proves selection quality; it does not build
 import infrastructure, a database, or a publication pipeline.
 
 ## Product definition (restored)
 
-OfflineRadar helps **singles** discover offline activities and organised moments
+DateOfflineHub helps **singles** discover offline activities and organised moments
 to meet **other singles**. It is not a general event calendar, not a friendship
 directory, and not a swipe/chat dating app.
 
@@ -16,7 +16,7 @@ Concept admission requires **Route A** or **Route B**:
 - **Route A** — Source shows a concrete activity specifically for singles meeting
   singles (speeddate, singles dinner/party, singles walk/run, singles workshop).
 - **Route B** — An ordinary place/activity has a real, confirmed, organised
-  singles meeting formula (e.g. a valid OfflineRadar Meet). A badge, “singles
+  singles meeting formula (e.g. a valid DateOfflineHub Meet). A badge, “singles
   friendly” claim, or unconfirmed Meet is never enough.
 
 A generally social activity (cooking together, run club, board games, language
@@ -95,7 +95,7 @@ permission to publish.
 
 Product rules enforced (see `docs/domain-model.md`):
 
-- OfflineRadar is for singles meeting singles (Route A or B), not a general
+- DateOfflineHub is for singles meeting singles (Route A or B), not a general
   social calendar.
 - PAYMENT DOES NOT CREATE ELIGIBILITY.
 - Solo attendance / open group / chatting is not the same as a singles formula.
@@ -148,7 +148,7 @@ npm run review:build       # refresh review overview (no API calls)
 
 ## AI content layer (Claude) — isolated dev pilot
 
-An optional Claude layer judges ONE dimension only: concept fit for OfflineRadar
+An optional Claude layer judges ONE dimension only: concept fit for DateOfflineHub
 (Route A/B singles focus). It never decides publication readiness and never
 overrides the deterministic hard controls (date, region, source, occurrence,
 eligibility, Meet, listing gate).

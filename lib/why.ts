@@ -60,7 +60,7 @@ export function whyThisFits(
 
   if (event.meetActivation?.status === "active") {
     reasons.push(
-      "De organisator voorziet een OfflineRadar Meet-opzet om openstaande bezoekers te helpen elkaar te vinden",
+      "De organisator voorziet een DateOfflineHub Meet-opzet om openstaande bezoekers te helpen elkaar te vinden",
     );
   }
 

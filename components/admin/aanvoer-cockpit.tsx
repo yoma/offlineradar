@@ -697,7 +697,7 @@ function EventsPanel({
 
                   {c.duplicateSlug ? (
                     <p className="text-sm text-stone-700">
-                      Dit event lijkt al in OfflineRadar te staan.{" "}
+                      Dit event lijkt al in DateOfflineHub te staan.{" "}
                       <Link
                         href={`/event/${c.duplicateSlug}`}
                         className="font-semibold underline-offset-4 hover:underline"
@@ -746,7 +746,7 @@ function EventsPanel({
                           className="h-10 rounded-full bg-stone-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
                           onClick={() => runIntent(c.id, "toevoegen")}
                         >
-                          Toevoegen aan OfflineRadar
+                          Toevoegen aan DateOfflineHub
                         </button>
                         <button
                           type="button"

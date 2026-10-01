@@ -32,8 +32,8 @@ function main() {
   );
   mustInclude(
     "components/discover/upcoming-strip.tsx",
-    "overflow-x-auto",
-    "upcoming horizontal scroll only",
+    "overflow-hidden",
+    "upcoming marquee clips without page scroll",
   );
   mustInclude(
     "components/discover/upcoming-strip.tsx",

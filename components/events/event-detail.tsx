@@ -235,13 +235,13 @@ export function EventDetail({
           {isActiveMeetActivation(event.meetActivation) && event.meetActivation ? (
             <section className="space-y-2 rounded-2xl border border-border bg-secondary/40 px-5 py-4">
               <h2 className="text-lg font-semibold tracking-tight">
-                OfflineRadar Meet
+                DateOfflineHub Meet
               </h2>
               <p className="text-sm leading-6 text-muted-foreground">
                 De organisator heeft maatregelen voorzien zodat bezoekers die
                 openstaan voor nieuwe contacten elkaar makkelijker kunnen vinden.
                 Dat betekent niet dat iedereen single is, dat iedereen wil daten,
-                of dat OfflineRadar een match garandeert.
+                of dat DateOfflineHub een match garandeert.
               </p>
               {event.meetActivation.meetMoment ? (
                 <p className="text-sm leading-6">
@@ -348,7 +348,7 @@ export function EventDetail({
                 <Meta label="Singles Friendly" value="Ja" />
               ) : null}
               {isActiveMeetActivation(event.meetActivation) ? (
-                <Meta label="OfflineRadar Meet" value="Actief" />
+                <Meta label="DateOfflineHub Meet" value="Actief" />
               ) : null}
               <Meta
                 label="Deadline"

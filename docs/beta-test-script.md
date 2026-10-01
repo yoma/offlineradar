@@ -1,4 +1,4 @@
-# OfflineRadar — beta testscript
+# DateOfflineHub — beta testscript
 
 Korte opdrachten voor 10–20 testers. Geen speciale kennis nodig. Test bij voorkeur op je telefoon én desktop.
 
@@ -12,7 +12,7 @@ Geschatte tijd: 20–30 minuten.
 
 ## Opdrachten
 
-1. **Open** [https://offlineradar.vercel.app](https://offlineradar.vercel.app)  
+1. **Open** [https://dateofflinehub.vercel.app](https://dateofflinehub.vercel.app)  
    Noteer in één zin: begrijp je meteen waarvoor de site is?
 
 2. **Zoek** een activiteit die je de komende maand zou overwegen.  
@@ -39,7 +39,7 @@ Geschatte tijd: 20–30 minuten.
 9. **Tip of meld** iets kleins (tip-link of “Geen singlesevent?”) als je dat wilt testen.  
    Verplicht niets te melden over echte mensen.
 
-10. **Geef productfeedback** via [Feedback geven](https://offlineradar.vercel.app/feedback) of beantwoord de vragenlijst.
+10. **Geef productfeedback** via [Feedback geven](https://dateofflinehub.vercel.app/feedback) of beantwoord de vragenlijst.
 
 ## Wat je niet hoeft te testen
 

@@ -115,7 +115,7 @@ export type Event = {
   knownAudienceGenders: ParticipantGender[] | null;
   /**
    * Explicit singles-only event (participation policy from source).
-   * Not the same as singlesFriendly or OfflineRadar Meet.
+   * Not the same as singlesFriendly or DateOfflineHub Meet.
    */
   singlesOnly: boolean | null;
   /**
@@ -127,12 +127,12 @@ export type Event = {
   singlesOriented?: boolean;
   /**
    * Lighter label: solo/singles visitors are welcome.
-   * Never a bypass for OfflineRadar listing eligibility.
+   * Never a bypass for DateOfflineHub listing eligibility.
    * PAYMENT DOES NOT CREATE ELIGIBILITY.
    */
   singlesFriendly: boolean;
   /**
-   * Why this event is on OfflineRadar (content path, never payment).
+   * Why this event is on DateOfflineHub (content path, never payment).
    * organic = Route A singles-oriented activity (intended)
    * meet_activation = becomes listable via an active Meet commitment (Route B)
    */
@@ -143,7 +143,7 @@ export type Event = {
    */
   internalPreviewWarnings?: string[];
   /**
-   * OfflineRadar Meet commitment for this event, if any.
+   * DateOfflineHub Meet commitment for this event, if any.
    * Null for organic listings without a Meet layer.
    */
   meetActivation: EventMeetActivation | null;

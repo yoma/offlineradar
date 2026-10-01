@@ -80,11 +80,11 @@ async function main() {
     tipId: "t1",
     status: "published",
     email: "a@b.co",
-    publishedAbsoluteUrl: "https://offlineradar.example/event/x",
+    publishedAbsoluteUrl: "https://dateofflinehub.example/event/x",
   });
   assert.ok(draft);
-  assert.match(draft!.body, /staat nu op OfflineRadar/i);
-  assert.match(draft!.body, /https:\/\/offlineradar\.example\/event\/x/);
+  assert.match(draft!.body, /staat nu op DateOfflineHub/i);
+  assert.match(draft!.body, /https:\/\/dateofflinehub.example\/event\/x/);
   ok("published email includes link only when provided");
 
   const rejected = buildTipStatusEmail({
@@ -94,7 +94,7 @@ async function main() {
     reason: "Niet singlesgericht.",
   });
   assert.ok(rejected);
-  assert.match(rejected!.body, /niet op in OfflineRadar/i);
+  assert.match(rejected!.body, /niet op in DateOfflineHub/i);
   assert.match(rejected!.body, /Niet singlesgericht/);
   ok("rejected email includes reason");
 

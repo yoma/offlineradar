@@ -132,7 +132,7 @@ export default async function InterneAanvoerPage({
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
           Screenshot of link aanleveren. AI analyseert. Jij geeft finaal akkoord
-          via Toevoegen aan OfflineRadar. Geen auto-publicatie.
+          via Toevoegen aan DateOfflineHub. Geen auto-publicatie.
         </p>
       </header>
       <Suspense fallback={<p className="text-sm text-stone-500">Laden…</p>}>

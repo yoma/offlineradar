@@ -67,7 +67,7 @@ export async function safeFetchTipSource(rawUrl: string): Promise<SafeFetchResul
         signal: controller.signal,
         headers: {
           Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5",
-          "User-Agent": "OfflineRadarTipReview/1.0 (+https://offlineradar.vercel.app)",
+          "User-Agent": "DateOfflineHubTipReview/1.0 (+https://dateofflinehub.vercel.app)",
         },
       });
 

@@ -4,17 +4,17 @@
  * Pipeline: RawCandidate -> NormalizedCandidate -> Screening -> Decision.
  *
  * The screening explicitly separates three questions:
- *   A. Concept suitability   - does this kind of activity fit OfflineRadar?
+ *   A. Concept suitability   - does this kind of activity fit DateOfflineHub?
  *   B. Concrete occurrence    - is there a confirmed, dated future moment?
  *   C. Personal eligibility   - constraints (age / group) for a specific user.
  *
  * Hard rules (see docs/screening-pilot.md and docs/domain-model.md):
- * - OfflineRadar is for singles meeting singles (Route A or B), not a general social calendar.
+ * - DateOfflineHub is for singles meeting singles (Route A or B), not a general social calendar.
  * - PAYMENT DOES NOT CREATE ELIGIBILITY.
  * - Unknown facts stay unknown; never invented (no favourable defaults).
  * - A recurring concept is not proof of a confirmed next occurrence.
  * - Being outside the pilot window is not the same as being unsuitable.
- * - Source facts are kept separate from OfflineRadar's interpretation.
+ * - Source facts are kept separate from DateOfflineHub's interpretation.
  *
  * This module does not touch the production feed, mock data, or app routes.
  */
@@ -90,7 +90,7 @@ export type RawCandidate = {
   restrictedAudience?: string | null;
   /**
    * Neutral, source-derived factual description used as AI input. Must contain
-   * only facts from the source (no OfflineRadar conclusions like "suitable" or
+   * only facts from the source (no DateOfflineHub conclusions like "suitable" or
    * "social suitability high"). When absent, there is not enough neutral source
    * information to send to the AI layer.
    */

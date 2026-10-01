@@ -13,9 +13,9 @@ import {
   type IntakeSourceKindHint,
 } from "@/lib/aanvoer/types";
 
-const SYSTEM_PROMPT = `Je bent een assistent voor OfflineRadar Admin Quick Intake.
+const SYSTEM_PROMPT = `Je bent een assistent voor DateOfflineHub Admin Quick Intake.
 
-OfflineRadar helpt singles andere singles offline te ontmoeten.
+DateOfflineHub helpt singles andere singles offline te ontmoeten.
 Het is GEEN algemene evenementenkalender.
 
 Route A: concrete singlesgerichte offline activiteit.
@@ -248,7 +248,7 @@ export async function runAdminIntakeExtract(input: {
 
   const client = new Anthropic({ apiKey });
   const textParts = [
-    "Analyseer deze admin-intake voor OfflineRadar.",
+    "Analyseer deze admin-intake voor DateOfflineHub.",
     `Modus: ${input.mode}`,
     input.url ? `URL: ${input.url}` : "URL: geen",
     "",

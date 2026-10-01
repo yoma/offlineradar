@@ -338,7 +338,7 @@ export function buildMockEvents(now = new Date()): Event[] {
       slug: "wijnproeverij-singles",
       shortDescription: "Proeverij in kleine groep. Leeftijd staat niet in de bron.",
       description:
-        "Zes wijnen, een korte uitleg en daarna tijd om bij te praten. De organisator vermeldt geen leeftijdsgrenzen. OfflineRadar vult die niet zelf in.",
+        "Zes wijnen, een korte uitleg en daarna tijd om bij te praten. De organisator vermeldt geen leeftijdsgrenzen. DateOfflineHub vult die niet zelf in.",
       category: "dating",
       subCategory: "Proeverij",
       organizerName: "Atelier Lumen",
@@ -1008,12 +1008,12 @@ export function buildMockEvents(now = new Date()): Event[] {
       practical: ["Ongeveer 18 km per dag", "Overnachting in een gedeelde kamer", "Bagagevervoer inbegrepen"],
     },
     {
-      title: "Afterwork op het dak · OfflineRadar Meet",
+      title: "Afterwork op het dak · DateOfflineHub Meet",
       slug: "afterwork-dak-meet",
       shortDescription:
         "Dakterras-afterwork met een echte Meet-opzet: host, welkomsmoment en opt-in herkenning.",
       description:
-        "Dit is een gewone afterwork die via OfflineRadar Meet een sociale laag krijgt. Er is een host, een kort welkomsmoment om 18:30, en wie wil kan een discreet polsbandje dragen om andere Meet-deelnemers te herkennen. Niemand is verplicht zichtbaar als single. Dit is geen datinggarantie.",
+        "Dit is een gewone afterwork die via DateOfflineHub Meet een sociale laag krijgt. Er is een host, een kort welkomsmoment om 18:30, en wie wil kan een discreet polsbandje dragen om andere Meet-deelnemers te herkennen. Niemand is verplicht zichtbaar als single. Dit is geen datinggarantie.",
       category: "meet_new_people",
       subCategory: "Afterwork Meet",
       organizerName: "Dakterras Zuid",
@@ -1061,7 +1061,7 @@ export function buildMockEvents(now = new Date()): Event[] {
       checkedHoursAgo: 5,
       addedDaysAgo: 1,
       activities: ["drinken"],
-      tags: ["Afterwork", "OfflineRadar Meet"],
+      tags: ["Afterwork", "DateOfflineHub Meet"],
       practical: [
         "Host aanwezig vanaf 18:00",
         "Meet-tafel naast de bar",
@@ -1100,7 +1100,7 @@ export function buildMockEvents(now = new Date()): Event[] {
 
   return drafts.map((draft, index) => {
     const distanceKm = distanceKmBetween(GEO.antwerpen, draft.geo);
-    const officialUrl = `https://example.com/offlineradar/${draft.slug}`;
+    const officialUrl = `https://example.com/dateofflinehub/${draft.slug}`;
     const eligibility = buildEligibility(draft);
     const displayBand =
       eligibility.default ??

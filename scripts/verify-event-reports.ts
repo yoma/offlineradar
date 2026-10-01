@@ -23,7 +23,7 @@ function ok(msg: string) {
 }
 
 function fakeRequest(ip = "203.0.113.77"): Request {
-  return new Request("https://offlineradar.vercel.app/api/events/x/report", {
+  return new Request("https://dateofflinehub.vercel.app/api/events/x/report", {
     method: "POST",
     headers: {
       "x-forwarded-for": ip,

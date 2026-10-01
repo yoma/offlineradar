@@ -18,7 +18,7 @@ function profileEmailVerified(profile: GoogleProfile | undefined): boolean {
 }
 
 /**
- * Auth.js (next-auth v5) — Google OAuth for OfflineRadar.
+ * Auth.js (next-auth v5) — Google OAuth for DateOfflineHub.
  *
  * - Public users: optional account (preferences + saved events).
  * - Admin: still gated by OFFLINERADAR_ADMIN_EMAILS (never from this JWT alone).

@@ -10,7 +10,7 @@ import type {
  * Claude content-screening layer (isolated).
  *
  * Claude judges ONE dimension only: whether the activity FORMAT is conceptually
- * suitable for OfflineRadar (singles meeting other singles via Route A or B).
+ * suitable for DateOfflineHub (singles meeting other singles via Route A or B).
  * It never decides publication readiness and never overrides the deterministic
  * hard controls (date, region, source, occurrence, eligibility, Meet, listing).
  *
@@ -96,9 +96,9 @@ export function buildNeutralInput(
   };
 }
 
-const SYSTEM_PROMPT = `Je bent een inhoudelijke beoordelaar voor OfflineRadar.
+const SYSTEM_PROMPT = `Je bent een inhoudelijke beoordelaar voor DateOfflineHub.
 
-OfflineRadar helpt singles om andere singles offline te ontmoeten. Het is GEEN
+DateOfflineHub helpt singles om andere singles offline te ontmoeten. Het is GEEN
 algemene evenementenkalender en GEEN site voor gewone vriendschap of sociale
 activiteiten.
 
@@ -109,7 +109,7 @@ Beoordeel UITSLUITEND of het FORMAT conceptueel past via Route A of Route B:
   (bijv. speeddate, singles dinner, singles party, singles-wandeling).
 - Route B: een gewone activiteit/locatie heeft een aantoonbare, concrete,
   daadwerkelijk georganiseerde singlesgerichte ontmoetingsformule (bijv. een
-  geldige OfflineRadar Meet). Een badge, marketingzin of onbevestigde Meet-claim
+  geldige DateOfflineHub Meet). Een badge, marketingzin of onbevestigde Meet-claim
   is NIET genoeg.
 
 Je beslist NIET over: datum, regio, bronbetrouwbaarheid, of het event doorgaat,
@@ -135,7 +135,7 @@ Regels:
   singlesgerichte formule → social (low) of reject, nooit dating/meet_new_people.
 - Singlesgericht ≠ singles-only: niet iedereen op de hele locatie hoeft single te
   zijn, zolang de singlesgerichte formule aantoonbaar is.
-- Verzin NOOIT een OfflineRadar Meet uit algemene marketingtaal.
+- Verzin NOOIT een DateOfflineHub Meet uit algemene marketingtaal.
 - Onderbouw met bronfeiten. Bij twijfel: needsManualReview true; kies social/low
   of reject, niet dating/meet_new_people.
 

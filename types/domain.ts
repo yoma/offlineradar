@@ -1,17 +1,17 @@
 /**
  * Future business / Meet domain types.
  *
- * These exist so OfflineRadar can later grow Organizer ownership, Meet
+ * These exist so DateOfflineHub can later grow Organizer ownership, Meet
  * commitments, trust and promotions without rebuilding Event.
  *
  * Hard product rules (also in docs/domain-model.md):
- * - OfflineRadar is not a general event calendar.
+ * - DateOfflineHub is not a general event calendar.
  * - PAYMENT DOES NOT CREATE ELIGIBILITY.
- * - singlesOnly ≠ singlesFriendly ≠ OfflineRadar Meet.
+ * - singlesOnly ≠ singlesFriendly ≠ DateOfflineHub Meet.
  * - Organic ranking stays separate from paid promotion.
  */
 
-/** Why an event is allowed on OfflineRadar (content, never payment). */
+/** Why an event is allowed on DateOfflineHub (content, never payment). */
 export type ListingPath = "organic" | "meet_activation";
 
 export type MeetActivationStatus =

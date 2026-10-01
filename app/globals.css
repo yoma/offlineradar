@@ -126,4 +126,37 @@
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
+
+  /* Binnenkort: seamless infinite marquee (track is 2 identical halves). */
+  .upcoming-marquee-track {
+    --upcoming-marquee-duration: 40s;
+    animation: upcoming-marquee var(--upcoming-marquee-duration) linear infinite;
+    will-change: transform;
+  }
+  .upcoming-marquee-viewport:hover .upcoming-marquee-track,
+  .upcoming-marquee-viewport:focus-within .upcoming-marquee-track {
+    animation-play-state: paused;
+  }
+  @keyframes upcoming-marquee {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(-50%, 0, 0);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .upcoming-marquee-track {
+      animation: none;
+      transform: none;
+    }
+    .upcoming-marquee-viewport {
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scrollbar-width: none;
+    }
+    .upcoming-marquee-viewport::-webkit-scrollbar {
+      display: none;
+    }
+  }
 }

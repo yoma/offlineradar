@@ -1,25 +1,38 @@
 /**
  * Lightweight product identity for transactional email.
  * Prefer env so display name can change without code churn.
+ * Env var names may still say OFFLINERADAR_* (stable technical identifiers).
  */
 export function appDisplayName(): string {
   return (
     process.env.OFFLINERADAR_APP_NAME?.trim() ||
     process.env.NEXT_PUBLIC_APP_NAME?.trim() ||
-    "OfflineRadar"
+    "DateOfflineHub"
   );
 }
 
 export function appPublicBaseUrl(fallbackOrigin?: string | null): string {
   const fromEnv =
     process.env.OFFLINERADAR_PUBLIC_BASE_URL?.trim() ||
-    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-    process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+    process.env.NEXT_PUBLIC_APP_URL?.trim();
   if (fromEnv) {
-    return fromEnv.startsWith("http") ? fromEnv.replace(/\/$/, "") : `https://${fromEnv.replace(/\/$/, "")}`;
+    return fromEnv.startsWith("http")
+      ? fromEnv.replace(/\/$/, "")
+      : `https://${fromEnv.replace(/\/$/, "")}`;
   }
   if (fallbackOrigin) return fallbackOrigin.replace(/\/$/, "");
-  return "https://offlineradar.vercel.app";
+
+  const vercelProd = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (vercelProd) {
+    const normalized = vercelProd.startsWith("http")
+      ? vercelProd.replace(/\/$/, "")
+      : `https://${vercelProd.replace(/\/$/, "")}`;
+    // Primary brand URL is dateofflinehub; ignore legacy offlineradar alias.
+    if (!/offlineradar\.vercel\.app$/i.test(normalized)) {
+      return normalized;
+    }
+  }
+  return "https://dateofflinehub.vercel.app";
 }
 
 export function transactionalFromAddress(): string | null {

@@ -1,4 +1,7 @@
-# OfflineRadar
+# DateOfflineHub
+
+> OfflineRadar was renamed to DateOfflineHub.
+
 
 Prototype om offline activiteiten te ontdekken waar je nieuwe mensen kunt ontmoeten.
 

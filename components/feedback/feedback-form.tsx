@@ -89,7 +89,7 @@ export function FeedbackForm({
       >
         <p className="font-medium">Dankjewel! Je feedback is opgeslagen.</p>
         <p className="mt-2 text-muted-foreground">
-          Dit helpt ons OfflineRadar beter te maken.
+          Dit helpt ons DateOfflineHub beter te maken.
         </p>
         {!isModal ? (
           <Link

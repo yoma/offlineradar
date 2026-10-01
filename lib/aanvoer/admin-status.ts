@@ -127,7 +127,7 @@ export function classifyAdminStatus(input: AdminStatusInput): AdminStatusResult 
   if (input.publishedDuplicateSlug) {
     return {
       status: "controle_nodig",
-      reason: "Dit event lijkt al in OfflineRadar te staan.",
+      reason: "Dit event lijkt al in DateOfflineHub te staan.",
       displayDate,
       dateUnknown,
       checks,

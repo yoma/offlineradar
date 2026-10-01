@@ -58,10 +58,38 @@ export function TipSection() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (window.location.hash === "#tip-een-activiteit") {
+
+    function openFromHash() {
+      if (window.location.hash !== "#tip-een-activiteit") return;
       setOpen(true);
+      setSuccess("");
+      setError("");
     }
+
+    function onOpenTipEvent() {
+      setOpen(true);
+      setSuccess("");
+      setError("");
+      const section = document.getElementById("tip-een-activiteit");
+      section?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    openFromHash();
+    window.addEventListener("hashchange", openFromHash);
+    window.addEventListener("offlineradar:open-tip", onOpenTipEvent);
+    return () => {
+      window.removeEventListener("hashchange", openFromHash);
+      window.removeEventListener("offlineradar:open-tip", onOpenTipEvent);
+    };
   }, []);
+
+  useEffect(() => {
+    if (!open || success) return;
+    const input = document.getElementById(`${formId}-url`) as HTMLInputElement | null;
+    // Wait a tick so the form is in the DOM after open toggles.
+    const timer = window.setTimeout(() => input?.focus(), 50);
+    return () => window.clearTimeout(timer);
+  }, [open, success, formId]);
 
   const submitEnabled = capability?.submitEnabled === true;
 
@@ -132,7 +160,7 @@ export function TipSection() {
       resetFormFields();
       setSuccess(
         data.message ||
-          "Bedankt voor je tip! We controleren de activiteit en bekijken of ze op OfflineRadar past.",
+          "Bedankt voor je tip! We controleren de activiteit en bekijken of ze op DateOfflineHub past.",
       );
       setOpen(false);
     } catch {

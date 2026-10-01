@@ -11,13 +11,30 @@ const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
 });
 
+const siteDescription =
+  "Ontdek hier singlesevents en activiteiten waar je andere singles in het echt kunt ontmoeten.";
+
 export const metadata: Metadata = {
+  metadataBase: new URL("https://dateofflinehub.vercel.app"),
+  applicationName: "DateOfflineHub",
   title: {
-    default: "OfflineRadar",
-    template: "%s · OfflineRadar",
+    default: "DateOfflineHub",
+    template: "%s · DateOfflineHub",
   },
-  description:
-    "Ontdek hier singlesevents en activiteiten waar je andere singles in het echt kunt ontmoeten.",
+  description: siteDescription,
+  openGraph: {
+    type: "website",
+    locale: "nl_BE",
+    url: "https://dateofflinehub.vercel.app",
+    siteName: "DateOfflineHub",
+    title: "DateOfflineHub",
+    description: siteDescription,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "DateOfflineHub",
+    description: siteDescription,
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

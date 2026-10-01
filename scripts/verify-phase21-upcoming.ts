@@ -422,13 +422,13 @@ function main() {
   );
   mustInclude(
     "components/discover/upcoming-strip.tsx",
-    "overflow-x-auto",
-    "horizontal scroll container",
+    "upcoming-marquee-track",
+    "infinite auto-scroll marquee",
   );
   mustInclude(
     "components/discover/upcoming-strip.tsx",
-    "snap-x",
-    "scroll snap",
+    "overflow-hidden",
+    "marquee hides scrollbar",
   );
   mustInclude(
     "components/discover/upcoming-strip.tsx",
@@ -436,9 +436,9 @@ function main() {
     "semantic heading id",
   );
   mustInclude(
-    "components/discover/upcoming-strip.tsx",
-    "tabIndex={0}",
-    "keyboard focusable strip",
+    "app/globals.css",
+    "upcoming-marquee",
+    "marquee animation styles",
   );
   mustInclude(
     "components/discover/upcoming-strip.tsx",

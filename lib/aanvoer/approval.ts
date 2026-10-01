@@ -15,7 +15,7 @@ function hasConcreteDate(value: string): boolean {
 }
 
 /**
- * Decide whether "Toevoegen aan OfflineRadar" may publish immediately
+ * Decide whether "Toevoegen aan DateOfflineHub" may publish immediately
  * or must land under Controle nodig.
  */
 export function evaluateIntakeApproval(

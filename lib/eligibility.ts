@@ -150,7 +150,7 @@ export function isEligibleForEvent(
       inRange: null,
       title: "Deelnamevoorwaarden niet volledig bekend",
       detail:
-        "De bron vermeldt geen duidelijke deelnamevoorwaarden. OfflineRadar verzint die niet. Controleer ze bij de organisator.",
+        "De bron vermeldt geen duidelijke deelnamevoorwaarden. DateOfflineHub verzint die niet. Controleer ze bij de organisator.",
       appliedBand: applied,
     };
   }

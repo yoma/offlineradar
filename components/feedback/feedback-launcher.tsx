@@ -206,7 +206,7 @@ export function FeedbackLauncher() {
                   id={titleId}
                   className="mt-4 text-center text-[1.55rem] leading-tight font-semibold tracking-tight text-foreground sm:text-[1.7rem]"
                 >
-                  Psst… tip voor OfflineRadar?
+                  Psst… tip voor DateOfflineHub?
                 </Dialog.Title>
                 <Dialog.Description
                   id={descId}

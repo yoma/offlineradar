@@ -612,7 +612,7 @@ export function AanvoerClient({
           {matches.length > 0 ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950">
               <p className="font-semibold">
-                Dit event lijkt al in OfflineRadar te staan.
+                Dit event lijkt al in DateOfflineHub te staan.
               </p>
               <ul className="mt-2 space-y-1 text-xs">
                 {matches.map((match) => (
@@ -702,7 +702,7 @@ export function AanvoerClient({
                   className="rounded-2xl bg-stone-900 px-4 py-3.5 text-left text-white transition hover:bg-stone-800 disabled:opacity-60"
                 >
                   <span className="block text-sm font-semibold">
-                    {pending ? "Bezig…" : "Toevoegen aan OfflineRadar"}
+                    {pending ? "Bezig…" : "Toevoegen aan DateOfflineHub"}
                   </span>
                   <span className="mt-1 block text-xs text-white/75">
                     Jouw akkoord publiceert het event. AI publiceert nooit

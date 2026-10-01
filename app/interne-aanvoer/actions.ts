@@ -242,7 +242,7 @@ export async function approveIntakeAction(
   ) {
     return {
       ok: false,
-      error: "Dit event lijkt al in OfflineRadar te staan.",
+      error: "Dit event lijkt al in DateOfflineHub te staan.",
       matches,
     };
   }
@@ -302,7 +302,7 @@ export async function approveIntakeAction(
     published,
     reviewReasons: approval.reviewReasons,
     message: published
-      ? "Toegevoegd aan OfflineRadar. Het event staat live."
+      ? "Toegevoegd aan DateOfflineHub. Het event staat live."
       : approval.reviewReasons.length > 0
         ? `Bewaard onder Controle nodig. ${approval.reviewReasons[0]}`
         : "Bewaard onder Controle nodig.",
@@ -484,7 +484,7 @@ export async function updateAanvoerCandidateStatusAction(
     revalidatePath("/interne-events");
     revalidatePath("/ontdek");
     revalidatePath(`/event/${updated.slug}`);
-    return { ok: true, message: "Toegevoegd aan OfflineRadar." };
+    return { ok: true, message: "Toegevoegd aan DateOfflineHub." };
   }
 
   const updated = await updateEditionPublication({

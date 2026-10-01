@@ -36,7 +36,7 @@ export function eventLabels(
     labels.push({ kind: "singles_oriented", text: "Singlesgericht" });
   }
   if (isActiveMeetActivation(event.meetActivation)) {
-    labels.push({ kind: "meet", text: "OfflineRadar Meet" });
+    labels.push({ kind: "meet", text: "DateOfflineHub Meet" });
   }
   return labels;
 }

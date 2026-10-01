@@ -133,7 +133,7 @@ ok("5b admin status classifier");
 
 mustInclude("app/interne-aanvoer/page.tsx", "resolveTipsAdminAccess");
 mustInclude("components/admin/interne-admin-nav.tsx", "Aanvoer");
-mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Toevoegen aan OfflineRadar");
+mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Toevoegen aan DateOfflineHub");
 mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Aanpassen");
 mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Niet toevoegen");
 mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Analyseer event");

@@ -46,10 +46,10 @@ export function SiteHeader() {
             )}
             aria-hidden
           >
-            OR
+            DH
           </span>
-          <span className="truncate text-[17px] font-semibold tracking-tight">
-            OfflineRadar
+          <span className="truncate text-[15px] font-semibold tracking-tight sm:text-[17px]">
+            DateOfflineHub
           </span>
         </Link>
         <nav className="hidden items-center gap-6 text-sm font-medium md:flex lg:gap-8">
@@ -83,6 +83,14 @@ export function SiteHeader() {
                 ? "bg-[#e61e4d] text-white hover:bg-[#d70466]"
                 : "bg-white text-[#e61e4d] hover:bg-white/90",
             )}
+            onClick={() => {
+              // Same-page hash nav does not remount TipSection; open the form
+              // immediately so users do not need a second click.
+              if (typeof window === "undefined") return;
+              window.setTimeout(() => {
+                window.dispatchEvent(new Event("offlineradar:open-tip"));
+              }, 0);
+            }}
           >
             Singlesevent doorgeven
           </Link>

@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Over",
-  description: "Wat OfflineRadar is en hoe het werkt.",
+  description: "Wat DateOfflineHub is en hoe het werkt.",
 };
 
 export default function AboutPage() {
@@ -11,10 +11,10 @@ export default function AboutPage() {
     <div className="mx-auto w-full min-w-0 max-w-2xl space-y-10 px-4 py-12 sm:px-6">
       <div>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Wat is OfflineRadar?
+          Wat is DateOfflineHub?
         </h1>
         <p className="mt-4 text-[15px] leading-7 text-muted-foreground">
-          OfflineRadar verzamelt offline activiteiten waar singles en mensen die
+          DateOfflineHub verzamelt offline activiteiten waar singles en mensen die
           nieuwe contacten zoeken elkaar kunnen ontmoeten. Geen swipes, geen
           chat: ontdekken, bewaren, en doorklikken naar de organisator.
         </p>
@@ -38,7 +38,7 @@ export default function AboutPage() {
       <div>
         <h2 className="text-xl font-semibold tracking-tight">Gesloten beta</h2>
         <p className="mt-3 text-[15px] leading-7 text-muted-foreground">
-          OfflineRadar zit in een gesloten testerfase. Je kunt de site zonder
+          DateOfflineHub zit in een gesloten testerfase. Je kunt de site zonder
           account gebruiken. Optioneel inloggen met Google bewaart voorkeuren en
           bewaarde activiteiten op al je toestellen.
         </p>

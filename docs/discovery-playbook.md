@@ -1,11 +1,11 @@
-# OfflineRadar discovery playbook
+# DateOfflineHub discovery playbook
 
 Herhaalbare methodiek om singles-bronnen te vinden zonder crawler/cron.
 Controledatum basis: 2026-09-26 (fase 14).
 
 ## Productgate (altijd eerst)
 
-OfflineRadar = offline mogelijkheden voor singles om andere singles te ontmoeten.
+DateOfflineHub = offline mogelijkheden voor singles om andere singles te ontmoeten.
 
 - **Route A:** expliciete singlesactiviteit / singlesformule.
 - **Route B:** algemene activiteit met bewezen singles-track.

@@ -80,12 +80,12 @@ type ContentVerdict = {
 };
 
 /**
- * A. Concept suitability for OfflineRadar.
+ * A. Concept suitability for DateOfflineHub.
  *
- * OfflineRadar is for singles meeting other singles offline — not a general
+ * DateOfflineHub is for singles meeting other singles offline — not a general
  * social calendar. Concept admission requires Route A or Route B:
  * - Route A: source shows a concrete singles-/dating-oriented activity
- * - Route B: confirmed singles-oriented OfflineRadar Meet on a place/activity
+ * - Route B: confirmed singles-oriented DateOfflineHub Meet on a place/activity
  *
  * Category `social` may describe a generally social format, but without Route A/B
  * it never makes the concept eligible (`rejectKind` set).
@@ -100,7 +100,7 @@ export function classifyContent(candidate: NormalizedCandidate): ContentVerdict 
   // Route B: confirmed singles-oriented Meet (signal means real Meet, not a badge).
   if (s.confirmedMeetActivation === true) {
     usedFacts.push(
-      "Route B: bevestigde singlesgerichte OfflineRadar Meet-opzet",
+      "Route B: bevestigde singlesgerichte DateOfflineHub Meet-opzet",
     );
     return {
       category: "meet_new_people",

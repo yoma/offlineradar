@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Privacy",
-  description: "Hoe OfflineRadar omgaat met je gegevens.",
+  description: "Hoe DateOfflineHub omgaat met je gegevens.",
 };
 
 export default function PrivacyPage() {
@@ -12,7 +12,7 @@ export default function PrivacyPage() {
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">Privacy</h1>
         <p className="mt-3 text-[15px] leading-7 text-muted-foreground">
-          OfflineRadar helpt je offline singlesactiviteiten te ontdekken. We
+          DateOfflineHub helpt je offline singlesactiviteiten te ontdekken. We
           bewaren zo weinig mogelijk gegevens.
         </p>
       </div>
@@ -20,7 +20,7 @@ export default function PrivacyPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold tracking-tight">Wie beheert dit?</h2>
         <p className="text-[15px] leading-7 text-muted-foreground">
-          OfflineRadar is een onafhankelijk productproject (beta). Contact via
+          DateOfflineHub is een onafhankelijk productproject (beta). Contact via
           de{" "}
           <Link href="/feedback" className="underline-offset-4 hover:underline">
             feedbackpagina
@@ -86,9 +86,9 @@ export default function PrivacyPage() {
           Externe eventlinks
         </h2>
         <p className="text-[15px] leading-7 text-muted-foreground">
-          OfflineRadar organiseert de activiteiten niet zelf. Tickets,
+          DateOfflineHub organiseert de activiteiten niet zelf. Tickets,
           reservaties en actuele details staan bij de organisator. Eventinfo op
-          OfflineRadar kan wijzigen of verouderd zijn; de officiële bron blijft
+          DateOfflineHub kan wijzigen of verouderd zijn; de officiële bron blijft
           leidend.
         </p>
       </section>
@@ -102,7 +102,7 @@ export default function PrivacyPage() {
           <Link href="/account" className="underline-offset-4 hover:underline">
             Mijn account
           </Link>{" "}
-          kun je je OfflineRadar-account verwijderen. Dan wissen we je
+          kun je je DateOfflineHub-account verwijderen. Dan wissen we je
           voorkeuren, bewaarde activiteiten en gevolgde organisatoren. Je
           Google-account zelf blijft
           bestaan.

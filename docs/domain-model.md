@@ -1,4 +1,4 @@
-# OfflineRadar domain model (MVP + future Business)
+# DateOfflineHub domain model (MVP + future Business)
 
 ## Current MVP shape
 
@@ -6,21 +6,21 @@
 2. [`types/domain.ts`](../types/domain.ts) holds Meet / Organizer / Venue / Trust / Promotion stubs.
 3. Ranking exposes `organicScore` and `promotionScore` (always `0` in MVP).
 4. Catalog listing (intended): Route A singles-oriented organic **or** active Meet (Route B). MVP helper still uses socialSuitability|Meet until consumer alignment.
-5. Consumer badges appear only when data exists (Singles only / Singles Friendly / OfflineRadar Meet).
+5. Consumer badges appear only when data exists (Singles only / Singles Friendly / DateOfflineHub Meet).
 6. One mock Meet demo event: `afterwork-dak-meet`.
 
 ## Product definition
 
-OfflineRadar helps **singles** find offline activities and organised moments to
+DateOfflineHub helps **singles** find offline activities and organised moments to
 meet **other singles**. It is not a general event calendar, not a friendship or
 “any social activity” directory, and not a swipe/chat dating app.
 
-Content belongs on OfflineRadar only via:
+Content belongs on DateOfflineHub only via:
 
 - **Route A** — Source shows a concrete singles-oriented meeting activity
   (speeddate, singles dinner/party, singles walk, etc.).
 - **Route B** — An ordinary place/activity has a real, confirmed singles meeting
-  formula (typically a valid OfflineRadar Meet). Marketing badges and unconfirmed
+  formula (typically a valid DateOfflineHub Meet). Marketing badges and unconfirmed
   Meet claims do not count.
 
 A generally social activity (open run club, cooking workshop, board-game night,
@@ -39,12 +39,12 @@ proof of the product rule.
 | **Organic (Route A)** | Singles-oriented activity from source (`listingPath: "organic"`). Not “any social format”. |
 | **Singles only** | Source policy: event admits singles only (`singlesOnly: true`). Separate from Route A evidence. |
 | **Singles Friendly** | Informative lighter welcome for solo/singles visitors. **Not** a listing bypass, eligibility, or ranking/promotion effect. |
-| **OfflineRadar Meet (Route B)** | Concrete organizer commitment so singles who opt in can actually find each other. |
+| **DateOfflineHub Meet (Route B)** | Concrete organizer commitment so singles who opt in can actually find each other. |
 | **Promotion** | Paid placement. Separate from organic relevance. Never creates eligibility. |
 
 ## Hard rules
 
-1. OfflineRadar is for singles meeting singles (Route A or B), **not** a general event calendar or directory of shops/cinemas/markets.
+1. DateOfflineHub is for singles meeting singles (Route A or B), **not** a general event calendar or directory of shops/cinemas/markets.
 2. **PAYMENT DOES NOT CREATE ELIGIBILITY.**
 3. `singlesOnly` ≠ `singlesFriendly` ≠ Meet activation.
 4. Sending singles to the same room without a way to find each other is not enough for Meet.
@@ -63,7 +63,7 @@ working until the consumer catalog is realigned. Screening publication checks
 already require Route A/B; payment and `singlesFriendly` never enter either gate.
 
 Same content rule later if Meet becomes standalone: a supermarket is not on
-OfflineRadar, but “Singles Shopping · Thursday 19–21” can be if Meet Standard is
+DateOfflineHub, but “Singles Shopping · Thursday 19–21” can be if Meet Standard is
 fulfilled.
 
 ## EventMeetActivation today (MVP)
@@ -113,7 +113,7 @@ The same standard applies whether Meet sits on an event or a venue time slot:
 - no guaranteed gender balance
 - fulfilment later verifiable
 
-For shared/public locations, **venue/organizer authorization** may later be required so a random person cannot claim “OfflineRadar Meet at municipality fair X” without the entitled organizer. Approval workflow is not built yet.
+For shared/public locations, **venue/organizer authorization** may later be required so a random person cannot claim “DateOfflineHub Meet at municipality fair X” without the entitled organizer. Approval workflow is not built yet.
 
 ## Commitment auditability (later)
 

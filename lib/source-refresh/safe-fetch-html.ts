@@ -93,7 +93,7 @@ export async function safeFetchHtmlSource(
         headers: {
           Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5",
           "User-Agent":
-            "OfflineRadarSourceRefresh/1.0 (+https://offlineradar.vercel.app)",
+            "DateOfflineHubSourceRefresh/1.0 (+https://dateofflinehub.vercel.app)",
         },
       });
 

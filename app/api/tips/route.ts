@@ -117,6 +117,6 @@ export async function POST(request: Request) {
     duplicate: result.duplicate,
     message: result.duplicate
       ? "We hadden deze link al ontvangen. Je toelichting is bewaard bij de bestaande melding. We gaan ermee aan de slag."
-      : "We hebben je tip veilig opgeslagen. We gaan ermee aan de slag en controleren of de activiteit op OfflineRadar past. Inzenden geeft geen garantie op publicatie.",
+      : "We hebben je tip veilig opgeslagen. We gaan ermee aan de slag en controleren of de activiteit op DateOfflineHub past. Inzenden geeft geen garantie op publicatie.",
   });
 }

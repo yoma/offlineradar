@@ -436,7 +436,7 @@ export function DiscoverView({
               <details className="mt-1">
                 <summary className="cursor-pointer font-medium">Waarom?</summary>
                 <p className="mt-1 text-muted-foreground">
-                  OfflineRadar controleert bekende leeftijds-, gender- en andere
+                  DateOfflineHub controleert bekende leeftijds-, gender- en andere
                   deelnamevoorwaarden voordat activiteiten worden getoond.
                   Persoonlijke ontmoetingsvoorkeuren verbergen geen activiteiten.
                 </p>

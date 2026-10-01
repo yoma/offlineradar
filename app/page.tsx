@@ -2,7 +2,15 @@ import Link from "next/link";
 import { Lock } from "lucide-react";
 import { HomeHero } from "@/components/home/home-search";
 import { TipSection } from "@/components/tips/tip-section";
+import { brusselsToday } from "@/lib/dates";
+import {
+  EventsCatalogUnavailableError,
+  isCanonicalEventsFeedEnabled,
+  listEvents,
+} from "@/lib/events";
 import { listPublishedOrganizerOptions } from "@/lib/organizers/published-options";
+import { selectUpcomingEvents } from "@/lib/upcoming";
+import type { Event } from "@/types/event";
 
 export const dynamic = "force-dynamic";
 
@@ -10,21 +18,43 @@ export default async function HomePage() {
   let organizerOptions: Awaited<
     ReturnType<typeof listPublishedOrganizerOptions>
   > = [];
+  let upcomingEvents: Event[] = [];
+  const today = brusselsToday();
+
   try {
     organizerOptions = await listPublishedOrganizerOptions();
   } catch {
     organizerOptions = [];
   }
 
+  try {
+    const events = await listEvents();
+    upcomingEvents = selectUpcomingEvents(events).events;
+  } catch (error) {
+    if (
+      !(
+        isCanonicalEventsFeedEnabled() &&
+        error instanceof EventsCatalogUnavailableError
+      )
+    ) {
+      // Soft-fail: homepage still works without the strip.
+    }
+    upcomingEvents = [];
+  }
+
   return (
     <div>
-      <HomeHero organizerOptions={organizerOptions} />
+      <HomeHero
+        organizerOptions={organizerOptions}
+        upcomingEvents={upcomingEvents}
+        today={today}
+      />
       {/* Tip section sits where the first discovery strip would continue:
           visible after the hero, before the product explainer. */}
       <TipSection />
       <section className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
         <h2 className="text-2xl font-semibold tracking-tight">
-          Zo werkt OfflineRadar
+          Zo werkt DateOfflineHub
         </h2>
         <p className="mt-2 max-w-2xl text-muted-foreground">
           Geen swipes, geen chat. Alleen ontdekken wat er binnenkort gebeurt, en doorklikken naar de organisator.

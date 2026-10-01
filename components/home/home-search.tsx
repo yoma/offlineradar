@@ -1,7 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import { ChevronDown, Plus, Search, SlidersHorizontal, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import {
   useEffect,
   useMemo,
@@ -9,6 +16,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { UpcomingStrip } from "@/components/discover/upcoming-strip";
 import { USER_PLACES, findPlace } from "@/data/places";
 import { track } from "@/lib/analytics";
 import { DISTANCES, GENDER_LABEL, MEET_GENDER_LABEL, WHEN_LABEL } from "@/lib/format";
@@ -18,6 +26,7 @@ import { normalizeOrganizerParam } from "@/lib/result-refinement";
 import { profileFromSearch, serializeSearchState } from "@/lib/search-state";
 import { readProfile, writeProfile } from "@/lib/storage";
 import { markSearchPending } from "@/components/discover/search-loading";
+import type { Event } from "@/types/event";
 import type {
   ActivityId,
   EventCategory,
@@ -90,8 +99,12 @@ function toggleList<T>(current: T[], next: T[]) {
 
 export function HomeHero({
   organizerOptions = [],
+  upcomingEvents = [],
+  today,
 }: {
   organizerOptions?: PublishedOrganizerOption[];
+  upcomingEvents?: Event[];
+  today?: string;
 }) {
   const [age, setAge] = useState("");
   const [gender, setGender] = useState<UserGender | "">("");
@@ -184,6 +197,7 @@ export function HomeHero({
 
   function isChipActive(chip: QuickChip) {
     if (chip.kind === "when") return when === chip.when;
+    // Alle soorten aan = alle soort-pillen ook visueel aan.
     if (allTypes) return true;
     if (chip.kind === "category") {
       return includesAll(categories, chip.categories);
@@ -216,41 +230,21 @@ export function HomeHero({
       return;
     }
 
-    const emptyCustom =
-      !allTypes && categories.length === 0 && activities.length === 0;
-
-    if (chip.kind === "category") {
-      if (allTypes) {
-        applyTypeSelection(
-          ALL_CATEGORIES.filter((id) => !chip.categories.includes(id)),
-          [...ALL_ACTIVITY_IDS],
-        );
-        return;
-      }
-      if (emptyCustom) {
+    // Leaving “Alle soorten”: start with only this chip.
+    if (allTypes) {
+      if (chip.kind === "category") {
         applyTypeSelection([...chip.categories], []);
         return;
       }
+      applyTypeSelection([], togglePublicActivityGroup([], chip.groupId));
+      return;
+    }
+
+    if (chip.kind === "category") {
       applyTypeSelection(toggleList(categories, chip.categories), activities);
       return;
     }
 
-    if (allTypes) {
-      const group = PUBLIC_ACTIVITY_GROUPS.find((g) => g.id === chip.groupId);
-      const remove = new Set(group?.activities ?? []);
-      applyTypeSelection(
-        [...ALL_CATEGORIES],
-        ALL_ACTIVITY_IDS.filter((id) => !remove.has(id)),
-      );
-      return;
-    }
-    if (emptyCustom) {
-      applyTypeSelection(
-        [],
-        togglePublicActivityGroup([], chip.groupId),
-      );
-      return;
-    }
     applyTypeSelection(
       categories,
       togglePublicActivityGroup(activities, chip.groupId),
@@ -387,9 +381,15 @@ export function HomeHero({
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/60" />
 
-      <div className="relative mx-auto flex min-h-[100svh] w-full min-w-0 max-w-6xl flex-col justify-center px-4 pb-24 pt-24 sm:px-6 sm:pb-16 sm:pt-28">
+      <div
+        className={`relative mx-auto flex min-h-[100svh] w-full min-w-0 max-w-6xl flex-col justify-center px-4 pt-24 sm:px-6 sm:pt-28 ${
+          upcomingEvents.length > 0
+            ? "pb-32 sm:pb-28"
+            : "pb-24 sm:pb-16"
+        }`}
+      >
         <p className="text-[11px] font-medium tracking-[0.22em] text-white/65 uppercase sm:text-xs">
-          OfflineRadar
+          DateOfflineHub
         </p>
         <h1 className="mt-4 max-w-[18ch] text-balance text-[1.55rem] font-semibold leading-[1.2] tracking-[-0.02em] text-white sm:mt-5 sm:max-w-2xl sm:text-[2.35rem] sm:leading-[1.15] lg:text-[2.75rem] lg:leading-[1.12]">
           Date offline. Ervaar opnieuw de kracht van echte connecties.
@@ -704,52 +704,81 @@ export function HomeHero({
             ) : null}
 
             <div>
-              <p className="mb-2 text-xs font-semibold tracking-wide text-white/70 uppercase">
-                Waar heb je zin in?
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  aria-pressed={allTypes}
-                  onClick={toggleAlleSoorten}
-                  className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold backdrop-blur-sm transition ${
-                    allTypes
-                      ? "border-white bg-white text-foreground"
-                      : "border-white/40 bg-white/15 text-white hover:bg-white/25"
-                  }`}
+              <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <p className="text-xs font-semibold tracking-wide text-white/70 uppercase">
+                  Waar heb je zin in?
+                </p>
+                <p className="text-[11px] text-white/55">
+                  Tik om aan of uit te zetten
+                </p>
+              </div>
+              <div className="space-y-2.5">
+                <div
+                  className="flex flex-wrap items-center gap-2"
+                  role="group"
+                  aria-label="Alle soorten"
                 >
-                  Alle soorten
-                </button>
-                {TYPE_QUICK.map((item) => {
-                  const active = isChipActive(item);
-                  return (
-                    <button
-                      key={item.label}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => toggleChip(item)}
-                      className={`rounded-full border px-3.5 py-1.5 text-sm font-medium backdrop-blur-sm transition ${
-                        active
-                          ? "border-white bg-white text-foreground"
-                          : "border-white/25 bg-white/10 text-white hover:bg-white/20"
-                      }`}
-                    >
-                      {item.label}
-                    </button>
-                  );
-                })}
-                {selectedOrganizerRecords.map((item) => (
                   <button
-                    key={item.slug}
                     type="button"
-                    onClick={() => removeOrganizer(item.slug)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-white bg-white px-3.5 py-1.5 text-sm font-semibold text-foreground"
-                    aria-label={`${item.name} verwijderen`}
+                    aria-pressed={allTypes}
+                    onClick={toggleAlleSoorten}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold backdrop-blur-sm transition ${
+                      allTypes
+                        ? "border-[#e61e4d] bg-[#e61e4d] text-white"
+                        : "border-[#e61e4d]/55 bg-[#e61e4d]/15 text-white hover:border-[#e61e4d]/80 hover:bg-[#e61e4d]/30"
+                    }`}
                   >
-                    {item.name}
-                    <X className="size-3.5 opacity-70" aria-hidden />
+                    {allTypes ? (
+                      <Check className="size-3.5 shrink-0" aria-hidden />
+                    ) : null}
+                    Alle soorten
                   </button>
-                ))}
+                  <span className="text-[11px] text-white/45" aria-hidden>
+                    of kies specifiek
+                  </span>
+                </div>
+                <div
+                  className="flex flex-wrap items-center gap-2 border-t border-white/15 pt-2.5"
+                  role="group"
+                  aria-label="Specifieke soorten, tik om aan of uit te zetten"
+                >
+                  {TYPE_QUICK.map((item) => {
+                    const active = isChipActive(item);
+                    return (
+                      <button
+                        key={item.label}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => toggleChip(item)}
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium backdrop-blur-sm transition ${
+                          active
+                            ? "border-white bg-white text-foreground"
+                            : "border-dashed border-white/35 bg-transparent text-white/75 hover:border-white/55 hover:bg-white/10 hover:text-white"
+                        }`}
+                      >
+                        {active ? (
+                          <Check
+                            className="size-3.5 shrink-0 opacity-80"
+                            aria-hidden
+                          />
+                        ) : null}
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                  {selectedOrganizerRecords.map((item) => (
+                    <button
+                      key={item.slug}
+                      type="button"
+                      onClick={() => removeOrganizer(item.slug)}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-white bg-white px-3.5 py-1.5 text-sm font-semibold text-foreground"
+                      aria-label={`${item.name} verwijderen`}
+                    >
+                      {item.name}
+                      <X className="size-3.5 opacity-70" aria-hidden />
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -789,6 +818,12 @@ export function HomeHero({
                 href="#tip-een-activiteit"
                 aria-label="Ken je een singlesevent? Geef het aan ons door."
                 className="inline-flex w-full flex-col items-center justify-center gap-0.5 rounded-2xl border border-white/40 bg-white/10 px-5 py-3 text-center text-white backdrop-blur-sm transition hover:bg-white/20 sm:w-auto sm:min-w-[220px] sm:items-start sm:text-left"
+                onClick={() => {
+                  if (typeof window === "undefined") return;
+                  window.setTimeout(() => {
+                    window.dispatchEvent(new Event("offlineradar:open-tip"));
+                  }, 0);
+                }}
               >
                 <span className="inline-flex items-center gap-1.5 text-[15px] font-semibold leading-5">
                   <Plus className="size-3.5 shrink-0 opacity-90" aria-hidden />
@@ -802,6 +837,19 @@ export function HomeHero({
           </div>
         </form>
       </div>
+
+      {upcomingEvents.length > 0 && today ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 via-black/35 to-transparent pt-10 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-3">
+          <div className="pointer-events-auto mx-auto w-full min-w-0 max-w-6xl px-4 sm:px-6">
+            <UpcomingStrip
+              events={upcomingEvents}
+              today={today}
+              variant="onDark"
+              headingId="home-binnenkort-heading"
+            />
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
