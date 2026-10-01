@@ -51,10 +51,16 @@ export function OutboundLink({
 
   return (
     <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={handleClick}
+      href={href || undefined}
+      target={href ? "_blank" : undefined}
+      rel={href ? "noopener noreferrer" : undefined}
+      onClick={(event) => {
+        if (!href || !/^https?:\/\//i.test(href)) {
+          event.preventDefault();
+          return;
+        }
+        handleClick(event);
+      }}
       {...rest}
     >
       {children}

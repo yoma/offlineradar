@@ -661,6 +661,11 @@ export async function updateAanvoerCandidateStatusAction(
       searchResultCount?: number;
       sourcesChecked?: number;
       fieldsConfirmed?: string[];
+      /** True when deep-search published the edition (enough info). */
+      published?: boolean;
+      /** Snapshot of fields after deep search, for cockpit display. */
+      fieldsAfter?: Record<string, string | null>;
+      attachedSourceUrl?: string | null;
     }
   | { ok: false; error: string }
 > {
@@ -690,7 +695,9 @@ export async function updateAanvoerCandidateStatusAction(
         e.internal_notes,
         e.tags,
         e.publication_status,
+        e.organizer_id,
         o.name AS organizer_name,
+        o.website_url AS organizer_website_url,
         s.url AS source_url
       FROM event_editions e
       LEFT JOIN organizers o ON o.id = e.organizer_id
@@ -714,7 +721,9 @@ export async function updateAanvoerCandidateStatusAction(
       internal_notes: string | null;
       tags: unknown;
       publication_status: string;
+      organizer_id: string | null;
       organizer_name: string | null;
+      organizer_website_url: string | null;
       source_url: string | null;
     }[];
     const row = rows[0];
@@ -849,6 +858,78 @@ export async function updateAanvoerCandidateStatusAction(
       WHERE id = ${id}::uuid
     `;
 
+    // Persist best official URL so consumer "Bekijk officiële bron" never
+    // falls back to an empty href (same-page self-link).
+    const firstOkDeepUrl =
+      deep.report.sourcesChecked.find((s) => s.ok && /^https?:\/\//i.test(s.url))
+        ?.url ?? null;
+    const attachCandidates = [
+      draft.sourceUrl,
+      draft.organizerUrl,
+      proposal.sourceUrl.value,
+      proposal.organizerUrl.value,
+      firstOkDeepUrl,
+      row.source_url,
+    ];
+    let attachedSourceUrl: string | null = null;
+    for (const candidate of attachCandidates) {
+      const url = typeof candidate === "string" ? candidate.trim() : "";
+      if (!/^https?:\/\//i.test(url)) continue;
+      try {
+        const { attachSource } = await import("@/lib/events/neon-store");
+        const { normalizeRefreshUrl } = await import(
+          "@/lib/source-refresh/normalize"
+        );
+        let host = "bron";
+        try {
+          host = new URL(url).hostname.replace(/^www\./, "");
+        } catch {
+          /* keep default */
+        }
+        await attachSource({
+          eventEditionId: id,
+          sourceType: "organizer",
+          sourceName: host,
+          url,
+          normalizedUrl: normalizeRefreshUrl(url),
+          isPrimary: !row.source_url,
+          checkedAt: new Date().toISOString(),
+          evidenceNote: "URL uit deep-search opnieuw controleren",
+        });
+        attachedSourceUrl = url;
+        break;
+      } catch (error) {
+        console.error("[aanvoer] deep-search attachSource failed", error);
+      }
+    }
+
+    if (
+      row.organizer_id &&
+      !row.organizer_website_url &&
+      attachedSourceUrl
+    ) {
+      try {
+        await sql`
+          UPDATE organizers
+          SET website_url = ${attachedSourceUrl}, updated_at = now()
+          WHERE id = ${row.organizer_id}::uuid
+            AND website_url IS NULL
+        `;
+      } catch (error) {
+        console.error("[aanvoer] organizer website update failed", error);
+      }
+    }
+
+    const deepPayload = {
+      deepOutcome: deep.report.outcome,
+      deepOutcomeMessage: deep.report.outcomeMessage,
+      searchResultCount: deep.report.searchResultCount,
+      sourcesChecked: deep.report.sourcesChecked.length,
+      fieldsConfirmed: deep.report.fieldsConfirmed,
+      fieldsAfter: deep.report.fieldsAfter ?? undefined,
+      attachedSourceUrl,
+    };
+
     if (approval.canPublish && row.publication_status !== "published") {
       const { editionIsManuallySuppressed } = await import(
         "@/lib/events/neon-store"
@@ -864,14 +945,13 @@ export async function updateAanvoerCandidateStatusAction(
         revalidatePath("/interne-aanvoer");
         revalidatePath("/interne-events");
         revalidatePath("/ontdek");
+        const fieldLabel =
+          deep.report.fieldsConfirmed.join(", ") || "kernvelden bevestigd";
         return {
           ok: true,
-          message: `Nieuwe informatie gevonden — toegevoegd aan DateOfflineHub (${deep.report.fieldsConfirmed.join(", ") || "bevestigd"})`,
-          deepOutcome: deep.report.outcome,
-          deepOutcomeMessage: deep.report.outcomeMessage,
-          searchResultCount: deep.report.searchResultCount,
-          sourcesChecked: deep.report.sourcesChecked.length,
-          fieldsConfirmed: deep.report.fieldsConfirmed,
+          published: true,
+          message: `Genoeg info — toegevoegd aan DateOfflineHub (${fieldLabel})`,
+          ...deepPayload,
         };
       }
     }
@@ -881,33 +961,24 @@ export async function updateAanvoerCandidateStatusAction(
     if (deep.report.outcome === "new_info") {
       return {
         ok: true,
+        published: false,
         message: deep.report.outcomeMessage,
-        deepOutcome: deep.report.outcome,
-        deepOutcomeMessage: deep.report.outcomeMessage,
-        searchResultCount: deep.report.searchResultCount,
-        sourcesChecked: deep.report.sourcesChecked.length,
-        fieldsConfirmed: deep.report.fieldsConfirmed,
+        ...deepPayload,
       };
     }
     if (deep.report.outcome === "failed") {
       return {
         ok: true,
+        published: false,
         message: `Zoeken mislukt — ${deep.report.outcomeMessage}`,
-        deepOutcome: deep.report.outcome,
-        deepOutcomeMessage: deep.report.outcomeMessage,
-        searchResultCount: deep.report.searchResultCount,
-        sourcesChecked: deep.report.sourcesChecked.length,
-        fieldsConfirmed: deep.report.fieldsConfirmed,
+        ...deepPayload,
       };
     }
     return {
       ok: true,
+      published: false,
       message: deep.report.outcomeMessage,
-      deepOutcome: deep.report.outcome,
-      deepOutcomeMessage: deep.report.outcomeMessage,
-      searchResultCount: deep.report.searchResultCount,
-      sourcesChecked: deep.report.sourcesChecked.length,
-      fieldsConfirmed: deep.report.fieldsConfirmed,
+      ...deepPayload,
     };
   }
 

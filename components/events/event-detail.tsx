@@ -94,7 +94,13 @@ export function EventDetail({
   const reasons = whyThisFits(prepared, state);
   const ageInfo = displayEligibilityAge(event, state.gender);
   const ageLabel = formatAgeRange(ageInfo.min, ageInfo.max);
-  const ticketHref = event.ticketUrl ?? event.officialUrl;
+  const officialHref = /^https?:\/\//i.test(event.officialUrl)
+    ? event.officialUrl
+    : null;
+  const ticketHref =
+    (event.ticketUrl && /^https?:\/\//i.test(event.ticketUrl)
+      ? event.ticketUrl
+      : null) ?? officialHref;
   const primaryCtaLabel = event.ticketUrl
     ? "Boek bij organisator"
     : "Bekijk bij organisator";
@@ -368,23 +374,25 @@ export function EventDetail({
               </p>
             ) : null}
 
-            <Button
-              asChild
-              className="hidden h-12 w-full rounded-full text-base md:inline-flex"
-            >
-              <OutboundLink
-                href={ticketHref}
-                eventId={event.id}
-                organizerId={event.organizerId}
-                category={event.category}
-                originPage="event_detail"
-                linkKind={event.ticketUrl ? "ticket" : "official"}
-                className="inline-flex h-12 w-full items-center justify-center gap-2"
+            {ticketHref ? (
+              <Button
+                asChild
+                className="hidden h-12 w-full rounded-full text-base md:inline-flex"
               >
-                {primaryCtaLabel}
-                <ArrowUpRight className="size-4" />
-              </OutboundLink>
-            </Button>
+                <OutboundLink
+                  href={ticketHref}
+                  eventId={event.id}
+                  organizerId={event.organizerId}
+                  category={event.category}
+                  originPage="event_detail"
+                  linkKind={event.ticketUrl ? "ticket" : "official"}
+                  className="inline-flex h-12 w-full items-center justify-center gap-2"
+                >
+                  {primaryCtaLabel}
+                  <ArrowUpRight className="size-4" />
+                </OutboundLink>
+              </Button>
+            ) : null}
 
             <div className="space-y-2 border-t border-border pt-4">
               <FreshnessLabel lastCheckedAt={event.lastCheckedAt} />
@@ -394,38 +402,46 @@ export function EventDetail({
               <p className="text-sm text-muted-foreground">
                 Bron: {event.sourceName}
               </p>
-              <OutboundLink
-                href={event.officialUrl}
-                eventId={event.id}
-                organizerId={event.organizerId}
-                category={event.category}
-                originPage="event_detail"
-                linkKind="source"
-                className="inline-flex items-center gap-1 text-sm font-semibold underline-offset-4 hover:underline"
-              >
-                Bekijk officiële bron
-                <ArrowUpRight className="size-4" />
-              </OutboundLink>
+              {officialHref ? (
+                <OutboundLink
+                  href={officialHref}
+                  eventId={event.id}
+                  organizerId={event.organizerId}
+                  category={event.category}
+                  originPage="event_detail"
+                  linkKind="source"
+                  className="inline-flex items-center gap-1 text-sm font-semibold underline-offset-4 hover:underline"
+                >
+                  Bekijk officiële bron
+                  <ArrowUpRight className="size-4" />
+                </OutboundLink>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Officiële bron nog niet bekend
+                </p>
+              )}
             </div>
           </div>
         </aside>
       </div>
 
       <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] z-30 border-t border-border bg-white/95 p-3 backdrop-blur md:hidden">
-        <Button asChild className="h-12 w-full rounded-full text-base">
-          <OutboundLink
-            href={ticketHref}
-            eventId={event.id}
-            organizerId={event.organizerId}
-            category={event.category}
-            originPage="event_detail_mobile"
-            linkKind={event.ticketUrl ? "ticket" : "official"}
-            className="inline-flex h-12 w-full items-center justify-center gap-2"
-          >
-            {primaryCtaLabel}
-            <ArrowUpRight className="size-4" />
-          </OutboundLink>
-        </Button>
+        {ticketHref ? (
+          <Button asChild className="h-12 w-full rounded-full text-base">
+            <OutboundLink
+              href={ticketHref}
+              eventId={event.id}
+              organizerId={event.organizerId}
+              category={event.category}
+              originPage="event_detail_mobile"
+              linkKind={event.ticketUrl ? "ticket" : "official"}
+              className="inline-flex h-12 w-full items-center justify-center gap-2"
+            >
+              {primaryCtaLabel}
+              <ArrowUpRight className="size-4" />
+            </OutboundLink>
+          </Button>
+        ) : null}
       </div>
     </article>
   );

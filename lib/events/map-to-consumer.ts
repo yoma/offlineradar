@@ -81,8 +81,9 @@ function listingPathFor(bundle: EventEditionBundle): ListingPath {
 function primaryOfficialUrl(bundle: EventEditionBundle): string {
   const primary =
     bundle.sources.find((s) => s.isPrimary) ?? bundle.sources[0] ?? null;
-  if (primary) return primary.url;
-  return bundle.organizer?.websiteUrl ?? "";
+  if (primary?.url && /^https?:\/\//i.test(primary.url)) return primary.url;
+  const org = bundle.organizer?.websiteUrl ?? "";
+  return /^https?:\/\//i.test(org) ? org : "";
 }
 
 function ticketUrl(bundle: EventEditionBundle): string | null {

@@ -811,6 +811,14 @@ function EventsPanel({
     string,
     { kind: "loading" | "new_info" | "no_new_info" | "failed"; text: string }
   >>({});
+  /** Keep just-published cards visible in aandacht until the success message is readable. */
+  const [heldAandacht, setHeldAandacht] = useState<
+    Record<string, CockpitCandidateRow>
+  >({});
+  const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+  const [localPatches, setLocalPatches] = useState<
+    Record<string, Partial<CockpitCandidateRow>>
+  >({});
 
   useEffect(() => {
     if (!highlightId) return;
@@ -818,9 +826,26 @@ function EventsPanel({
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [highlightId]);
 
+  const candidatesWithLocal = useMemo(() => {
+    const map = new Map<string, CockpitCandidateRow>();
+    for (const c of candidates) {
+      if (dismissedIds.includes(c.id)) continue;
+      map.set(c.id, { ...c, ...localPatches[c.id] });
+    }
+    for (const [id, held] of Object.entries(heldAandacht)) {
+      if (dismissedIds.includes(id)) continue;
+      map.set(id, {
+        ...held,
+        ...localPatches[id],
+        adminStatus: "aandacht_nodig",
+      });
+    }
+    return [...map.values()];
+  }, [candidates, dismissedIds, heldAandacht, localPatches]);
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return candidates.filter((c) => {
+    return candidatesWithLocal.filter((c) => {
       if (bucket === "aandacht" && c.adminStatus !== "aandacht_nodig") return false;
       if (bucket === "toegevoegd" && c.adminStatus !== "toegevoegd") return false;
       if (bucket === "niet_toegevoegd" && c.adminStatus !== "niet_toegevoegd") {
@@ -840,7 +865,7 @@ function EventsPanel({
         .toLowerCase();
       return hay.includes(needle);
     });
-  }, [candidates, q, bucket, origin]);
+  }, [candidatesWithLocal, q, bucket, origin]);
 
   const emptyLabel =
     bucket === "toegevoegd"
@@ -881,19 +906,107 @@ function EventsPanel({
       if (intent === "opnieuw_controleren") {
         const outcome = result.deepOutcome ?? "no_new_info";
         const kind =
-          outcome === "new_info"
+          result.published || outcome === "new_info"
             ? "new_info"
             : outcome === "failed"
               ? "failed"
               : "no_new_info";
+        const after = result.fieldsAfter ?? {};
+        const fieldBits = [
+          after.startDate ? `datum ${after.startDate}` : null,
+          after.startTime ? `tijd ${after.startTime}` : null,
+          after.city ? `stad ${after.city}` : null,
+          after.venue ? `locatie ${after.venue}` : null,
+          after.organizer ? `org ${after.organizer}` : null,
+        ].filter(Boolean);
+        const confirmed =
+          result.fieldsConfirmed && result.fieldsConfirmed.length > 0
+            ? result.fieldsConfirmed.join(", ")
+            : fieldBits.join(", ");
+        const text = result.published
+          ? `Genoeg info${confirmed ? ` (${confirmed})` : ""}. Event is toegevoegd en verdwijnt zo uit deze lijst.`
+          : result.deepOutcomeMessage ||
+            result.message ||
+            (confirmed ? `Nieuwe info: ${confirmed}` : "Klaar");
+
+        const existing =
+          candidates.find((c) => c.id === editionId) ??
+          heldAandacht[editionId] ??
+          null;
+        if (existing) {
+          const patch: Partial<CockpitCandidateRow> = {};
+          if (after.startDate) patch.displayDate = after.startDate;
+          if (after.startTime) patch.startTime = after.startTime;
+          if (after.city) patch.city = after.city;
+          if (after.venue) patch.venueName = after.venue;
+          if (after.organizer) patch.organizerName = after.organizer;
+          if (result.attachedSourceUrl) {
+            patch.sourceUrl = result.attachedSourceUrl;
+            try {
+              patch.sourceDomain = new URL(result.attachedSourceUrl).hostname.replace(
+                /^www\./,
+                "",
+              );
+            } catch {
+              /* ignore */
+            }
+          }
+          patch.checks = {
+            ...existing.checks,
+            date: existing.checks.date || Boolean(after.startDate),
+            location:
+              existing.checks.location ||
+              Boolean(after.city || after.venue || after.location),
+            source:
+              existing.checks.source || Boolean(result.attachedSourceUrl),
+            singles:
+              existing.checks.singles ||
+              after.singlesOriented === "true" ||
+              after.singlesOnly === "true",
+          };
+          if (result.published) {
+            patch.blockReason = null;
+            setHeldAandacht((prev) => ({
+              ...prev,
+              [editionId]: {
+                ...existing,
+                ...patch,
+                adminStatus: "aandacht_nodig",
+              },
+            }));
+          }
+          setLocalPatches((prev) => ({
+            ...prev,
+            [editionId]: { ...prev[editionId], ...patch },
+          }));
+        }
+
         setSearchFeedback((prev) => ({
           ...prev,
-          [editionId]: {
-            kind,
-            text: result.deepOutcomeMessage || result.message || "Klaar",
-          },
+          [editionId]: { kind, text },
         }));
         setSearchingId(null);
+
+        if (result.published) {
+          if (result.message) setActionMessage(result.message);
+          window.setTimeout(() => {
+            setDismissedIds((prev) =>
+              prev.includes(editionId) ? prev : [...prev, editionId],
+            );
+            setHeldAandacht((prev) => {
+              const next = { ...prev };
+              delete next[editionId];
+              return next;
+            });
+            setSearchFeedback((prev) => {
+              const next = { ...prev };
+              delete next[editionId];
+              return next;
+            });
+            router.refresh();
+          }, 2800);
+          return;
+        }
       }
       if (result.message) setActionMessage(result.message);
       router.refresh();
