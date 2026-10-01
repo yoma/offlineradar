@@ -80,6 +80,7 @@ export function FilterSheet({
   onOrganizersChange,
   onClearAdvanced,
   footerLabel,
+  onApply,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -96,6 +97,8 @@ export function FilterSheet({
   onOrganizersChange?: (slugs: string[]) => void;
   onClearAdvanced?: () => void;
   footerLabel?: string;
+  /** Homepage: navigate to results. Discover: omit (just close sheet). */
+  onApply?: () => void;
 }) {
   const allSoorten =
     state.categories.length === 0 && state.activities.length === 0;
@@ -407,7 +410,10 @@ export function FilterSheet({
           </button>
           <Button
             className="h-11 min-w-0 flex-1 rounded-xl sm:max-w-xs sm:flex-none"
-            onClick={() => onOpenChange(false)}
+            onClick={() => {
+              onOpenChange(false);
+              onApply?.();
+            }}
           >
             <SlidersHorizontal className="size-4" />
             {footerLabel ??

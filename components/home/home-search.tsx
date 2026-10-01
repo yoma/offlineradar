@@ -566,6 +566,7 @@ export function HomeHero({
             organizer: normalizeOrganizerParam(slugs.join(",")),
           });
         }}
+        onApply={go}
       />
     </section>
   );
