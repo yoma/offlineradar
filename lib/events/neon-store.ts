@@ -923,17 +923,77 @@ export async function listEditionBundlesForAdmin(
 ): Promise<EventEditionBundle[] | null> {
   const sql = getEventsSql();
   if (!sql) return null;
-  const rows = (await sql`
-    SELECT id FROM event_editions
+  const editionRows = (await sql`
+    SELECT * FROM event_editions
     ORDER BY starts_at ASC
     LIMIT ${limit}
-  `) as { id: string }[];
-  const bundles: EventEditionBundle[] = [];
-  for (const row of rows) {
-    const bundle = await loadBundle(row.id);
-    if (bundle) bundles.push(bundle);
+  `) as EditionRow[];
+  if (editionRows.length === 0) return [];
+
+  const editions = editionRows.map(mapEdition);
+  const editionIds = editions.map((e) => e.id);
+  const organizerIds = [
+    ...new Set(
+      editions
+        .map((e) => e.organizerId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const seriesIds = [
+    ...new Set(
+      editions.map((e) => e.seriesId).filter((id): id is string => Boolean(id)),
+    ),
+  ];
+
+  const [organizerRows, seriesRows, sourceRows, imageRows] = await Promise.all([
+    organizerIds.length
+      ? ((await sql`
+          SELECT * FROM organizers WHERE id = ANY(${organizerIds})
+        `) as OrganizerRow[])
+      : Promise.resolve([] as OrganizerRow[]),
+    seriesIds.length
+      ? ((await sql`
+          SELECT * FROM event_series WHERE id = ANY(${seriesIds})
+        `) as SeriesRow[])
+      : Promise.resolve([] as SeriesRow[]),
+    (await sql`
+      SELECT * FROM event_sources
+      WHERE event_edition_id = ANY(${editionIds})
+      ORDER BY is_primary DESC, created_at ASC
+    `) as SourceRow[],
+    (await sql`
+      SELECT * FROM event_images
+      WHERE event_edition_id = ANY(${editionIds})
+      ORDER BY is_primary DESC, created_at ASC
+    `) as ImageRow[],
+  ]);
+
+  const organizersById = new Map(
+    organizerRows.map((row) => [row.id, mapOrganizer(row)]),
+  );
+  const seriesById = new Map(seriesRows.map((row) => [row.id, mapSeries(row)]));
+  const sourcesByEdition = new Map<string, EventSourceRecord[]>();
+  for (const row of sourceRows) {
+    const list = sourcesByEdition.get(row.event_edition_id) ?? [];
+    list.push(mapSource(row));
+    sourcesByEdition.set(row.event_edition_id, list);
   }
-  return bundles;
+  const imagesByEdition = new Map<string, ReturnType<typeof mapImage>[]>();
+  for (const row of imageRows) {
+    const list = imagesByEdition.get(row.event_edition_id) ?? [];
+    list.push(mapImage(row));
+    imagesByEdition.set(row.event_edition_id, list);
+  }
+
+  return editions.map((edition) => ({
+    edition,
+    organizer: edition.organizerId
+      ? (organizersById.get(edition.organizerId) ?? null)
+      : null,
+    series: edition.seriesId ? (seriesById.get(edition.seriesId) ?? null) : null,
+    sources: sourcesByEdition.get(edition.id) ?? [],
+    images: imagesByEdition.get(edition.id) ?? [],
+  }));
 }
 
 export async function attachSource(

@@ -31,7 +31,7 @@ import {
 import { computeNextRefreshAtIso } from "@/lib/source-refresh/scheduler";
 import { isScheduledRefreshGloballyEnabled } from "@/lib/source-refresh/schedule-config";
 import {
-  countConsecutiveRefreshFailures,
+  countConsecutiveRefreshFailuresBatch,
   countOpenRefreshReviewItems,
   getSourceScheduleStates,
   listLatestRunsBySourceIds,
@@ -137,17 +137,9 @@ export default async function InterneEventsPage() {
   } catch {
     openRefreshReviews = 0;
   }
-  const consecutiveFailures = new Map<string, number>();
-  for (const pilot of REFRESH_PILOTS) {
-    try {
-      consecutiveFailures.set(
-        pilot.catalogSourceId,
-        await countConsecutiveRefreshFailures(pilot.catalogSourceId),
-      );
-    } catch {
-      consecutiveFailures.set(pilot.catalogSourceId, 0);
-    }
-  }
+  const consecutiveFailures = await countConsecutiveRefreshFailuresBatch(
+    REFRESH_PILOTS.map((p) => p.catalogSourceId),
+  );
   const scheduledGlobalOn = isScheduledRefreshGloballyEnabled();
 
   let reportSummaries: Awaited<ReturnType<typeof listEventReportSummaries>> = [];
