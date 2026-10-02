@@ -20,6 +20,7 @@ import {
 } from "@/lib/events/reports";
 import { assertOfflineRadarDbConfig } from "@/lib/events/db";
 import { CatalogSourcesBrowser } from "@/components/admin/catalog-sources-browser";
+import { EventsAdminBrowser } from "@/components/admin/events-admin-browser";
 import { InterneAdminNav } from "@/components/admin/interne-admin-nav";
 import { InterneAdminShell } from "@/components/admin/interne-admin-shell";
 import {
@@ -417,106 +418,29 @@ export default async function InterneEventsPage() {
       </section>
 
       <h2 className="mb-4 text-lg font-semibold tracking-tight">Events</h2>
-      <ul className="space-y-4">
-        {bundles.map((bundle) => {
+      <EventsAdminBrowser
+        events={bundles.map((bundle) => {
           const { edition } = bundle;
           const primary =
             bundle.sources.find((s) => s.isPrimary) ?? bundle.sources[0];
-          const openReports = openByEdition.get(edition.id) ?? 0;
-          return (
-            <li
-              key={edition.id}
-              className="rounded-xl border border-border bg-background px-4 py-4"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0 space-y-1">
-                  <p className="font-semibold">{edition.title}</p>
-                  <p className="text-xs text-muted-foreground">{edition.slug}</p>
-                  <p className="text-sm">
-                    Status: <strong>{edition.publicationStatus}</strong>
-                    {edition.publishedAt
-                      ? ` · published ${String(edition.publishedAt).slice(0, 10)}`
-                      : null}
-                  </p>
-                  {openReports > 0 ? (
-                    <p className="text-sm">
-                      <a
-                        href={`#meldingen-${edition.id}`}
-                        className="font-medium underline-offset-4 hover:underline"
-                      >
-                        {openReports}× mogelijk geen singlesevent
-                      </a>
-                    </p>
-                  ) : null}
-                  <p className="text-sm text-muted-foreground">
-                    {edition.city} · Laatst gecontroleerd:{" "}
-                    {edition.lastCheckedAt
-                      ? String(edition.lastCheckedAt).slice(0, 16)
-                      : "onbekend"}
-                  </p>
-                  {primary ? (
-                    <a
-                      href={primary.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm font-medium underline-offset-4 hover:underline"
-                    >
-                      Bron: {primary.sourceName ?? primary.sourceType}
-                    </a>
-                  ) : null}
-                </div>
-                {edition.publicationStatus === "published" ? (
-                  <form action={takeEventOfflineAction} className="space-y-2">
-                    <input type="hidden" name="editionId" value={edition.id} />
-                    <label className="block text-xs text-muted-foreground">
-                      Waarom weghalen? (optioneel)
-                      <select
-                        name="reason"
-                        className="mt-1 block w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
-                        defaultValue=""
-                      >
-                        <option value="">Kies reden…</option>
-                        <option value="Hoort hier niet thuis">
-                          Hoort hier niet thuis
-                        </option>
-                        <option value="Geen singlesevent">
-                          Geen singlesevent
-                        </option>
-                        <option value="Duplicate">Duplicate</option>
-                        <option value="Foute informatie">
-                          Foute informatie
-                        </option>
-                        <option value="Event geannuleerd">
-                          Event geannuleerd
-                        </option>
-                        <option value="Anders">Anders</option>
-                      </select>
-                    </label>
-                    <button
-                      type="submit"
-                      className="rounded-md border border-amber-400 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950"
-                    >
-                      Van DateOfflineHub halen
-                    </button>
-                  </form>
-                ) : edition.publicationStatus === "draft" ||
-                  edition.publicationStatus === "approved" ||
-                  edition.publicationStatus === "under_review" ||
-                  edition.publicationStatus === "candidate" ? (
-                  <form action={publishEventAction}>
-                    <input type="hidden" name="editionId" value={edition.id} />
-                    <button
-                      type="submit"
-                      className="rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background"
-                    >
-                      Publiceer
-                    </button>
-                  </form>
-                ) : null}
-              </div>
-            </li>
-          );
-        })}      </ul>
+          return {
+            id: edition.id,
+            title: edition.title,
+            slug: edition.slug,
+            publicationStatus: edition.publicationStatus,
+            publishedAt: edition.publishedAt,
+            lastCheckedAt: edition.lastCheckedAt,
+            city: edition.city,
+            startsAt: edition.startsAt,
+            primarySourceUrl: primary?.url ?? null,
+            primarySourceLabel:
+              primary?.sourceName ?? primary?.sourceType ?? null,
+            openReports: openByEdition.get(edition.id) ?? 0,
+          };
+        })}
+        takeOfflineAction={takeEventOfflineAction}
+        publishAction={publishEventAction}
+      />
     </InterneAdminShell>
   );
 }

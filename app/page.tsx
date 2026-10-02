@@ -67,14 +67,14 @@ export default async function HomePage() {
           <Step n="03" title="Ga erheen" text="Tickets en reservatie blijven bij de organisator." />
         </ol>
       </section>
-      <div className="mx-auto flex w-full max-w-6xl justify-end px-4 pb-10 sm:px-6">
+      <div className="mx-auto flex w-full max-w-6xl justify-start px-4 pb-24 sm:px-6 md:pb-10">
         <Link
           href="/interne-tips"
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground/70 transition-colors hover:text-muted-foreground"
+          className="inline-flex size-11 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:bg-muted/60 hover:text-muted-foreground"
           aria-label="Interne tipwachtrij (beheerder)"
           title="Beheer"
         >
-          <Lock className="size-3.5" aria-hidden />
+          <Lock className="size-5" aria-hidden />
           <span className="sr-only">Beheer</span>
         </Link>
       </div>
