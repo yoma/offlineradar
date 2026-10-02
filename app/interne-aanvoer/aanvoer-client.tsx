@@ -674,6 +674,14 @@ export function AanvoerClient({
                   : "Singlesgerichtheid nog controleren"
               }
             />
+            <CheckRow
+              ok={Boolean(draft.sourceUrl.trim() || draft.organizerUrl.trim())}
+              label={
+                draft.sourceUrl.trim() || draft.organizerUrl.trim()
+                  ? `Website: ${draft.sourceUrl.trim() || draft.organizerUrl.trim()}`
+                  : "Geen website/domein uit screenshot gehaald"
+              }
+            />
           </div>
 
           {approval && approval.reviewReasons.length > 0 ? (

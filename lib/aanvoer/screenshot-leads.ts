@@ -175,18 +175,11 @@ export function enrichProposalWithScreenshotLeads(
   }
 
   // Facebook business categories are often wrong (e.g. Timeleft → "Internetprovider").
-  const reason = next.routeReason.toLowerCase();
-  const falseNegative =
-    next.routeAdvice === "not_suitable" &&
-    leads.length > 0 &&
-    (/internetprovider|internet.?provider|provider-app|geen singles/i.test(
-      reason,
-    ) ||
-      /screenshot van een/i.test(reason));
-  if (falseNegative) {
+  // Any brand/website lead means: never hard-reject from the screenshot alone.
+  if (leads.length > 0 && next.routeAdvice === "not_suitable") {
     next.routeAdvice = "needs_review";
     next.routeReason =
-      "Screenshot toont een social/merkpagina met opvolgbare website. Facebook-categorie alleen is onvoldoende om af te wijzen; website checken.";
+      "Screenshot toont een merk/pagina met opvolgbare website. Nog niet afwijzen: eerst de officiële site checken (Facebook-categorie telt niet als bewijs).";
     next.singlesOriented = {
       value: "unknown",
       status: "uncertain",
@@ -197,6 +190,18 @@ export function enrichProposalWithScreenshotLeads(
 
   if (next.sourceKindHint === "manual_only" && leads.length > 0) {
     next.sourceKindHint = "website_first";
+  }
+
+  if (leads.length > 0) {
+    const stamp = `Website-leads uit screenshot: ${leads.slice(0, 4).join(", ")}`;
+    const prevNotes = next.notes.value?.trim() ?? "";
+    if (!prevNotes.includes("Website-leads uit screenshot")) {
+      next.notes = {
+        value: [prevNotes, stamp].filter(Boolean).join("\n"),
+        status: "found",
+        evidence: next.notes.evidence ?? "Automatisch uit screenshot",
+      };
+    }
   }
 
   return next;

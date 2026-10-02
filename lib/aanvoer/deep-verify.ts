@@ -10,6 +10,7 @@ import {
 } from "@/lib/screening/ai/anthropic-screener";
 import { listCatalogSources } from "@/lib/events/catalog-sources";
 import { runAdminIntakeExtract } from "@/lib/aanvoer/extract";
+import { enrichProposalWithScreenshotLeads } from "@/lib/aanvoer/screenshot-leads";
 import {
   htmlToPlainishText,
   safeFetchTipSource,
@@ -1319,10 +1320,21 @@ export async function runDeepVerification(input: {
   }
 
   const merged = mergeDeepProposal(input.proposal, pass2);
+  const proposal = enrichProposalWithScreenshotLeads({
+    ...merged.proposal,
+    visibleUrls: [
+      ...new Set([
+        ...(input.proposal.visibleUrls ?? []),
+        ...(merged.proposal.visibleUrls ?? []),
+        input.proposal.sourceUrl.value ?? "",
+        input.proposal.organizerUrl.value ?? "",
+      ].filter(Boolean)),
+    ],
+  });
   const completedAt = new Date().toISOString();
-  const fieldsAfter = snapshotEssentialFields(merged.proposal);
+  const fieldsAfter = snapshotEssentialFields(proposal);
   return {
-    proposal: merged.proposal,
+    proposal,
     report: {
       triggered: true,
       reason: `Essentiële gaps: ${gaps.join(", ")}`,

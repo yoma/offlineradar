@@ -44,10 +44,27 @@ export function evaluateIntakeApproval(
   }
 
   if (draft.routeAdvice === "not_suitable") {
-    reviewReasons.push(
+    const reason = (
       draft.routeReason.trim() ||
-        "We konden niet bevestigen dat dit singlesgericht is",
+      "We konden niet bevestigen dat dit singlesgericht is"
+    ).toLowerCase();
+    const hasSite = Boolean(
+      draft.sourceUrl.trim() || draft.organizerUrl.trim(),
     );
+    // Don't keep Facebook false-negatives once a website lead exists.
+    if (
+      hasSite &&
+      /internetprovider|provider-app|screenshot van een/i.test(reason)
+    ) {
+      reviewReasons.push(
+        "Website gevonden vanuit screenshot — singlesgerichtheid nog via die site controleren",
+      );
+    } else {
+      reviewReasons.push(
+        draft.routeReason.trim() ||
+          "We konden niet bevestigen dat dit singlesgericht is",
+      );
+    }
   }
 
   if (
