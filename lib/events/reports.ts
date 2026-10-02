@@ -64,11 +64,17 @@ type ReportRow = {
   report_type: EventReportType;
   status: EventReportStatus;
   reporter_hash: string | null;
-  created_at: string;
-  reviewed_at: string | null;
+  created_at: string | Date;
+  reviewed_at: string | Date | null;
   reviewed_by: string | null;
   resolution_note: string | null;
 };
+
+function iso(value: string | Date | null | undefined): string | null {
+  if (value == null) return null;
+  if (value instanceof Date) return value.toISOString();
+  return String(value);
+}
 
 function mapReport(row: ReportRow): EventReportRecord {
   return {
@@ -77,8 +83,8 @@ function mapReport(row: ReportRow): EventReportRecord {
     reportType: row.report_type,
     status: row.status,
     reporterHash: row.reporter_hash,
-    createdAt: row.created_at,
-    reviewedAt: row.reviewed_at,
+    createdAt: iso(row.created_at)!,
+    reviewedAt: iso(row.reviewed_at),
     reviewedBy: row.reviewed_by,
     resolutionNote: row.resolution_note,
   };
@@ -279,8 +285,8 @@ export async function listEventReportSummaries(): Promise<EventReportSummary[]> 
     primary_source_url: string | null;
     open_count: number;
     total_count: number;
-    first_report_at: string | null;
-    last_report_at: string | null;
+    first_report_at: string | Date | null;
+    last_report_at: string | Date | null;
   }[];
 
   return rows.map((row) => ({
@@ -295,8 +301,8 @@ export async function listEventReportSummaries(): Promise<EventReportSummary[]> 
     primarySourceUrl: row.primary_source_url,
     openCount: Number(row.open_count),
     totalCount: Number(row.total_count),
-    firstReportAt: row.first_report_at,
-    lastReportAt: row.last_report_at,
+    firstReportAt: iso(row.first_report_at),
+    lastReportAt: iso(row.last_report_at),
   }));
 }
 

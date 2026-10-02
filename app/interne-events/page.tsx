@@ -358,8 +358,13 @@ export default async function InterneEventsPage() {
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {summary.city ?? "—"} · Eerste:{" "}
-                    {summary.firstReportAt?.slice(0, 16) ?? "—"} · Laatste:{" "}
-                    {summary.lastReportAt?.slice(0, 16) ?? "—"}
+                    {summary.firstReportAt
+                      ? String(summary.firstReportAt).slice(0, 16)
+                      : "—"}{" "}
+                    · Laatste:{" "}
+                    {summary.lastReportAt
+                      ? String(summary.lastReportAt).slice(0, 16)
+                      : "—"}
                   </p>
                   {summary.primarySourceUrl ? (
                     <a
@@ -430,7 +435,7 @@ export default async function InterneEventsPage() {
                   <p className="text-sm">
                     Status: <strong>{edition.publicationStatus}</strong>
                     {edition.publishedAt
-                      ? ` · published ${edition.publishedAt.slice(0, 10)}`
+                      ? ` · published ${String(edition.publishedAt).slice(0, 10)}`
                       : null}
                   </p>
                   {openReports > 0 ? (
@@ -445,7 +450,9 @@ export default async function InterneEventsPage() {
                   ) : null}
                   <p className="text-sm text-muted-foreground">
                     {edition.city} · Laatst gecontroleerd:{" "}
-                    {edition.lastCheckedAt?.slice(0, 16) ?? "onbekend"}
+                    {edition.lastCheckedAt
+                      ? String(edition.lastCheckedAt).slice(0, 16)
+                      : "onbekend"}
                   </p>
                   {primary ? (
                     <a
