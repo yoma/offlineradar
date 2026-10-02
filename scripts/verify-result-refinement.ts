@@ -361,6 +361,7 @@ function refine(partial: Partial<ResultRefinement>): ResultRefinement {
     date: null,
     categories: [],
     activities: [],
+    typesMode: "all",
     price: "any",
     singlesOnly: false,
     availability: "any",

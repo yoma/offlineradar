@@ -124,18 +124,28 @@ export function matchingEvents(
       return false;
     }
     if (
-      state.categories.length > 0 &&
-      !state.categories.includes(event.category)
+      state.typesMode === "none" ||
+      (state.typesMode === "pick" &&
+        state.categories.length === 0 &&
+        selectedActivities.length === 0)
     ) {
       return false;
     }
-    if (
-      !eventMatchesActivityFilter(event.activities, selectedActivities, {
-        title: event.title,
-        subCategory: event.subCategory,
-      })
-    ) {
-      return false;
+    if (state.typesMode !== "all") {
+      if (
+        state.categories.length > 0 &&
+        !state.categories.includes(event.category)
+      ) {
+        return false;
+      }
+      if (
+        !eventMatchesActivityFilter(event.activities, selectedActivities, {
+          title: event.title,
+          subCategory: event.subCategory,
+        })
+      ) {
+        return false;
+      }
     }
     if (!matchesPrice(event, state)) return false;
     if (state.singlesOnly && event.singlesOnly !== true) return false;

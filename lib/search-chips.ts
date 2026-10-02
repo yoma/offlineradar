@@ -198,6 +198,7 @@ export function clearAdvancedSearchFilters(
   state: SearchState,
 ): SearchState {
   return applySearchPatch(state, {
+    typesMode: "all",
     categories: [],
     activities: [],
     price: "any",

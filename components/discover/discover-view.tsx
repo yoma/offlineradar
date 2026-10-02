@@ -247,6 +247,7 @@ export function DiscoverView({
     update({
       when: "any",
       date: null,
+      typesMode: "all",
       categories: [],
       activities: [],
       price: "any",
@@ -616,6 +617,8 @@ function suggestions(state: SearchState): { id: string; label: string; patch: Pa
   const items: { id: string; label: string; patch: Partial<SearchState> }[] = [];
   const hasRestrictiveFilters =
     state.when !== "any" ||
+    state.typesMode === "none" ||
+    state.typesMode === "pick" ||
     state.categories.length > 0 ||
     state.activities.length > 0 ||
     state.price !== "any" ||
@@ -631,6 +634,7 @@ function suggestions(state: SearchState): { id: string; label: string; patch: Pa
       patch: {
         when: "any",
         date: null,
+        typesMode: "all",
         categories: [],
         activities: [],
         price: "any",

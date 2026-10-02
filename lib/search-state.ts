@@ -14,6 +14,7 @@ import type {
   SearchState,
   SortKey,
   StoredProfile,
+  TypesFilterMode,
   WhenFilter,
 } from "@/types/search";
 
@@ -66,6 +67,7 @@ export function defaultSearchState(): SearchState {
     date: null,
     categories: [],
     activities: [],
+    typesMode: "all",
     price: "any",
     singlesOnly: false,
     availability: "any",
@@ -95,6 +97,16 @@ export function applySearchPatch(
   patch: Partial<SearchState>,
 ): SearchState {
   const next = { ...state, ...patch };
+  if (
+    !Object.prototype.hasOwnProperty.call(patch, "typesMode") &&
+    (Object.prototype.hasOwnProperty.call(patch, "categories") ||
+      Object.prototype.hasOwnProperty.call(patch, "activities"))
+  ) {
+    const categories = next.categories;
+    const activities = next.activities;
+    next.typesMode =
+      categories.length > 0 || activities.length > 0 ? "pick" : "none";
+  }
   if (Object.prototype.hasOwnProperty.call(patch, "when")) {
     return withWhenFilter(next, patch.when ?? "any", patch.date ?? null);
   }
@@ -149,6 +161,17 @@ export function parseSearchState(
   const age = asNumber(one(raw.age));
   const distance = asNumber(one(raw.distance));
   const genderRaw = one(raw.gender);
+  const categories = manyOf(one(raw.cat), CATEGORIES);
+  const activities = manyOfActivities(one(raw.act));
+  const typesRaw = one(raw.types);
+  let typesMode: TypesFilterMode = "all";
+  if (typesRaw === "none") {
+    typesMode = "none";
+  } else if (categories.length > 0 || activities.length > 0) {
+    typesMode = "pick";
+  } else if (typesRaw === "pick") {
+    typesMode = "pick";
+  }
   return {
     ...base,
     age: age != null && age >= 18 && age <= 99 ? age : null,
@@ -168,8 +191,9 @@ export function parseSearchState(
       oneOf(one(raw.when), WHENS, "any") === "date"
         ? one(raw.date) || null
         : null,
-    categories: manyOf(one(raw.cat), CATEGORIES),
-    activities: manyOfActivities(one(raw.act)),
+    categories,
+    activities,
+    typesMode,
     price: oneOf(one(raw.price), PRICES, "any"),
     singlesOnly: one(raw.singles) === "1",
     availability: oneOf(one(raw.avail), AVAILABILITY, "any"),
@@ -195,6 +219,7 @@ export function serializeSearchState(state: SearchState): string {
   }
   if (state.when !== "any") params.set("when", state.when);
   if (state.when === "date" && state.date) params.set("date", state.date);
+  if (state.typesMode === "none") params.set("types", "none");
   if (state.categories.length) params.set("cat", state.categories.join(","));
   if (state.activities.length) {
     params.set("act", serializeActivitySelection(state.activities));

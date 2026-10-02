@@ -100,26 +100,40 @@ export function FilterSheet({
   /** Homepage: navigate to results. Discover: omit (just close sheet). */
   onApply?: () => void;
 }) {
-  const allSoorten =
-    state.categories.length === 0 && state.activities.length === 0;
+  const allSoorten = state.typesMode === "all";
 
   function selectAlleSoorten() {
-    onChange({ categories: [], activities: [] });
+    if (allSoorten) {
+      // Uncheck: clear every category chip and match nothing until user picks.
+      onChange({ typesMode: "none", categories: [], activities: [] });
+      return;
+    }
+    onChange({ typesMode: "all", categories: [], activities: [] });
   }
 
   function toggleCategory(id: EventCategory) {
     const categories = state.categories.includes(id)
       ? state.categories.filter((item) => item !== id)
       : [...state.categories, id];
-    onChange({ categories });
+    onChange({
+      typesMode:
+        categories.length > 0 || state.activities.length > 0 ? "pick" : "none",
+      categories,
+    });
   }
 
   function toggleActivityGroup(id: PublicActivityGroupId) {
-    onChange({ activities: togglePublicActivityGroup(state.activities, id) });
+    const activities = togglePublicActivityGroup(state.activities, id);
+    onChange({
+      typesMode:
+        state.categories.length > 0 || activities.length > 0 ? "pick" : "none",
+      activities,
+    });
   }
 
   function clearAdvanced() {
     onChange({
+      typesMode: "all",
       categories: [],
       activities: [],
       price: "any",

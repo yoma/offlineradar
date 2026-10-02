@@ -15,6 +15,14 @@ export type AvailabilityFilter = "any" | "open" | "almost_full" | "waitlist";
 
 export type SortKey = "match" | "soon" | "distance" | "newest";
 
+/**
+ * How category/activity filters apply:
+ * - all: no type restriction (Alle soorten)
+ * - none: no types selected → match nothing
+ * - pick: use categories[] / activities[]
+ */
+export type TypesFilterMode = "all" | "none" | "pick";
+
 export type SearchState = {
   age: number | null;
   gender: UserGender | null;
@@ -27,6 +35,8 @@ export type SearchState = {
   date: string | null;
   categories: EventCategory[];
   activities: ActivityId[];
+  /** Default "all". Empty arrays only mean “all types” when this is "all". */
+  typesMode: TypesFilterMode;
   price: PriceFilter;
   singlesOnly: boolean;
   availability: AvailabilityFilter;
