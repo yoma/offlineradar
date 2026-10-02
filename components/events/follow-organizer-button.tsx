@@ -91,7 +91,7 @@ export function FollowOrganizerButton({
         className={cn(
           "inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition disabled:opacity-60",
           following
-            ? "border-[#e61e4d]/40 bg-[#e61e4d]/5 text-[#e61e4d]"
+            ? "border-primary/40 bg-primary/5 text-primary"
             : "border-border bg-white text-foreground hover:border-foreground",
         )}
       >

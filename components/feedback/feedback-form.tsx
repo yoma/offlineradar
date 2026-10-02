@@ -82,7 +82,7 @@ export function FeedbackForm({
         className={cn(
           "text-sm leading-6",
           isModal
-            ? "rounded-2xl bg-[#e61e4d]/08 px-4 py-5 text-center"
+            ? "rounded-2xl bg-primary/10 px-4 py-5 text-center"
             : "rounded-xl border border-border bg-secondary/40 px-4 py-5",
         )}
         role="status"
@@ -125,7 +125,7 @@ export function FeedbackForm({
                 "rounded-full border px-3 py-1.5 text-sm transition",
                 category === key
                   ? isModal
-                    ? "border-[#e61e4d]/40 bg-[#e61e4d]/12 font-medium text-[#e61e4d]"
+                    ? "border-primary/40 bg-primary/12 font-medium text-primary"
                     : "border-foreground bg-foreground text-background"
                   : "border-border bg-white text-foreground hover:border-foreground/40",
               )}
@@ -160,7 +160,7 @@ export function FeedbackForm({
           placeholder={isModal ? "In een of twee zinnen…" : undefined}
           className={cn(
             "w-full rounded-2xl border border-border bg-white px-3.5 py-3 text-[15px] outline-none",
-            "focus:border-[#e61e4d]/45 focus:ring-4 focus:ring-[#e61e4d]/15",
+            "focus:border-primary/45 focus:ring-4 focus:ring-primary/15",
             !isModal && "mt-1.5 rounded-xl",
           )}
         />
@@ -210,7 +210,7 @@ export function FeedbackForm({
         disabled={busy}
         className={cn(
           "h-12 rounded-full",
-          isModal && "w-full text-base font-semibold shadow-[0_12px_28px_-10px_rgba(230,30,77,0.55)]",
+          isModal && "w-full text-base font-semibold shadow-[0_12px_28px_-10px_rgba(156,124,37,0.55)]",
           !isModal && "h-11 px-6",
         )}
       >

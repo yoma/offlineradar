@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Dialog } from "radix-ui";
@@ -128,11 +129,14 @@ export function BetaWelcomeModal() {
                 </Button>
               </Dialog.Close>
 
-              <div
-                className="mx-auto flex size-14 items-center justify-center rounded-full bg-[#e61e4d] text-lg font-bold tracking-tight text-white shadow-[0_10px_30px_-8px_rgba(230,30,77,0.55)]"
-                aria-hidden
-              >
-                OR
+              <div className="mx-auto flex justify-center" aria-hidden>
+                <Image
+                  src="/brand/dateofflinehub-logo.png"
+                  alt=""
+                  width={96}
+                  height={94}
+                  className="h-16 w-auto drop-shadow-[0_10px_24px_-8px_rgba(156,124,37,0.55)]"
+                />
               </div>
 
               <Dialog.Title
@@ -159,7 +163,7 @@ export function BetaWelcomeModal() {
               </Dialog.Description>
 
               <div className="mt-7 flex flex-col items-stretch gap-3">
-                <Button asChild className="h-12 w-full rounded-full text-base font-semibold shadow-[0_12px_28px_-10px_rgba(230,30,77,0.65)]">
+                <Button asChild className="h-12 w-full rounded-full text-base font-semibold shadow-[0_12px_28px_-10px_rgba(156,124,37,0.65)]">
                   <Link
                     href={loginHref}
                     data-beta-welcome-primary

@@ -2,6 +2,7 @@
 
 import { Dialog } from "radix-ui";
 import { MessageSquare, XIcon } from "lucide-react";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Suspense, useEffect, useId, useState } from "react";
 import { WELCOME_OPEN_EVENT } from "@/components/beta/beta-welcome-modal";
@@ -138,13 +139,13 @@ export function FeedbackLauncher() {
               "text-sm font-semibold text-foreground",
               "shadow-[0_12px_32px_-10px_rgba(26,18,20,0.35)]",
               "transition hover:-translate-y-0.5 hover:shadow-[0_16px_36px_-10px_rgba(26,18,20,0.4)]",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e61e4d]/40",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
             )}
             aria-haspopup="dialog"
             aria-expanded={open}
           >
             <span
-              className="flex size-6 items-center justify-center rounded-full bg-[#e61e4d]/12 text-[#e61e4d]"
+              className="flex size-6 items-center justify-center rounded-full bg-primary/12 text-primary"
               aria-hidden
             >
               <MessageSquare className="size-3.5" />
@@ -195,11 +196,14 @@ export function FeedbackLauncher() {
                   </Button>
                 </Dialog.Close>
 
-                <div
-                  className="mx-auto flex size-12 items-center justify-center rounded-full bg-[#e61e4d] text-sm font-bold text-white shadow-[0_10px_28px_-8px_rgba(230,30,77,0.55)]"
-                  aria-hidden
-                >
-                  OR
+                <div className="mx-auto flex justify-center" aria-hidden>
+                  <Image
+                    src="/brand/dateofflinehub-logo.png"
+                    alt=""
+                    width={80}
+                    height={78}
+                    className="h-14 w-auto drop-shadow-[0_10px_24px_-8px_rgba(156,124,37,0.55)]"
+                  />
                 </div>
 
                 <Dialog.Title

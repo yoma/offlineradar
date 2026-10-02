@@ -271,9 +271,14 @@ export function HomeHero({
       <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/60" />
 
       <div className="relative mx-auto flex min-h-[100svh] w-full min-w-0 max-w-6xl flex-col justify-center px-4 pt-24 pb-24 sm:px-6 sm:pt-28 sm:pb-16">
-        <p className="text-[11px] font-medium tracking-[0.22em] text-white/65 uppercase sm:text-xs">
-          DateOfflineHub
-        </p>
+        <Image
+          src="/brand/dateofflinehub-logo.png"
+          alt="DateOfflineHub"
+          width={220}
+          height={215}
+          priority
+          className="h-16 w-auto drop-shadow-[0_8px_24px_rgba(0,0,0,0.35)] sm:h-20"
+        />
         <h1 className="mt-4 max-w-[18ch] text-balance text-[1.55rem] font-semibold leading-[1.2] tracking-[-0.02em] text-white sm:mt-5 sm:max-w-2xl sm:text-[2.35rem] sm:leading-[1.15] lg:text-[2.75rem] lg:leading-[1.12]">
           Date offline. Ervaar opnieuw de kracht van echte connecties.
         </h1>
@@ -411,7 +416,7 @@ export function HomeHero({
               <div
                 className={`border-t px-5 py-3.5 sm:px-6 ${
                   invalidFields.date
-                    ? "border-[#e61e4d]/40 bg-[#e61e4d]/5"
+                    ? "border-primary/40 bg-[var(--brand-gold-soft)]"
                     : "border-border"
                 }`}
               >
@@ -419,7 +424,7 @@ export function HomeHero({
                   <span
                     className={`mb-1.5 block text-[11px] font-semibold tracking-[0.08em] uppercase ${
                       invalidFields.date
-                        ? "text-[#e61e4d]"
+                        ? "text-primary"
                         : "text-muted-foreground"
                     }`}
                   >
@@ -455,9 +460,11 @@ export function HomeHero({
               <div
                 id="home-search-error"
                 role="alert"
-                className="border-t border-[#e61e4d]/25 bg-[#fff5f7] px-4 py-3 sm:px-5"
+                className="border-t border-primary/25 bg-[var(--brand-gold-soft)] px-4 py-3 sm:px-5"
               >
-                <p className="text-sm font-semibold text-[#9f1239]">{error}</p>
+                <p className="text-sm font-semibold text-[var(--brand-gold-ink)]">
+                  {error}
+                </p>
               </div>
             ) : null}
           </div>
@@ -472,7 +479,7 @@ export function HomeHero({
               <SlidersHorizontal className="size-4 shrink-0" />
               Meer filters
               {extraCount > 0 ? (
-                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-xs font-bold text-[#e61e4d]">
+                <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-xs font-bold text-primary">
                   {extraCount}
                 </span>
               ) : null}
@@ -532,7 +539,7 @@ export function HomeHero({
                 onClick={go}
                 disabled={searching}
                 aria-busy={searching}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#e61e4d] px-6 py-3.5 text-base font-semibold text-white shadow-lg transition hover:bg-[#d70466] disabled:cursor-wait disabled:opacity-80 sm:w-auto sm:min-w-[240px]"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 text-base font-semibold text-primary-foreground shadow-lg shadow-[0_12px_28px_-10px_rgba(156,124,37,0.55)] transition hover:bg-[var(--brand-gold-ink)] disabled:cursor-wait disabled:opacity-80 sm:w-auto sm:min-w-[240px]"
               >
                 <Search className="size-4" />
                 {searching ? "Bezig met zoeken…" : "Vind activiteiten"}
@@ -608,11 +615,11 @@ function Field({
     <label
       className={`flex min-h-[4.75rem] min-w-0 cursor-pointer flex-col justify-center px-4 py-3.5 transition hover:bg-black/[0.03] focus-within:bg-black/[0.03] sm:px-5 lg:min-h-[5.25rem] lg:px-5 lg:py-4 ${
         divide ? "border-t border-border lg:border-t-0 lg:border-l" : ""
-      } ${invalid ? "bg-[#fff5f7] ring-2 ring-inset ring-[#e61e4d]/70" : ""}`}
+      } ${invalid ? "bg-[var(--brand-gold-soft)] ring-2 ring-inset ring-primary/70" : ""}`}
     >
       <span
         className={`mb-1.5 flex h-4 items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold tracking-[0.08em] uppercase ${
-          invalid ? "text-[#e61e4d]" : "text-muted-foreground"
+          invalid ? "text-primary" : "text-muted-foreground"
         }`}
       >
         <span className="truncate">{label}</span>
@@ -622,7 +629,7 @@ function Field({
           </span>
         ) : null}
         {hint ? (
-          <span className="rounded-full bg-[#e61e4d] px-1.5 py-0.5 text-[9px] font-bold tracking-normal text-white normal-case">
+          <span className="rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-bold tracking-normal text-primary-foreground normal-case">
             {hint}
           </span>
         ) : null}

@@ -49,38 +49,44 @@
 }
 
 :root {
+  /* DateOfflineHub gold brand (from logo: mid #D4AF37, light #F5E49F, deep #9C7C25) */
+  --brand-gold: #d4af37;
+  --brand-gold-light: #f5e49f;
+  --brand-gold-deep: #9c7c25;
+  --brand-gold-soft: #fbf6e8;
+  --brand-gold-ink: #7a5c1e;
   --background: #ffffff;
   --foreground: #222222;
   --card: #ffffff;
   --card-foreground: #222222;
   --popover: #ffffff;
   --popover-foreground: #222222;
-  --primary: #e61e4d;
+  --primary: #9c7c25;
   --primary-foreground: #ffffff;
   --secondary: #f7f7f7;
   --secondary-foreground: #222222;
   --muted: #f7f7f7;
   --muted-foreground: #6a6a6a;
-  --accent: #f7f7f7;
-  --accent-foreground: #222222;
+  --accent: #fbf6e8;
+  --accent-foreground: #7a5c1e;
   --destructive: #c13515;
   --border: #ebebeb;
   --input: #dddddd;
-  --ring: #222222;
-  --chart-1: #222222;
-  --chart-2: #6a6a6a;
+  --ring: #9c7c25;
+  --chart-1: #9c7c25;
+  --chart-2: #d4af37;
   --chart-3: #b0b0b0;
   --chart-4: #dddddd;
-  --chart-5: #f7f7f7;
+  --chart-5: #fbf6e8;
   --radius: 0.75rem;
   --sidebar: #ffffff;
   --sidebar-foreground: #222222;
-  --sidebar-primary: #e61e4d;
+  --sidebar-primary: #9c7c25;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f7f7f7;
-  --sidebar-accent-foreground: #222222;
+  --sidebar-accent: #fbf6e8;
+  --sidebar-accent-foreground: #7a5c1e;
   --sidebar-border: #ebebeb;
-  --sidebar-ring: #222222;
+  --sidebar-ring: #9c7c25;
 }
 
 @layer base {

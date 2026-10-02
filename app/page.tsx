@@ -85,7 +85,7 @@ export default async function HomePage() {
 function Step({ n, title, text }: { n: string; title: string; text: string }) {
   return (
     <li>
-      <p className="text-sm font-semibold text-[#e61e4d]">{n}</p>
+      <p className="text-sm font-semibold text-primary">{n}</p>
       <h3 className="mt-2 text-xl font-semibold tracking-tight">{title}</h3>
       <p className="mt-2 text-[15px] leading-6 text-muted-foreground">{text}</p>
     </li>

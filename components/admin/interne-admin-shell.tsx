@@ -15,7 +15,7 @@ export function InterneAdminShell({
     <div className="relative min-h-[100svh] overflow-x-clip">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(230,30,77,0.08),_transparent_55%),linear-gradient(180deg,#faf7f4_0%,#f3efe9_45%,#f7f4f0_100%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(212,175,55,0.12),_transparent_55%),linear-gradient(180deg,#fbf8f0_0%,#f5f0e6_45%,#f7f4ee_100%)]"
       />
       <div
         className={`relative mx-auto w-full min-w-0 px-4 py-8 sm:px-6 sm:py-10 ${

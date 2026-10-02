@@ -75,7 +75,7 @@ export function SaveButton({
         overlay
           ? "bg-white/90 text-foreground shadow-sm hover:scale-105"
           : "border border-border bg-white text-foreground hover:border-foreground",
-        saved && "text-[#e61e4d]",
+        saved && "text-primary",
       )}
     >
       <Bookmark className={cn("size-4", saved && "fill-current")} />

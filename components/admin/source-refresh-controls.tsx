@@ -103,7 +103,7 @@ export function SourceRefreshControls({
         </p>
       ) : null}
       {activeLocked ? (
-        <p className="text-sm text-[#e61e4d]">
+        <p className="text-sm text-primary">
           Er loopt al een refresh voor deze bron (handmatig of scheduled).
         </p>
       ) : null}
@@ -113,7 +113,7 @@ export function SourceRefreshControls({
           <button
             type="submit"
             disabled={pending || activeLocked}
-            className="rounded-md bg-[#e61e4d] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
+            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
           >
             {pending ? "Bron wordt gecontroleerd..." : "Controleer bron"}
           </button>
@@ -153,7 +153,7 @@ export function SourceRefreshControls({
       </div>
       {state.message ? (
         <p
-          className={`text-sm ${state.ok ? "text-foreground" : "text-[#e61e4d]"}`}
+          className={`text-sm ${state.ok ? "text-foreground" : "text-primary"}`}
         >
           {state.message}
         </p>

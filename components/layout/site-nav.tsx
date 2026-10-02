@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bookmark, Compass, Info } from "lucide-react";
@@ -38,17 +39,25 @@ export function SiteHeader() {
       )}
     >
       <div className="mx-auto flex h-16 w-full min-w-0 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-        <Link href="/" className="flex min-w-0 items-center gap-2.5">
+        <Link
+          href="/"
+          className="flex min-w-0 items-center gap-2.5"
+          aria-label="DateOfflineHub home"
+        >
+          <Image
+            src="/brand/dateofflinehub-mark.png"
+            alt=""
+            width={72}
+            height={56}
+            priority
+            className="h-9 w-auto sm:h-10"
+          />
           <span
             className={cn(
-              "flex size-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold",
-              light ? "bg-[#e61e4d] text-white" : "bg-white text-[#e61e4d]",
+              "truncate text-[15px] font-semibold tracking-tight sm:text-[17px]",
+              light ? "text-[var(--brand-gold-deep)]" : "text-white",
             )}
-            aria-hidden
           >
-            DH
-          </span>
-          <span className="truncate text-[15px] font-semibold tracking-tight sm:text-[17px]">
             DateOfflineHub
           </span>
         </Link>
@@ -80,8 +89,8 @@ export function SiteHeader() {
             className={cn(
               "rounded-full px-3 py-1.5 text-sm font-semibold transition",
               light
-                ? "bg-[#e61e4d] text-white hover:bg-[#d70466]"
-                : "bg-white text-[#e61e4d] hover:bg-white/90",
+                ? "bg-primary text-primary-foreground hover:bg-[var(--brand-gold-ink)]"
+                : "bg-white text-primary hover:bg-white/90",
             )}
             onClick={() => {
               // Same-page hash nav does not remount TipSection; open the form
@@ -117,7 +126,7 @@ export function MobileNav() {
                 href={link.href}
                 className={cn(
                   "flex min-h-12 flex-col items-center justify-center gap-1 px-1 py-2.5 text-[11px] font-medium",
-                  active ? "text-foreground" : "text-muted-foreground",
+                  active ? "text-primary" : "text-muted-foreground",
                 )}
               >
                 <Icon className={cn("size-5", active && "stroke-[2.25]")} />

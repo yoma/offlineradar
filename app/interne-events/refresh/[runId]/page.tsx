@@ -98,7 +98,7 @@ export default async function RefreshRunPage({
         </p>
       ) : null}
       {run.error ? (
-        <p className="mt-2 text-sm text-[#e61e4d]">{run.error}</p>
+        <p className="mt-2 text-sm text-primary">{run.error}</p>
       ) : null}
 
       <p className="mt-6 text-sm text-muted-foreground">

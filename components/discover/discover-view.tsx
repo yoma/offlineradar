@@ -385,14 +385,14 @@ export function DiscoverView({
               if (ageError) setAgeError("");
             }}
             className={`h-12 rounded-xl text-base ${
-              ageError ? "border-[#e61e4d] ring-2 ring-[#e61e4d]/30" : ""
+              ageError ? "border-primary ring-2 ring-primary/30" : ""
             }`}
           />
           {ageError ? (
             <p
               id="results-age-error"
               role="alert"
-              className="rounded-xl border border-[#e61e4d]/30 bg-[#fff5f7] px-3 py-2 text-sm font-medium text-[#9f1239]"
+              className="rounded-xl border border-primary/30 bg-[var(--brand-gold-soft)] px-3 py-2 text-sm font-medium text-[var(--brand-gold-ink)]"
             >
               {ageError}
             </p>
