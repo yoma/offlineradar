@@ -7,6 +7,20 @@ import type { RefreshFieldChange } from "@/lib/source-refresh/types";
 import type { EventEditionRecord } from "@/types/event-catalog";
 import { getEditionById } from "@/lib/events/neon-store";
 
+/** Fields safe to auto-apply in thorough scans (no title/date/city moves). */
+export const SAFE_AUTO_APPLY_FIELDS = new Set([
+  "availability",
+  "genderAvailability",
+  "availabilityNote",
+  "price",
+]);
+
+export function filterSafeAutoApplyChanges(
+  changes: RefreshFieldChange[],
+): RefreshFieldChange[] {
+  return changes.filter((c) => SAFE_AUTO_APPLY_FIELDS.has(c.field));
+}
+
 export async function applyRefreshChangesToEdition(input: {
   editionId: string;
   changes: RefreshFieldChange[];
@@ -23,6 +37,10 @@ export async function applyRefreshChangesToEdition(input: {
   let venue: string | null = null;
   let price: number | null = null;
   let availability: string | null = null;
+  let genderAvailability: string | null = null;
+  let availabilityNote: string | null = null;
+  let touchGender = false;
+  let touchNote = false;
   let minAge: number | null = null;
   let maxAge: number | null = null;
   let touchAge = false;
@@ -43,6 +61,20 @@ export async function applyRefreshChangesToEdition(input: {
     if (change.field === "availability" && typeof change.after === "string") {
       availability = change.after;
     }
+    if (
+      change.field === "genderAvailability" &&
+      typeof change.after === "string"
+    ) {
+      touchGender = true;
+      genderAvailability = change.after;
+    }
+    if (
+      change.field === "availabilityNote" &&
+      typeof change.after === "string"
+    ) {
+      touchNote = true;
+      availabilityNote = change.after;
+    }
     if (change.field === "age" && typeof change.after === "string") {
       const m = /^(\d+|\?)-(\d+|\?)$/.exec(change.after);
       if (m) {
@@ -60,6 +92,14 @@ export async function applyRefreshChangesToEdition(input: {
       venue_name = COALESCE(${venue}, venue_name),
       price_amount = COALESCE(${price}, price_amount),
       availability_status = COALESCE(${availability}, availability_status),
+      gender_availability = CASE
+        WHEN ${touchGender} THEN ${genderAvailability}
+        ELSE gender_availability
+      END,
+      availability_note = CASE
+        WHEN ${touchNote} THEN ${availabilityNote}
+        ELSE availability_note
+      END,
       min_age = CASE WHEN ${touchAge} THEN ${minAge} ELSE min_age END,
       max_age = CASE WHEN ${touchAge} THEN ${maxAge} ELSE max_age END,
       updated_at = now()

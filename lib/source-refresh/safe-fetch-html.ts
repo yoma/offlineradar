@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
 import { validateAndNormalizeTipUrl } from "@/lib/tips/url";
 
 const MAX_BYTES = 1_500_000;
-const TIMEOUT_MS = 15_000;
+const TIMEOUT_MS = 30_000;
 const MAX_REDIRECTS = 6;
 
 export type SafeHtmlFetchResult =

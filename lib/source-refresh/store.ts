@@ -10,6 +10,7 @@ import type {
   SourceRefreshItemRecord,
   SourceRefreshItemStatus,
   SourceRefreshMatchConfidence,
+  SourceRefreshReport,
   SourceRefreshRunRecord,
   SourceRefreshRunStatus,
   SourceRefreshTriggerType,
@@ -32,7 +33,11 @@ type RunRow = {
   unchanged_count: number;
   changed_count: number;
   removed_count: number;
+  skipped_count?: number | null;
+  drafted_count?: number | null;
+  applied_count?: number | null;
   error: string | null;
+  report_json?: SourceRefreshReport | null;
   triggered_by: string | null;
   trigger_type?: string | null;
   created_at: string | Date;
@@ -87,7 +92,11 @@ function mapRun(row: RunRow): SourceRefreshRunRecord {
     unchangedCount: Number(row.unchanged_count),
     changedCount: Number(row.changed_count),
     removedCount: Number(row.removed_count),
+    skippedCount: Number(row.skipped_count ?? 0),
+    draftedCount: Number(row.drafted_count ?? 0),
+    appliedCount: Number(row.applied_count ?? 0),
     error: row.error,
+    report: row.report_json ?? null,
     triggeredBy: row.triggered_by,
     triggerType: row.trigger_type === "scheduled" ? "scheduled" : "manual",
     createdAt: iso(row.created_at)!,
@@ -403,10 +412,15 @@ export async function completeRefreshRun(input: {
   unchangedCount?: number;
   changedCount?: number;
   removedCount?: number;
+  skippedCount?: number;
+  draftedCount?: number;
+  appliedCount?: number;
   error?: string | null;
+  report?: SourceRefreshReport | null;
 }): Promise<SourceRefreshRunRecord | null> {
   const sql = getEventsSql();
   if (!sql) return null;
+  const reportJson = input.report ? JSON.stringify(input.report) : null;
   const rows = (await sql`
     UPDATE source_refresh_runs SET
       status = ${input.status},
@@ -419,6 +433,10 @@ export async function completeRefreshRun(input: {
       unchanged_count = COALESCE(${input.unchangedCount ?? null}, unchanged_count),
       changed_count = COALESCE(${input.changedCount ?? null}, changed_count),
       removed_count = COALESCE(${input.removedCount ?? null}, removed_count),
+      skipped_count = COALESCE(${input.skippedCount ?? null}, skipped_count),
+      drafted_count = COALESCE(${input.draftedCount ?? null}, drafted_count),
+      applied_count = COALESCE(${input.appliedCount ?? null}, applied_count),
+      report_json = COALESCE(${reportJson}::jsonb, report_json),
       error = ${input.error ?? null}
     WHERE id = ${input.id}
     RETURNING *
@@ -555,6 +573,7 @@ export async function listFutureEditionsForOrganizerSlug(
   const rows = (await sql`
     SELECT e.id, e.slug, e.title, e.starts_at, e.city, e.min_age, e.max_age,
            e.price_amount, e.availability_status, e.venue_name,
+           e.gender_availability, e.availability_note,
            e.publication_status, o.slug AS organizer_slug
     FROM event_editions e
     JOIN organizers o ON o.id = e.organizer_id
@@ -573,6 +592,8 @@ export async function listFutureEditionsForOrganizerSlug(
     price_amount: number | null;
     availability_status: string | null;
     venue_name: string | null;
+    gender_availability: string | null;
+    availability_note: string | null;
     publication_status: string;
     organizer_slug: string;
   }[];
@@ -594,6 +615,8 @@ export async function listFutureEditionsForOrganizerSlug(
       priceAmount: row.price_amount == null ? null : Number(row.price_amount),
       availabilityStatus: row.availability_status,
       venueName: row.venue_name,
+      genderAvailability: row.gender_availability,
+      availabilityNote: row.availability_note,
       publicationStatus: row.publication_status,
       organizerSlug: row.organizer_slug,
       sourceUrls: sources.map((s) => s.normalized_url || s.url),
@@ -613,6 +636,8 @@ export type EventEditionBundleLite = {
   priceAmount: number | null;
   availabilityStatus: string | null;
   venueName: string | null;
+  genderAvailability?: string | null;
+  availabilityNote?: string | null;
   publicationStatus: string;
   organizerSlug: string;
   sourceUrls: string[];

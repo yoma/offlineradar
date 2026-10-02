@@ -5,7 +5,7 @@
 import type { RefreshParserKey } from "@/lib/source-refresh/types";
 
 export const SOURCE_REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
-export const SOURCE_REFRESH_PARSER_VERSION = "1";
+export const SOURCE_REFRESH_PARSER_VERSION = "2";
 
 export type RefreshPilotConfig = {
   catalogSourceId: string;

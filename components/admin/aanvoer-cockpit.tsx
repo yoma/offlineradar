@@ -31,6 +31,7 @@ import {
   publicImageKindLabel,
   resolvePublicEventImage,
 } from "@/lib/image-compatibility";
+import { AdminChatPanel } from "@/components/admin/admin-chat-panel";
 
 type TabId =
   | "nieuw"
@@ -222,6 +223,8 @@ export function AanvoerCockpit({
           toegevoegd (gate geslaagd).
         </p>
       ) : null}
+
+      <AdminChatPanel />
 
       <div className="overflow-x-auto">
         <div

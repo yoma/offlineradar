@@ -65,6 +65,8 @@ export async function createDraftFromRefreshCandidate(input: {
     priceAmount: input.candidate.price,
     priceCurrency: "EUR",
     availabilityStatus: input.candidate.availability,
+    genderAvailability: input.candidate.genderAvailability ?? null,
+    availabilityNote: input.candidate.availabilityNote ?? null,
     shortDescription: input.candidate.rawEvidenceSummary.slice(0, 180),
     description: input.candidate.rawEvidenceSummary,
     internalNotes: `Created from source refresh item ${input.candidate.externalKey}`,

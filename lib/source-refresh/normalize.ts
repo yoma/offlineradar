@@ -14,6 +14,66 @@ export function normalizeRefreshUrl(url: string): string {
   }
 }
 
+/**
+ * Last meaningful path segment (no extension), used as cross-host event identity.
+ * Returns null for listing/index pages so many editions sharing one agenda URL
+ * never collide.
+ */
+export function urlPathKey(url: string): string | null {
+  try {
+    const parsed = new URL(normalizeRefreshUrl(url));
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    const last = (parts[parts.length - 1] ?? "").replace(
+      /\.(html?|php|aspx?)$/i,
+      "",
+    );
+    if (!last || last.length < 6) return null;
+    if (isListingPathSegment(last)) return null;
+    return last.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function isListingPathSegment(segment: string): boolean {
+  const s = segment.toLowerCase().replace(/-\d+$/, "");
+  return /^(kalender|calendar|agenda|events?|evenementen|programma|program|overview|index|listing|all)$/.test(
+    s,
+  );
+}
+
+/** True when URL is an agenda/listing page, not a single-event detail page. */
+export function isListingOrIndexUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url.trim());
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    const last = (parts[parts.length - 1] ?? "").replace(
+      /\.(html?|php|aspx?)$/i,
+      "",
+    );
+    if (isListingPathSegment(last)) return true;
+    if (parts.length <= 1 && !/\d{4,}/.test(last)) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Same event page even across sister domains / www / query noise.
+ * Path key must match. Listing/agenda URLs never count as event identity
+ * (many editions share one calendar URL).
+ */
+export function urlsReferToSameEvent(a: string, b: string): boolean {
+  if (isListingOrIndexUrl(a) || isListingOrIndexUrl(b)) return false;
+  const na = normalizeRefreshUrl(a);
+  const nb = normalizeRefreshUrl(b);
+  if (na === nb) return true;
+  const ka = urlPathKey(a);
+  const kb = urlPathKey(b);
+  return Boolean(ka && kb && ka === kb);
+}
+
 export function normalizeText(value: string | null | undefined): string {
   return (value ?? "")
     .normalize("NFD")
@@ -27,7 +87,7 @@ export function normalizeText(value: string | null | undefined): string {
     .trim();
 }
 
-/** Title tokens for similarity; drops weak filler words. */
+/** Title tokens for similarity; drops weak filler words and listing noise. */
 export function titleMatchTokens(value: string | null | undefined): string[] {
   const stop = new Set([
     "de",
@@ -50,25 +110,43 @@ export function titleMatchTokens(value: string | null | undefined): string[] {
     "weekend",
     "singles",
     "sportieve",
+    // Generic activity wrappers (listing vs published titles)
+    "speeddate",
+    "speeddating",
+    "event",
+    "activiteit",
+    "activiteiten",
+    "jaar",
+    "ans",
+    "years",
   ]);
   return normalizeText(value)
+    .replace(/\bst\b/g, "sint") // St-Niklaas ≈ Sint-Niklaas
     .split(" ")
+    .map((w) => w.replace(/(\d+)[aj]$/i, "$1")) // 40a / 35j → 40 / 35
     .filter((w) => w.length > 2 && !stop.has(w) && !/^\d+$/.test(w));
 }
 
 export function titlesLooselyEqual(a: string, b: string): boolean {
-  const na = normalizeText(a);
-  const nb = normalizeText(b);
+  const na = normalizeText(a).replace(/\bst\b/g, "sint");
+  const nb = normalizeText(b).replace(/\bst\b/g, "sint");
   if (!na || !nb) return false;
   if (na === nb) return true;
   if (na.includes(nb) || nb.includes(na)) return true;
+  // Listing titles often start with DD/MM; published titles often don't.
+  const stripDate = (s: string) => s.replace(/^\d{1,2}\s+\d{1,2}\s+/, "");
+  const sa = stripDate(na);
+  const sb = stripDate(nb);
+  if (sa && sb && (sa === sb || sa.includes(sb) || sb.includes(sa))) return true;
+
   const ta = new Set(titleMatchTokens(a));
   const tb = new Set(titleMatchTokens(b));
   if (ta.size === 0 || tb.size === 0) return false;
   let overlap = 0;
   for (const w of ta) if (tb.has(w)) overlap++;
   const denom = Math.min(ta.size, tb.size);
-  return overlap / denom >= 0.55 && overlap >= 2;
+  // City-only overlap is allowed; callers must also check day + age + organizer.
+  return overlap / denom >= 0.5 && overlap >= 1;
 }
 
 /** Absolute instant compare; true when both parse and differ by < 60s. */

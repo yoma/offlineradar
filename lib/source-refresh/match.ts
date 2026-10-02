@@ -4,10 +4,13 @@
  */
 import {
   calendarDayKey,
+  isListingOrIndexUrl,
   normalizeRefreshUrl,
   normalizeText,
   sameInstant,
   titlesLooselyEqual,
+  urlPathKey,
+  urlsReferToSameEvent,
 } from "@/lib/source-refresh/normalize";
 import type {
   RefreshFieldChange,
@@ -119,6 +122,28 @@ export function diffCandidate(
     });
   }
 
+  if (
+    c.genderAvailability &&
+    c.genderAvailability !== (e.genderAvailability ?? null)
+  ) {
+    changes.push({
+      field: "genderAvailability",
+      before: e.genderAvailability ?? null,
+      after: c.genderAvailability,
+    });
+  }
+
+  if (
+    c.availabilityNote &&
+    c.availabilityNote !== (e.availabilityNote ?? null)
+  ) {
+    changes.push({
+      field: "availabilityNote",
+      before: e.availabilityNote ?? null,
+      after: c.availabilityNote,
+    });
+  }
+
   // Age: only when source observed an age band.
   if (
     (c.minAge != null || c.maxAge != null) &&
@@ -167,6 +192,35 @@ export function matchCandidate(
     ? normalizeRefreshUrl(candidate.ticketUrl)
     : null;
   const day = candidate.date;
+  // Only use a product path key; never treat shared agenda URLs as identity.
+  const candPathKey = isListingOrIndexUrl(candidate.officialUrl)
+    ? null
+    : urlPathKey(candidate.officialUrl);
+
+  // 0) Same product path key in any source URL (works across sister domains)
+  if (candPathKey) {
+    for (const row of editions) {
+      if (row.organizerSlug !== expectedOrganizerSlug) continue;
+      const pathHit = row.sourceUrls.some((u) => {
+        if (isListingOrIndexUrl(u)) return false;
+        if (urlsReferToSameEvent(candidate.officialUrl, u)) return true;
+        const key = urlPathKey(u);
+        return key != null && key === candPathKey;
+      });
+      if (!pathHit) continue;
+      if (
+        dayKey(row.edition.startsAt) &&
+        dayKey(row.edition.startsAt) !== day
+      ) {
+        continue;
+      }
+      return {
+        editionId: row.edition.id,
+        confidence: "exact",
+        changes: diffCandidate(candidate, row.edition),
+      };
+    }
+  }
 
   // 1) Organizer + same day + title (preferred for outdoor calendars)
   let bestTitle: { row: MatchableEdition; cityOk: boolean } | null = null;
@@ -199,11 +253,27 @@ export function matchCandidate(
     };
   }
 
-  // 2) Unique URL / ticket URL + same day + title similar
+  // 2) Unique detail URL / ticket URL + same day + title similar
+  // Shared listing URLs are ignored here (many editions share one agenda page).
   for (const row of editions) {
     const urlHit =
-      row.sourceUrls.includes(candUrl) ||
-      (ticketUrl != null && row.sourceUrls.includes(ticketUrl));
+      (!isListingOrIndexUrl(candUrl) &&
+        row.sourceUrls.some(
+          (u) =>
+            !isListingOrIndexUrl(u) &&
+            (normalizeRefreshUrl(u) === candUrl ||
+              urlsReferToSameEvent(candidate.officialUrl, u)),
+        )) ||
+      (ticketUrl != null &&
+        !isListingOrIndexUrl(ticketUrl) &&
+        row.sourceUrls.some(
+          (u) =>
+            !isListingOrIndexUrl(u) &&
+            (normalizeRefreshUrl(u) === ticketUrl ||
+              (candidate.ticketUrl
+                ? urlsReferToSameEvent(candidate.ticketUrl, u)
+                : false)),
+        ));
     if (!urlHit) continue;
     if (dayKey(row.edition.startsAt) && dayKey(row.edition.startsAt) !== day) {
       continue;

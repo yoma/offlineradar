@@ -9,7 +9,13 @@ import { matchCandidate, type MatchableEdition } from "../lib/source-refresh/mat
 import { parseHoptodateHtml } from "../lib/source-refresh/parsers/hoptodate";
 import { parseSpeeddatenHtml } from "../lib/source-refresh/parsers/speeddaten";
 import { parseSportieveSinglesHtml } from "../lib/source-refresh/parsers/sportieve-singles";
-import { normalizeRefreshUrl } from "../lib/source-refresh/normalize";
+import {
+  isListingOrIndexUrl,
+  normalizeRefreshUrl,
+  titlesLooselyEqual,
+  urlPathKey,
+  urlsReferToSameEvent,
+} from "../lib/source-refresh/normalize";
 import { REFRESH_PILOTS, isRefreshSupported } from "../lib/source-refresh/registry";
 import { validateAndNormalizeTipUrl } from "../lib/tips/url";
 import type { EventEditionRecord } from "../types/event-catalog";
@@ -108,6 +114,42 @@ async function main() {
   if (meta.ok) fail("ssrf metadata", "accepted");
   else ok("ssrf blocks metadata");
 
+  // Cross-host / listing URL identity (all sources)
+  if (
+    !urlsReferToSameEvent(
+      "https://www.speeddaten.be/nl/21-10-antwerpen-hogeropgeleiden-25-35j-12548.htm",
+      "https://www.speeddatinginantwerpen.be/nl/21-10-antwerpen-hogeropgeleiden-25-35j-12548.htm",
+    )
+  ) {
+    fail("urlsReferToSameEvent sister host", "expected true");
+  } else ok("urlsReferToSameEvent across sister hosts");
+
+  if (urlPathKey("https://example.com/nl/kalender-8.htm") != null) {
+    fail("listing path key", "kalender should not be a product key");
+  } else ok("listing URLs have no product path key");
+
+  if (
+    urlsReferToSameEvent(
+      "https://www.sportievesingles.be/kalender",
+      "https://www.sportievesingles.be/kalender",
+    )
+  ) {
+    fail("listing never event-identity", "shared agenda URL matched as event");
+  } else ok("shared listing URL is not event identity");
+
+  if (!isListingOrIndexUrl("https://org.be/calendar") || !isListingOrIndexUrl("https://org.be/agenda")) {
+    fail("isListingOrIndexUrl", "calendar/agenda");
+  } else ok("isListingOrIndexUrl detects agenda pages");
+
+  if (
+    !titlesLooselyEqual(
+      "14/10 Antwerpen, 53-65j",
+      "Speeddating Antwerpen, 53–65 jaar",
+    )
+  ) {
+    fail("titlesLooselyEqual listing vs published", "expected true");
+  } else ok("titlesLooselyEqual listing vs published");
+
   // Parsers
   const speedHtml = await readFile(
     path.join(fixtureDir, "speeddaten-sample.html"),
@@ -121,6 +163,13 @@ async function main() {
     if (!c.externalKey || !c.date || !c.officialUrl.includes("speeddaten.be")) {
       fail("speeddaten fields", JSON.stringify(c));
     } else ok("speeddaten normalized fields");
+    if (!c.genderAvailability || !c.womenAvailability) {
+      fail("speeddaten gender", JSON.stringify({
+        genderAvailability: c.genderAvailability,
+        women: c.womenAvailability,
+        men: c.menAvailability,
+      }));
+    } else ok(`speeddaten gender (${c.genderAvailability})`);
   }
 
   const hopHtml = await readFile(

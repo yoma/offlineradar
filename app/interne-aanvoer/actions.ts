@@ -632,10 +632,13 @@ export async function scanSourceNowAction(
   }
 
   const { startSourceRefresh } = await import("@/lib/source-refresh/engine");
+  const thorough = String(formData.get("thorough") ?? "") === "1";
   const result = await startSourceRefresh({
     catalogSourceId: id,
     triggeredBy: gate.email,
     triggerType: "manual",
+    mode: thorough ? "thorough" : "standard",
+    skipCooldown: thorough,
   });
   revalidatePath("/interne-aanvoer");
   revalidatePath("/interne-events");
@@ -645,9 +648,12 @@ export async function scanSourceNowAction(
   if (!result.ok) {
     return { ok: false, error: result.error, runId: result.run?.id };
   }
+  const report = result.run.report;
   return {
     ok: true,
-    message: `Scan klaar: ${result.run.newCount} nieuw, ${result.run.changedCount} gewijzigd, ${result.run.unchangedCount} ongewijzigd.`,
+    message: thorough
+      ? `Grondige scan klaar: ${result.run.newCount} nieuw (${report?.drafted ?? 0} draft), ${result.run.changedCount} gewijzigd (${report?.applied ?? 0} toegepast), ${result.run.unchangedCount} ongewijzigd. Volledigheid: ${report?.completeness ?? "?"}.`
+      : `Scan klaar: ${result.run.newCount} nieuw, ${result.run.changedCount} gewijzigd, ${result.run.unchangedCount} ongewijzigd.`,
     runId: result.run.id,
   };
 }
