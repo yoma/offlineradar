@@ -141,7 +141,7 @@ export async function resolveSourceQuery(
   if (top.length === 0) {
     return {
       ok: false,
-      error: `Geen bron gevonden voor “${query}”. Probeer een domein (bv. speeddaten.be) of exacte organisatienaam.`,
+      error: `Geen catalogusbron voor “${query}”. Voor een nieuwe site of homepage: plak de URL en laat assess_url beoordelen (niet scan_source).`,
     };
   }
   if (top.length > 1 && top[0]!.score - top[1]!.score < 20) {

@@ -54,8 +54,29 @@ export type UrlValidationResult =
  */
 const MAX_URL_LENGTH = 2048;
 
-export function validateAndNormalizeTipUrl(raw: string): UrlValidationResult {
+/**
+ * Accept bare domains from admin chat (`thursday.com`, `www.thursday.com`)
+ * by prepending https:// before validation.
+ */
+export function coerceToHttpUrl(raw: string): string {
   const trimmed = raw.trim();
+  if (!trimmed) return trimmed;
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) return trimmed;
+  // www.example.com/path or example.com
+  if (/^(?:www\.)?[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+(?:[/:?#].*)?$/i.test(
+    trimmed,
+  )) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
+}
+
+/**
+ * Validate visitor URL: must be public http(s), no credentials, no private hosts.
+ * Bare domains are accepted after https:// coercion (admin paste / tips).
+ */
+export function validateAndNormalizeTipUrl(raw: string): UrlValidationResult {
+  const trimmed = coerceToHttpUrl(raw);
   if (!trimmed) {
     return { ok: false, error: "Plak een link naar de activiteit." };
   }
@@ -72,7 +93,7 @@ export function validateAndNormalizeTipUrl(raw: string): UrlValidationResult {
   } catch {
     return {
       ok: false,
-      error: "Dit lijkt geen geldige link. Gebruik een volledige http(s)-URL.",
+      error: "Dit lijkt geen geldige link. Gebruik een http(s)-URL of domein.",
     };
   }
 

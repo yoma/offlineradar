@@ -27,6 +27,8 @@ mustInclude("app/api/interne-admin-chat/route.ts", "resolveTipsAdminAccess");
 mustInclude("components/admin/admin-chat-panel.tsx", "/api/interne-admin-chat");
 mustInclude("components/admin/admin-chat-panel.tsx", "Past dit in ons kraam");
 mustInclude("components/admin/aanvoer-cockpit.tsx", "AdminChatPanel");
+mustInclude("lib/tips/url.ts", "coerceToHttpUrl");
+mustInclude("lib/admin-chat/agent.ts", "roep DIRECT assess_url");
 
 if (failed > 0) {
   console.error(`\n${failed} failure(s)`);
