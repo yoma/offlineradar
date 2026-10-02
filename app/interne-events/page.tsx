@@ -22,7 +22,6 @@ import { assertOfflineRadarDbConfig } from "@/lib/events/db";
 import { CatalogSourcesBrowser } from "@/components/admin/catalog-sources-browser";
 import { InterneAdminNav } from "@/components/admin/interne-admin-nav";
 import { InterneAdminShell } from "@/components/admin/interne-admin-shell";
-import { SourceRefreshControls } from "@/components/admin/source-refresh-controls";
 import {
   isRefreshSupported,
   REFRESH_PILOTS,
@@ -141,6 +140,25 @@ export default async function InterneEventsPage() {
     REFRESH_PILOTS.map((p) => p.catalogSourceId),
   );
   const scheduledGlobalOn = isScheduledRefreshGloballyEnabled();
+
+  const refreshBySourceId = Object.fromEntries(
+    catalogSources.map((source) => {
+      const schedule = scheduleStates.get(source.id) ?? null;
+      return [
+        source.id,
+        {
+          supported: isRefreshSupported(source.id),
+          latestRun: refreshRuns.get(source.id) ?? null,
+          schedule,
+          nextRefreshAt: computeNextRefreshAtIso(
+            schedule,
+            getRefreshPilot(source.id)?.parserKey,
+          ),
+          consecutiveFailures: consecutiveFailures.get(source.id) ?? 0,
+        },
+      ];
+    }),
+  );
 
   let reportSummaries: Awaited<ReturnType<typeof listEventReportSummaries>> = [];
   let openByEdition = new Map<string, number>();
@@ -267,104 +285,11 @@ export default async function InterneEventsPage() {
           </button>
         </form>
 
-        <CatalogSourcesBrowser sources={catalogSources}>
-          {(filtered) => (
-            <ul className="space-y-3">
-              {filtered.map((source) => (
-                <li
-                  key={source.id}
-                  className="rounded-xl border border-border bg-background px-4 py-4"
-                >
-                  <div className="space-y-2">
-                    <p className="font-semibold">
-                      {source.name}
-                      {source.notes &&
-                      (source.notes.includes("discovered_by=user") ||
-                        /door youri aangebracht/i.test(source.notes)) ? (
-                        <span className="ml-2 text-xs font-normal text-muted-foreground">
-                          · Door Youri aangebracht
-                        </span>
-                      ) : null}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {source.sourceKind} · {source.sourceType} ·{" "}
-                      {source.status}
-                      {source.editionCount != null
-                        ? ` · ${source.editionCount} editions`
-                        : null}
-                    </p>
-                    <a
-                      href={source.officialUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="break-all text-sm font-medium underline-offset-4 hover:underline"
-                    >
-                      {source.officialUrl}
-                    </a>
-                    <p className="text-sm text-muted-foreground">
-                      Regio: {source.regions.join(", ") || "—"} · Formats:{" "}
-                      {source.formats.join(", ") || "—"}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Laatst gecontroleerd:{" "}
-                      {source.lastCheckedAt?.slice(0, 16) ?? "onbekend"}
-                    </p>
-                    {source.notes ? (
-                      <p className="text-sm text-muted-foreground">
-                        {source.notes}
-                      </p>
-                    ) : null}
-                    <SourceRefreshControls
-                      catalogSourceId={source.id}
-                      supported={isRefreshSupported(source.id)}
-                      latestRun={refreshRuns.get(source.id) ?? null}
-                      schedule={scheduleStates.get(source.id) ?? null}
-                      nextRefreshAt={computeNextRefreshAtIso(
-                        scheduleStates.get(source.id),
-                        getRefreshPilot(source.id)?.parserKey,
-                      )}
-                      consecutiveFailures={
-                        consecutiveFailures.get(source.id) ?? 0
-                      }
-                    />
-                    <form
-                      action={updateCatalogSourceAction}
-                      className="flex flex-wrap items-end gap-2 pt-1"
-                    >
-                      <input type="hidden" name="sourceId" value={source.id} />
-                      <select
-                        name="status"
-                        defaultValue={source.status}
-                        className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
-                      >
-                        <option value="active">active</option>
-                        <option value="promising">promising</option>
-                        <option value="low_yield">low_yield</option>
-                        <option value="inactive">inactive</option>
-                      </select>
-                      <input
-                        name="notes"
-                        defaultValue={source.notes ?? ""}
-                        placeholder="Note"
-                        className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm"
-                      />
-                      <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <input type="checkbox" name="touchChecked" value="1" />
-                        checked_at nu
-                      </label>
-                      <button
-                        type="submit"
-                        className="rounded-md border border-border px-3 py-1.5 text-sm"
-                      >
-                        Update
-                      </button>
-                    </form>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CatalogSourcesBrowser>
+        <CatalogSourcesBrowser
+          sources={catalogSources}
+          refreshBySourceId={refreshBySourceId}
+          updateAction={updateCatalogSourceAction}
+        />
       </section>
 
       <section className="mb-10 space-y-4">
