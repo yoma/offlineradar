@@ -87,13 +87,13 @@ export function SiteHeader() {
           <img
             src="/brand/dateofflinehub-mark.png"
             alt=""
-            width={44}
-            height={29}
-            className="h-9 w-auto shrink-0 object-contain"
+            width={64}
+            height={52}
+            className="h-12 w-auto shrink-0 object-contain sm:h-[3.25rem]"
           />
           <span
             className={cn(
-              "truncate text-[15px] font-semibold tracking-tight sm:text-[17px]",
+              "truncate text-[16px] font-semibold tracking-tight sm:text-[18px]",
               light ? "text-[var(--brand-gold-deep)]" : "text-white",
             )}
           >
