@@ -71,7 +71,7 @@ export function SiteHeader() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 transition-colors duration-200",
+        "sticky top-0 z-40 overflow-visible transition-colors duration-200",
         light
           ? "border-b border-border bg-white/95 text-foreground backdrop-blur"
           : "border-transparent bg-transparent text-white",
@@ -80,17 +80,25 @@ export function SiteHeader() {
       <div className="mx-auto flex h-16 w-full min-w-0 max-w-6xl items-center justify-between gap-3 overflow-visible px-4 sm:px-6">
         <Link
           href="/"
-          className="flex shrink-0 items-center overflow-visible"
+          className="flex min-w-0 shrink-0 items-center gap-2.5 overflow-visible"
           aria-label="DateOfflineHub home"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/brand/dateofflinehub-logo.png"
-            alt="DateOfflineHub"
-            width={148}
-            height={145}
-            className="h-11 w-auto max-h-11 object-contain object-left"
+            src="/brand/dateofflinehub-mark.png"
+            alt=""
+            width={44}
+            height={29}
+            className="h-9 w-auto shrink-0 object-contain"
           />
+          <span
+            className={cn(
+              "truncate text-[15px] font-semibold tracking-tight sm:text-[17px]",
+              light ? "text-[var(--brand-gold-deep)]" : "text-white",
+            )}
+          >
+            DateOfflineHub
+          </span>
         </Link>
         <nav className="hidden items-center gap-5 text-sm font-medium md:flex lg:gap-7">
           {links.map((link) => {
