@@ -8,7 +8,6 @@ import {
   type RefreshActionState,
 } from "@/app/interne-events/refresh-actions";
 import type { SourceScheduleState } from "@/lib/source-refresh/store";
-import type { SourceRefreshRunRecord } from "@/lib/source-refresh/types";
 
 const initial: RefreshActionState = { ok: false, message: "" };
 
@@ -16,6 +15,21 @@ function fmtStamp(iso: string | null | undefined): string {
   if (!iso) return "onbekend";
   return iso.slice(0, 16).replace("T", " ");
 }
+
+/** UI-only run summary (never includes report_json). */
+export type SourceRefreshRunSummary = {
+  id: string;
+  status: string;
+  startedAt: string;
+  completedAt: string | null;
+  fetchState: string | null;
+  error: string | null;
+  triggerType: string;
+  newCount: number;
+  changedCount: number;
+  unchangedCount: number;
+  removedCount: number;
+};
 
 export function SourceRefreshControls({
   catalogSourceId,
@@ -27,7 +41,7 @@ export function SourceRefreshControls({
 }: {
   catalogSourceId: string;
   supported: boolean;
-  latestRun: SourceRefreshRunRecord | null;
+  latestRun: SourceRefreshRunSummary | null;
   schedule?: SourceScheduleState | null;
   nextRefreshAt?: string | null;
   consecutiveFailures?: number;

@@ -2,9 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { isUserSuppliedNotes } from "@/lib/discovery/user-supplied";
-import { SourceRefreshControls } from "@/components/admin/source-refresh-controls";
+import {
+  SourceRefreshControls,
+  type SourceRefreshRunSummary,
+} from "@/components/admin/source-refresh-controls";
 import type { SourceScheduleState } from "@/lib/source-refresh/store";
-import type { SourceRefreshRunRecord } from "@/lib/source-refresh/types";
 
 export type CatalogSourceListItem = {
   id: string;
@@ -22,7 +24,7 @@ export type CatalogSourceListItem = {
 
 export type CatalogSourceRefreshMeta = {
   supported: boolean;
-  latestRun: SourceRefreshRunRecord | null;
+  latestRun: SourceRefreshRunSummary | null;
   schedule: SourceScheduleState | null;
   nextRefreshAt: string | null;
   consecutiveFailures: number;

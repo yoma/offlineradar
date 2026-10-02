@@ -144,11 +144,27 @@ export default async function InterneEventsPage() {
   const refreshBySourceId = Object.fromEntries(
     catalogSources.map((source) => {
       const schedule = scheduleStates.get(source.id) ?? null;
+      const run = refreshRuns.get(source.id) ?? null;
       return [
         source.id,
         {
           supported: isRefreshSupported(source.id),
-          latestRun: refreshRuns.get(source.id) ?? null,
+          // Never ship report_json to the client (can be huge → page crash).
+          latestRun: run
+            ? {
+                id: run.id,
+                status: run.status,
+                startedAt: run.startedAt,
+                completedAt: run.completedAt,
+                fetchState: run.fetchState,
+                error: run.error,
+                triggerType: run.triggerType,
+                newCount: run.newCount,
+                changedCount: run.changedCount,
+                unchangedCount: run.unchangedCount,
+                removedCount: run.removedCount,
+              }
+            : null,
           schedule,
           nextRefreshAt: computeNextRefreshAtIso(
             schedule,
