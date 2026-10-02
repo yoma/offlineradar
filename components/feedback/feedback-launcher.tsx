@@ -2,7 +2,6 @@
 
 import { Dialog } from "radix-ui";
 import { MessageSquare, XIcon } from "lucide-react";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Suspense, useEffect, useId, useState } from "react";
 import { WELCOME_OPEN_EVENT } from "@/components/beta/beta-welcome-modal";
@@ -197,13 +196,13 @@ export function FeedbackLauncher() {
                 </Dialog.Close>
 
                 <div className="mx-auto flex justify-center" aria-hidden>
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src="/brand/dateofflinehub-logo.png"
                     alt=""
-                    width={640}
-                    height={627}
-                    className="drop-shadow-[0_10px_24px_-8px_rgba(156,124,37,0.55)]"
-                    style={{ width: "auto", height: "3.5rem" }}
+                    width={80}
+                    height={78}
+                    className="h-14 w-14 object-contain drop-shadow-[0_10px_24px_-8px_rgba(156,124,37,0.55)]"
                   />
                 </div>
 

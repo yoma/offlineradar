@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Dialog } from "radix-ui";
@@ -130,13 +129,13 @@ export function BetaWelcomeModal() {
               </Dialog.Close>
 
               <div className="mx-auto flex justify-center" aria-hidden>
-                <Image
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src="/brand/dateofflinehub-logo.png"
                   alt=""
-                  width={640}
-                  height={627}
-                  className="drop-shadow-[0_10px_24px_-8px_rgba(156,124,37,0.55)]"
-                  style={{ width: "auto", height: "4rem" }}
+                  width={96}
+                  height={94}
+                  className="h-16 w-16 object-contain drop-shadow-[0_10px_24px_-8px_rgba(156,124,37,0.55)]"
                 />
               </div>
 

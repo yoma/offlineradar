@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bookmark, Compass, Info } from "lucide-react";
@@ -44,13 +43,13 @@ export function SiteHeader() {
           className="flex min-w-0 items-center gap-2.5"
           aria-label="DateOfflineHub home"
         >
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src="/brand/dateofflinehub-mark.png"
             alt=""
-            width={640}
-            height={461}
-            priority
-            style={{ width: "auto", height: "2.25rem" }}
+            width={40}
+            height={29}
+            className="h-9 w-auto max-w-[2.75rem] shrink-0 object-contain sm:h-10 sm:max-w-[3rem]"
           />
           <span
             className={cn(
