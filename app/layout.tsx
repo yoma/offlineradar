@@ -7,6 +7,9 @@ import { FeedbackLauncher } from "@/components/feedback/feedback-launcher";
 import { MobileNav, SiteHeader } from "@/components/layout/site-nav";
 import "./globals.css";
 
+/** Run serverless near Neon (eu-central-1), not default iad1. */
+export const preferredRegion = "fra1";
+
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
   variable: "--font-jakarta",

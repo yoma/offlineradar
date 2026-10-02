@@ -18,7 +18,6 @@ export default async function HomePage() {
   let organizerOptions: Awaited<
     ReturnType<typeof listPublishedOrganizerOptions>
   > = [];
-  let catalogEvents: Event[] = [];
   let upcomingEvents: Event[] = [];
   const today = brusselsToday();
 
@@ -29,7 +28,9 @@ export default async function HomePage() {
   }
 
   try {
-    catalogEvents = await listEvents();
+    // Only upcoming strip on the homepage — full catalog stays off the HTML
+    // (Meer-filters count uses countHomeFilterMatches server action).
+    const catalogEvents = await listEvents();
     upcomingEvents = selectUpcomingEvents(catalogEvents).events;
   } catch (error) {
     if (
@@ -40,7 +41,6 @@ export default async function HomePage() {
     ) {
       // Soft-fail: homepage still works without the strip.
     }
-    catalogEvents = [];
     upcomingEvents = [];
   }
 
@@ -49,7 +49,6 @@ export default async function HomePage() {
       <HomeHero
         organizerOptions={organizerOptions}
         upcomingEvents={upcomingEvents}
-        events={catalogEvents}
         today={today}
       />
       {/* Tip section sits where the first discovery strip would continue:

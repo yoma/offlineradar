@@ -1,5 +1,4 @@
-"use client";
-
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
@@ -31,7 +30,17 @@ import {
   publicImageKindLabel,
   resolvePublicEventImage,
 } from "@/lib/image-compatibility";
-import { AdminChatPanel } from "@/components/admin/admin-chat-panel";
+
+const AdminChatPanel = dynamic(
+  () =>
+    import("@/components/admin/admin-chat-panel").then((m) => m.AdminChatPanel),
+  {
+    ssr: false,
+    loading: () => (
+      <p className="text-sm text-stone-500">Assistent laden…</p>
+    ),
+  },
+);
 
 type TabId =
   | "nieuw"

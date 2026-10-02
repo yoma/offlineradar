@@ -7,14 +7,15 @@ import {
   useMemo,
   useRef,
   useState,
+  useTransition,
   type ReactNode,
 } from "react";
 import { markSearchPending } from "@/components/discover/search-loading";
 import { UpcomingStrip } from "@/components/discover/upcoming-strip";
 import { FilterSheet } from "@/components/filters/filter-sheet";
+import { countHomeFilterMatches } from "@/app/home-filter-count";
 import { USER_PLACES, findPlace } from "@/data/places";
 import { track } from "@/lib/analytics";
-import { matchingEvents } from "@/lib/filters";
 import { DISTANCES, GENDER_LABEL } from "@/lib/format";
 import { heroImageUrl } from "@/lib/images";
 import type { PublishedOrganizerOption } from "@/lib/organizers/published-options";
@@ -41,13 +42,10 @@ import type { SearchState, WhenFilter } from "@/types/search";
 export function HomeHero({
   organizerOptions = [],
   upcomingEvents = [],
-  events = [],
   today,
 }: {
   organizerOptions?: PublishedOrganizerOption[];
   upcomingEvents?: Event[];
-  /** Catalog events for live Meer-filters result count (client-side). */
-  events?: Event[];
   today?: string;
 }) {
   const [state, setState] = useState<SearchState>(() => defaultSearchState());
@@ -60,6 +58,8 @@ export function HomeHero({
   }>({});
   const [moreOpen, setMoreOpen] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [filterCount, setFilterCount] = useState<number | null>(null);
+  const [, startCountTransition] = useTransition();
   const ageInputRef = useRef<HTMLInputElement>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
 
@@ -112,13 +112,28 @@ export function HomeHero({
     organizerNames,
   );
 
-  const filterCount = useMemo(() => {
+  const filterCountKey = useMemo(() => {
     const age = Number(ageDraft.trim());
     const searchAge =
       Number.isFinite(age) && age >= 18 && age <= 99 ? age : null;
-    const forCount: SearchState = { ...state, age: searchAge };
-    return matchingEvents(events, forCount).visible.length;
-  }, [events, state, ageDraft]);
+    return JSON.stringify({ ...state, age: searchAge });
+  }, [state, ageDraft]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const forCount = JSON.parse(filterCountKey) as SearchState;
+    const timer = window.setTimeout(() => {
+      startCountTransition(async () => {
+        try {
+          const n = await countHomeFilterMatches(forCount);
+          setFilterCount(n);
+        } catch {
+          setFilterCount(null);
+        }
+      });
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [moreOpen, filterCountKey]);
 
   function update(patch: Partial<SearchState>) {
     setState((current) => {
@@ -556,7 +571,7 @@ export function HomeHero({
             return Number.isFinite(n) && n >= 18 && n <= 99 ? n : null;
           })(),
         }}
-        count={filterCount}
+        count={filterCount ?? 0}
         onChange={update}
         organizerOptions={organizerOptions}
         selectedOrganizers={selectedOrganizers}

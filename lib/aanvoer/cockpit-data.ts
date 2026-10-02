@@ -342,9 +342,10 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
         linked.set(ev.id, ev);
       }
     }
-    const linkedFutureEvents = [...linked.values()].sort((a, b) =>
-      a.startsAt.localeCompare(b.startsAt),
-    );
+    const linkedFutureEvents = [...linked.values()]
+      .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+      .slice(0, 8);
+    const futureEventCount = linked.size;
     const intakeSourceType = intakeTypeFromNotes(source.notes, source.sourceType);
     const capability = getSourceFollowCapability({
       catalogSourceId: source.id,
@@ -359,7 +360,7 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       lastCheckedAt: toIsoOrNull(source.lastCheckedAt),
       userSupplied: isUserSuppliedNotes(source.notes),
       intakeSourceType,
-      futureEventCount: linkedFutureEvents.length,
+      futureEventCount,
       publishedEventCount: 0,
       linkedFutureEvents,
       domain: domainFromUrl(source.officialUrl),
@@ -644,47 +645,8 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       venueName: row.venue_name,
     });
 
-    // Auto-publish when gate fully passes (no human "Klaar" queue).
-    if (
-      classified.readyToPublish &&
-      row.publication_status !== "published" &&
-      row.publication_status !== "rejected" &&
-      !isManuallySuppressed(tags, notes)
-    ) {
-      const now = new Date().toISOString();
-      const published = (await sql`
-        UPDATE event_editions
-        SET
-          publication_status = 'published',
-          published_at = ${now}::timestamptz,
-          approved_at = COALESCE(approved_at, ${now}::timestamptz),
-          updated_at = now()
-        WHERE id = ${row.id}::uuid
-          AND publication_status IN ('draft', 'under_review', 'candidate', 'approved')
-          AND NOT (COALESCE(tags, '[]'::jsonb) @> '["manual_suppressed"]'::jsonb)
-        RETURNING id
-      `) as { id: string }[];
-      if (published[0]) {
-        autoPublishedIds.push(row.id);
-        pending.push({
-          row: {
-            ...row,
-            publication_status: "published",
-            published_at: now,
-          },
-          tags,
-          notes,
-          classified: {
-            ...classified,
-            status: "toegevoegd",
-            reason: null,
-            readyToPublish: false,
-          },
-        });
-        continue;
-      }
-    }
-
+    // Never auto-publish on GET (page load). Ready items stay in aandacht
+    // for an explicit admin action — avoids N+1 writes and matches UI copy.
     pending.push({ row, tags, notes, classified });
   }
 
@@ -719,7 +681,9 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
         ageRule: row.age_rule,
         minAge: row.min_age,
         maxAge: row.max_age,
-        internalNotes: row.internal_notes,
+        internalNotes: row.internal_notes
+          ? row.internal_notes.slice(0, 280)
+          : null,
         sourceUrl,
         sourceDomain: sourceUrl ? domainFromUrl(sourceUrl) : null,
         hasScreenshot: /intake_asset=/.test(notes),
