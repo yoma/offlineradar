@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { PendingContent } from "@/components/ui/pending";
 import { Button } from "@/components/ui/button";
 import {
   TIP_STATUSES,
@@ -386,15 +387,14 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                   <Button
                     type="button"
                     variant="default"
-                    className="h-9 rounded-full px-3 text-sm"
+                    className="h-9 gap-2 rounded-full px-3 text-sm"
                     disabled={scanning}
+                    aria-busy={scanning || undefined}
                     onClick={() => startAiScan(tip.id)}
                   >
-                    {scanning
-                      ? "AI-controle bezig…"
-                      : hasAiAdvice
-                        ? "Opnieuw AI-controle"
-                        : "Start AI-controle"}
+                    <PendingContent pending={scanning} pendingLabel="Bezig…">
+                      {hasAiAdvice ? "Opnieuw AI-controle" : "Start AI-controle"}
+                    </PendingContent>
                   </Button>
                   {tip.status === "received" ||
                   tip.status === "duplicate" ||
@@ -402,6 +402,7 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                     <StatusButton
                       label="In controle"
                       onClick={() => setStatus(tip.id, "in_review", "")}
+                    pending={isPending}
                     />
                   ) : null}
                   {tip.status !== "rejected" &&
@@ -416,6 +417,7 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                           "Officiële bron onvolledig of onbereikbaar.",
                         )
                       }
+                    pending={isPending}
                     />
                   ) : null}
                   {tip.status !== "rejected" &&
@@ -430,6 +432,7 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                           "De activiteit is niet aantoonbaar singlesgericht volgens Route A/B.",
                         )
                       }
+                    pending={isPending}
                     />
                   ) : null}
                   {tip.status !== "approved_for_publication" &&
@@ -445,6 +448,7 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                           "Route A/B voldoende; concept-event volgt apart.",
                         )
                       }
+                    pending={isPending}
                     />
                   ) : null}
                   {tip.status === "approved_for_publication" &&
@@ -454,8 +458,11 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                       className="h-9 rounded-full px-3 text-sm"
                       disabled={isPending}
                       onClick={() => createConcept(tip.id)}
+                      aria-busy={isPending || undefined}
                     >
-                      Maak concept-event
+                      <PendingContent pending={isPending} pendingLabel="Bezig…">
+                        Maak concept-event
+                      </PendingContent>
                     </Button>
                   ) : null}
                   {tip.linkedEventId ? (
@@ -472,6 +479,7 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                     <StatusButton
                       label="Voeg bron toe aan watchlist"
                       onClick={() => addWatch(tip.id)}
+                    pending={isPending}
                     />
                   ) : null}
                   {tip.notifyRequested ? (
@@ -501,12 +509,14 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                             onClick={() =>
                               previewAndSendMail(tip.id, tip.status)
                             }
+                          pending={isPending}
                           />
                         ) : null}
                         {tip.email ? (
                           <StatusButton
                             label="Verwijder contactmail"
                             onClick={() => clearContactEmail(tip.id)}
+                          pending={isPending}
                           />
                         ) : null}
                       </div>
@@ -522,6 +532,7 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                           "Gekoppeld event is published.",
                         )
                       }
+                    pending={isPending}
                     />
                   ) : null}
                 </div>
@@ -699,18 +710,24 @@ function Fact({ label, value }: { label: string; value: string | null }) {
 function StatusButton({
   label,
   onClick,
+  pending = false,
 }: {
   label: string;
   onClick: () => void;
+  pending?: boolean;
 }) {
   return (
     <Button
       type="button"
       variant="outline"
-      className="h-9 rounded-full px-3 text-sm"
+      className="h-9 gap-2 rounded-full px-3 text-sm"
+      disabled={pending}
+      aria-busy={pending || undefined}
       onClick={onClick}
     >
-      {label}
+      <PendingContent pending={pending} pendingLabel="Bezig…">
+        {label}
+      </PendingContent>
     </Button>
   );
 }

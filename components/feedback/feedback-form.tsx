@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { submitBetaFeedback } from "@/app/feedback/actions";
 import { Button } from "@/components/ui/button";
+import { PendingContent } from "@/components/ui/pending";
 import {
   FEEDBACK_CATEGORIES,
   type FeedbackCategory,
@@ -208,13 +209,19 @@ export function FeedbackForm({
       <Button
         type="submit"
         disabled={busy}
+        aria-busy={busy || undefined}
         className={cn(
-          "h-12 rounded-full",
+          "h-12 gap-2 rounded-full",
           isModal && "w-full text-base font-semibold shadow-[0_12px_28px_-10px_rgba(156,124,37,0.55)]",
           !isModal && "h-11 px-6",
         )}
       >
-        {busy ? "Versturen…" : isModal ? "Verstuur" : "Feedback versturen"}
+        <PendingContent
+          pending={busy}
+          pendingLabel="Bezig…"
+        >
+          {isModal ? "Verstuur" : "Feedback versturen"}
+        </PendingContent>
       </Button>
     </form>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { PendingContent } from "@/components/ui/pending";
 import { Plus, Search, SlidersHorizontal, X } from "lucide-react";
 import {
   useEffect,
@@ -533,8 +534,10 @@ export function HomeHero({
                 aria-busy={searching}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 text-base font-semibold text-primary-foreground shadow-lg shadow-[0_12px_28px_-10px_rgba(156,124,37,0.55)] transition hover:bg-[var(--brand-gold-ink)] disabled:cursor-wait disabled:opacity-80 sm:w-auto sm:min-w-[240px]"
               >
-                <Search className="size-4" />
-                {searching ? "Bezig met zoeken…" : "Vind activiteiten"}
+                <PendingContent pending={searching} pendingLabel="Bezig…">
+                  <Search className="size-4" />
+                  Vind activiteiten
+                </PendingContent>
               </button>
               <a
                 href="#tip-een-activiteit"

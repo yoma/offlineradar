@@ -11,6 +11,7 @@ import {
 import { UpcomingStrip } from "@/components/discover/upcoming-strip";
 import { FilterSheet } from "@/components/filters/filter-sheet";
 import { Button } from "@/components/ui/button";
+import { ActionButton } from "@/components/ui/action-submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { USER_PLACES } from "@/data/places";
@@ -397,9 +398,9 @@ export function DiscoverView({
               {ageError}
             </p>
           ) : null}
-          <Button type="submit" className="h-11 rounded-full px-6">
+          <ActionButton pendingLabel="Bezig…" className="h-11 rounded-full px-6">
             Toon activiteiten
-          </Button>
+          </ActionButton>
         </form>
       ) : (
         <>

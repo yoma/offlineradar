@@ -21,6 +21,7 @@ import {
 import { assertOfflineRadarDbConfig } from "@/lib/events/db";
 import { CatalogSourcesBrowser } from "@/components/admin/catalog-sources-browser";
 import { EventsAdminBrowser } from "@/components/admin/events-admin-browser";
+import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { InterneAdminNav } from "@/components/admin/interne-admin-nav";
 import { InterneAdminShell } from "@/components/admin/interne-admin-shell";
 import {
@@ -82,12 +83,12 @@ export default async function InterneEventsPage() {
         <GateShell title="Geen beheerrechten">
           <p>Dit Google-account staat niet op de beheerderslijst.</p>
           <form action={signOutEventsAdmin}>
-            <button
-              type="submit"
+            <ActionSubmitButton
+              pendingLabel="Bezig…"
               className="rounded-md bg-foreground px-3 py-2 text-sm text-background"
             >
               Uitloggen
-            </button>
+            </ActionSubmitButton>
           </form>
         </GateShell>
       );
@@ -98,12 +99,12 @@ export default async function InterneEventsPage() {
         <p>Alleen toegelaten beheerders mogen canonical events beheren.</p>
         {authReady ? (
           <form action={startEventsAdminSignIn}>
-            <button
-              type="submit"
+            <ActionSubmitButton
+              pendingLabel="Bezig…"
               className="rounded-md bg-foreground px-3 py-2 text-sm text-background"
             >
               Inloggen met Google
-            </button>
+            </ActionSubmitButton>
           </form>
         ) : (
           <p>Google OAuth is nog niet geconfigureerd.</p>
@@ -222,12 +223,12 @@ export default async function InterneEventsPage() {
           </p>
         </div>
         <form action={signOutEventsAdmin}>
-          <button
-            type="submit"
+          <ActionSubmitButton
+            pendingLabel="Bezig…"
             className="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-800"
           >
             Uitloggen
-          </button>
+          </ActionSubmitButton>
         </form>
       </div>
 
@@ -358,12 +359,12 @@ export default async function InterneEventsPage() {
                         placeholder="Note (optioneel)"
                         className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm"
                       />
-                      <button
-                        type="submit"
+                      <ActionSubmitButton
+                        pendingLabel="Bezig…"
                         className="rounded-md border border-border px-3 py-1.5 text-sm"
                       >
                         Update open meldingen
-                      </button>
+                      </ActionSubmitButton>
                     </form>
                   ) : null}
                 </div>
@@ -434,12 +435,12 @@ export default async function InterneEventsPage() {
             <input type="checkbox" name="userSupplied" value="1" />
             Door Youri aangebracht (user supplied)
           </label>
-          <button
-            type="submit"
+          <ActionSubmitButton
+            pendingLabel="Bezig…"
             className="rounded-md bg-foreground px-3 py-2 text-sm text-background"
           >
             Opslaan
-          </button>
+          </ActionSubmitButton>
         </form>
 
         <CatalogSourcesBrowser

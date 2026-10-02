@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { isUserSuppliedNotes } from "@/lib/discovery/user-supplied";
 import {
   SourceRefreshControls,
@@ -236,12 +237,12 @@ export function CatalogSourcesBrowser({
                     <input type="checkbox" name="touchChecked" value="1" />
                     checked_at nu
                   </label>
-                  <button
-                    type="submit"
+                  <ActionSubmitButton
+                    pendingLabel="Bezig…"
                     className="rounded-md border border-border px-3 py-1.5 text-sm"
                   >
                     Update
-                  </button>
+                  </ActionSubmitButton>
                 </form>
               </div>
             </li>

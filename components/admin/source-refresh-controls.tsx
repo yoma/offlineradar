@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
+import { PendingContent } from "@/components/ui/pending";
+import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import {
   runSourceRefreshAction,
   setSourceScheduledRefreshAction,
@@ -127,9 +129,12 @@ export function SourceRefreshControls({
           <button
             type="submit"
             disabled={pending || activeLocked}
-            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
+            aria-busy={pending || undefined}
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
           >
-            {pending ? "Bron wordt gecontroleerd..." : "Controleer bron"}
+            <PendingContent pending={pending} pendingLabel="Bezig…">
+              Controleer bron
+            </PendingContent>
           </button>
         </form>
         {schedule ? (
@@ -140,12 +145,12 @@ export function SourceRefreshControls({
               name="refreshEnabled"
               value={schedule.refreshEnabled ? "0" : "1"}
             />
-            <button
-              type="submit"
+            <ActionSubmitButton
+              pendingLabel="Bezig…"
               className="rounded-md border border-border px-3 py-1.5 text-sm"
             >
               {schedule.refreshEnabled ? "Scheduled uit" : "Scheduled aan"}
-            </button>
+            </ActionSubmitButton>
           </form>
         ) : null}
         {latestRun?.status === "completed" || latestRun?.status === "failed" ? (

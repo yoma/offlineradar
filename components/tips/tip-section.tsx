@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { PendingContent } from "@/components/ui/pending";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { isValidEmail, validateAndNormalizeTipUrl } from "@/lib/tips/url";
@@ -327,10 +328,13 @@ export function TipSection() {
                 <div className="flex flex-wrap gap-3">
                   <Button
                     type="submit"
-                    className="h-11 rounded-full px-6"
+                    className="h-11 gap-2 rounded-full px-6"
                     disabled={pending || !submitEnabled}
+                    aria-busy={pending || undefined}
                   >
-                    {pending ? "Bezig met opslaan…" : "Tip verzenden"}
+                    <PendingContent pending={pending} pendingLabel="Bezig…">
+                      Tip verzenden
+                    </PendingContent>
                   </Button>
                   <Button
                     type="button"

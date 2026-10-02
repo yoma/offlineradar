@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ActionButton } from "@/components/ui/action-submit-button";
 import { continueWithGoogle } from "@/app/account/actions";
 import { auth } from "@/auth";
 import { Button } from "@/components/ui/button";
@@ -59,9 +60,9 @@ export default async function LoginPage({
             await continueWithGoogle(callbackUrl);
           }}
         >
-          <Button type="submit" className="h-11 w-full rounded-full">
+          <ActionButton pendingLabel="Bezig…" className="h-11 w-full rounded-full">
             Doorgaan met Google
-          </Button>
+          </ActionButton>
         </form>
       ) : (
         <p className="mt-8 rounded-xl border border-border bg-secondary/50 px-4 py-3 text-sm text-muted-foreground">

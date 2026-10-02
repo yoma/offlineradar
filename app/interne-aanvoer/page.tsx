@@ -1,4 +1,5 @@
 import { Suspense, type ReactNode } from "react";
+import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import {
   signOutAanvoerAdmin,
   startAanvoerAdminSignIn,
@@ -80,12 +81,12 @@ export default async function InterneAanvoerPage({
         <GateShell title="Geen beheerrechten">
           <p>Dit Google-account staat niet op de beheerderslijst.</p>
           <form action={signOutAanvoerAdmin}>
-            <button
-              type="submit"
+            <ActionSubmitButton
+              pendingLabel="Bezig…"
               className="rounded-full bg-stone-900 px-4 py-2 text-sm font-semibold text-white"
             >
               Uitloggen
-            </button>
+            </ActionSubmitButton>
           </form>
         </GateShell>
       );
@@ -100,12 +101,12 @@ export default async function InterneAanvoerPage({
         </p>
         {authReady ? (
           <form action={startAanvoerAdminSignIn}>
-            <button
-              type="submit"
+            <ActionSubmitButton
+              pendingLabel="Bezig…"
               className="rounded-full bg-stone-900 px-4 py-2 text-sm font-semibold text-white"
             >
               Inloggen met Google
-            </button>
+            </ActionSubmitButton>
           </form>
         ) : (
           <p>Google OAuth is nog niet geconfigureerd.</p>

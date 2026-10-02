@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import {
   updateFeedbackCategoryAction,
   updateFeedbackNoteAction,
@@ -190,12 +191,12 @@ export function FeedbackAdminClient({
                           ))}
                         </select>
                       </label>
-                      <button
-                        type="submit"
+                      <ActionSubmitButton
+                        pendingLabel="Bezig…"
                         className="h-10 rounded-md bg-foreground px-3 text-sm text-background"
                       >
                         Status opslaan
-                      </button>
+                      </ActionSubmitButton>
                     </form>
 
                     <form
@@ -217,12 +218,12 @@ export function FeedbackAdminClient({
                           ))}
                         </select>
                       </label>
-                      <button
-                        type="submit"
+                      <ActionSubmitButton
+                        pendingLabel="Bezig…"
                         className="h-10 rounded-md border border-border px-3 text-sm"
                       >
                         Categorie opslaan
-                      </button>
+                      </ActionSubmitButton>
                     </form>
 
                     <form
@@ -242,12 +243,12 @@ export function FeedbackAdminClient({
                           className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-sm"
                         />
                       </label>
-                      <button
-                        type="submit"
+                      <ActionSubmitButton
+                        pendingLabel="Bezig…"
                         className="rounded-md border border-border px-3 py-2 text-sm"
                       >
                         Notitie opslaan
-                      </button>
+                      </ActionSubmitButton>
                     </form>
                   </div>
                 ) : null}

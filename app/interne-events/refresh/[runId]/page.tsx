@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { notFound, redirect } from "next/navigation";
 import {
   addRefreshItemAsDraftAction,
@@ -131,12 +132,12 @@ export default async function RefreshRunPage({
                 </li>
               ))}
           </ul>
-          <button
-            type="submit"
+          <ActionSubmitButton
+            pendingLabel="Bezig…"
             className="mt-3 rounded-md border border-border px-3 py-1.5 text-sm"
           >
             Voeg geselecteerde toe als concept
-          </button>
+          </ActionSubmitButton>
         </form>
       ) : null}
 
@@ -197,33 +198,33 @@ export default async function RefreshRunPage({
                 {item.detectionType === "new" ? (
                   <form action={addRefreshItemAsDraftAction}>
                     <input type="hidden" name="itemId" value={item.id} />
-                    <button
-                      type="submit"
+                    <ActionSubmitButton
+                      pendingLabel="Bezig…"
                       className="rounded-md bg-foreground px-3 py-1.5 text-sm text-background"
                     >
                       Voeg toe als concept
-                    </button>
+                    </ActionSubmitButton>
                   </form>
                 ) : null}
                 {item.detectionType === "existing_changed" ? (
                   <form action={applyRefreshItemChangeAction}>
                     <input type="hidden" name="itemId" value={item.id} />
-                    <button
-                      type="submit"
+                    <ActionSubmitButton
+                      pendingLabel="Bezig…"
                       className="rounded-md bg-foreground px-3 py-1.5 text-sm text-background"
                     >
                       Pas wijziging toe
-                    </button>
+                    </ActionSubmitButton>
                   </form>
                 ) : null}
                 <form action={ignoreRefreshItemAction}>
                   <input type="hidden" name="itemId" value={item.id} />
-                  <button
-                    type="submit"
+                  <ActionSubmitButton
+                    pendingLabel="Bezig…"
                     className="rounded-md border border-border px-3 py-1.5 text-sm"
                   >
                     Negeer
-                  </button>
+                  </ActionSubmitButton>
                 </form>
               </div>
             ) : null}

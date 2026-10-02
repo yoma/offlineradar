@@ -10,6 +10,8 @@ import {
   unfollowOrganizerAction,
 } from "@/app/account/actions";
 import { Button } from "@/components/ui/button";
+import { PendingContent } from "@/components/ui/pending";
+import { ActionButton } from "@/components/ui/action-submit-button";
 import { USER_PLACES } from "@/data/places";
 import { writeProfile } from "@/lib/storage";
 import type { PreferredMeetGender, UserGender } from "@/types/event";
@@ -271,8 +273,15 @@ export function AccountView({
           </select>
         </label>
 
-        <Button type="submit" disabled={busy} className="h-11 rounded-full px-6">
-          {busy ? "Bewaren…" : "Bewaar mijn voorkeuren"}
+        <Button
+          type="submit"
+          disabled={busy}
+          aria-busy={busy || undefined}
+          className="h-11 gap-2 rounded-full px-6"
+        >
+          <PendingContent pending={busy} pendingLabel="Bezig…">
+            Bewaar mijn voorkeuren
+          </PendingContent>
         </Button>
         {status ? (
           <p className="text-sm text-muted-foreground" role="status">
@@ -288,9 +297,13 @@ export function AccountView({
           </Link>
         </p>
         <form action={publicSignOut.bind(null, "/")}>
-          <Button type="submit" variant="outline" className="h-11 rounded-full px-6">
+          <ActionButton
+            variant="outline"
+            pendingLabel="Bezig…"
+            className="h-11 rounded-full px-6"
+          >
             Uitloggen
-          </Button>
+          </ActionButton>
         </form>
 
         {!confirmDelete ? (

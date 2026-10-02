@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { FeedbackAdminClient } from "@/components/admin/feedback-admin-client";
 import { InterneAdminNav } from "@/components/admin/interne-admin-nav";
 import { InterneAdminShell } from "@/components/admin/interne-admin-shell";
@@ -54,12 +55,12 @@ export default async function InterneFeedbackPage() {
         <GateShell title="Geen beheerrechten">
           <p>Dit Google-account staat niet op de beheerderslijst.</p>
           <form action={signOutFeedbackAdmin}>
-            <button
-              type="submit"
+            <ActionSubmitButton
+              pendingLabel="Bezig…"
               className="rounded-full bg-stone-900 px-4 py-2 text-sm font-semibold text-white"
             >
               Uitloggen
-            </button>
+            </ActionSubmitButton>
           </form>
         </GateShell>
       );
@@ -74,12 +75,12 @@ export default async function InterneFeedbackPage() {
         </p>
         {authReady ? (
           <form action={startFeedbackAdminSignIn}>
-            <button
-              type="submit"
+            <ActionSubmitButton
+              pendingLabel="Bezig…"
               className="rounded-full bg-stone-900 px-4 py-2 text-sm font-semibold text-white"
             >
               Inloggen met Google
-            </button>
+            </ActionSubmitButton>
           </form>
         ) : (
           <p>Google OAuth is nog niet geconfigureerd.</p>
@@ -113,12 +114,12 @@ export default async function InterneFeedbackPage() {
           </p>
         </div>
         <form action={signOutFeedbackAdmin}>
-          <button
-            type="submit"
-            className="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-800"
-          >
-            Uitloggen
-          </button>
+          <ActionSubmitButton
+              pendingLabel="Bezig…"
+              className="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-800"
+            >
+              Uitloggen
+            </ActionSubmitButton>
         </form>
       </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 
 export type EventsAdminListItem = {
   id: string;
@@ -222,22 +223,22 @@ export function EventsAdminBrowser({
                         </option>
                         <option value="Anders">Anders</option>
                       </select>
-                      <button
-                        type="submit"
+                      <ActionSubmitButton
+                        pendingLabel="Bezig…"
                         className="rounded-md border border-amber-400 bg-amber-50 px-2.5 py-1.5 text-xs font-medium text-amber-950"
                       >
                         Halen
-                      </button>
+                      </ActionSubmitButton>
                     </form>
                   ) : canPublish ? (
                     <form action={publishAction}>
                       <input type="hidden" name="editionId" value={event.id} />
-                      <button
-                        type="submit"
+                      <ActionSubmitButton
+                        pendingLabel="Bezig…"
                         className="rounded-md bg-foreground px-3 py-1.5 text-xs font-medium text-background"
                       >
                         Publiceer
-                      </button>
+                      </ActionSubmitButton>
                     </form>
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>

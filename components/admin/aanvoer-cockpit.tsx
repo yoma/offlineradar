@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { PendingContent } from "@/components/ui/pending";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
@@ -1418,7 +1419,9 @@ function AdminEventCard({
                 className="h-10 rounded-full bg-stone-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
                 onClick={() => onPasteInfo(c.id, pasteText)}
               >
-                {pending ? "Verwerken…" : "Info verwerken"}
+                <PendingContent pending={pending} pendingLabel="Bezig…">
+                  Info verwerken
+                </PendingContent>
               </button>
               <button
                 type="button"

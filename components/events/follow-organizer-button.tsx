@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import { useState, useTransition } from "react";
 import { toggleFollowOrganizerAction } from "@/app/account/actions";
 import { track } from "@/lib/analytics";
+import { PendingContent } from "@/components/ui/pending";
 import { cn } from "@/lib/utils";
 
 export function FollowOrganizerButton({
@@ -87,6 +88,7 @@ export function FollowOrganizerButton({
         type="button"
         onClick={toggle}
         disabled={pending}
+        aria-busy={pending || undefined}
         aria-pressed={following}
         className={cn(
           "inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-sm font-medium transition disabled:opacity-60",
@@ -95,11 +97,13 @@ export function FollowOrganizerButton({
             : "border-border bg-white text-foreground hover:border-foreground",
         )}
       >
-        <Heart
-          className={cn("size-3.5", following && "fill-current")}
-          aria-hidden
-        />
-        {following ? `Je volgt ${organizerName}` : `Volg ${organizerName}`}
+        <PendingContent pending={pending} pendingLabel="Bezig…">
+          <Heart
+            className={cn("size-3.5", following && "fill-current")}
+            aria-hidden
+          />
+          {following ? `Je volgt ${organizerName}` : `Volg ${organizerName}`}
+        </PendingContent>
       </button>
       {error ? (
         <p className="text-xs text-red-700">{error}</p>

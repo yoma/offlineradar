@@ -1,6 +1,7 @@
 "use client";
 
 import { Bookmark } from "lucide-react";
+import { PendingSpinner } from "@/components/ui/pending";
 import { useSession } from "next-auth/react";
 import { useEffect, useState, type MouseEvent } from "react";
 import { toggleSavedEventAction } from "@/app/account/actions";
@@ -77,8 +78,13 @@ export function SaveButton({
           : "border border-border bg-white text-foreground hover:border-foreground",
         saved && "text-primary",
       )}
+      aria-busy={pending || undefined}
     >
-      <Bookmark className={cn("size-4", saved && "fill-current")} />
+      {pending ? (
+        <PendingSpinner />
+      ) : (
+        <Bookmark className={cn("size-4", saved && "fill-current")} />
+      )}
     </button>
   );
 }

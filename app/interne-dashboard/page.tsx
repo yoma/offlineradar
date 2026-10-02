@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { InterneAdminNav } from "@/components/admin/interne-admin-nav";
 import { InterneAdminShell } from "@/components/admin/interne-admin-shell";
 import { DashboardClient } from "@/components/admin/dashboard-client";
@@ -41,12 +42,12 @@ export default async function InterneDashboardPage({
         </p>
         {authReady ? (
           <form action={startDashboardAdminSignIn} className="mt-4">
-            <button
-              type="submit"
+            <ActionSubmitButton
+              pendingLabel="Bezig…"
               className="rounded-full bg-stone-900 px-4 py-2 text-sm font-semibold text-white"
             >
               Inloggen met Google
-            </button>
+            </ActionSubmitButton>
           </form>
         ) : (
           <p className="mt-4 text-sm text-stone-600">

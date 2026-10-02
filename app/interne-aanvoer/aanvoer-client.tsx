@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { PendingContent } from "@/components/ui/pending";
 import {
   analyzeIntakeAction,
   approveIntakeAction,
@@ -511,7 +512,9 @@ export function AanvoerClient({
               onClick={analyze}
               className="mt-4 h-12 w-full rounded-full bg-rose-700 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-800 disabled:opacity-60"
             >
-              {pending ? "AI bekijkt je event…" : "Analyseer event"}
+              <PendingContent pending={pending} pendingLabel="Bezig…">
+                Analyseer event
+              </PendingContent>
             </button>
           ) : null}
 
@@ -780,8 +783,10 @@ export function AanvoerClient({
                   onClick={() => approve(forceNeeded)}
                   className="rounded-2xl bg-stone-900 px-4 py-3.5 text-left text-white transition hover:bg-stone-800 disabled:opacity-60"
                 >
-                  <span className="block text-sm font-semibold">
-                    {pending ? "Bezig…" : "Toevoegen aan DateOfflineHub"}
+                  <span className="flex items-center gap-2 text-sm font-semibold">
+                    <PendingContent pending={pending} pendingLabel="Bezig…">
+                      Toevoegen aan DateOfflineHub
+                    </PendingContent>
                   </span>
                   <span className="mt-1 block text-xs text-white/75">
                     Gate geslaagd — wordt live gezet.
@@ -794,8 +799,10 @@ export function AanvoerClient({
                   onClick={() => approve(forceNeeded)}
                   className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3.5 text-left transition hover:border-amber-500 disabled:opacity-60"
                 >
-                  <span className="block text-sm font-semibold text-amber-950">
-                    {pending ? "Bezig…" : "Bewaar — jouw aandacht nodig"}
+                  <span className="flex items-center gap-2 text-sm font-semibold text-amber-950">
+                    <PendingContent pending={pending} pendingLabel="Bezig…">
+                      Bewaar — jouw aandacht nodig
+                    </PendingContent>
                   </span>
                   <span className="mt-1 block text-xs text-amber-900/80">
                     {approval?.reviewReasons[0] ??

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { TipAdminClient } from "@/components/tips/tip-admin-client";
 import { InterneAdminNav } from "@/components/admin/interne-admin-nav";
 import { InterneAdminShell } from "@/components/admin/interne-admin-shell";
@@ -61,12 +62,12 @@ export default async function InterneTipsPage() {
             beheerderslijst. Log uit en probeer het toegelaten account.
           </p>
           <form action={signOutTipsAdmin}>
-            <button
-              type="submit"
+            <ActionSubmitButton
+              pendingLabel="Bezig…"
               className="rounded-md bg-foreground px-3 py-2 text-sm text-background"
             >
               Uitloggen
-            </button>
+            </ActionSubmitButton>
           </form>
         </GateShell>
       );
@@ -82,12 +83,12 @@ export default async function InterneTipsPage() {
           </p>
           {authReady ? (
             <form action={startGoogleSignIn}>
-              <button
-                type="submit"
-                className="rounded-md bg-foreground px-3 py-2 text-sm text-background"
-              >
-                Inloggen met Google
-              </button>
+              <ActionSubmitButton
+              pendingLabel="Bezig…"
+              className="rounded-md bg-foreground px-3 py-2 text-sm text-background"
+            >
+              Inloggen met Google
+            </ActionSubmitButton>
             </form>
           ) : (
             <p>
@@ -155,12 +156,12 @@ export default async function InterneTipsPage() {
           </div>
           {access.via === "google_session" ? (
             <form action={signOutTipsAdmin}>
-              <button
-                type="submit"
-                className="rounded-full border border-amber-400 bg-white px-3 py-1.5 text-sm font-semibold"
-              >
-                Uitloggen
-              </button>
+              <ActionSubmitButton
+              pendingLabel="Bezig…"
+              className="rounded-full border border-amber-400 bg-white px-3 py-1.5 text-sm font-semibold"
+            >
+              Uitloggen
+            </ActionSubmitButton>
             </form>
           ) : null}
         </div>

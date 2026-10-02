@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { DashboardData } from "@/lib/analytics/dashboard";
 
@@ -246,12 +247,12 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   required
                 />
               </label>
-              <button
-                type="submit"
+              <ActionSubmitButton
+                pendingLabel="Bezig…"
                 className="rounded-full bg-stone-900 px-3 py-1.5 text-sm font-semibold text-white"
               >
                 Toepassen
-              </button>
+              </ActionSubmitButton>
             </form>
           ) : null}
         </div>
