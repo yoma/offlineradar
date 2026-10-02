@@ -150,6 +150,20 @@ export function buildDeepSearchQueries(proposal: IntakeProposal): string[] {
   if (organizer && city) {
     queries.push(`"${organizer}" singles ${city} ${thisYear}`);
   }
+  // Screenshot / brand-only Pass-1: no title yet → still search the brand site.
+  if (!title && organizer) {
+    queries.push(`"${organizer}"`);
+    queries.push(`"${organizer}" singles OR dinner OR dating ${thisYear}`);
+    queries.push(`site:${organizer.replace(/\s+/g, "").toLowerCase()}.com`);
+  }
+  for (const url of proposal.visibleUrls ?? []) {
+    try {
+      const host = new URL(url).hostname.replace(/^www\./, "");
+      if (host) queries.push(`site:${host}`);
+    } catch {
+      // ignore
+    }
+  }
 
   const unique = [...new Set(queries.map((q) => q.trim()).filter(Boolean))];
   return unique.slice(0, DEEP_SCAN_MAX_QUERIES);
@@ -1050,6 +1064,10 @@ export async function runDeepVerification(input: {
   }
   if (input.proposal.organizerUrl.value) {
     const v = validateAndNormalizeTipUrl(input.proposal.organizerUrl.value);
+    if (v.ok) candidateUrls.add(v.normalizedUrl);
+  }
+  for (const raw of input.proposal.visibleUrls ?? []) {
+    const v = validateAndNormalizeTipUrl(raw);
     if (v.ok) candidateUrls.add(v.normalizedUrl);
   }
 

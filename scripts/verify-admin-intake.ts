@@ -280,6 +280,10 @@ mustInclude(
   "private, no-store",
 );
 mustInclude("lib/aanvoer/extract.ts", "geen instructie");
+mustInclude("lib/aanvoer/extract.ts", "Facebook/Instagram-categorie");
+mustInclude("lib/aanvoer/screenshot-leads.ts", "timeleft.com");
+mustInclude("app/interne-aanvoer/actions.ts", "mode === \"screenshot\"");
+
 mustInclude("lib/aanvoer/future-discovery.ts", "mandatory future discovery");
 mustInclude("db/migrations/20260929_admin_intake_v1.sql", "admin_intake_assets");
 ok("6 simplified UX + security/migration strings");

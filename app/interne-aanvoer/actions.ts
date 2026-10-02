@@ -217,15 +217,22 @@ export async function analyzeIntakeAction(
   } = await import("@/lib/aanvoer/deep-verify");
   const runDeep =
     forceDeep ||
+    mode === "screenshot" ||
     shouldRunDeepVerification(proposal) ||
     (mode === "text" && Boolean(preferredPasteUrl));
   if (runDeep) {
     const deep = await runDeepVerification({
       proposal,
-      seedUrl: url || preferredPasteUrl || proposal.sourceUrl.value,
+      seedUrl:
+        url ||
+        preferredPasteUrl ||
+        proposal.sourceUrl.value ||
+        proposal.organizerUrl.value ||
+        proposal.visibleUrls?.[0] ||
+        null,
       seedHtml,
       seedText: text || sourceText,
-      force: forceDeep,
+      force: forceDeep || mode === "screenshot",
     });
     proposal = deep.proposal;
     proposal.deepScan = deep.report;

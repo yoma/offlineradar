@@ -56,6 +56,11 @@ export type IntakeProposal = {
   organizerUrl: IntakeField<string | null>;
   availability: IntakeField<string | null>;
   notes: IntakeField<string | null>;
+  /**
+   * Domains/URLs visibly present on a screenshot (or inferred from brand).
+   * Used to seed Pass-2 fetches; not shown as a form field.
+   */
+  visibleUrls?: string[];
   sourceKindHint: IntakeSourceKindHint;
   routeAdvice: IntakeRouteAdvice;
   routeReason: string;
