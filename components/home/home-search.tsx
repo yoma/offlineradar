@@ -271,14 +271,13 @@ export function HomeHero({
       <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/60" />
 
       <div className="relative mx-auto flex min-h-[100svh] w-full min-w-0 max-w-6xl flex-col justify-center px-4 pt-24 pb-24 sm:px-6 sm:pt-28 sm:pb-16">
-        {/* Plain img: Next/Image + flex-col stretch flattened this logo across the hero. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/brand/dateofflinehub-logo.png"
           alt="DateOfflineHub"
-          width={160}
-          height={157}
-          className="h-[4.5rem] w-[4.4rem] shrink-0 self-start object-contain drop-shadow-[0_8px_24px_rgba(0,0,0,0.35)] sm:h-20 sm:w-[4.9rem]"
+          width={176}
+          height={173}
+          className="h-[5.5rem] w-[5.4rem] shrink-0 self-start object-contain drop-shadow-[0_8px_24px_rgba(0,0,0,0.35)] sm:h-24 sm:w-[5.9rem]"
         />
         <h1 className="mt-4 max-w-[18ch] text-balance text-[1.55rem] font-semibold leading-[1.2] tracking-[-0.02em] text-white sm:mt-5 sm:max-w-2xl sm:text-[2.35rem] sm:leading-[1.15] lg:text-[2.75rem] lg:leading-[1.12]">
           Date offline. Ervaar opnieuw de kracht van echte connecties.

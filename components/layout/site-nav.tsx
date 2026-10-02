@@ -3,15 +3,55 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bookmark, Compass, Info } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type SVGProps } from "react";
 import { AccountNavLink } from "@/components/auth/account-nav-link";
 import { cn } from "@/lib/utils";
+
+const INSTAGRAM_URL = "https://www.instagram.com/dateofflinehub/";
 
 const links = [
   { href: "/ontdek", label: "Ontdek", icon: Compass },
   { href: "/bewaard", label: "Bewaard", icon: Bookmark },
   { href: "/over", label: "Over", icon: Info },
 ];
+
+function InstagramIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function InstagramNavLink({ light }: { light: boolean }) {
+  return (
+    <a
+      href={INSTAGRAM_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="DateOfflineHub op Instagram"
+      className={cn(
+        "inline-flex size-9 items-center justify-center rounded-full transition",
+        light
+          ? "text-[var(--brand-gold-deep)] hover:bg-[var(--brand-gold-soft)] hover:text-[var(--brand-gold-ink)]"
+          : "text-white/85 hover:bg-white/15 hover:text-white",
+      )}
+    >
+      <InstagramIcon className="size-[1.15rem]" />
+    </a>
+  );
+}
 
 export function SiteHeader() {
   const pathname = usePathname();
@@ -37,30 +77,22 @@ export function SiteHeader() {
           : "border-transparent bg-transparent text-white",
       )}
     >
-      <div className="mx-auto flex h-16 w-full min-w-0 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+      <div className="mx-auto flex h-16 w-full min-w-0 max-w-6xl items-center justify-between gap-3 overflow-visible px-4 sm:px-6">
         <Link
           href="/"
-          className="flex min-w-0 items-center gap-2.5"
+          className="flex shrink-0 items-center overflow-visible"
           aria-label="DateOfflineHub home"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/brand/dateofflinehub-mark.png"
-            alt=""
-            width={40}
-            height={29}
-            className="h-9 w-auto max-w-[2.75rem] shrink-0 object-contain sm:h-10 sm:max-w-[3rem]"
+            src="/brand/dateofflinehub-logo.png"
+            alt="DateOfflineHub"
+            width={148}
+            height={145}
+            className="h-11 w-auto max-h-11 object-contain object-left"
           />
-          <span
-            className={cn(
-              "truncate text-[15px] font-semibold tracking-tight sm:text-[17px]",
-              light ? "text-[var(--brand-gold-deep)]" : "text-white",
-            )}
-          >
-            DateOfflineHub
-          </span>
         </Link>
-        <nav className="hidden items-center gap-6 text-sm font-medium md:flex lg:gap-8">
+        <nav className="hidden items-center gap-5 text-sm font-medium md:flex lg:gap-7">
           {links.map((link) => {
             const active = pathname.startsWith(link.href);
             return (
@@ -82,6 +114,7 @@ export function SiteHeader() {
             );
           })}
           <AccountNavLink light={light} />
+          <InstagramNavLink light={light} />
           <Link
             href="/#tip-een-activiteit"
             aria-label="Ken je een singlesevent? Geef het aan ons door."
@@ -103,7 +136,8 @@ export function SiteHeader() {
             Singlesevent doorgeven
           </Link>
         </nav>
-        <div className="flex items-center gap-3 md:hidden">
+        <div className="flex items-center gap-1.5 md:hidden">
+          <InstagramNavLink light={light} />
           <AccountNavLink light={light} />
         </div>
       </div>
