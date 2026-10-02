@@ -3,15 +3,20 @@
  * Never invent Antwerp for a different city.
  */
 const CITY_COORDS: Record<string, { lat: number; lng: number }> = {
-  // Search places + Flanders
+  // Search places + Flanders (NL + common EN spellings from organizer sites)
   antwerpen: { lat: 51.2194, lng: 4.4025 },
+  antwerp: { lat: 51.2194, lng: 4.4025 },
   mechelen: { lat: 51.0257, lng: 4.4776 },
   brussel: { lat: 50.8503, lng: 4.3517 },
+  brussels: { lat: 50.8503, lng: 4.3517 },
   bruxelles: { lat: 50.8503, lng: 4.3517 },
   gent: { lat: 51.0543, lng: 3.7174 },
+  ghent: { lat: 51.0543, lng: 3.7174 },
   leuven: { lat: 50.8798, lng: 4.7005 },
+  louvain: { lat: 50.8798, lng: 4.7005 },
   turnhout: { lat: 51.3227, lng: 4.9446 },
   brugge: { lat: 51.2093, lng: 3.2247 },
+  bruges: { lat: 51.2093, lng: 3.2247 },
   kortrijk: { lat: 50.8279, lng: 3.2649 },
   hasselt: { lat: 50.9307, lng: 5.3378 },
   aalst: { lat: 50.9372, lng: 4.0403 },
@@ -20,7 +25,9 @@ const CITY_COORDS: Record<string, { lat: number; lng: number }> = {
   "sint niklaas": { lat: 51.1657, lng: 4.1437 },
   sintniklaas: { lat: 51.1657, lng: 4.1437 },
   oostende: { lat: 51.2303, lng: 2.9169 },
+  ostend: { lat: 51.2303, lng: 2.9169 },
   ieper: { lat: 50.8511, lng: 2.8857 },
+  ypres: { lat: 50.8511, lng: 2.8857 },
   lier: { lat: 51.1313, lng: 4.5704 },
   kapellen: { lat: 51.3133, lng: 4.4347 },
   edegem: { lat: 51.1548, lng: 4.4453 },
@@ -133,4 +140,17 @@ export function resolveCoordsForWrite(input: {
     latitude: fromCity?.lat ?? null,
     longitude: fromCity?.lng ?? null,
   };
+}
+
+/**
+ * True when an edition will survive Ontdek distance filters.
+ * Venue-only is NOT enough: missing coords → Infinity km → hidden.
+ */
+export function editionLocationIsDiscoverable(input: {
+  latitude?: number | null;
+  longitude?: number | null;
+  city?: string | null;
+}): boolean {
+  const geo = resolveCoordsForWrite(input);
+  return geo.latitude != null && geo.longitude != null;
 }

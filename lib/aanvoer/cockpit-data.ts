@@ -534,6 +534,8 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       e.title,
       e.city,
       e.venue_name,
+      e.latitude,
+      e.longitude,
       e.starts_at,
       e.publication_status,
       e.published_at,
@@ -594,6 +596,8 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
     title: string;
     city: string;
     venue_name: string | null;
+    latitude: number | null;
+    longitude: number | null;
     starts_at: string;
     publication_status: string;
     published_at: string | null;
@@ -643,6 +647,8 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       publishedDuplicateSlug: row.duplicate_slug,
       city: row.city,
       venueName: row.venue_name,
+      latitude: row.latitude,
+      longitude: row.longitude,
     });
 
     // Never auto-publish on GET (page load). Ready items stay in aandacht

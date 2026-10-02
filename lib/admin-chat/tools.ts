@@ -686,16 +686,23 @@ export async function toolAssessUrl(input: {
           "@/lib/events/neon-store"
         );
         const now = new Date().toISOString();
-        const updated = await updateEditionPublication({
-          id: saved.editionId,
-          publicationStatus: "published",
-          publishedAt: now,
-          approvedAt: now,
-        });
-        if (updated) {
-          created.published = true;
+        try {
+          const updated = await updateEditionPublication({
+            id: saved.editionId,
+            publicationStatus: "published",
+            publishedAt: now,
+            approvedAt: now,
+          });
+          if (updated) {
+            created.published = true;
+            created.message =
+              "Past in ons kraam. Event toegevoegd en gepubliceerd.";
+          }
+        } catch (error) {
           created.message =
-            "Past in ons kraam. Event toegevoegd en gepubliceerd.";
+            error instanceof Error
+              ? `Draft bewaard, niet gepubliceerd: ${error.message}`
+              : "Draft bewaard, niet gepubliceerd (plaats/coördinaten).";
         }
       }
     } else {

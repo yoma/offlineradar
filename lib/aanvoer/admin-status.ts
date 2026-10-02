@@ -6,6 +6,8 @@
  * Ready-to-publish items are auto-published (no "Klaar" queue).
  */
 
+import { editionLocationIsDiscoverable } from "@/lib/geo-cities";
+
 export type AdminQueueStatus =
   | "aandacht_nodig"
   | "toegevoegd"
@@ -30,6 +32,8 @@ export type AdminStatusInput = {
   publishedDuplicateSlug?: string | null;
   city?: string | null;
   venueName?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export type AdminStatusResult = {
@@ -116,9 +120,13 @@ export function classifyAdminStatus(input: AdminStatusInput): AdminStatusResult 
   const displayDate = displayEventDate(input.startsAt, tags, notes);
   const hasSource = Boolean(input.sourceUrl?.trim());
   const singles = singlesConfirmed(input);
-  const location = Boolean(
-    (input.city && input.city !== "Onbekend") || input.venueName?.trim(),
-  );
+  // Must be discoverable on Ontdek: city with known coords, or explicit lat/lng.
+  // Venue-only is not enough (would publish as Infinity km and disappear).
+  const location = editionLocationIsDiscoverable({
+    city: input.city,
+    latitude: input.latitude,
+    longitude: input.longitude,
+  });
 
   const checks = {
     singles,
@@ -206,7 +214,9 @@ export function classifyAdminStatus(input: AdminStatusInput): AdminStatusResult 
   if (!location) {
     return {
       status: "aandacht_nodig",
-      reason: "Locatie kon niet worden bevestigd",
+      reason: input.city?.trim() && input.city !== "Onbekend"
+        ? `Plaats “${input.city.trim()}” heeft geen bekende coördinaten (zou onzichtbaar blijven op Ontdek)`
+        : "Locatie kon niet worden bevestigd",
       displayDate,
       dateUnknown: false,
       readyToPublish: false,

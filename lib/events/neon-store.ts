@@ -671,6 +671,46 @@ export async function updateEditionPublication(input: {
     if (blocked) {
       return null;
     }
+
+    // Hard gate: never publish an edition that Ontdek would hide (Infinity km).
+    const current = (await sql`
+      SELECT city, latitude, longitude
+      FROM event_editions
+      WHERE id = ${input.id}
+      LIMIT 1
+    `) as {
+      city: string | null;
+      latitude: number | null;
+      longitude: number | null;
+    }[];
+    const row = current[0];
+    if (!row) return null;
+    const geo = resolveCoordsForWrite({
+      city: row.city,
+      latitude: row.latitude,
+      longitude: row.longitude,
+    });
+    if (geo.latitude == null || geo.longitude == null) {
+      throw new Error(
+        "Publiceren geweigerd: plaats heeft geen bekende coördinaten. Zonder dat blijft het event onzichtbaar op Ontdek.",
+      );
+    }
+
+    const rows = (await sql`
+      UPDATE event_editions
+      SET
+        publication_status = ${input.publicationStatus},
+        published_at = ${input.publishedAt ?? null},
+        approved_at = COALESCE(${input.approvedAt ?? null}, approved_at),
+        rejected_at = ${input.rejectedAt ?? null},
+        expired_at = ${input.expiredAt ?? null},
+        latitude = COALESCE(latitude, ${geo.latitude}),
+        longitude = COALESCE(longitude, ${geo.longitude}),
+        updated_at = now()
+      WHERE id = ${input.id}
+      RETURNING *
+    `) as EditionRow[];
+    return rows[0] ? mapEdition(rows[0]) : null;
   }
   const rows = (await sql`
     UPDATE event_editions

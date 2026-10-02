@@ -1058,12 +1058,23 @@ export async function updateAanvoerCandidateStatusAction(
     }
 
     const now = new Date().toISOString();
-    const updated = await updateEditionPublication({
-      id,
-      publicationStatus: "published",
-      publishedAt: now,
-      approvedAt: now,
-    });
+    let updated;
+    try {
+      updated = await updateEditionPublication({
+        id,
+        publicationStatus: "published",
+        publishedAt: now,
+        approvedAt: now,
+      });
+    } catch (error) {
+      return {
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Kon event niet toevoegen.",
+      };
+    }
     if (!updated) return { ok: false, error: "Kon event niet toevoegen." };
     revalidatePath("/interne-aanvoer");
     revalidatePath("/interne-events");

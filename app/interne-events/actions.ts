@@ -67,12 +67,19 @@ export async function publishEventAction(formData: FormData) {
     throw new Error("Deze status kan niet gepubliceerd worden");
   }
   const now = new Date().toISOString();
-  const updated = await updateEditionPublication({
-    id,
-    publicationStatus: "published",
-    publishedAt: now,
-    approvedAt: now,
-  });
+  let updated;
+  try {
+    updated = await updateEditionPublication({
+      id,
+      publicationStatus: "published",
+      publishedAt: now,
+      approvedAt: now,
+    });
+  } catch (error) {
+    throw new Error(
+      error instanceof Error ? error.message : "Publiceren mislukt",
+    );
+  }
   if (!updated) throw new Error("Publiceren mislukt");
 
   const tipIds = await neonListTipIdsForEdition(id);

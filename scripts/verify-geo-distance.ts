@@ -5,7 +5,11 @@
 import assert from "node:assert/strict";
 import { distanceKmBetween, withUserDistance } from "../lib/distance";
 import { matchingEvents } from "../lib/filters";
-import { coordsForCity, resolveEditionCoords } from "../lib/geo-cities";
+import {
+  coordsForCity,
+  editionLocationIsDiscoverable,
+  resolveEditionCoords,
+} from "../lib/geo-cities";
 import type { Event } from "../types/event";
 import type { SearchState } from "../types/search";
 
@@ -27,6 +31,44 @@ check("wavre city coords known", () => {
   const c = coordsForCity("Wavre");
   assert.ok(c);
   assert.equal(distanceKmBetween({ lat: 51.2194, lng: 4.4025 }, c!), 58);
+});
+
+check("english Antwerp resolves like Antwerpen", () => {
+  const nl = coordsForCity("Antwerpen");
+  const en = coordsForCity("Antwerp");
+  assert.ok(nl);
+  assert.ok(en);
+  assert.equal(en!.lat, nl!.lat);
+  assert.equal(en!.lng, nl!.lng);
+  const resolved = resolveEditionCoords({
+    latitude: null,
+    longitude: null,
+    city: "Antwerp",
+  });
+  assert.equal(resolved.known, true);
+});
+
+check("venue-only is not discoverable without city/coords", () => {
+  assert.equal(
+    editionLocationIsDiscoverable({ city: null, latitude: null, longitude: null }),
+    false,
+  );
+  assert.equal(
+    editionLocationIsDiscoverable({ city: "Onbekend", latitude: null, longitude: null }),
+    false,
+  );
+  assert.equal(
+    editionLocationIsDiscoverable({ city: "Antwerp", latitude: null, longitude: null }),
+    true,
+  );
+  assert.equal(
+    editionLocationIsDiscoverable({
+      city: "Atlantis",
+      latitude: 51.2,
+      longitude: 4.4,
+    }),
+    true,
+  );
 });
 
 check("missing coords resolve via city, not Antwerp", () => {

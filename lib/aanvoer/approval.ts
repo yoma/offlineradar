@@ -1,4 +1,5 @@
 import type { IntakeEditableDraft, IntakeProposal } from "@/lib/aanvoer/types";
+import { editionLocationIsDiscoverable } from "@/lib/geo-cities";
 
 export type IntakeApprovalGate = {
   /** Hard fail: cannot save at all. */
@@ -71,6 +72,15 @@ export function evaluateIntakeApproval(
     reviewReasons.push("Bron ontbreekt");
   }
 
+  const city = draft.city.trim();
+  if (!editionLocationIsDiscoverable({ city })) {
+    reviewReasons.push(
+      !city || /^onbekend$/i.test(city)
+        ? "Plaats ontbreekt"
+        : `Plaats “${city}” heeft geen bekende coördinaten; zou onzichtbaar blijven op Ontdek`,
+    );
+  }
+
   if (proposal?.aiFailed) {
     reviewReasons.push("Analyse was onvolledig — opnieuw laten zoeken");
   }
@@ -80,6 +90,7 @@ export function evaluateIntakeApproval(
     reviewReasons.length === 0 &&
     hasConcreteDate(draft.startDate) &&
     hasUrl &&
+    editionLocationIsDiscoverable({ city }) &&
     (draft.routeAdvice === "route_a" || draft.routeAdvice === "route_b");
 
   return { blockers, reviewReasons, canPublish };

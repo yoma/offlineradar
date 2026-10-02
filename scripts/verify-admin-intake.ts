@@ -69,6 +69,7 @@ const gate = evaluateIntakeApproval(
     ...draft,
     title: "Singles Karaoke",
     startDate: "2026-10-15",
+    city: "Gent",
     sourceUrl: "https://example.com/event",
     routeAdvice: "route_a",
     singlesOriented: "true",
@@ -81,6 +82,26 @@ const gate = evaluateIntakeApproval(
 );
 assert.equal(gate.canPublish, true);
 ok("4 approval gate allows clear Route A event");
+
+const noPlace = evaluateIntakeApproval(
+  {
+    ...draft,
+    title: "Singles Karaoke",
+    startDate: "2026-10-15",
+    city: "",
+    sourceUrl: "https://example.com/event",
+    routeAdvice: "route_a",
+    singlesOriented: "true",
+  },
+  {
+    needsSourceVerification: false,
+    routeAdvice: "route_a",
+    aiFailed: false,
+  },
+);
+assert.equal(noPlace.canPublish, false);
+assert.ok(noPlace.reviewReasons.some((r) => /plaats/i.test(r)));
+ok("4b missing place blocks auto-publish");
 
 const blocked = evaluateIntakeApproval(draft, {
   needsSourceVerification: true,
