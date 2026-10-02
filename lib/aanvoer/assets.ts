@@ -120,10 +120,16 @@ export function validateIntakeImage(input: {
       error: "Alleen PNG, JPG/JPEG of WEBP zijn toegestaan.",
     };
   }
-  if (input.byteSize <= 0 || input.byteSize > INTAKE_MAX_BYTES) {
+  if (input.byteSize <= 0) {
     return {
       ok: false,
-      error: "Screenshot mag maximaal 4 MB zijn.",
+      error: "Kies een screenshot (PNG/JPG/WEBP).",
+    };
+  }
+  if (input.byteSize > INTAKE_MAX_BYTES) {
+    return {
+      ok: false,
+      error: `Screenshot is te groot (${(input.byteSize / (1024 * 1024)).toFixed(1)} MB, max 4 MB).`,
     };
   }
   return { ok: true };

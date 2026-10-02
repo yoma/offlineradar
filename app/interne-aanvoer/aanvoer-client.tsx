@@ -15,6 +15,7 @@ import type {
   IntakeProposal,
 } from "@/lib/aanvoer/types";
 import { INTAKE_MAX_BYTES, INTAKE_MAX_TEXT_CHARS } from "@/lib/aanvoer/types";
+import { prepareScreenshotForIntake } from "@/lib/aanvoer/compress-screenshot";
 import { CATEGORY_LABEL } from "@/lib/format";
 
 function validatePastedIntakeTextLocal(text: string): string | null {
@@ -28,47 +29,11 @@ function validatePastedIntakeTextLocal(text: string): string | null {
 
 type InputKind = "screenshot" | "url" | "text";
 
-function hasScreenshotExtension(name: string): boolean {
-  const lower = name.toLowerCase();
-  return (
-    lower.endsWith(".png") ||
-    lower.endsWith(".jpg") ||
-    lower.endsWith(".jpeg") ||
-    lower.endsWith(".webp")
-  );
-}
-
-function validateScreenshotFile(file: File | null): string | null {
-  if (!file || file.size === 0) {
-    return "Kies een screenshot (PNG/JPG/WEBP).";
+function formatFileSizeMb(bytes: number): string {
+  if (bytes < 1024 * 1024) {
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   }
-  if (file.size > INTAKE_MAX_BYTES) {
-    return "Screenshot mag maximaal 4 MB zijn.";
-  }
-  const type = (file.type || "").toLowerCase().trim();
-  const name = file.name || "";
-  if (
-    type === "image/heic" ||
-    type === "image/heif" ||
-    name.toLowerCase().endsWith(".heic") ||
-    name.toLowerCase().endsWith(".heif")
-  ) {
-    return "HEIC wordt niet ondersteund. Sla op als PNG of JPG.";
-  }
-  if (
-    type === "image/png" ||
-    type === "image/jpeg" ||
-    type === "image/jpg" ||
-    type === "image/webp"
-  ) {
-    return null;
-  }
-  if (!type || type === "application/octet-stream") {
-    if (hasScreenshotExtension(name)) return null;
-    return "Kies een bestand met extensie .png, .jpg of .webp.";
-  }
-  if (hasScreenshotExtension(name)) return null;
-  return "Alleen PNG, JPG/JPEG of WEBP zijn toegestaan.";
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function formatDateNl(value: string): string {
@@ -164,9 +129,14 @@ export function AanvoerClient({
     setForceNeeded(false);
 
     if (inputKind === "screenshot") {
-      const fileError = validateScreenshotFile(file);
-      if (fileError) {
-        setError(fileError);
+      if (!file || file.size === 0) {
+        setError("Kies een screenshot (PNG/JPG/WEBP).");
+        return;
+      }
+      if (file.size > INTAKE_MAX_BYTES) {
+        setError(
+          `Screenshot is te groot (${formatFileSizeMb(file.size)}, max ${formatFileSizeMb(INTAKE_MAX_BYTES)}).`,
+        );
         return;
       }
     }
@@ -422,17 +392,26 @@ export function AanvoerClient({
                 className="sr-only"
                 onChange={(event) => {
                   const next = event.target.files?.[0] ?? null;
-                  const fileError = validateScreenshotFile(next);
-                  if (fileError) {
+                  if (!next) {
                     setFile(null);
                     setFileName(null);
-                    setError(fileError);
-                    event.target.value = "";
                     return;
                   }
-                  setFile(next);
-                  setFileName(next?.name ?? null);
                   setError(null);
+                  setFileName(next.name);
+                  // Keep UI responsive while we may compress large phone photos.
+                  void prepareScreenshotForIntake(next).then((prepared) => {
+                    if (!prepared.ok) {
+                      setFile(null);
+                      setFileName(null);
+                      setError(prepared.error);
+                      event.target.value = "";
+                      return;
+                    }
+                    setFile(prepared.file);
+                    setFileName(prepared.file.name);
+                    setError(null);
+                  });
                 }}
               />
               <div
@@ -447,8 +426,8 @@ export function AanvoerClient({
                 </p>
                 <p className="mt-1 break-all text-xs text-stone-600">
                   {file && fileName
-                    ? `${fileName} · ${(file.size / (1024 * 1024)).toFixed(1)} MB`
-                    : "PNG, JPG of WEBP · max 4 MB · geen HEIC"}
+                    ? `${fileName} · ${formatFileSizeMb(file.size)}`
+                    : "PNG, JPG of WEBP · max 4 MB · grote foto’s worden automatisch verkleind · geen HEIC"}
                 </p>
                 <button
                   type="button"
@@ -551,7 +530,9 @@ export function AanvoerClient({
           {error && !showResult ? (
             <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-900">
               <p className="font-semibold">
-                We konden dit event niet automatisch uitlezen.
+                {/screenshot|bestand|heic|png|jpg|webp|mb|groot/i.test(error)
+                  ? "Upload niet gelukt"
+                  : "We konden dit event niet automatisch uitlezen."}
               </p>
               <p className="mt-1 text-xs">{error}</p>
               <button

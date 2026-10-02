@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
   // Screenshots up to INTAKE_MAX_BYTES (4 MB) + multipart overhead.
   experimental: {
     serverActions: {
-      bodySizeLimit: "5mb",
+      bodySizeLimit: "8mb",
     },
   },
   images: {

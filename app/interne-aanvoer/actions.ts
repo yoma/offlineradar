@@ -137,7 +137,10 @@ export async function analyzeIntakeAction(
       return { ok: false, error: "Kies een screenshot (PNG/JPG/WEBP)." };
     }
     if (blob.size > INTAKE_MAX_BYTES) {
-      return { ok: false, error: "Screenshot mag maximaal 4 MB zijn." };
+      return {
+        ok: false,
+        error: `Screenshot is te groot (${(blob.size / (1024 * 1024)).toFixed(1)} MB, max 4 MB).`,
+      };
     }
 
     const buffer = Buffer.from(await blob.arrayBuffer());
