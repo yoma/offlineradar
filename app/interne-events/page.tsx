@@ -243,80 +243,36 @@ export default async function InterneEventsPage() {
         </div>
       ) : null}
 
-      <section id="bronnen" className="mb-10 space-y-4">
+      <section id="events" className="mb-10 space-y-4">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">Bronnen</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Events</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Curated Source Map. Pilotbronnen hebben “Controleer bron” (geen
-            crawler, geen auto-publish). Scheduled refresh{" "}
-            {scheduledGlobalOn ? "globaal aan" : "globaal uit"}{" "}
-            (OFFLINERADAR_SCHEDULED_REFRESH).
+            Canonical events: publiceren of van DateOfflineHub halen.
           </p>
         </div>
-
-        <form
-          action={addCatalogSourceAction}
-          className="space-y-3 rounded-xl border border-border bg-background px-4 py-4"
-        >
-          <p className="text-sm font-medium">Bron toevoegen</p>
-          <input
-            name="name"
-            required
-            placeholder="Naam"
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-          />
-          <input
-            name="officialUrl"
-            required
-            type="url"
-            placeholder="https://"
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-          />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input
-              name="regions"
-              placeholder="Regio's (komma)"
-              className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-            />
-            <input
-              name="formats"
-              placeholder="Formats (komma)"
-              className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-            />
-          </div>
-          <select
-            name="status"
-            defaultValue="promising"
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-          >
-            <option value="active">active</option>
-            <option value="promising">promising</option>
-            <option value="low_yield">low_yield</option>
-            <option value="inactive">inactive</option>
-          </select>
-          <textarea
-            name="notes"
-            placeholder="Notities"
-            rows={2}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-          />
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            <input type="checkbox" name="userSupplied" value="1" />
-            Door Youri aangebracht (user supplied)
-          </label>
-          <button
-            type="submit"
-            className="rounded-md bg-foreground px-3 py-2 text-sm text-background"
-          >
-            Opslaan
-          </button>
-        </form>
-
-        <CatalogSourcesBrowser
-          sources={catalogSources}
-          refreshBySourceId={refreshBySourceId}
-          updateAction={updateCatalogSourceAction}
-        />
+      <EventsAdminBrowser
+        events={bundles.map((bundle) => {
+          const { edition } = bundle;
+          const primary =
+            bundle.sources.find((s) => s.isPrimary) ?? bundle.sources[0];
+          return {
+            id: edition.id,
+            title: edition.title,
+            slug: edition.slug,
+            publicationStatus: edition.publicationStatus,
+            publishedAt: edition.publishedAt,
+            lastCheckedAt: edition.lastCheckedAt,
+            city: edition.city,
+            startsAt: edition.startsAt,
+            primarySourceUrl: primary?.url ?? null,
+            primarySourceLabel:
+              primary?.sourceName ?? primary?.sourceType ?? null,
+            openReports: openByEdition.get(edition.id) ?? 0,
+          };
+        })}
+        takeOfflineAction={takeEventOfflineAction}
+        publishAction={publishEventAction}
+      />
       </section>
 
       <section className="mb-10 space-y-4">
@@ -417,30 +373,82 @@ export default async function InterneEventsPage() {
         )}
       </section>
 
-      <h2 className="mb-4 text-lg font-semibold tracking-tight">Events</h2>
-      <EventsAdminBrowser
-        events={bundles.map((bundle) => {
-          const { edition } = bundle;
-          const primary =
-            bundle.sources.find((s) => s.isPrimary) ?? bundle.sources[0];
-          return {
-            id: edition.id,
-            title: edition.title,
-            slug: edition.slug,
-            publicationStatus: edition.publicationStatus,
-            publishedAt: edition.publishedAt,
-            lastCheckedAt: edition.lastCheckedAt,
-            city: edition.city,
-            startsAt: edition.startsAt,
-            primarySourceUrl: primary?.url ?? null,
-            primarySourceLabel:
-              primary?.sourceName ?? primary?.sourceType ?? null,
-            openReports: openByEdition.get(edition.id) ?? 0,
-          };
-        })}
-        takeOfflineAction={takeEventOfflineAction}
-        publishAction={publishEventAction}
-      />
+      <section id="bronnen" className="mb-10 space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Bronnen</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Curated Source Map. Pilotbronnen hebben “Controleer bron” (geen
+            crawler, geen auto-publish). Scheduled refresh{" "}
+            {scheduledGlobalOn ? "globaal aan" : "globaal uit"}{" "}
+            (OFFLINERADAR_SCHEDULED_REFRESH).
+          </p>
+        </div>
+
+        <form
+          action={addCatalogSourceAction}
+          className="space-y-3 rounded-xl border border-border bg-background px-4 py-4"
+        >
+          <p className="text-sm font-medium">Bron toevoegen</p>
+          <input
+            name="name"
+            required
+            placeholder="Naam"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+          />
+          <input
+            name="officialUrl"
+            required
+            type="url"
+            placeholder="https://"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input
+              name="regions"
+              placeholder="Regio's (komma)"
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+            />
+            <input
+              name="formats"
+              placeholder="Formats (komma)"
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+            />
+          </div>
+          <select
+            name="status"
+            defaultValue="promising"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="active">active</option>
+            <option value="promising">promising</option>
+            <option value="low_yield">low_yield</option>
+            <option value="inactive">inactive</option>
+          </select>
+          <textarea
+            name="notes"
+            placeholder="Notities"
+            rows={2}
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+          />
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <input type="checkbox" name="userSupplied" value="1" />
+            Door Youri aangebracht (user supplied)
+          </label>
+          <button
+            type="submit"
+            className="rounded-md bg-foreground px-3 py-2 text-sm text-background"
+          >
+            Opslaan
+          </button>
+        </form>
+
+        <CatalogSourcesBrowser
+          sources={catalogSources}
+          refreshBySourceId={refreshBySourceId}
+          updateAction={updateCatalogSourceAction}
+        />
+      </section>
+
     </InterneAdminShell>
   );
 }

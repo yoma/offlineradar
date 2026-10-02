@@ -67,7 +67,7 @@ export function EventsAdminBrowser({
   publishAction,
 }: Props) {
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState<string>("queue");
+  const [status, setStatus] = useState<string>("published");
 
   const counts = useMemo(() => {
     const next = { all: events.length, published: 0, queue: 0, offline: 0 };
@@ -139,7 +139,6 @@ export function EventsAdminBrowser({
 
       <p className="text-xs text-muted-foreground">
         {filtered.length} van {events.length} events
-        {status === "queue" ? " · standaard: te publiceren" : null}
       </p>
 
       {filtered.length === 0 ? (
