@@ -47,8 +47,11 @@ export type AmbiguousSource = {
 export type ToolProgressStep =
   | "resolve"
   | "fetch_agenda"
+  | "fetch_page"
+  | "extract"
   | "parse_events"
   | "compare"
+  | "assess"
   | "save"
   | "done"
   | "error";
@@ -552,5 +555,225 @@ export async function toolEnableAutoFollow(input: {
     summary: `${source.label} wordt nu automatisch opgevolgd.`,
     progress: ["done"],
     links: [{ label: "Bronnen", href: "/interne-aanvoer?tab=bronnen" }],
+  };
+}
+
+const ROUTE_LABEL: Record<string, string> = {
+  route_a: "Route A (singlesgericht offline)",
+  route_b: "Route B (singles-formule op gewone activiteit)",
+  not_suitable: "Past niet (geen singles-/datingopzet)",
+  needs_review: "Twijfelachtig — menselijke check nodig",
+};
+
+/**
+ * Fetch a URL, extract facts, judge DateOfflineHub fit, optionally create a draft.
+ * Reuses intake extract + deep-verify + approval gate (same as /interne-aanvoer).
+ */
+export async function toolAssessUrl(input: {
+  url: string;
+  /** Default true: als het past en nog niet bestaat → draft-kandidaat. */
+  createIfFits?: boolean;
+}): Promise<ToolResult> {
+  const progress: ToolProgressStep[] = ["resolve", "fetch_page"];
+  const raw = input.url.trim();
+  if (!raw) {
+    return { ok: false, summary: "Geen URL opgegeven.", progress: ["error"] };
+  }
+
+  const { validateAndNormalizeTipUrl } = await import("@/lib/tips/url");
+  const validated = validateAndNormalizeTipUrl(raw);
+  if (!validated.ok) {
+    return {
+      ok: false,
+      summary: `Ongeldige of geblokkeerde URL: ${validated.error}`,
+      progress: ["error"],
+    };
+  }
+  const url = validated.normalizedUrl;
+
+  // Already on platform?
+  const existingNote = await toolExplainMissingEvent({ url });
+
+  const { htmlToPlainishText, safeFetchTipSource } = await import(
+    "@/lib/tips/safe-fetch"
+  );
+  const fetched = await safeFetchTipSource(url);
+  if (!fetched.ok) {
+    return {
+      ok: false,
+      summary: `Pagina ophalen mislukt: ${fetched.error}`,
+      progress: [...progress, "error"],
+      links: [{ label: "Bronlink", href: url }],
+    };
+  }
+
+  progress.push("extract");
+  const pageText = htmlToPlainishText(fetched.text || "").slice(0, 35_000);
+  const { runAdminIntakeExtract } = await import("@/lib/aanvoer/extract");
+  let proposal = await runAdminIntakeExtract({
+    mode: "url",
+    url,
+    text: pageText,
+  });
+  if (!proposal.sourceUrl.value) {
+    proposal.sourceUrl = {
+      value: url,
+      status: "found",
+      evidence: "Aangeleverde URL",
+    };
+  }
+
+  progress.push("assess");
+  const {
+    shouldRunDeepVerification,
+    runDeepVerification,
+    formatDeepScanNotes,
+  } = await import("@/lib/aanvoer/deep-verify");
+  if (shouldRunDeepVerification(proposal)) {
+    const deep = await runDeepVerification({
+      proposal,
+      seedUrl: url,
+      seedHtml: fetched.text,
+      seedText: pageText,
+      force: false,
+    });
+    proposal = deep.proposal;
+    proposal.deepScan = deep.report;
+    const stamp = formatDeepScanNotes(deep.report);
+    if (stamp) {
+      proposal.notes = {
+        value: [proposal.notes.value, stamp].filter(Boolean).join("\n"),
+        status: "found",
+        evidence: proposal.notes.evidence,
+      };
+    }
+  }
+
+  const { proposalToDraft } = await import("@/lib/aanvoer/types");
+  const { evaluateIntakeApproval } = await import("@/lib/aanvoer/approval");
+  const { findIntakeMatches } = await import("@/lib/aanvoer/dedupe");
+  const draft = proposalToDraft(proposal);
+  if (!draft.sourceUrl) draft.sourceUrl = url;
+  const approval = evaluateIntakeApproval(draft, proposal);
+  const matches = await findIntakeMatches(draft);
+  const alreadyOnPlatform = matches.some(
+    (m) => m.kind === "event_edition" || m.kind === "catalog_source",
+  );
+  const fits =
+    draft.routeAdvice === "route_a" || draft.routeAdvice === "route_b";
+  const createIfFits = input.createIfFits !== false;
+
+  let created: {
+    editionId?: string;
+    slug?: string;
+    published?: boolean;
+    message?: string;
+  } | null = null;
+
+  if (createIfFits && fits && approval.blockers.length === 0 && !alreadyOnPlatform) {
+    progress.push("save");
+    const { saveIntakeAsEventCandidate } = await import("@/lib/aanvoer/save");
+    const saved = await saveIntakeAsEventCandidate({ draft });
+    if (saved.ok) {
+      created = {
+        editionId: saved.editionId,
+        slug: saved.slug,
+        published: false,
+        message: saved.message,
+      };
+      if (approval.canPublish) {
+        const { updateEditionPublication } = await import(
+          "@/lib/events/neon-store"
+        );
+        const now = new Date().toISOString();
+        const updated = await updateEditionPublication({
+          id: saved.editionId,
+          publicationStatus: "published",
+          publishedAt: now,
+          approvedAt: now,
+        });
+        if (updated) {
+          created.published = true;
+          created.message =
+            "Past in ons kraam. Event toegevoegd en gepubliceerd.";
+        }
+      }
+    } else {
+      created = { message: `Opslaan mislukt: ${saved.error}` };
+    }
+  }
+
+  progress.push("done");
+
+  const verdict = fits
+    ? approval.canPublish
+      ? "Ja, past in ons kraam."
+      : "Ja, singlesgericht, maar nog aandacht nodig voor publicatie."
+    : draft.routeAdvice === "not_suitable"
+      ? "Nee, past niet in ons kraam."
+      : "Nog onduidelijk of dit singlesgericht is.";
+
+  const facts = [
+    draft.title && `Titel: ${draft.title}`,
+    draft.organizer && `Organisator: ${draft.organizer}`,
+    draft.startDate &&
+      `Datum: ${draft.startDate}${draft.startTime ? ` ${draft.startTime}` : ""}`,
+    draft.city && `Plaats: ${draft.city}`,
+    draft.ageNotes && `Leeftijd: ${draft.ageNotes}`,
+    draft.priceNotes && `Prijs: ${draft.priceNotes}`,
+  ].filter(Boolean);
+
+  const summary = [
+    verdict,
+    `Route: ${ROUTE_LABEL[draft.routeAdvice] ?? draft.routeAdvice}.`,
+    draft.routeReason ? `Reden: ${draft.routeReason}` : null,
+    facts.length ? facts.join(" · ") : null,
+    approval.reviewReasons.length
+      ? `Aandacht: ${approval.reviewReasons.join("; ")}`
+      : null,
+    alreadyOnPlatform && existingNote.ok
+      ? `Al bekend: ${existingNote.summary}`
+      : alreadyOnPlatform
+        ? "Al bekend in catalogus."
+        : null,
+    created?.editionId
+      ? created.published
+        ? `Toegevoegd en gepubliceerd (${created.slug}).`
+        : `Als draft bewaard (${created.slug}).`
+      : createIfFits && fits && alreadyOnPlatform
+        ? "Niet opnieuw aangemaakt (bestaat al)."
+        : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const links: Array<{ label: string; href: string }> = [
+    { label: "Bronlink", href: url },
+    { label: "Nieuwe intake", href: "/interne-aanvoer?tab=nieuw" },
+  ];
+  if (created?.editionId) {
+    links.push({
+      label: "Open kandidaat",
+      href: `/interne-aanvoer?tab=aandacht&editionId=${created.editionId}`,
+    });
+  }
+
+  return {
+    ok: true,
+    summary,
+    progress,
+    data: {
+      url,
+      fits,
+      routeAdvice: draft.routeAdvice,
+      routeReason: draft.routeReason,
+      draft,
+      approval,
+      matches: matches.slice(0, 5),
+      created,
+      deepScan: proposal.deepScan ?? null,
+      aiFailed: proposal.aiFailed,
+    },
+    links,
   };
 }

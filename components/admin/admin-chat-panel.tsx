@@ -22,18 +22,21 @@ type ToolResultView = {
 const PROGRESS_LABEL: Record<string, string> = {
   resolve: "Bron bepalen",
   fetch_agenda: "Agenda ophalen",
+  fetch_page: "Pagina ophalen",
+  extract: "Gegevens uitlezen",
   parse_events: "Evenementen uitlezen",
   compare: "Vergelijken",
+  assess: "Beoordelen",
   save: "Opslaan",
   done: "Klaar",
   error: "Fout",
 };
 
 const SUGGESTIONS = [
+  "Past dit in ons kraam? https://www.speeddaten.be/nl/kalender-8.htm",
   "Scan speeddaten.be opnieuw, grondig.",
   "Controleer waarom er evenementen van SmartVibes ontbreken.",
   "Wat heeft de laatste scan van speeddaten.be toegevoegd?",
-  "Volg speeddaten.be automatisch op.",
 ];
 
 export function AdminChatPanel() {
