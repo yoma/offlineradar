@@ -133,9 +133,10 @@ export function BetaWelcomeModal() {
                 <Image
                   src="/brand/dateofflinehub-logo.png"
                   alt=""
-                  width={96}
-                  height={94}
-                  className="h-16 w-auto drop-shadow-[0_10px_24px_-8px_rgba(156,124,37,0.55)]"
+                  width={640}
+                  height={627}
+                  className="drop-shadow-[0_10px_24px_-8px_rgba(156,124,37,0.55)]"
+                  style={{ width: "auto", height: "4rem" }}
                 />
               </div>
 

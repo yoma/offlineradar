@@ -274,10 +274,11 @@ export function HomeHero({
         <Image
           src="/brand/dateofflinehub-logo.png"
           alt="DateOfflineHub"
-          width={220}
-          height={215}
+          width={640}
+          height={627}
           priority
-          className="h-16 w-auto drop-shadow-[0_8px_24px_rgba(0,0,0,0.35)] sm:h-20"
+          className="drop-shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
+          style={{ width: "auto", height: "4.5rem" }}
         />
         <h1 className="mt-4 max-w-[18ch] text-balance text-[1.55rem] font-semibold leading-[1.2] tracking-[-0.02em] text-white sm:mt-5 sm:max-w-2xl sm:text-[2.35rem] sm:leading-[1.15] lg:text-[2.75rem] lg:leading-[1.12]">
           Date offline. Ervaar opnieuw de kracht van echte connecties.

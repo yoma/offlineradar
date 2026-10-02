@@ -200,9 +200,10 @@ export function FeedbackLauncher() {
                   <Image
                     src="/brand/dateofflinehub-logo.png"
                     alt=""
-                    width={80}
-                    height={78}
-                    className="h-14 w-auto drop-shadow-[0_10px_24px_-8px_rgba(156,124,37,0.55)]"
+                    width={640}
+                    height={627}
+                    className="drop-shadow-[0_10px_24px_-8px_rgba(156,124,37,0.55)]"
+                    style={{ width: "auto", height: "3.5rem" }}
                   />
                 </div>
 

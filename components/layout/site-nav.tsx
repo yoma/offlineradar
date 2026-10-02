@@ -47,10 +47,10 @@ export function SiteHeader() {
           <Image
             src="/brand/dateofflinehub-mark.png"
             alt=""
-            width={72}
-            height={56}
+            width={640}
+            height={461}
             priority
-            className="h-9 w-auto sm:h-10"
+            style={{ width: "auto", height: "2.25rem" }}
           />
           <span
             className={cn(
