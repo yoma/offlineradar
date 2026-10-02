@@ -34,7 +34,9 @@ import {
   countOpenRefreshReviewItems,
   getSourceScheduleStates,
   listLatestRunsBySourceIds,
+  type SourceScheduleState,
 } from "@/lib/source-refresh/store";
+import type { SourceRefreshRunRecord } from "@/lib/source-refresh/types";
 import { countBetaFeedbackByStatus } from "@/lib/feedback/store";
 
 export const dynamic = "force-dynamic";
@@ -124,21 +126,29 @@ export default async function InterneEventsPage() {
   } catch {
     catalogSources = [];
   }
-  const refreshRuns = await listLatestRunsBySourceIds(
-    REFRESH_PILOTS.map((p) => p.catalogSourceId),
-  );
-  const scheduleStates = await getSourceScheduleStates(
-    REFRESH_PILOTS.map((p) => p.catalogSourceId),
-  );
+
+  let refreshRuns = new Map<string, SourceRefreshRunRecord>();
+  let scheduleStates = new Map<string, SourceScheduleState>();
+  let consecutiveFailures = new Map<string, number>();
   let openRefreshReviews = 0;
   try {
-    openRefreshReviews = await countOpenRefreshReviewItems();
+    const pilotIds = REFRESH_PILOTS.map((p) => p.catalogSourceId);
+    const [runs, schedules, failures, openReviews] = await Promise.all([
+      listLatestRunsBySourceIds(pilotIds),
+      getSourceScheduleStates(pilotIds),
+      countConsecutiveRefreshFailuresBatch(pilotIds),
+      countOpenRefreshReviewItems().catch(() => 0),
+    ]);
+    refreshRuns = runs;
+    scheduleStates = schedules;
+    consecutiveFailures = failures;
+    openRefreshReviews = openReviews;
   } catch {
+    refreshRuns = new Map();
+    scheduleStates = new Map();
+    consecutiveFailures = new Map();
     openRefreshReviews = 0;
   }
-  const consecutiveFailures = await countConsecutiveRefreshFailuresBatch(
-    REFRESH_PILOTS.map((p) => p.catalogSourceId),
-  );
   const scheduledGlobalOn = isScheduledRefreshGloballyEnabled();
 
   const refreshBySourceId = Object.fromEntries(

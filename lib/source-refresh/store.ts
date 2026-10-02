@@ -169,14 +169,20 @@ export async function listLatestRunsBySourceIds(
   const sql = getEventsSql();
   if (!sql) return map;
   // One query for all sources (DISTINCT ON), not N+1.
+  // Omit report_json: admin list only needs status counts (report can be large).
   const rows = (await sql`
-    SELECT DISTINCT ON (catalog_source_id) *
+    SELECT DISTINCT ON (catalog_source_id)
+      id, catalog_source_id, status, started_at, completed_at,
+      fetched_url, http_status, fetch_state, parser_key, parser_version,
+      candidate_count, new_count, unchanged_count, changed_count, removed_count,
+      skipped_count, drafted_count, applied_count, error,
+      triggered_by, trigger_type, created_at
     FROM source_refresh_runs
     WHERE catalog_source_id = ANY(${sourceIds})
     ORDER BY catalog_source_id, started_at DESC
   `) as RunRow[];
   for (const row of rows) {
-    map.set(row.catalog_source_id, mapRun(row));
+    map.set(row.catalog_source_id, mapRun({ ...row, report_json: null }));
   }
   return map;
 }

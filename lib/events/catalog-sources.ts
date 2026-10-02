@@ -72,12 +72,18 @@ type Row = {
   regions: string[] | null;
   formats: string[] | null;
   status: CatalogSourceStatus;
-  last_checked_at: string | null;
+  last_checked_at: string | Date | null;
   notes: string | null;
-  created_at: string;
-  updated_at: string;
+  created_at: string | Date;
+  updated_at: string | Date;
   edition_count?: number | string | null;
 };
+
+function iso(value: string | Date | null | undefined): string | null {
+  if (value == null) return null;
+  if (value instanceof Date) return value.toISOString();
+  return String(value);
+}
 
 export function normalizeCatalogSourceUrl(url: string): string {
   return url.trim().replace(/\/$/, "").toLowerCase();
@@ -95,10 +101,11 @@ function mapRow(row: Row): CatalogSourceRecord {
     regions: row.regions ?? [],
     formats: row.formats ?? [],
     status: row.status,
-    lastCheckedAt: row.last_checked_at,
+    // Neon may return Date objects; client UI calls .slice on these strings.
+    lastCheckedAt: iso(row.last_checked_at),
     notes: row.notes,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: iso(row.created_at)!,
+    updatedAt: iso(row.updated_at)!,
     editionCount:
       row.edition_count == null ? undefined : Number(row.edition_count),
   };

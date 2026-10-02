@@ -196,7 +196,9 @@ export function CatalogSourcesBrowser({
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Laatst gecontroleerd:{" "}
-                  {source.lastCheckedAt?.slice(0, 16) ?? "onbekend"}
+                  {source.lastCheckedAt
+                    ? String(source.lastCheckedAt).slice(0, 16)
+                    : "onbekend"}
                 </p>
                 {source.notes ? (
                   <p className="text-sm text-muted-foreground">{source.notes}</p>
