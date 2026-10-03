@@ -612,7 +612,10 @@ export function AanvoerClient({
               ok={fieldOk(proposal.title.status, draft.title)}
               label={
                 fieldOk(proposal.title.status, draft.title)
-                  ? "Eventtitel herkend"
+                  ? draft.title.trim() === draft.organizer.trim() &&
+                      !draft.startDate.trim()
+                    ? `Organisatie herkend: ${draft.title.trim()}`
+                    : "Eventtitel herkend"
                   : "Eventtitel ontbreekt"
               }
             />
@@ -631,9 +634,12 @@ export function AanvoerClient({
                     : analyzedKind === "text"
                       ? "Datum gevonden in geplakte tekst"
                       : "Datum bevestigd"
-                  : proposal.deepScan?.triggered
-                    ? "Datum kon ook na uitgebreid zoeken niet bevestigd worden"
-                    : "Datum niet gevonden"
+                  : analyzedKind === "screenshot" &&
+                      Boolean(draft.sourceUrl.trim() || draft.organizerUrl.trim())
+                    ? "Geen eventdatum op screenshot — we zoeken verder via de website"
+                    : proposal.deepScan?.triggered
+                      ? "Datum kon ook na uitgebreid zoeken niet bevestigd worden"
+                      : "Datum niet gevonden"
               }
             />
             {analyzedKind === "text" ? (

@@ -107,12 +107,21 @@ export function collectProposalTextBlob(proposal: IntakeProposal): string {
   ].join("\n");
 }
 
+/** Facebook route reasons often hide the real name in parentheses. */
+export function augmentTextForBrandScan(text: string): string {
+  const paren = [...text.matchAll(/\(([A-Za-z][A-Za-z0-9\s&.'-]{2,48})\)/g)]
+    .map((m) => m[1]!.trim())
+    .join("\n");
+  return [text, paren].filter(Boolean).join("\n");
+}
+
 export function knownBrandUrlsFromText(text: string): {
   label: string | null;
   urls: string[];
 } {
+  const haystack = augmentTextForBrandScan(text);
   for (const brand of KNOWN_BRAND_HOMEPAGES) {
-    if (brand.match.test(text)) {
+    if (brand.match.test(haystack)) {
       return { label: brand.label, urls: [...brand.urls] };
     }
   }
@@ -174,9 +183,16 @@ export function enrichProposalWithScreenshotLeads(
     }
   }
 
+  const facebookMislabel =
+    /internetprovider|provider-app|facebook.*categor/i.test(blob) ||
+    /internetprovider/i.test(proposal.category.value ?? "");
+
   // Facebook business categories are often wrong (e.g. Timeleft → "Internetprovider").
-  // Any brand/website lead means: never hard-reject from the screenshot alone.
-  if (leads.length > 0 && next.routeAdvice === "not_suitable") {
+  // Any brand/website lead, or obvious FB mislabel: never hard-reject from the screenshot alone.
+  if (
+    next.routeAdvice === "not_suitable" &&
+    (leads.length > 0 || facebookMislabel)
+  ) {
     next.routeAdvice = "needs_review";
     next.routeReason =
       "Screenshot toont een merk/pagina met opvolgbare website. Nog niet afwijzen: eerst de officiële site checken (Facebook-categorie telt niet als bewijs).";

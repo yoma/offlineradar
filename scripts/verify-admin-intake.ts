@@ -14,6 +14,7 @@ import { evaluateIntakeApproval } from "../lib/aanvoer/approval";
 import { evaluateEventForPublication } from "../lib/aanvoer/publication-gate";
 import { validateIntakeImage } from "../lib/aanvoer/assets";
 import { USER_SUPPLIED_MANDATORY_FUTURE_SCAN } from "../lib/aanvoer/future-discovery";
+import { applyScreenshotOcrToProposal } from "../lib/aanvoer/screenshot-ocr";
 import { blankProposal, proposalToDraft } from "../lib/aanvoer/types";
 import { withUserSuppliedProvenance } from "../lib/discovery/user-supplied";
 
@@ -281,8 +282,39 @@ mustInclude(
 );
 mustInclude("lib/aanvoer/extract.ts", "geen instructie");
 mustInclude("lib/aanvoer/extract.ts", "Facebook/Instagram-categorie");
+mustInclude("lib/aanvoer/extract.ts", "readScreenshotVisibleText");
 mustInclude("lib/aanvoer/screenshot-leads.ts", "timeleft.com");
+mustInclude("lib/aanvoer/screenshot-ocr.ts", "report_screenshot_text");
 mustInclude("app/interne-aanvoer/actions.ts", "mode === \"screenshot\"");
+mustInclude(
+  "app/interne-aanvoer/aanvoer-client.tsx",
+  "Geen eventdatum op screenshot",
+);
+
+{
+  const bad = blankProposal({
+    category: {
+      value: "Internetprovider",
+      status: "found",
+      evidence: "Facebook",
+    },
+    routeAdvice: "not_suitable",
+    routeReason: "Screenshot van een internetprovider-app",
+    aiFailed: false,
+  });
+  const rescued = applyScreenshotOcrToProposal(bad, {
+    pageName: "Timeleft",
+    facebookCategory: "Internetprovider",
+    visibleUrls: ["timeleft.com", "app.timeleft.com"],
+    visibleText:
+      "Timeleft Internetprovider timeleft.com Ga naar app.timeleft.com Volgen",
+  });
+  assert.equal(rescued.organizer.value, "Timeleft");
+  assert.ok(rescued.sourceUrl.value?.includes("timeleft.com"));
+  assert.notEqual(rescued.routeAdvice, "not_suitable");
+  assert.equal(rescued.aiFailed, false);
+}
+ok("6b screenshot OCR rescue recovers Timeleft leads");
 
 mustInclude("lib/aanvoer/future-discovery.ts", "mandatory future discovery");
 mustInclude("db/migrations/20260929_admin_intake_v1.sql", "admin_intake_assets");

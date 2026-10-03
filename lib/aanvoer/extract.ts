@@ -13,6 +13,11 @@ import {
   type IntakeSourceKindHint,
 } from "@/lib/aanvoer/types";
 import { enrichProposalWithScreenshotLeads } from "@/lib/aanvoer/screenshot-leads";
+import {
+  applyScreenshotOcrToProposal,
+  readScreenshotVisibleText,
+  screenshotNeedsVisibleTextRescue,
+} from "@/lib/aanvoer/screenshot-ocr";
 
 const SYSTEM_PROMPT = `Je bent een assistent voor DateOfflineHub Admin Quick Intake.
 
@@ -314,6 +319,7 @@ export async function runAdminIntakeExtract(input: {
   }
   content.push({ type: "text", text: textParts });
 
+  let proposal: IntakeProposal;
   try {
     const message = await client.messages.create({
       model,
@@ -332,7 +338,7 @@ export async function runAdminIntakeExtract(input: {
       );
     }
 
-    const proposal = parseProposal(toolUse.input, {
+    proposal = parseProposal(toolUse.input, {
       modelHint: model,
       needsSourceVerificationDefault,
     });
@@ -347,7 +353,7 @@ export async function runAdminIntakeExtract(input: {
     if (input.mode === "screenshot") {
       proposal.needsSourceVerification = true;
     }
-    return enrichProposalWithScreenshotLeads(proposal);
+    proposal = enrichProposalWithScreenshotLeads(proposal);
   } catch (err) {
     const message =
       err instanceof AiScreenerError
@@ -355,7 +361,7 @@ export async function runAdminIntakeExtract(input: {
         : err instanceof Error
           ? err.message
           : "AI-fout";
-    return blankProposal({
+    proposal = blankProposal({
       sourceUrl: {
         value: input.url?.trim() || null,
         status: input.url?.trim() ? "found" : "unknown",
@@ -374,6 +380,25 @@ export async function runAdminIntakeExtract(input: {
       sourceKindHint: input.mode === "screenshot" ? "social_first" : "manual_only",
     });
   }
+
+  // Rescue pass: literal screenshot read when Pass-1 missed name/site
+  // or falsely rejected via Facebook category.
+  if (
+    input.mode === "screenshot" &&
+    input.image?.base64 &&
+    screenshotNeedsVisibleTextRescue(proposal)
+  ) {
+    const ocr = await readScreenshotVisibleText({
+      image: input.image,
+      apiKey,
+      model,
+    });
+    if (ocr) {
+      proposal = applyScreenshotOcrToProposal(proposal, ocr);
+    }
+  }
+
+  return proposal;
 }
 
 export function contentHashForText(text: string): string {

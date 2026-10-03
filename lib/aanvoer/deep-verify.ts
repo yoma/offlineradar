@@ -10,7 +10,11 @@ import {
 } from "@/lib/screening/ai/anthropic-screener";
 import { listCatalogSources } from "@/lib/events/catalog-sources";
 import { runAdminIntakeExtract } from "@/lib/aanvoer/extract";
-import { enrichProposalWithScreenshotLeads } from "@/lib/aanvoer/screenshot-leads";
+import {
+  collectProposalTextBlob,
+  enrichProposalWithScreenshotLeads,
+  knownBrandUrlsFromText,
+} from "@/lib/aanvoer/screenshot-leads";
 import {
   htmlToPlainishText,
   safeFetchTipSource,
@@ -163,6 +167,20 @@ export function buildDeepSearchQueries(proposal: IntakeProposal): string[] {
       if (host) queries.push(`site:${host}`);
     } catch {
       // ignore
+    }
+  }
+
+  const knownBrand = knownBrandUrlsFromText(collectProposalTextBlob(proposal));
+  if (knownBrand.label) {
+    queries.push(`"${knownBrand.label}" singles OR dinner ${thisYear}`);
+    queries.push(`"${knownBrand.label}" ${city}`.trim());
+    for (const url of knownBrand.urls) {
+      try {
+        const host = new URL(url).hostname.replace(/^www\./, "");
+        if (host) queries.push(`site:${host}`);
+      } catch {
+        // ignore
+      }
     }
   }
 
