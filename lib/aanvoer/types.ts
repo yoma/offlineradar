@@ -1,3 +1,5 @@
+import { normalizeIntakeDateToYmd } from "@/lib/aanvoer/dates";
+
 export type IntakeMode = "url" | "text" | "screenshot";
 
 export type FieldStatus = "found" | "uncertain" | "unknown";
@@ -150,10 +152,12 @@ export function blankProposal(partial?: Partial<IntakeProposal>): IntakeProposal
 }
 
 export function proposalToDraft(proposal: IntakeProposal): IntakeEditableDraft {
+  const rawDate = proposal.startDate.value ?? "";
+  const startDate = normalizeIntakeDateToYmd(rawDate) ?? rawDate;
   return {
     organizer: proposal.organizer.value ?? "",
     title: proposal.title.value ?? "",
-    startDate: proposal.startDate.value ?? "",
+    startDate,
     startTime: proposal.startTime.value ?? "",
     endTime: proposal.endTime.value ?? "",
     city: proposal.city.value ?? "",

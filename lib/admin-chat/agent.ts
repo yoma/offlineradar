@@ -259,7 +259,19 @@ export async function runAdminChat(input: {
         typeof use.input === "object" && use.input
           ? (use.input as Record<string, unknown>)
           : {};
-      const result = await executeTool(use.name, args, input.email);
+      let result: ToolResult | AmbiguousSource;
+      try {
+        result = await executeTool(use.name, args, input.email);
+      } catch (err) {
+        result = {
+          ok: false,
+          summary:
+            err instanceof Error
+              ? `Tool mislukt: ${err.message}`
+              : "Tool mislukt door een onverwachte fout.",
+          progress: ["error"],
+        };
+      }
       toolResults.push({ name: use.name, result });
       toolResultBlocks.push({
         type: "tool_result",

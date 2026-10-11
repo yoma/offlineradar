@@ -5,6 +5,7 @@
 
 import type { StructuredEventFacts } from "@/lib/aanvoer/json-ld-event";
 import { extractJsonLdEventFacts } from "@/lib/aanvoer/json-ld-event";
+import { isIsoYmd } from "@/lib/aanvoer/dates";
 import type { IntakeField, IntakeProposal } from "@/lib/aanvoer/types";
 import { inferKnownCityLabel } from "@/lib/geo-cities";
 
@@ -19,6 +20,21 @@ function fillEmpty<T>(
   }
   return {
     value,
+    status: "found",
+    evidence,
+  };
+}
+
+/** Prefer JSON-LD ISO dates over AI free-text like "31 Oktober 2026". */
+function preferIsoDate(
+  field: IntakeField<string | null>,
+  isoDate: string | null | undefined,
+  evidence: string,
+): IntakeField<string | null> {
+  if (!isoDate || !isIsoYmd(isoDate)) return field;
+  if (field.status === "found" && isIsoYmd(field.value)) return field;
+  return {
+    value: isoDate,
     status: "found",
     evidence,
   };
@@ -53,7 +69,7 @@ export function enrichProposalFromPage(input: {
     proposal = {
       ...proposal,
       title: fillEmpty(proposal.title, jsonLd.title, evidence),
-      startDate: fillEmpty(proposal.startDate, jsonLd.startDate, evidence),
+      startDate: preferIsoDate(proposal.startDate, jsonLd.startDate, evidence),
       startTime: fillEmpty(proposal.startTime, jsonLd.startTime, evidence),
       endTime: fillEmpty(proposal.endTime, jsonLd.endTime, evidence),
       city: fillEmpty(proposal.city, jsonLd.city, evidence),

@@ -96,12 +96,21 @@ export function AdminChatPanel() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ messages: nextMessages }),
         });
-        const data = (await res.json()) as {
+        const raw = await res.text();
+        let data: {
           ok: boolean;
           reply?: string;
           error?: string;
           toolResults?: ToolResultView[];
         };
+        try {
+          data = JSON.parse(raw) as typeof data;
+        } catch {
+          setError(
+            `Server gaf geen geldig antwoord (HTTP ${res.status}). Probeer opnieuw.`,
+          );
+          return;
+        }
         if (!res.ok || !data.ok) {
           setError(data.error ?? "Chat mislukt.");
           if (data.toolResults) setToolViews(data.toolResults);
