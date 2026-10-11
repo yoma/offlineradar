@@ -27,7 +27,7 @@ check("storage key stable", () => {
   assert.equal(BETA_WELCOME_STORAGE_KEY, "offlineradar_beta_welcome_seen_v2");
 });
 
-check("flag requires 1 (next.config defaults to 1 at build)", () => {
+check("flag requires 1 (next.config defaults to 0 at build)", () => {
   const prev = process.env.NEXT_PUBLIC_BETA_WELCOME_ENABLED;
   delete process.env.NEXT_PUBLIC_BETA_WELCOME_ENABLED;
   assert.equal(isBetaWelcomeEnabled(), false);
