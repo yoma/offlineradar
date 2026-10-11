@@ -279,10 +279,10 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
             daarna onder het tabblad Events.
           </li>
         </ol>
-        <div className="grid grid-cols-3 gap-2 pt-1">
+        <div className="grid grid-cols-3 gap-1.5 pt-1 sm:gap-2">
           {[
             {
-              label: "Jouw aandacht nodig",
+              label: "Aandacht",
               n: snapshot.tips.filter((t) =>
                 ["received", "in_review", "needs_info", "duplicate"].includes(
                   t.status,
@@ -302,9 +302,9 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
           ].map((c) => (
             <div
               key={c.label}
-              className="rounded-xl border border-stone-200 bg-white px-3 py-2"
+              className="min-w-0 rounded-xl border border-stone-200 bg-white px-2 py-2 sm:px-3"
             >
-              <p className="text-[10px] font-semibold tracking-wide text-stone-500 uppercase">
+              <p className="text-[10px] leading-tight font-semibold tracking-wide text-stone-500 uppercase">
                 {c.label}
               </p>
               <p className="text-xl font-semibold text-stone-900">{c.n}</p>

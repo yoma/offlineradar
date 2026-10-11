@@ -201,7 +201,7 @@ export function AccountView({
             max={99}
             value={age}
             onChange={(e) => setAge(e.target.value)}
-            className="mt-1.5 h-11 w-full rounded-xl border border-border bg-white px-3"
+            className="mt-1.5 h-11 w-full rounded-xl border border-border bg-white px-3 text-base md:text-sm"
           />
         </label>
 
@@ -210,7 +210,7 @@ export function AccountView({
           <select
             value={gender}
             onChange={(e) => setGender(e.target.value as UserGender | "")}
-            className="mt-1.5 h-11 w-full rounded-xl border border-border bg-white px-3"
+            className="mt-1.5 h-11 w-full rounded-xl border border-border bg-white px-3 text-base md:text-sm"
           >
             <option value="">Niet ingesteld</option>
             <option value="woman">Vrouw</option>
@@ -225,7 +225,7 @@ export function AccountView({
           <select
             value={placeId}
             onChange={(e) => setPlaceId(e.target.value)}
-            className="mt-1.5 h-11 w-full rounded-xl border border-border bg-white px-3"
+            className="mt-1.5 h-11 w-full rounded-xl border border-border bg-white px-3 text-base md:text-sm"
           >
             {USER_PLACES.map((place) => (
               <option key={place.id} value={place.id}>
@@ -240,7 +240,7 @@ export function AccountView({
           <select
             value={maxDistanceKm}
             onChange={(e) => setMaxDistanceKm(Number(e.target.value))}
-            className="mt-1.5 h-11 w-full rounded-xl border border-border bg-white px-3"
+            className="mt-1.5 h-11 w-full rounded-xl border border-border bg-white px-3 text-base md:text-sm"
           >
             {DISTANCES.map((km) => (
               <option key={km} value={km}>
@@ -259,7 +259,7 @@ export function AccountView({
               max={99}
               value={preferredAgeMin}
               onChange={(e) => setPreferredAgeMin(e.target.value)}
-              className="mt-1.5 h-11 w-full rounded-xl border border-border bg-white px-3"
+              className="mt-1.5 h-11 w-full rounded-xl border border-border bg-white px-3 text-base md:text-sm"
             />
           </label>
           <label className="block text-sm">
@@ -270,7 +270,7 @@ export function AccountView({
               max={99}
               value={preferredAgeMax}
               onChange={(e) => setPreferredAgeMax(e.target.value)}
-              className="mt-1.5 h-11 w-full rounded-xl border border-border bg-white px-3"
+              className="mt-1.5 h-11 w-full rounded-xl border border-border bg-white px-3 text-base md:text-sm"
             />
           </label>
         </div>
@@ -282,7 +282,7 @@ export function AccountView({
             onChange={(e) =>
               setPreferredMeetGender(e.target.value as PreferredMeetGender)
             }
-            className="mt-1.5 h-11 w-full rounded-xl border border-border bg-white px-3"
+            className="mt-1.5 h-11 w-full rounded-xl border border-border bg-white px-3 text-base md:text-sm"
           >
             <option value="anyone">Iedereen</option>
             <option value="women">Vrouwen</option>

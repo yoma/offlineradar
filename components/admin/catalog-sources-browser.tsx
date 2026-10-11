@@ -96,13 +96,13 @@ export function CatalogSourcesBrowser({
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Zoek naam / url / note"
-          className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+          className="rounded-md border border-border bg-background px-3 py-2 text-base md:text-sm"
           aria-label="Zoek bronnen"
         />
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
-          className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+          className="rounded-md border border-border bg-background px-3 py-2 text-base md:text-sm"
           aria-label="Filter status"
         >
           <option value="all">Alle statussen</option>
@@ -114,7 +114,7 @@ export function CatalogSourcesBrowser({
         <select
           value={origin}
           onChange={(e) => setOrigin(e.target.value)}
-          className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+          className="rounded-md border border-border bg-background px-3 py-2 text-base md:text-sm"
           aria-label="Filter herkomst"
         >
           <option value="all">Alle herkomsten</option>
@@ -124,7 +124,7 @@ export function CatalogSourcesBrowser({
         <select
           value={region}
           onChange={(e) => setRegion(e.target.value)}
-          className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+          className="rounded-md border border-border bg-background px-3 py-2 text-base md:text-sm"
           aria-label="Filter regio"
         >
           <option value="all">Alle regio’s</option>
@@ -137,7 +137,7 @@ export function CatalogSourcesBrowser({
         <select
           value={format}
           onChange={(e) => setFormat(e.target.value)}
-          className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+          className="rounded-md border border-border bg-background px-3 py-2 text-base md:text-sm"
           aria-label="Filter format"
         >
           <option value="all">Alle formats</option>
@@ -220,7 +220,7 @@ export function CatalogSourcesBrowser({
                   <select
                     name="status"
                     defaultValue={source.status}
-                    className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                    className="rounded-md border border-border bg-background px-2 py-1.5 text-base md:text-sm"
                   >
                     <option value="active">active</option>
                     <option value="promising">promising</option>
@@ -231,7 +231,7 @@ export function CatalogSourcesBrowser({
                     name="notes"
                     defaultValue={source.notes ?? ""}
                     placeholder="Note"
-                    className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                    className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-base md:text-sm"
                   />
                   <label className="flex items-center gap-1 text-xs text-muted-foreground">
                     <input type="checkbox" name="touchChecked" value="1" />

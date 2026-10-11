@@ -347,7 +347,7 @@ export default async function InterneEventsPage() {
                       <select
                         name="status"
                         defaultValue="reviewing"
-                        className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                        className="rounded-md border border-border bg-background px-2 py-1.5 text-base md:text-sm"
                       >
                         <option value="reviewing">In controle</option>
                         <option value="confirmed">Bevestigd (terecht)</option>
@@ -357,7 +357,7 @@ export default async function InterneEventsPage() {
                       <input
                         name="resolutionNote"
                         placeholder="Note (optioneel)"
-                        className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                        className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-base md:text-sm"
                       />
                       <ActionSubmitButton
                         pendingLabel="Bezig…"
@@ -394,31 +394,31 @@ export default async function InterneEventsPage() {
             name="name"
             required
             placeholder="Naam"
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-base md:text-sm"
           />
           <input
             name="officialUrl"
             required
             type="url"
             placeholder="https://"
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-base md:text-sm"
           />
           <div className="grid gap-3 sm:grid-cols-2">
             <input
               name="regions"
               placeholder="Regio's (komma)"
-              className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+              className="rounded-md border border-border bg-background px-3 py-2 text-base md:text-sm"
             />
             <input
               name="formats"
               placeholder="Formats (komma)"
-              className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+              className="rounded-md border border-border bg-background px-3 py-2 text-base md:text-sm"
             />
           </div>
           <select
             name="status"
             defaultValue="promising"
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-base md:text-sm"
           >
             <option value="active">active</option>
             <option value="promising">promising</option>
@@ -429,7 +429,7 @@ export default async function InterneEventsPage() {
             name="notes"
             placeholder="Notities"
             rows={2}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-base md:text-sm"
           />
           <label className="flex items-center gap-2 text-sm text-muted-foreground">
             <input type="checkbox" name="userSupplied" value="1" />
