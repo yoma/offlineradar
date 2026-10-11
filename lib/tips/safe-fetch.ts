@@ -10,6 +10,24 @@ const MAX_BYTES = 750_000;
 const TIMEOUT_MS = 12_000;
 const MAX_REDIRECTS = 4;
 
+/**
+ * Browser-like UA: ticket platforms (Billetto, Eventbrite, …) block custom
+ * bot UAs via CloudFront/WAF. We still only fetch public HTML for admin review.
+ */
+const FETCH_USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+function looksLikeBotBlockPage(status: number, body: string): boolean {
+  if (status === 403 || status === 429) return true;
+  if (status !== 200) return false;
+  const sample = body.slice(0, 2_000);
+  return (
+    /Request blocked|The request could not be satisfied|Access Denied|Just a moment\.\.\.|cf-browser-verification|attention required/i.test(
+      sample,
+    ) && sample.length < 4_000
+  );
+}
+
 export type SafeFetchResult =
   | {
       ok: true;
@@ -69,8 +87,10 @@ export async function safeFetchTipSource(rawUrl: string): Promise<SafeFetchResul
         redirect: "manual",
         signal: controller.signal,
         headers: {
-          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5",
-          "User-Agent": "DateOfflineHubTipReview/1.0 (+https://dateofflinehub.vercel.app)",
+          Accept:
+            "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5",
+          "Accept-Language": "nl-BE,nl;q=0.9,en;q=0.8",
+          "User-Agent": FETCH_USER_AGENT,
         },
       });
 
@@ -85,6 +105,15 @@ export async function safeFetchTipSource(rawUrl: string): Promise<SafeFetchResul
         }
         current = new URL(location, validated.normalizedUrl).toString();
         continue;
+      }
+
+      if (response.status === 403 || response.status === 429) {
+        return {
+          ok: false,
+          code: "blocked",
+          error:
+            "Deze site blokkeert automatische ophalen. Open de link zelf en gebruik “Info plakken”, of probeer opnieuw.",
+        };
       }
 
       if (!response.ok) {
@@ -123,8 +152,18 @@ export async function safeFetchTipSource(rawUrl: string): Promise<SafeFetchResul
       }
 
       const raw = new TextDecoder("utf-8", { fatal: false }).decode(buffer);
+      if (looksLikeBotBlockPage(response.status, raw)) {
+        return {
+          ok: false,
+          code: "blocked",
+          error:
+            "Deze site blokkeert automatische ophalen. Open de link zelf en gebruik “Info plakken”, of probeer opnieuw.",
+        };
+      }
       const looksHtml = /<html[\s>]|<body[\s>]|<script[\s>]|<div[\s>]/i.test(raw);
-      const plain = looksHtml ? htmlToPlainishText(raw) : raw.replace(/\s+/g, " ").trim().slice(0, 40_000);
+      const plain = looksHtml
+        ? htmlToPlainishText(raw)
+        : raw.replace(/\s+/g, " ").trim().slice(0, 40_000);
       if (plain.length < 40) {
         return {
           ok: false,
