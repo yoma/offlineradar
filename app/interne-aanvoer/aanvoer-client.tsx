@@ -848,9 +848,14 @@ export function AanvoerClient({
                 type="button"
                 disabled={pending}
                 onClick={resetAll}
-                className="rounded-2xl px-4 py-3 text-left text-sm font-medium text-stone-500 underline-offset-4 hover:underline disabled:opacity-60"
+                className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3.5 text-left transition hover:border-rose-400 disabled:opacity-60"
               >
-                Niet toevoegen
+                <span className="block text-sm font-semibold text-rose-900">
+                  Wissen
+                </span>
+                <span className="mt-1 block text-xs text-rose-900/75">
+                  Verwerp deze preview, niets bewaren.
+                </span>
               </button>
               <button
                 type="button"

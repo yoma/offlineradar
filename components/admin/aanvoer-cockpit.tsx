@@ -1023,6 +1023,19 @@ function EventsPanel({
           return;
         }
       }
+      if (intent === "niet_toegevoegd") {
+        setDismissedIds((prev) =>
+          prev.includes(editionId) ? prev : [...prev, editionId],
+        );
+        setHeldAandacht((prev) => {
+          const next = { ...prev };
+          delete next[editionId];
+          return next;
+        });
+        setActionMessage(result.message ?? "Gewist — niet toegevoegd.");
+        router.refresh();
+        return;
+      }
       if (result.message) setActionMessage(result.message);
       router.refresh();
     });
@@ -1353,10 +1366,10 @@ function AdminEventCard({
               <button
                 type="button"
                 disabled={pending}
-                className="h-11 w-full rounded-full text-sm font-medium text-stone-500 underline-offset-4 hover:underline disabled:opacity-60"
+                className="h-11 w-full rounded-full border border-rose-200 bg-rose-50 text-sm font-semibold text-rose-900 disabled:opacity-60"
                 onClick={() => onIntent(c.id, "niet_toegevoegd")}
               >
-                Niet toevoegen
+                Wissen
               </button>
             </>
           ) : null}
