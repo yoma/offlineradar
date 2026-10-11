@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { Lock } from "lucide-react";
+import { UpcomingStrip } from "@/components/discover/upcoming-strip";
 import { HomeHero } from "@/components/home/home-search";
 import { TipSection } from "@/components/tips/tip-section";
 import { brusselsToday } from "@/lib/dates";
@@ -19,6 +18,7 @@ export default async function HomePage() {
     ReturnType<typeof listPublishedOrganizerOptions>
   > = [];
   let upcomingEvents: Event[] = [];
+  let catalogUnavailable = false;
   const today = brusselsToday();
 
   try {
@@ -34,23 +34,35 @@ export default async function HomePage() {
     upcomingEvents = selectUpcomingEvents(catalogEvents).events;
   } catch (error) {
     if (
-      !(
-        isCanonicalEventsFeedEnabled() &&
-        error instanceof EventsCatalogUnavailableError
-      )
+      isCanonicalEventsFeedEnabled() &&
+      error instanceof EventsCatalogUnavailableError
     ) {
-      // Soft-fail: homepage still works without the strip.
+      catalogUnavailable = true;
     }
     upcomingEvents = [];
   }
 
   return (
     <div>
-      <HomeHero
-        organizerOptions={organizerOptions}
-        upcomingEvents={upcomingEvents}
-        today={today}
-      />
+      <HomeHero organizerOptions={organizerOptions} />
+      {catalogUnavailable ? (
+        <p
+          className="mx-auto w-full max-w-6xl px-4 pt-8 text-sm text-muted-foreground sm:px-6"
+          role="status"
+        >
+          De catalogus is tijdelijk niet beschikbaar. Zoeken kan zo opnieuw
+          lukken.
+        </p>
+      ) : null}
+      {upcomingEvents.length > 0 ? (
+        <section className="mx-auto w-full max-w-6xl px-4 pt-10 sm:px-6">
+          <UpcomingStrip
+            events={upcomingEvents}
+            today={today}
+            headingId="home-binnenkort-heading"
+          />
+        </section>
+      ) : null}
       {/* Tip section sits where the first discovery strip would continue:
           visible after the hero, before the product explainer. */}
       <TipSection />
@@ -67,17 +79,6 @@ export default async function HomePage() {
           <Step n="03" title="Ga erheen" text="Tickets en reservatie blijven bij de organisator." />
         </ol>
       </section>
-      <div className="mx-auto flex w-full max-w-6xl justify-start px-4 pb-24 sm:px-6 md:pb-10">
-        <Link
-          href="/interne-tips"
-          className="inline-flex size-11 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:bg-muted/60 hover:text-muted-foreground"
-          aria-label="Interne tipwachtrij (beheerder)"
-          title="Beheer"
-        >
-          <Lock className="size-5" aria-hidden />
-          <span className="sr-only">Beheer</span>
-        </Link>
-      </div>
     </div>
   );
 }

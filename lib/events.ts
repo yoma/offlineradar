@@ -32,6 +32,11 @@ export function isCanonicalEventsFeedEnabled(): boolean {
  */
 export function isRouteABListable(event: Event): boolean {
   if (event.listingPath === "meet_activation") {
+    // Phase 1 schema does not store Meet activations yet (always null).
+    // Until then, Route B published editions list via the Route A singles gate.
+    if (event.meetActivation == null) {
+      return event.singlesOriented === true;
+    }
     return isActiveMeetActivation(event.meetActivation);
   }
   return event.singlesOriented === true;
@@ -55,17 +60,24 @@ async function loadMockEvents(): Promise<Event[]> {
 }
 
 async function loadCanonicalEvents(): Promise<Event[]> {
-  // Public catalog must include the full published set (was silently capped at 100).
-  const bundles = await listPublishedEditionBundles(500);
-  if (bundles == null) {
+  try {
+    // Public catalog must include the full published set (was silently capped at 100).
+    const bundles = await listPublishedEditionBundles(500);
+    if (bundles == null) {
+      throw new EventsCatalogUnavailableError(
+        "Canonical eventdatabase niet bereikbaar.",
+      );
+    }
+    return bundles
+      .filter((b) => b.edition.publicationStatus === "published")
+      .map(mapEditionToConsumerEvent)
+      .filter(isRouteABListable);
+  } catch (error) {
+    if (error instanceof EventsCatalogUnavailableError) throw error;
     throw new EventsCatalogUnavailableError(
       "Canonical eventdatabase niet bereikbaar.",
     );
   }
-  return bundles
-    .filter((b) => b.edition.publicationStatus === "published")
-    .map(mapEditionToConsumerEvent)
-    .filter(isRouteABListable);
 }
 
 /**
@@ -80,19 +92,26 @@ export async function listEvents(): Promise<Event[]> {
 
 export async function getEventBySlug(slug: string): Promise<Event | null> {
   if (isCanonicalEventsFeedEnabled()) {
-    const bundle = await getPublishedEditionBySlug(slug);
-    if (!bundle) {
-      // Distinguish missing vs DB down: try listing path only when SQL works.
-      const sqlProbe = await listPublishedEditionBundles(1);
-      if (sqlProbe == null) {
-        throw new EventsCatalogUnavailableError(
-          "Canonical eventdatabase niet bereikbaar.",
-        );
+    try {
+      const bundle = await getPublishedEditionBySlug(slug);
+      if (!bundle) {
+        // Distinguish missing vs DB down: try listing path only when SQL works.
+        const sqlProbe = await listPublishedEditionBundles(1);
+        if (sqlProbe == null) {
+          throw new EventsCatalogUnavailableError(
+            "Canonical eventdatabase niet bereikbaar.",
+          );
+        }
+        return null;
       }
-      return null;
+      const event = mapEditionToConsumerEvent(bundle);
+      return isRouteABListable(event) ? event : null;
+    } catch (error) {
+      if (error instanceof EventsCatalogUnavailableError) throw error;
+      throw new EventsCatalogUnavailableError(
+        "Canonical eventdatabase niet bereikbaar.",
+      );
     }
-    const event = mapEditionToConsumerEvent(bundle);
-    return isRouteABListable(event) ? event : null;
   }
   const events = await loadMockEvents();
   return events.find((event) => event.slug === slug) ?? null;
