@@ -69,13 +69,14 @@ function InstagramNavLink({ light }: { light: boolean }) {
       rel="noopener noreferrer"
       aria-label="DateOfflineHub op Instagram"
       className={cn(
-        "inline-flex size-9 items-center justify-center rounded-full transition",
+        "inline-flex size-11 items-center justify-center rounded-full transition",
+        // Always gold so it stands out on both the dark hero header and light pages.
         light
           ? "text-[var(--brand-gold-deep)] hover:bg-[var(--brand-gold-soft)] hover:text-[var(--brand-gold-ink)]"
-          : "text-white/85 hover:bg-white/15 hover:text-white",
+          : "text-[var(--brand-gold)] hover:bg-white/15 hover:text-[var(--brand-gold-soft)]",
       )}
     >
-      <InstagramIcon className="size-[1.15rem]" />
+      <InstagramIcon className="size-6" strokeWidth={2} />
     </a>
   );
 }
@@ -171,7 +172,25 @@ export function SiteHeader() {
             Singlesevent doorgeven
           </Link>
         </nav>
-        <div className="flex items-center gap-1.5 md:hidden">
+        <div className="flex min-w-0 items-center gap-2 md:hidden">
+          <Link
+            href="/#tip-een-activiteit"
+            aria-label="Ken je een singlesevent? Geef het aan ons door."
+            className={cn(
+              "shrink-0 text-sm font-medium transition",
+              light
+                ? "text-muted-foreground hover:text-foreground"
+                : "text-white/85 hover:text-white",
+            )}
+            onClick={() => {
+              if (typeof window === "undefined") return;
+              window.setTimeout(() => {
+                window.dispatchEvent(new Event("offlineradar:open-tip"));
+              }, 0);
+            }}
+          >
+            Doorgeven
+          </Link>
           <InstagramNavLink light={light} />
           <AccountNavLink light={light} />
         </div>
