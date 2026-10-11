@@ -24,6 +24,14 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
+function unlockBodyAfterSheet() {
+  if (typeof document === "undefined") return;
+  // Radix dialog can leave body pointer-events:none after close on iOS Safari.
+  document.body.style.removeProperty("pointer-events");
+  document.body.style.removeProperty("overflow");
+  document.body.style.removeProperty("padding-right");
+}
+
 const INSTAGRAM_URL = "https://www.instagram.com/dateofflinehub/";
 
 const links = [
@@ -122,9 +130,27 @@ function MobileMenuSheet({
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const adminActive = pathname.startsWith("/interne-");
+  const accountActive =
+    pathname.startsWith("/account") || pathname.startsWith("/inloggen");
+
+  function closeMenu() {
+    setOpen(false);
+    // Next tick: after Radix teardown, clear leftover body locks on iOS.
+    window.setTimeout(unlockBodyAfterSheet, 0);
+    window.setTimeout(unlockBodyAfterSheet, 300);
+  }
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) {
+          window.setTimeout(unlockBodyAfterSheet, 0);
+          window.setTimeout(unlockBodyAfterSheet, 300);
+        }
+      }}
+    >
       <SheetTrigger
         type="button"
         className={cn(
@@ -158,7 +184,7 @@ function MobileMenuSheet({
                 key={link.href}
                 href={link.href}
                 aria-current={active ? "page" : undefined}
-                onClick={() => setOpen(false)}
+                onClick={closeMenu}
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-semibold transition",
                   active
@@ -175,7 +201,7 @@ function MobileMenuSheet({
             <Link
               href="/interne-goedkeuren"
               aria-current={adminActive ? "page" : undefined}
-              onClick={() => setOpen(false)}
+              onClick={closeMenu}
               className={cn(
                 "flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-semibold transition",
                 adminActive
@@ -188,16 +214,23 @@ function MobileMenuSheet({
             </Link>
           ) : null}
           <div className="my-2 border-t border-border" />
-          <div className="flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-semibold">
-            <AccountNavLink light />
-          </div>
+          <AccountNavLink
+            light
+            menuRow
+            onNavigate={closeMenu}
+            className={
+              accountActive
+                ? "bg-[var(--brand-gold-soft)] text-[var(--brand-gold-ink)] hover:bg-[var(--brand-gold-soft)]"
+                : undefined
+            }
+          />
         </nav>
         <SheetFooter className="border-t border-border p-4">
           <Link
             href="/#tip-een-activiteit"
             aria-label="Ken je een singlesevent? Geef het aan ons door."
             onClick={() => {
-              setOpen(false);
+              closeMenu();
               openTipForm();
             }}
             className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"

@@ -12,8 +12,10 @@ import {
 import type {
   TipAiConfidence,
   TipAiPrep,
+  TipPageKind,
   TipRouteSuggestion,
 } from "@/types/tips";
+import { TIP_PAGE_KINDS } from "@/types/tips";
 
 const SYSTEM_PROMPT = `Je bent een assistent voor DateOfflineHub die tipbronnen analyseert.
 
@@ -28,6 +30,18 @@ singlesgerichte ontmoetingsformule (niet: badge, marketing, “solo welkom”).
 
 Niet voldoende: “leuk om mensen te leren kennen”, open groep, community,
 singlesFriendly zonder formule, betaling/promotie, alleen meldertekst.
+
+Paginatype (pageKind) — verplicht inschatten:
+- single_event: één concrete editie/eventpagina (één datum, één boeking).
+- agenda_list: kalender, stadslijst of overzicht met MEERDERE events.
+- organizer_home: homepage/organisator zonder één vast event.
+- unknown: echt niet te bepalen.
+
+Bij agenda_list of organizer_home:
+- Zeg dat duidelijk in routeReason (bv. “Dit is een agenda met meerdere events”).
+- suggestSourceWatch=true als de organisator/reeks interessant is voor DateOfflineHub.
+- proposedStartDate mag de eerstvolgende editie zijn als die op de pagina staat,
+  maar verberg niet dat het een lijst is.
 
 Regels:
 - Verzin NOOIT feiten. Onbekend blijft null/unknown.
@@ -48,6 +62,15 @@ const TOOL: Anthropic.Tool = {
   input_schema: {
     type: "object",
     properties: {
+      pageKind: {
+        type: "string",
+        enum: [
+          "single_event",
+          "agenda_list",
+          "organizer_home",
+          "unknown",
+        ],
+      },
       proposedTitle: { type: ["string", "null"] },
       proposedOrganizer: { type: ["string", "null"] },
       proposedStartDate: { type: ["string", "null"] },
@@ -85,6 +108,7 @@ const TOOL: Anthropic.Tool = {
       rawNotes: { type: ["string", "null"] },
     },
     required: [
+      "pageKind",
       "routeSuggestion",
       "routeReason",
       "confidence",
@@ -156,6 +180,11 @@ export function validateTipScreeningOutput(
   }
 
   const routeSuggestion = o.routeSuggestion as TipRouteSuggestion;
+  const pageKind: TipPageKind = TIP_PAGE_KINDS.includes(
+    o.pageKind as TipPageKind,
+  )
+    ? (o.pageKind as TipPageKind)
+    : "unknown";
   const ageRule =
     o.ageRule === "strict" || o.ageRule === "guideline" || o.ageRule === "unknown"
       ? o.ageRule
@@ -167,6 +196,7 @@ export function validateTipScreeningOutput(
     sourceContentHash: meta.sourceContentHash,
     reusedFromTipId: meta.reusedFromTipId,
     sourceUrlsUsed: meta.sourceUrlsUsed,
+    pageKind,
     proposedTitle: asNullableString(o.proposedTitle),
     proposedOrganizer: asNullableString(o.proposedOrganizer),
     proposedStartDate: asNullableString(o.proposedStartDate),
