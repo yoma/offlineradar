@@ -8,6 +8,7 @@ import {
   addCalendarDays,
   normalizeIntakeDateToYmd,
 } from "../lib/aanvoer/dates";
+import { pickEnrichableEditionMatch } from "../lib/aanvoer/enrich-edition";
 import { blankProposal, proposalToDraft } from "../lib/aanvoer/types";
 import { detectEssentialGaps } from "../lib/aanvoer/deep-verify";
 import { inferKnownCityLabel } from "../lib/geo-cities";
@@ -102,7 +103,42 @@ const saveSrc = readFileSync(
   path.join(process.cwd(), "lib/aanvoer/save.ts"),
   "utf8",
 );
-assert.ok(saveSrc.includes("normalizeIntakeDateToYmd"));
-assert.ok(saveSrc.includes("addCalendarDays"));
+assert.ok(saveSrc.includes("buildIntakeStartsAt"));
+assert.ok(saveSrc.includes("buildIntakeEndsAt"));
+
+const enrichSrc = readFileSync(
+  path.join(process.cwd(), "lib/aanvoer/enrich-edition.ts"),
+  "utf8",
+);
+assert.ok(enrichSrc.includes("enrichEditionFromIntakeDraft"));
+assert.ok(enrichSrc.includes("pickEnrichableEditionMatch"));
+assert.ok(enrichSrc.includes("filledFields"));
+
+const toolsSrc = readFileSync(
+  path.join(process.cwd(), "lib/admin-chat/tools.ts"),
+  "utf8",
+);
+assert.ok(toolsSrc.includes("enrichEditionFromIntakeDraft"));
+assert.ok(toolsSrc.includes("pickEnrichableEditionMatch"));
+
+assert.equal(
+  pickEnrichableEditionMatch([
+    {
+      kind: "event_edition",
+      id: "a",
+      label: "x",
+      detail: "",
+      matchReason: "Vergelijkbare titel (mogelijk zelfde event)",
+    },
+    {
+      kind: "event_edition",
+      id: "b",
+      label: "y",
+      detail: "",
+      matchReason: "Zelfde eventbron-URL",
+    },
+  ])?.id,
+  "b",
+);
 
 console.log("OK: intake structured enrich verify passed.");

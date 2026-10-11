@@ -292,9 +292,12 @@ export type ApproveIntakeResult =
       message: string;
       sourceId?: string;
       editionId: string;
+      slug?: string;
       published: boolean;
       reviewReasons: string[];
       sourceFollowMessage?: string | null;
+      matches?: IntakeMatch[];
+      enrichedFields?: string[];
     }
   | {
       ok: false;
@@ -342,15 +345,50 @@ export async function approveIntakeAction(
   }
 
   const matches = await findIntakeMatches(draft);
-  if (
-    !force &&
-    matches.some((m) => m.kind === "catalog_source" || m.kind === "event_edition")
-  ) {
-    return {
-      ok: false,
-      error: "Dit event lijkt al in DateOfflineHub te staan.",
-      matches,
-    };
+  if (!force) {
+    const {
+      pickEnrichableEditionMatch,
+      enrichEditionFromIntakeDraft,
+    } = await import("@/lib/aanvoer/enrich-edition");
+    const match = pickEnrichableEditionMatch(matches);
+    if (match) {
+      const enriched = await enrichEditionFromIntakeDraft({
+        editionId: match.id,
+        draft,
+        sourceUrl: draft.sourceUrl || draft.organizerUrl || null,
+      });
+      if (!enriched.ok) {
+        return { ok: false, error: enriched.error, matches };
+      }
+      revalidatePath("/interne-aanvoer");
+      revalidatePath("/interne-events");
+      revalidatePath("/ontdek");
+      if (enriched.slug) revalidatePath(`/event/${enriched.slug}`);
+      return {
+        ok: true,
+        editionId: enriched.editionId,
+        slug: enriched.slug,
+        published: enriched.publicationStatus === "published",
+        reviewReasons: approval.reviewReasons,
+        message:
+          enriched.filledFields.length > 0
+            ? `✓ Bestaand event bijgewerkt: ${enriched.filledFields.join(", ")}`
+            : "Event bestond al; geen nieuwe velden om aan te vullen.",
+        matches,
+        enrichedFields: enriched.filledFields,
+      };
+    }
+    if (
+      matches.some(
+        (m) => m.kind === "catalog_source" || m.kind === "event_edition",
+      )
+    ) {
+      return {
+        ok: false,
+        error: "Dit event lijkt al in DateOfflineHub te staan.",
+        matches,
+      };
+    }
   }
 
   let sourceId: string | undefined;

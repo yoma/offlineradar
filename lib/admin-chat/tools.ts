@@ -677,44 +677,74 @@ export async function toolAssessUrl(input: {
     published?: boolean;
     message?: string;
   } | null = null;
+  let enriched: {
+    editionId?: string;
+    slug?: string;
+    filledFields?: string[];
+    message?: string;
+  } | null = null;
 
-  if (createIfFits && fits && approval.blockers.length === 0 && !alreadyOnPlatform) {
-    progress.push("save");
-    const { saveIntakeAsEventCandidate } = await import("@/lib/aanvoer/save");
-    const saved = await saveIntakeAsEventCandidate({ draft });
-    if (saved.ok) {
-      created = {
-        editionId: saved.editionId,
-        slug: saved.slug,
-        published: false,
-        message: saved.message,
-      };
-      if (approval.canPublish) {
-        const { updateEditionPublication } = await import(
-          "@/lib/events/neon-store"
-        );
-        const now = new Date().toISOString();
-        try {
-          const updated = await updateEditionPublication({
-            id: saved.editionId,
-            publicationStatus: "published",
-            publishedAt: now,
-            approvedAt: now,
-          });
-          if (updated) {
-            created.published = true;
-            created.message =
-              "Past in ons kraam. Event toegevoegd en gepubliceerd.";
-          }
-        } catch (error) {
-          created.message =
-            error instanceof Error
-              ? `Draft bewaard, niet gepubliceerd: ${error.message}`
-              : "Draft bewaard, niet gepubliceerd (plaats/coördinaten).";
-        }
+  if (createIfFits && approval.blockers.length === 0) {
+    const {
+      pickEnrichableEditionMatch,
+      enrichEditionFromIntakeDraft,
+    } = await import("@/lib/aanvoer/enrich-edition");
+    const match = pickEnrichableEditionMatch(matches);
+    if (match) {
+      progress.push("save");
+      const updated = await enrichEditionFromIntakeDraft({
+        editionId: match.id,
+        draft,
+        sourceUrl: url,
+      });
+      if (updated.ok) {
+        enriched = {
+          editionId: updated.editionId,
+          slug: updated.slug,
+          filledFields: updated.filledFields,
+          message: updated.message,
+        };
+      } else {
+        enriched = { message: updated.error };
       }
-    } else {
-      created = { message: `Opslaan mislukt: ${saved.error}` };
+    } else if (fits && !alreadyOnPlatform) {
+      progress.push("save");
+      const { saveIntakeAsEventCandidate } = await import("@/lib/aanvoer/save");
+      const saved = await saveIntakeAsEventCandidate({ draft });
+      if (saved.ok) {
+        created = {
+          editionId: saved.editionId,
+          slug: saved.slug,
+          published: false,
+          message: saved.message,
+        };
+        if (approval.canPublish) {
+          const { updateEditionPublication } = await import(
+            "@/lib/events/neon-store"
+          );
+          const now = new Date().toISOString();
+          try {
+            const published = await updateEditionPublication({
+              id: saved.editionId,
+              publicationStatus: "published",
+              publishedAt: now,
+              approvedAt: now,
+            });
+            if (published) {
+              created.published = true;
+              created.message =
+                "Past in ons kraam. Event toegevoegd en gepubliceerd.";
+            }
+          } catch (error) {
+            created.message =
+              error instanceof Error
+                ? `Draft bewaard, niet gepubliceerd: ${error.message}`
+                : "Draft bewaard, niet gepubliceerd (plaats/coördinaten).";
+          }
+        }
+      } else {
+        created = { message: `Opslaan mislukt: ${saved.error}` };
+      }
     }
   }
 
@@ -751,11 +781,16 @@ export async function toolAssessUrl(input: {
       : alreadyOnPlatform
         ? "Al bekend in catalogus."
         : null,
+    enriched?.filledFields && enriched.filledFields.length > 0
+      ? `Bestaand event bijgewerkt (${enriched.slug}): ${enriched.filledFields.join(", ")}.`
+      : enriched?.slug
+        ? `Bestaand event gevonden (${enriched.slug}); geen ontbrekende velden.`
+        : null,
     created?.editionId
       ? created.published
         ? `Toegevoegd en gepubliceerd (${created.slug}).`
         : `Als draft bewaard (${created.slug}).`
-      : createIfFits && fits && alreadyOnPlatform
+      : createIfFits && fits && alreadyOnPlatform && !enriched
         ? "Niet opnieuw aangemaakt (bestaat al)."
         : null,
   ]
@@ -766,6 +801,12 @@ export async function toolAssessUrl(input: {
     { label: "Bronlink", href: url },
     { label: "Nieuwe intake", href: "/interne-aanvoer?tab=nieuw" },
   ];
+  if (enriched?.slug) {
+    links.push({
+      label: "Open event",
+      href: `/event/${enriched.slug}`,
+    });
+  }
   if (created?.editionId) {
     links.push({
       label: "Open kandidaat",
@@ -786,6 +827,7 @@ export async function toolAssessUrl(input: {
       approval,
       matches: matches.slice(0, 5),
       created,
+      enriched,
       deepScan: proposal.deepScan ?? null,
       aiFailed: proposal.aiFailed,
     },
