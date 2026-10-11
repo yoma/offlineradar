@@ -70,7 +70,7 @@ function failedPrep(partial: Partial<TipAiPrep> & { scanError: string }): TipAiP
     sourceUrlsUsed: [],
     pageKind: null,
     proposedTitle: null,
-    proposedOrganizer: null;
+    proposedOrganizer: null,
     proposedStartDate: null,
     proposedStartTime: null,
     proposedEndTime: null,
