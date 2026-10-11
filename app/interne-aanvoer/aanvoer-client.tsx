@@ -17,6 +17,7 @@ import type {
 } from "@/lib/aanvoer/types";
 import { INTAKE_MAX_BYTES, INTAKE_MAX_TEXT_CHARS } from "@/lib/aanvoer/types";
 import { prepareScreenshotForIntake } from "@/lib/aanvoer/compress-screenshot";
+import { editionLocationIsDiscoverable } from "@/lib/geo-cities";
 import { CATEGORY_LABEL } from "@/lib/format";
 
 function validatePastedIntakeTextLocal(text: string): string | null {
@@ -649,11 +650,17 @@ export function AanvoerClient({
               </p>
             ) : null}
             <CheckRow
-              ok={Boolean(draft.venue.trim() || draft.city.trim())}
+              ok={editionLocationIsDiscoverable({ city: draft.city })}
               label={
-                draft.venue.trim() || draft.city.trim()
-                  ? "Locatie bevestigd"
-                  : "Locatie niet gevonden"
+                editionLocationIsDiscoverable({ city: draft.city })
+                  ? `Plaats: ${draft.city.trim()}${
+                      draft.venue.trim() ? ` · ${draft.venue.trim()}` : ""
+                    }`
+                  : draft.venue.trim()
+                    ? `Zaal gevonden (${draft.venue.trim()}), plaats nog onbekend`
+                    : draft.city.trim()
+                      ? `Plaats “${draft.city.trim()}” niet herkend voor de kaart`
+                      : "Locatie niet gevonden"
               }
             />
             <CheckRow

@@ -15,7 +15,10 @@ export type SafeFetchResult =
       ok: true;
       finalUrl: string;
       contentType: string | null;
+      /** Plain text for LLM / tip screening. */
       text: string;
+      /** Raw HTML for link harvest + JSON-LD (empty when source was plain text). */
+      html: string;
       contentHash: string;
     }
   | {
@@ -119,8 +122,9 @@ export async function safeFetchTipSource(rawUrl: string): Promise<SafeFetchResul
         };
       }
 
-      const text = new TextDecoder("utf-8", { fatal: false }).decode(buffer);
-      const plain = htmlToPlainishText(text);
+      const raw = new TextDecoder("utf-8", { fatal: false }).decode(buffer);
+      const looksHtml = /<html[\s>]|<body[\s>]|<script[\s>]|<div[\s>]/i.test(raw);
+      const plain = looksHtml ? htmlToPlainishText(raw) : raw.replace(/\s+/g, " ").trim().slice(0, 40_000);
       if (plain.length < 40) {
         return {
           ok: false,
@@ -135,6 +139,7 @@ export async function safeFetchTipSource(rawUrl: string): Promise<SafeFetchResul
         finalUrl: validated.normalizedUrl,
         contentType,
         text: plain,
+        html: looksHtml ? raw : "",
         contentHash,
       };
     } catch {

@@ -594,9 +594,7 @@ export async function toolAssessUrl(input: {
   // Already on platform?
   const existingNote = await toolExplainMissingEvent({ url });
 
-  const { htmlToPlainishText, safeFetchTipSource } = await import(
-    "@/lib/tips/safe-fetch"
-  );
+  const { safeFetchTipSource } = await import("@/lib/tips/safe-fetch");
   const fetched = await safeFetchTipSource(url);
   if (!fetched.ok) {
     return {
@@ -608,12 +606,22 @@ export async function toolAssessUrl(input: {
   }
 
   progress.push("extract");
-  const pageText = htmlToPlainishText(fetched.text || "").slice(0, 35_000);
+  const pageText = (fetched.text || "").slice(0, 35_000);
+  const pageHtml = fetched.html || "";
   const { runAdminIntakeExtract } = await import("@/lib/aanvoer/extract");
+  const { enrichProposalFromPage } = await import(
+    "@/lib/aanvoer/structured-enrich"
+  );
   let proposal = await runAdminIntakeExtract({
     mode: "url",
     url,
     text: pageText,
+  });
+  proposal = enrichProposalFromPage({
+    proposal,
+    html: pageHtml,
+    pageText,
+    pageUrl: url,
   });
   if (!proposal.sourceUrl.value) {
     proposal.sourceUrl = {
@@ -633,7 +641,7 @@ export async function toolAssessUrl(input: {
     const deep = await runDeepVerification({
       proposal,
       seedUrl: url,
-      seedHtml: fetched.text,
+      seedHtml: pageHtml,
       seedText: pageText,
       force: false,
     });

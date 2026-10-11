@@ -39,6 +39,21 @@ function boolish(value: "true" | "false" | "unknown"): boolean | null {
   return null;
 }
 
+/** Europe/Brussels offset for a calendar date (+01 winter / +02 summer). */
+function brusselsOffsetForDate(dateYmd: string): "+01:00" | "+02:00" {
+  const utcNoon = new Date(`${dateYmd}T12:00:00.000Z`);
+  if (Number.isNaN(utcNoon.getTime())) return "+01:00";
+  const brusselsHour = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Brussels",
+      hour: "2-digit",
+      hour12: false,
+    }).format(utcNoon),
+  );
+  // UTC 12:00 → Brussels 13:00 (CET) or 14:00 (CEST).
+  return brusselsHour - 12 >= 2 ? "+02:00" : "+01:00";
+}
+
 function buildStartsAt(draft: IntakeEditableDraft): {
   startsAt: string;
   dateUnknown: boolean;
@@ -52,8 +67,9 @@ function buildStartsAt(draft: IntakeEditableDraft): {
         draft.startTime && /^\d{2}:\d{2}/.test(draft.startTime)
           ? draft.startTime.slice(0, 5)
           : "12:00";
+      const offset = brusselsOffsetForDate(date);
       return {
-        startsAt: `${date}T${time}:00+02:00`,
+        startsAt: `${date}T${time}:00${offset}`,
         dateUnknown: false,
       };
     }
@@ -69,7 +85,8 @@ function buildEndsAt(draft: IntakeEditableDraft): string | null {
   const date = draft.startDate.trim();
   const end = draft.endTime.trim();
   if (!date || !end || !/^\d{2}:\d{2}/.test(end)) return null;
-  return `${date}T${end.slice(0, 5)}:00+02:00`;
+  const offset = brusselsOffsetForDate(date);
+  return `${date}T${end.slice(0, 5)}:00${offset}`;
 }
 
 function routeFromDraft(

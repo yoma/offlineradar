@@ -283,6 +283,11 @@ mustInclude(
 mustInclude("lib/aanvoer/extract.ts", "geen instructie");
 mustInclude("lib/aanvoer/extract.ts", "Facebook/Instagram-categorie");
 mustInclude("lib/aanvoer/extract.ts", "readScreenshotVisibleText");
+mustInclude("lib/aanvoer/json-ld-event.ts", "application/ld+json");
+mustInclude("lib/aanvoer/structured-enrich.ts", "enrichProposalFromPage");
+mustInclude("lib/tips/safe-fetch.ts", "html:");
+mustInclude("app/interne-aanvoer/actions.ts", "enrichProposalFromPage");
+mustInclude("lib/geo-cities.ts", "inferKnownCityLabel");
 mustInclude("lib/aanvoer/screenshot-leads.ts", "timeleft.com");
 mustInclude("lib/aanvoer/screenshot-ocr.ts", "report_screenshot_text");
 mustInclude("app/interne-aanvoer/actions.ts", "mode === \"screenshot\"");
