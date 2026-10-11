@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { AccountView } from "@/components/account/account-view";
+import { isAllowlistedAdminEmail } from "@/lib/tips/admin-auth";
 import {
   countSavedEvents,
   getUserPreferences,
@@ -36,6 +37,7 @@ export default async function AccountPage() {
       savedCount={savedCount}
       preferences={preferences}
       followedOrganizers={followedOrganizers}
+      showAdminEntry={isAllowlistedAdminEmail(session.user.email)}
     />
   );
 }

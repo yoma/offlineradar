@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import { auth } from "@/auth";
 import { AuthSessionProvider } from "@/components/auth/session-provider";
 import { AnalyticsBeacon } from "@/components/analytics/analytics-beacon";
 import { BetaWelcomeModal } from "@/components/beta/beta-welcome-modal";
 import { FeedbackLauncher } from "@/components/feedback/feedback-launcher";
 import { MobileNav, SiteHeader } from "@/components/layout/site-nav";
+import { isAllowlistedAdminEmail } from "@/lib/tips/admin-auth";
 import "./globals.css";
 
 /** Run serverless near Neon (eu-central-1), not default iad1. */
@@ -41,13 +43,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const session = await auth();
+  const showAdminEntry = isAllowlistedAdminEmail(session?.user?.email);
+
   return (
     <html lang="nl" className={`${jakarta.variable} h-full`}>
       <body className="min-h-full min-w-0 bg-background font-sans text-foreground">
         <AuthSessionProvider>
           <AnalyticsBeacon />
-          <SiteHeader />
+          <SiteHeader showAdminEntry={showAdminEntry} />
           <main className="min-w-0 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-8">
             {children}
           </main>

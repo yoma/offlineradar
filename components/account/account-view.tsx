@@ -26,11 +26,13 @@ export function AccountView({
   savedCount,
   preferences,
   followedOrganizers = [],
+  showAdminEntry = false,
 }: {
   email: string;
   savedCount: number;
   preferences: StoredProfile | null;
   followedOrganizers?: FollowedOrganizerRecord[];
+  showAdminEntry?: boolean;
 }) {
   const router = useRouter();
   const initial = preferences ?? emptyProfile;
@@ -88,6 +90,21 @@ export function AccountView({
         </Link>
         .
       </p>
+
+      {showAdminEntry ? (
+        <div className="mt-6 rounded-xl border border-border bg-muted/40 px-4 py-3">
+          <p className="text-sm font-medium text-foreground">Beheer</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Goedkeuren van tips, aanvoer en feedback.
+          </p>
+          <Link
+            href="/interne-goedkeuren"
+            className="mt-3 inline-flex text-sm font-semibold text-[var(--brand-gold-ink)] underline-offset-4 hover:underline"
+          >
+            Naar beheeromgeving
+          </Link>
+        </div>
+      ) : null}
 
       <dl className="mt-8 space-y-3 text-sm">
         <div>
