@@ -9,6 +9,7 @@ import {
   consumeSearchPending,
 } from "@/components/discover/search-loading";
 import { UpcomingStrip } from "@/components/discover/upcoming-strip";
+import { CategoryFilterChips } from "@/components/filters/category-filter-chips";
 import { FilterSheet } from "@/components/filters/filter-sheet";
 import { Button } from "@/components/ui/button";
 import { ActionButton } from "@/components/ui/action-submit-button";
@@ -339,6 +340,12 @@ export function DiscoverView({
         <p className="mt-3 text-sm text-muted-foreground" role="status">
           {prefsStatus}
         </p>
+      ) : null}
+
+      {state.age != null && !catalogError ? (
+        <div className="mt-5 rounded-2xl border border-border bg-white px-4 py-3.5 sm:px-5">
+          <CategoryFilterChips state={state} onChange={update} />
+        </div>
       ) : null}
 
       {catalogError ? (

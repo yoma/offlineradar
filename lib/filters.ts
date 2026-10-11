@@ -58,7 +58,8 @@ function matchesWhen(event: Event, state: SearchState, today: string): boolean {
 
 function matchesPrice(event: Event, state: SearchState): boolean {
   if (state.price === "any") return true;
-  if (event.price == null) return false;
+  // Sparse catalog: unknown price must not wipe results for a price chip.
+  if (event.price == null) return true;
   if (state.price === "free") return event.price === 0;
   if (state.price === "lt25") return event.price > 0 && event.price < 25;
   if (state.price === "mid") return event.price >= 25 && event.price <= 50;
@@ -67,15 +68,18 @@ function matchesPrice(event: Event, state: SearchState): boolean {
 
 function matchesAvailability(event: Event, state: SearchState): boolean {
   if (state.availability === "any") return true;
+  const status = event.capacityStatus ?? "unknown";
+  // Most editions have no capacity signal; keep them under “beschikbaar”.
+  if (status === "unknown") {
+    return state.availability === "open";
+  }
   if (state.availability === "open") {
-    return (
-      event.capacityStatus === "available" || event.capacityStatus === "limited"
-    );
+    return status === "available" || status === "limited";
   }
   if (state.availability === "almost_full") {
-    return event.capacityStatus === "almost_full";
+    return status === "almost_full";
   }
-  return event.capacityStatus === "waitlist";
+  return status === "waitlist";
 }
 
 export function prepareEvents(
@@ -117,10 +121,7 @@ export function matchingEvents(
     if (!matchesWhen(event, state, today)) return false;
     const travelExempt = isTravelOrWeekendActivity(event.activities);
     // Exclude unknown/infinite distance from local radius searches.
-    if (
-      !travelExempt &&
-      !(event.distanceKm <= state.maxDistanceKm)
-    ) {
+    if (!travelExempt && !(event.distanceKm <= state.maxDistanceKm)) {
       return false;
     }
     if (
@@ -131,7 +132,13 @@ export function matchingEvents(
     ) {
       return false;
     }
-    if (state.typesMode !== "all") {
+    // Alle soorten = no type filter. Otherwise apply category/activity picks
+    // (also if activities/categories are set while typesMode was left on "all").
+    const typeFilterOn =
+      state.typesMode === "pick" ||
+      state.categories.length > 0 ||
+      selectedActivities.length > 0;
+    if (typeFilterOn) {
       if (
         state.categories.length > 0 &&
         !state.categories.includes(event.category)
@@ -148,7 +155,14 @@ export function matchingEvents(
       }
     }
     if (!matchesPrice(event, state)) return false;
-    if (state.singlesOnly && event.singlesOnly !== true) return false;
+    // “Alleen singles”: singles-only OR singles-oriented (catalog rarely sets both).
+    if (
+      state.singlesOnly &&
+      event.singlesOnly !== true &&
+      event.singlesOriented !== true
+    ) {
+      return false;
+    }
     if (!matchesAvailability(event, state)) return false;
     return true;
   });

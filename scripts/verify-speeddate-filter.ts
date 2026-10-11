@@ -160,17 +160,21 @@ function main() {
 
   const outdoorOnly = matchingEvents(
     catalog,
-    { ...base, activities: ["outdoor"] },
+    { ...base, typesMode: "pick", activities: ["outdoor"] },
     now,
   );
   assert.equal(outdoorOnly.visible.length, 1);
-  assert.equal(outdoorOnly.visible[0].id, "out");
+  assert.equal(outdoorOnly.visible[0]!.id, "out");
   assert.ok(!outdoorOnly.visible.some((e) => e.id === "sd"));
   ok("3. outdoor only excludes speeddate");
 
   const multi = matchingEvents(
     catalog,
-    { ...base, activities: ["outdoor", "speeddate"] },
+    {
+      ...base,
+      typesMode: "pick",
+      activities: ["outdoor", "speeddate"],
+    },
     now,
   );
   assert.equal(multi.visible.length, 2);
@@ -180,16 +184,16 @@ function main() {
 
   const speedOnly = matchingEvents(
     catalog,
-    { ...base, activities: ["speeddate"] },
+    { ...base, typesMode: "pick", activities: ["speeddate"] },
     now,
   );
   assert.equal(speedOnly.visible.length, 1);
-  assert.equal(speedOnly.visible[0].id, "sd");
+  assert.equal(speedOnly.visible[0]!.id, "sd");
   ok("4. speeddate only");
 
   const drinksOnly = matchingEvents(
     catalog,
-    { ...base, activities: ["drinken"] },
+    { ...base, typesMode: "pick", activities: ["drinken"] },
     now,
   );
   assert.equal(drinksOnly.visible.length, 1);

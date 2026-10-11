@@ -28,14 +28,15 @@ export type ActiveChipOptions = {
   organizerNames?: Record<string, string>;
 };
 
-/** Non-default advanced filters only (organizer, type, activity, price, …). */
+/**
+ * Non-default “Meer filters” only (organizer, price, …).
+ * Categories live in the main search card and are not counted here.
+ */
 export function countExtraFilters(
   state: SearchState,
   organizerSlugs: string[] = [],
 ): number {
   let n = 0;
-  if (state.categories.length > 0) n += 1;
-  if (state.activities.length > 0) n += 1;
   if (state.price !== "any") n += 1;
   if (state.singlesOnly) n += 1;
   if (state.availability !== "any") n += 1;
@@ -193,14 +194,14 @@ export function removeChipFromState(
   return state;
 }
 
-/** Clear advanced filters only (keeps place/age/gender/when/distance). */
+/**
+ * Clear “Meer filters” only.
+ * Keeps place/age/gender/when/distance and primary categories.
+ */
 export function clearAdvancedSearchFilters(
   state: SearchState,
 ): SearchState {
   return applySearchPatch(state, {
-    typesMode: "all",
-    categories: [],
-    activities: [],
     price: "any",
     singlesOnly: false,
     availability: "any",
@@ -222,13 +223,11 @@ export function extraFiltersSummary(
   } else if (organizerSlugs.length > 1) {
     parts.push(`${organizerSlugs.length} organisatoren`);
   }
-  for (const category of state.categories.slice(0, 2)) {
-    parts.push(CATEGORY_LABEL[category]);
-  }
-  const acts = publicActivityChipsFromSelection(state.activities);
-  for (const act of acts.slice(0, 2)) parts.push(act.label);
   if (state.singlesOnly) parts.push("Alleen singles");
   if (state.price !== "any") parts.push(PRICE_LABEL[state.price]);
+  if (state.availability !== "any") {
+    parts.push(AVAILABILITY_LABEL[state.availability]);
+  }
   if (state.strictOnly) parts.push("Strikte leeftijd");
   if (parts.length === 0) return null;
   return parts.slice(0, 3).join(" + ");

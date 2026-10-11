@@ -220,6 +220,57 @@ async function main() {
   assert.equal(cardSrc.includes("Deelname buiten de richtleeftijd"), false);
   ok("EventCard hides internal/technical copy");
 
+  // Extra filters must not false-zero on sparse catalog fields.
+  const sparse = [
+    stub({
+      id: "p1",
+      slug: "unknown-price",
+      startDate: "2026-10-15",
+      price: null,
+      capacityStatus: "unknown",
+      singlesOnly: false,
+      singlesOriented: true,
+    }),
+    stub({
+      id: "p2",
+      slug: "paid-known",
+      startDate: "2026-10-16",
+      price: 30,
+      capacityStatus: "available",
+      singlesOnly: true,
+    }),
+  ];
+  const nowSparse = new Date("2026-10-10T12:00:00+02:00");
+  const priceFilter = matchingEvents(
+    sparse,
+    { ...defaultSearchState(), age: 30, price: "mid" },
+    nowSparse,
+  );
+  assert.ok(
+    priceFilter.visible.some((e) => e.slug === "unknown-price"),
+    "unknown price stays visible under price chip",
+  );
+  assert.ok(priceFilter.visible.some((e) => e.slug === "paid-known"));
+  const openFilter = matchingEvents(
+    sparse,
+    { ...defaultSearchState(), age: 30, availability: "open" },
+    nowSparse,
+  );
+  assert.ok(
+    openFilter.visible.some((e) => e.slug === "unknown-price"),
+    "unknown capacity stays visible under open availability",
+  );
+  const singlesFilter = matchingEvents(
+    sparse,
+    { ...defaultSearchState(), age: 30, singlesOnly: true },
+    nowSparse,
+  );
+  assert.ok(
+    singlesFilter.visible.some((e) => e.slug === "unknown-price"),
+    "singlesOriented matches Alleen singles",
+  );
+  ok("extra filters keep sparse catalog events");
+
   console.log("\nOK: search filter + public card invariants.");
 }
 

@@ -13,6 +13,7 @@ import {
 } from "react";
 import { markSearchPending } from "@/components/discover/search-loading";
 import { UpcomingStrip } from "@/components/discover/upcoming-strip";
+import { CategoryFilterChips } from "@/components/filters/category-filter-chips";
 import { FilterSheet } from "@/components/filters/filter-sheet";
 import { countHomeFilterMatches } from "@/app/home-filter-count";
 import { USER_PLACES, findPlace } from "@/data/places";
@@ -460,6 +461,9 @@ export function HomeHero({
                 </p>
               </div>
             ) : null}
+            <div className="border-t border-border px-5 py-3.5 sm:px-6">
+              <CategoryFilterChips state={state} onChange={update} />
+            </div>
           </div>
 
           <div className="mt-3 flex flex-col items-start gap-1.5 sm:mt-3.5 sm:flex-row sm:items-center sm:gap-3">
@@ -484,7 +488,7 @@ export function HomeHero({
               </p>
             ) : (
               <p className="max-w-[16rem] pl-1 text-sm leading-5 text-white/70 sm:max-w-none sm:pl-0">
-                Organisator, categorie, prijs en meer
+                Organisator, prijs en meer
               </p>
             )}
           </div>

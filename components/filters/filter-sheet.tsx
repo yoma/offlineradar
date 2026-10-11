@@ -27,12 +27,7 @@ import {
   WHEN_HINT,
   WHEN_LABEL,
 } from "@/lib/format";
-import {
-  isPublicActivityGroupSelected,
-  type PublicActivityGroupId,
-  togglePublicActivityGroup,
-} from "@/lib/public-activity-groups";
-import type { EventCategory, PreferredMeetGender } from "@/types/event";
+import type { PreferredMeetGender } from "@/types/event";
 import type {
   AvailabilityFilter,
   PriceFilter,
@@ -48,25 +43,6 @@ const WHEN_OPTIONS: WhenFilter[] = [
   "next_week",
   "month",
   "date",
-];
-
-/** Unified Categorieën chips → existing categories[] / activities[] state. */
-type CategoryChip =
-  | { kind: "all"; label: string }
-  | { kind: "category"; id: EventCategory; label: string }
-  | { kind: "activity"; id: PublicActivityGroupId; label: string };
-
-const CATEGORY_CHIPS: CategoryChip[] = [
-  { kind: "all", label: "Alle soorten" },
-  { kind: "activity", id: "speeddate", label: "Speeddate" },
-  { kind: "category", id: "dating", label: "Dating" },
-  { kind: "category", id: "meet_new_people", label: "Nieuwe mensen" },
-  { kind: "activity", id: "sport_active", label: "Sport & actief" },
-  { kind: "activity", id: "eten", label: "Dinner / food" },
-  { kind: "activity", id: "drinken", label: "Drinks / apero" },
-  { kind: "activity", id: "party", label: "Party" },
-  { kind: "activity", id: "workshop", label: "Workshop" },
-  { kind: "activity", id: "travel", label: "Weekend / reis" },
 ];
 
 export function FilterSheet({
@@ -100,42 +76,9 @@ export function FilterSheet({
   /** Homepage: navigate to results. Discover: omit (just close sheet). */
   onApply?: () => void;
 }) {
-  const allSoorten = state.typesMode === "all";
-
-  function selectAlleSoorten() {
-    if (allSoorten) {
-      // Uncheck: clear every category chip and match nothing until user picks.
-      onChange({ typesMode: "none", categories: [], activities: [] });
-      return;
-    }
-    onChange({ typesMode: "all", categories: [], activities: [] });
-  }
-
-  function toggleCategory(id: EventCategory) {
-    const categories = state.categories.includes(id)
-      ? state.categories.filter((item) => item !== id)
-      : [...state.categories, id];
-    onChange({
-      typesMode:
-        categories.length > 0 || state.activities.length > 0 ? "pick" : "none",
-      categories,
-    });
-  }
-
-  function toggleActivityGroup(id: PublicActivityGroupId) {
-    const activities = togglePublicActivityGroup(state.activities, id);
-    onChange({
-      typesMode:
-        state.categories.length > 0 || activities.length > 0 ? "pick" : "none",
-      activities,
-    });
-  }
-
   function clearAdvanced() {
+    // Categories live in the main search card; keep them when clearing "extra".
     onChange({
-      typesMode: "all",
-      categories: [],
-      activities: [],
       price: "any",
       singlesOnly: false,
       availability: "any",
@@ -159,7 +102,7 @@ export function FilterSheet({
             Meer filters
           </SheetTitle>
           <SheetDescription className="text-sm text-muted-foreground">
-            Verfijn je zoekresultaten. Leeftijd blijft een deelnamecheck.
+            Extra verfijning. Categorieën kies je in het zoekblok.
           </SheetDescription>
         </SheetHeader>
 
@@ -224,53 +167,6 @@ export function FilterSheet({
               </div>
             </FilterGroup>
 
-            <FilterGroup title="Categorieën" className="md:col-span-2">
-              <div className="flex flex-wrap gap-1.5">
-                {CATEGORY_CHIPS.map((chip) => {
-                  if (chip.kind === "all") {
-                    return (
-                      <Choice
-                        key="all"
-                        pressed={allSoorten}
-                        onClick={selectAlleSoorten}
-                      >
-                        {chip.label}
-                      </Choice>
-                    );
-                  }
-                  if (chip.kind === "category") {
-                    return (
-                      <Choice
-                        key={chip.id}
-                        // Alle soorten = geen beperking → toon alle chips als actief
-                        pressed={
-                          allSoorten || state.categories.includes(chip.id)
-                        }
-                        onClick={() => toggleCategory(chip.id)}
-                      >
-                        {chip.label}
-                      </Choice>
-                    );
-                  }
-                  return (
-                    <Choice
-                      key={chip.id}
-                      pressed={
-                        allSoorten ||
-                        isPublicActivityGroupSelected(
-                          state.activities,
-                          chip.id,
-                        )
-                      }
-                      onClick={() => toggleActivityGroup(chip.id)}
-                    >
-                      {chip.label}
-                    </Choice>
-                  );
-                })}
-              </div>
-            </FilterGroup>
-
             {organizerOptions.length > 0 && onOrganizersChange ? (
               <OrganizerPicker
                 sheetOpen={open}
@@ -325,7 +221,7 @@ export function FilterSheet({
               <div className="divide-y divide-border overflow-hidden rounded-xl border border-border">
                 <ToggleRow
                   title="Alleen singles"
-                  description="Enkel events die expliciet singles-only zijn."
+                  description="Events die singles-only of duidelijk singlesgericht zijn."
                   checked={state.singlesOnly}
                   onChange={(checked) => onChange({ singlesOnly: checked })}
                 />
