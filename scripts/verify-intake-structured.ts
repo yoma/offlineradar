@@ -75,5 +75,7 @@ assert.ok(existsSync(safeFetchPath));
 const safeFetchSrc = readFileSync(safeFetchPath, "utf8");
 assert.ok(safeFetchSrc.includes("html:"));
 assert.ok(safeFetchSrc.includes("looksHtml"));
+assert.ok(safeFetchSrc.includes("Mozilla/5.0"));
+assert.ok(safeFetchSrc.includes("looksLikeBotBlockPage"));
 
 console.log("OK: intake structured enrich verify passed.");

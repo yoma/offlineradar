@@ -92,8 +92,10 @@ export async function safeFetchHtmlSource(
         signal: controller.signal,
         headers: {
           Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5",
+          "Accept-Language": "nl-BE,nl;q=0.9,en;q=0.8",
+          // Browser-like UA: CloudFront/WAF on ticket sites block custom bots.
           "User-Agent":
-            "DateOfflineHubSourceRefresh/1.0 (+https://dateofflinehub.vercel.app)",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         },
       });
 
@@ -116,7 +118,8 @@ export async function safeFetchHtmlSource(
           ok: false,
           code: "blocked",
           httpStatus: response.status,
-          error: `Bron blokkeerde de request (HTTP ${response.status}).`,
+          error:
+            "Deze site blokkeert automatische ophalen (CloudFront/WAF). Probeer later of plak de eventinfo.",
         };
       }
 
