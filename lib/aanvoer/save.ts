@@ -16,9 +16,8 @@ import type {
   IntakeSourceKindHint,
 } from "@/lib/aanvoer/types";
 import {
-  addCalendarDays,
-  isIsoYmd,
-  normalizeIntakeDateToYmd,
+  buildIntakeEndsAt,
+  buildIntakeStartsAt,
 } from "@/lib/aanvoer/dates";
 
 function mapSourceType(hint: IntakeSourceKindHint): CatalogSourceType {
@@ -44,37 +43,15 @@ function boolish(value: "true" | "false" | "unknown"): boolean | null {
   return null;
 }
 
-/** Europe/Brussels offset for a calendar date (+01 winter / +02 summer). */
-function brusselsOffsetForDate(dateYmd: string): "+01:00" | "+02:00" {
-  const utcNoon = new Date(`${dateYmd}T12:00:00.000Z`);
-  if (Number.isNaN(utcNoon.getTime())) return "+01:00";
-  const brusselsHour = Number(
-    new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Europe/Brussels",
-      hour: "2-digit",
-      hour12: false,
-    }).format(utcNoon),
-  );
-  // UTC 12:00 → Brussels 13:00 (CET) or 14:00 (CEST).
-  return brusselsHour - 12 >= 2 ? "+02:00" : "+01:00";
-}
-
 function buildStartsAt(draft: IntakeEditableDraft): {
   startsAt: string;
   dateUnknown: boolean;
 } {
-  const date = normalizeIntakeDateToYmd(draft.startDate);
-  if (date && isIsoYmd(date)) {
-    const time =
-      draft.startTime && /^\d{2}:\d{2}/.test(draft.startTime)
-        ? draft.startTime.slice(0, 5)
-        : "12:00";
-    const offset = brusselsOffsetForDate(date);
-    return {
-      startsAt: `${date}T${time}:00${offset}`,
-      dateUnknown: false,
-    };
-  }
+  const built = buildIntakeStartsAt({
+    startDate: draft.startDate,
+    startTime: draft.startTime,
+  });
+  if (built) return built;
   // starts_at is NOT NULL in DB; keep a technical sentinel that UI never shows.
   return {
     startsAt: "2099-12-31T12:00:00+01:00",
@@ -83,23 +60,11 @@ function buildStartsAt(draft: IntakeEditableDraft): {
 }
 
 function buildEndsAt(draft: IntakeEditableDraft): string | null {
-  const startDate = normalizeIntakeDateToYmd(draft.startDate);
-  const end = draft.endTime.trim();
-  if (!startDate || !isIsoYmd(startDate) || !end || !/^\d{2}:\d{2}/.test(end)) {
-    return null;
-  }
-  const endTime = end.slice(0, 5);
-  const startTime =
-    draft.startTime && /^\d{2}:\d{2}/.test(draft.startTime)
-      ? draft.startTime.slice(0, 5)
-      : null;
-  // Overnight events (e.g. 17:00 → 03:00) end on the next calendar day.
-  const endDate =
-    startTime && endTime <= startTime
-      ? addCalendarDays(startDate, 1)
-      : startDate;
-  const offset = brusselsOffsetForDate(endDate);
-  return `${endDate}T${endTime}:00${offset}`;
+  return buildIntakeEndsAt({
+    startDate: draft.startDate,
+    startTime: draft.startTime,
+    endTime: draft.endTime,
+  });
 }
 
 function routeFromDraft(

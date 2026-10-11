@@ -98,3 +98,56 @@ export function addCalendarDays(ymd: string, days: number): string {
   dt.setUTCDate(dt.getUTCDate() + days);
   return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}`;
 }
+
+/** Europe/Brussels offset for a calendar date (+01 winter / +02 summer). */
+export function brusselsOffsetForDate(dateYmd: string): "+01:00" | "+02:00" {
+  const utcNoon = new Date(`${dateYmd}T12:00:00.000Z`);
+  if (Number.isNaN(utcNoon.getTime())) return "+01:00";
+  const brusselsHour = Number(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Brussels",
+      hour: "2-digit",
+      hour12: false,
+    }).format(utcNoon),
+  );
+  return brusselsHour - 12 >= 2 ? "+02:00" : "+01:00";
+}
+
+/** Build timestamptz strings from intake date/time fields. */
+export function buildIntakeStartsAt(input: {
+  startDate: string;
+  startTime?: string;
+}): { startsAt: string; dateUnknown: boolean } | null {
+  const date = normalizeIntakeDateToYmd(input.startDate);
+  if (!date || !isIsoYmd(date)) return null;
+  const time =
+    input.startTime && /^\d{2}:\d{2}/.test(input.startTime)
+      ? input.startTime.slice(0, 5)
+      : "12:00";
+  return {
+    startsAt: `${date}T${time}:00${brusselsOffsetForDate(date)}`,
+    dateUnknown: false,
+  };
+}
+
+export function buildIntakeEndsAt(input: {
+  startDate: string;
+  startTime?: string;
+  endTime?: string;
+}): string | null {
+  const startDate = normalizeIntakeDateToYmd(input.startDate);
+  const end = (input.endTime ?? "").trim();
+  if (!startDate || !isIsoYmd(startDate) || !end || !/^\d{2}:\d{2}/.test(end)) {
+    return null;
+  }
+  const endTime = end.slice(0, 5);
+  const startTime =
+    input.startTime && /^\d{2}:\d{2}/.test(input.startTime)
+      ? input.startTime.slice(0, 5)
+      : null;
+  const endDate =
+    startTime && endTime <= startTime
+      ? addCalendarDays(startDate, 1)
+      : startDate;
+  return `${endDate}T${endTime}:00${brusselsOffsetForDate(endDate)}`;
+}
