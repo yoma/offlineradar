@@ -33,13 +33,21 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
   }, [snapshot.reviews]);
 
   async function refresh() {
-    const response = await fetch("/api/tips/admin");
-    if (!response.ok) {
-      setError("Kon de wachtrij niet vernieuwen.");
-      return;
+    try {
+      const response = await fetch("/api/tips/admin");
+      if (!response.ok) {
+        setError("Kon de wachtrij niet vernieuwen.");
+        return;
+      }
+      const data = (await response.json()) as TipsStoreSnapshot;
+      if (!data || !Array.isArray(data.tips) || !Array.isArray(data.reviews)) {
+        setError("Wachtrij-antwoord was ongeldig.");
+        return;
+      }
+      setSnapshot(data);
+    } catch {
+      setError("Kon de wachtrij niet vernieuwen. Probeer de pagina te herladen.");
     }
-    const data = (await response.json()) as TipsStoreSnapshot;
-    setSnapshot(data);
   }
 
   async function setStatus(tipId: string, status: TipStatus, reason: string) {
@@ -61,9 +69,9 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
     }
     setMessage(
       status === "published"
-        ? "Tip gemarkeerd als published (gekoppeld event staat live)."
+        ? "Tip gemarkeerd als online (gekoppeld event staat live)."
         : status === "approved_for_publication"
-          ? "Goedgekeurd voor publicatie. Maak daarna een concept-event."
+          ? "Tip is oké. Volgende stap: maak een voorlopig event (nog niet zichtbaar voor bezoekers)."
           : status === "in_review"
             ? "In controle gezet."
             : "Status bijgewerkt.",
@@ -76,32 +84,52 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
   ): Promise<Record<string, unknown> | null> {
     setError("");
     setMessage("");
-    const response = await fetch("/api/tips/admin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const data = (await response.json()) as Record<string, unknown>;
-    if (!response.ok || data.ok !== true) {
-      if (data.code === "duplicate_candidates" && Array.isArray(data.duplicates)) {
-        const lines = (
-          data.duplicates as Array<{ title: string; slug: string; matchReason: string }>
-        )
-          .slice(0, 5)
-          .map((d) => `- ${d.title} (${d.slug}): ${d.matchReason}`)
-          .join("\n");
-        const force = window.confirm(
-          `${String(data.error || "Mogelijk bestaand event")}\n\n${lines}\n\nToch nieuw concept maken?`,
+    try {
+      const response = await fetch("/api/tips/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      let data: Record<string, unknown>;
+      try {
+        data = (await response.json()) as Record<string, unknown>;
+      } catch {
+        setError(
+          "De server gaf een fout terug. De tip is misschien niet verwerkt. Herlaad de pagina en probeer opnieuw.",
         );
-        if (force) {
-          return postAction({ ...body, forceCreate: true });
-        }
+        return null;
       }
-      setError(String(data.error || "Actie mislukt."));
-      await refresh();
+      if (!response.ok || data.ok !== true) {
+        if (
+          data.code === "duplicate_candidates" &&
+          Array.isArray(data.duplicates)
+        ) {
+          const lines = (
+            data.duplicates as Array<{
+              title: string;
+              slug: string;
+              matchReason: string;
+            }>
+          )
+            .slice(0, 5)
+            .map((d) => `- ${d.title} (${d.slug}): ${d.matchReason}`)
+            .join("\n");
+          const force = window.confirm(
+            `${String(data.error || "Er bestaat mogelijk al zo’n event")}\n\n${lines}\n\nToch een nieuw voorlopig event maken?`,
+          );
+          if (force) {
+            return postAction({ ...body, forceCreate: true });
+          }
+        }
+        setError(String(data.error || "Actie mislukt."));
+        await refresh();
+        return null;
+      }
+      return data;
+    } catch {
+      setError("Actie mislukt (geen verbinding of serverfout). Probeer opnieuw.");
       return null;
     }
-    return data;
   }
 
   function startAiScan(tipId: string) {
@@ -124,12 +152,18 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
 
   function createConcept(tipId: string) {
     startTransition(async () => {
-      const data = await postAction({ action: "create_concept_event", tipId });
-      if (!data) return;
-      setMessage(
-        `Concept-event aangemaakt (${String(data.slug)}). Review/publicatie via /interne-events.`,
-      );
-      await refresh();
+      try {
+        const data = await postAction({ action: "create_concept_event", tipId });
+        if (!data) return;
+        setMessage(
+          `Voorlopig event aangemaakt. Het staat nog niet online. Open Events om het te checken en eventueel online te zetten.`,
+        );
+        await refresh();
+      } catch {
+        setError(
+          "Kon geen voorlopig event maken. Herlaad de pagina en probeer opnieuw.",
+        );
+      }
     });
   }
 
@@ -222,9 +256,23 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
           Tips
         </h1>
         <p className="text-sm text-muted-foreground">
-          {snapshot.tips.length} tip{snapshot.tips.length === 1 ? "" : "s"} · AI
-          scant → dezelfde publicatiegate · jouw aandacht alleen bij twijfel
+          {snapshot.tips.length} tip{snapshot.tips.length === 1 ? "" : "s"} die
+          mensen doorgaven.
         </p>
+        <ol className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm leading-6 text-stone-700">
+          <li>
+            <span className="font-semibold">1. Tip is oké</span> — jij vindt de
+            tip goed genoeg (nog niets online).
+          </li>
+          <li>
+            <span className="font-semibold">2. Maak voorlopig event</span> —
+            maakt een concept onder Events. Bezoekers zien het nog niet.
+          </li>
+          <li>
+            <span className="font-semibold">3. Online zetten</span> — doe je
+            daarna onder het tabblad Events.
+          </li>
+        </ol>
         <div className="grid grid-cols-3 gap-2 pt-1">
           {[
             {
@@ -356,16 +404,16 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                     <dd>
                       {tip.linkedEventId ? (
                         <span>
-                          Gekoppeld ·{" "}
+                          Voorlopig event klaar ·{" "}
                           <a
                             href="/interne-events"
                             className="font-medium underline-offset-4 hover:underline"
                           >
-                            Bekijk concept-event
+                            Open in Events
                           </a>
                         </span>
                       ) : tip.status === "approved_for_publication" ? (
-                        "Nog geen concept-event"
+                        "Nog geen voorlopig event"
                       ) : (
                         "—"
                       )}
@@ -424,7 +472,7 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                   tip.status !== "published" &&
                   tip.status !== "expired_or_cancelled" ? (
                     <StatusButton
-                      label="Afwijzen"
+                      label="Niet plaatsen"
                       onClick={() =>
                         setStatus(
                           tip.id,
@@ -440,12 +488,12 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                   tip.status !== "rejected" &&
                   tip.status !== "expired_or_cancelled" ? (
                     <StatusButton
-                      label="Goedkeuren (nog niet publiceren)"
+                      label="Tip is oké"
                       onClick={() =>
                         setStatus(
                           tip.id,
                           "approved_for_publication",
-                          "Route A/B voldoende; concept-event volgt apart.",
+                          "Route A/B voldoende; voorlopig event volgt apart.",
                         )
                       }
                     pending={isPending}
@@ -453,31 +501,37 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                   ) : null}
                   {tip.status === "approved_for_publication" &&
                   !tip.linkedEventId ? (
-                    <Button
-                      type="button"
-                      className="h-9 rounded-full px-3 text-sm"
-                      disabled={isPending}
-                      onClick={() => createConcept(tip.id)}
-                      aria-busy={isPending || undefined}
-                    >
-                      <PendingContent pending={isPending} pendingLabel="Bezig…">
-                        Maak concept-event
-                      </PendingContent>
-                    </Button>
+                    <div className="flex w-full flex-col gap-1 sm:w-auto">
+                      <Button
+                        type="button"
+                        className="h-9 rounded-full px-3 text-sm"
+                        disabled={isPending}
+                        onClick={() => createConcept(tip.id)}
+                        aria-busy={isPending || undefined}
+                      >
+                        <PendingContent pending={isPending} pendingLabel="Bezig…">
+                          Maak voorlopig event (niet online)
+                        </PendingContent>
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        Maakt een concept onder Events. Bezoekers zien het pas
+                        als jij het daar online zet.
+                      </p>
+                    </div>
                   ) : null}
                   {tip.linkedEventId ? (
                     <a
                       href="/interne-events"
                       className="inline-flex h-9 items-center rounded-full border border-border px-3 text-sm font-medium hover:bg-muted"
                     >
-                      Bekijk event
+                      Open in Events
                     </a>
                   ) : null}
                   {tip.status === "approved_for_publication" ||
                   tip.status === "published" ||
                   hasAiAdvice ? (
                     <StatusButton
-                      label="Voeg bron toe aan watchlist"
+                      label="Bron later opnieuw checken"
                       onClick={() => addWatch(tip.id)}
                     pending={isPending}
                     />

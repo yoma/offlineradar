@@ -145,27 +145,40 @@ export async function POST(request: Request) {
 
   if (action === "create_concept_event") {
     const forceCreate = record.forceCreate === true;
-    const result = await createConceptEventFromTip({ tipId, forceCreate });
-    if (!result.ok) {
+    try {
+      const result = await createConceptEventFromTip({ tipId, forceCreate });
+      if (!result.ok) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: result.error,
+            code: result.code,
+            duplicates: result.duplicates ?? null,
+            linkedEdition: result.linkedEdition ?? null,
+          },
+          { status: result.code === "duplicate_candidates" ? 409 : 400 },
+        );
+      }
+      return NextResponse.json({
+        ok: true,
+        editionId: result.edition.id,
+        slug: result.edition.slug,
+        publicationStatus: result.edition.publicationStatus,
+        interneEventsPath: "/interne-events",
+        eventPath: `/event/${result.edition.slug}`,
+      });
+    } catch (error) {
+      console.error("[tips/admin] create_concept_event failed", error);
       return NextResponse.json(
         {
           ok: false,
-          error: result.error,
-          code: result.code,
-          duplicates: result.duplicates ?? null,
-          linkedEdition: result.linkedEdition ?? null,
+          code: "storage_error",
+          error:
+            "Kon geen voorlopig event maken. Controleer of de tip een titel heeft na AI-scan, en probeer opnieuw.",
         },
-        { status: result.code === "duplicate_candidates" ? 409 : 400 },
+        { status: 500 },
       );
     }
-    return NextResponse.json({
-      ok: true,
-      editionId: result.edition.id,
-      slug: result.edition.slug,
-      publicationStatus: result.edition.publicationStatus,
-      interneEventsPath: "/interne-events",
-      eventPath: `/event/${result.edition.slug}`,
-    });
   }
 
   if (action === "link_existing_event") {
