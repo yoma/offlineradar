@@ -9,6 +9,7 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -156,6 +157,11 @@ function MobileMenuSheet({ light }: { light: boolean }) {
             );
           })}
           <div className="my-2 border-t border-border" />
+          <div className="flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-semibold">
+            <AccountNavLink light />
+          </div>
+        </nav>
+        <SheetFooter className="border-t border-border p-4">
           <Link
             href="/#tip-een-activiteit"
             aria-label="Ken je een singlesevent? Geef het aan ons door."
@@ -163,15 +169,12 @@ function MobileMenuSheet({ light }: { light: boolean }) {
               setOpen(false);
               openTipForm();
             }}
-            className="flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-semibold text-foreground hover:bg-muted/70"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground"
           >
-            <Plus className="size-5 shrink-0" aria-hidden />
+            <Plus className="size-4 shrink-0" aria-hidden />
             Singlesevent doorgeven
           </Link>
-          <div className="flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-semibold">
-            <AccountNavLink light />
-          </div>
-        </nav>
+        </SheetFooter>
       </SheetContent>
     </Sheet>
   );
@@ -228,32 +231,35 @@ export function SiteHeader() {
           {/* Brand-side social: keep away from account/login in the menu. */}
           <InstagramNavLink light={light} />
         </div>
-        <nav className="hidden items-center gap-5 text-sm font-medium md:flex lg:gap-7">
-          {links.map((link) => {
-            const active = pathname.startsWith(link.href);
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  light
-                    ? active
-                      ? "text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                    : active
-                      ? "text-white"
-                      : "text-white/75 hover:text-white",
-                )}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
+        <div className="hidden min-w-0 items-center gap-6 md:flex lg:gap-8">
+          <nav className="flex items-center gap-5 text-sm font-medium lg:gap-7">
+            {links.map((link) => {
+              const active = pathname.startsWith(link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={cn(
+                    light
+                      ? active
+                        ? "text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                      : active
+                        ? "text-white"
+                        : "text-white/75 hover:text-white",
+                  )}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+            <AccountNavLink light={light} />
+          </nav>
           <Link
             href="/#tip-een-activiteit"
             aria-label="Ken je een singlesevent? Geef het aan ons door."
             className={cn(
-              "rounded-full px-3 py-1.5 text-sm font-semibold transition",
+              "shrink-0 rounded-full px-3.5 py-1.5 text-sm font-semibold transition",
               light
                 ? "bg-primary text-primary-foreground hover:bg-[var(--brand-gold-ink)]"
                 : "bg-white text-primary hover:bg-white/90",
@@ -262,8 +268,7 @@ export function SiteHeader() {
           >
             Singlesevent doorgeven
           </Link>
-          <AccountNavLink light={light} />
-        </nav>
+        </div>
         <div className="flex shrink-0 items-center md:hidden">
           <MobileMenuSheet light={light} />
         </div>
