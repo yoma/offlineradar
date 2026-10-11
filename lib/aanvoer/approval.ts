@@ -1,4 +1,5 @@
 import type { IntakeEditableDraft, IntakeProposal } from "@/lib/aanvoer/types";
+import { normalizeIntakeDateToYmd } from "@/lib/aanvoer/dates";
 import { editionLocationIsDiscoverable } from "@/lib/geo-cities";
 
 export type IntakeApprovalGate = {
@@ -10,9 +11,7 @@ export type IntakeApprovalGate = {
 };
 
 function hasConcreteDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) return false;
-  const year = Number(value.slice(0, 4));
-  return Number.isFinite(year) && year >= 2020 && year < 2090;
+  return Boolean(normalizeIntakeDateToYmd(value));
 }
 
 /**

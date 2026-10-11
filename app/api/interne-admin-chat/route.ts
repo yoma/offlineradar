@@ -48,10 +48,23 @@ export async function POST(request: Request) {
       content: m.content.slice(0, 4000),
     }));
 
-  const result = await runAdminChat({
-    messages: safe,
-    email: access.email,
-  });
-
-  return NextResponse.json(result);
+  try {
+    const result = await runAdminChat({
+      messages: safe,
+      email: access.email,
+    });
+    return NextResponse.json(result);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        ok: false,
+        reply: "",
+        error:
+          error instanceof Error
+            ? `Assistent-fout: ${error.message}`
+            : "Assistent-fout. Probeer opnieuw.",
+      },
+      { status: 500 },
+    );
+  }
 }

@@ -4,7 +4,11 @@
 import assert from "node:assert/strict";
 import { extractJsonLdEventFacts } from "../lib/aanvoer/json-ld-event";
 import { enrichProposalFromPage } from "../lib/aanvoer/structured-enrich";
-import { blankProposal } from "../lib/aanvoer/types";
+import {
+  addCalendarDays,
+  normalizeIntakeDateToYmd,
+} from "../lib/aanvoer/dates";
+import { blankProposal, proposalToDraft } from "../lib/aanvoer/types";
 import { detectEssentialGaps } from "../lib/aanvoer/deep-verify";
 import { inferKnownCityLabel } from "../lib/geo-cities";
 import { readFileSync, existsSync } from "node:fs";
@@ -77,5 +81,28 @@ assert.ok(safeFetchSrc.includes("html:"));
 assert.ok(safeFetchSrc.includes("looksHtml"));
 assert.ok(safeFetchSrc.includes("Mozilla/5.0"));
 assert.ok(safeFetchSrc.includes("looksLikeBotBlockPage"));
+
+assert.equal(normalizeIntakeDateToYmd("31 Oktober 2026"), "2026-10-31");
+assert.equal(normalizeIntakeDateToYmd("2026-10-31"), "2026-10-31");
+assert.equal(addCalendarDays("2026-10-31", 1), "2026-11-01");
+
+// AI free-text date must lose to JSON-LD ISO.
+let dutchAi = blankProposal({
+  startDate: {
+    value: "31 Oktober 2026",
+    status: "found",
+    evidence: "AI",
+  },
+});
+dutchAi = enrichProposalFromPage({ proposal: dutchAi, html });
+assert.equal(dutchAi.startDate.value, "2026-10-31");
+assert.equal(proposalToDraft(dutchAi).startDate, "2026-10-31");
+
+const saveSrc = readFileSync(
+  path.join(process.cwd(), "lib/aanvoer/save.ts"),
+  "utf8",
+);
+assert.ok(saveSrc.includes("normalizeIntakeDateToYmd"));
+assert.ok(saveSrc.includes("addCalendarDays"));
 
 console.log("OK: intake structured enrich verify passed.");

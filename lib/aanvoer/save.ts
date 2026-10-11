@@ -15,6 +15,11 @@ import type {
   IntakeEditableDraft,
   IntakeSourceKindHint,
 } from "@/lib/aanvoer/types";
+import {
+  addCalendarDays,
+  isIsoYmd,
+  normalizeIntakeDateToYmd,
+} from "@/lib/aanvoer/dates";
 
 function mapSourceType(hint: IntakeSourceKindHint): CatalogSourceType {
   switch (hint) {
@@ -58,21 +63,17 @@ function buildStartsAt(draft: IntakeEditableDraft): {
   startsAt: string;
   dateUnknown: boolean;
 } {
-  const date = draft.startDate.trim();
-  if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    const year = Number(date.slice(0, 4));
-    // Never treat sentinel/placeholder years as real event dates.
-    if (Number.isFinite(year) && year >= 2020 && year < 2090) {
-      const time =
-        draft.startTime && /^\d{2}:\d{2}/.test(draft.startTime)
-          ? draft.startTime.slice(0, 5)
-          : "12:00";
-      const offset = brusselsOffsetForDate(date);
-      return {
-        startsAt: `${date}T${time}:00${offset}`,
-        dateUnknown: false,
-      };
-    }
+  const date = normalizeIntakeDateToYmd(draft.startDate);
+  if (date && isIsoYmd(date)) {
+    const time =
+      draft.startTime && /^\d{2}:\d{2}/.test(draft.startTime)
+        ? draft.startTime.slice(0, 5)
+        : "12:00";
+    const offset = brusselsOffsetForDate(date);
+    return {
+      startsAt: `${date}T${time}:00${offset}`,
+      dateUnknown: false,
+    };
   }
   // starts_at is NOT NULL in DB; keep a technical sentinel that UI never shows.
   return {
@@ -82,11 +83,23 @@ function buildStartsAt(draft: IntakeEditableDraft): {
 }
 
 function buildEndsAt(draft: IntakeEditableDraft): string | null {
-  const date = draft.startDate.trim();
+  const startDate = normalizeIntakeDateToYmd(draft.startDate);
   const end = draft.endTime.trim();
-  if (!date || !end || !/^\d{2}:\d{2}/.test(end)) return null;
-  const offset = brusselsOffsetForDate(date);
-  return `${date}T${end.slice(0, 5)}:00${offset}`;
+  if (!startDate || !isIsoYmd(startDate) || !end || !/^\d{2}:\d{2}/.test(end)) {
+    return null;
+  }
+  const endTime = end.slice(0, 5);
+  const startTime =
+    draft.startTime && /^\d{2}:\d{2}/.test(draft.startTime)
+      ? draft.startTime.slice(0, 5)
+      : null;
+  // Overnight events (e.g. 17:00 → 03:00) end on the next calendar day.
+  const endDate =
+    startTime && endTime <= startTime
+      ? addCalendarDays(startDate, 1)
+      : startDate;
+  const offset = brusselsOffsetForDate(endDate);
+  return `${endDate}T${endTime}:00${offset}`;
 }
 
 function routeFromDraft(
@@ -242,67 +255,77 @@ export async function saveIntakeAsEventCandidate(input: {
   const baseSlug = slugify(`${title}-${draft.startDate || "tbd"}`);
   const slug = `aanvoer-${baseSlug || "draft"}-${randomUUID().slice(0, 8)}`;
 
-  const edition = await createEdition({
-    slug,
-    organizerId: organizer.record.id,
-    title,
-    startsAt,
-    endsAt,
-    timezone: "Europe/Brussels",
-    venueName: draft.venue.trim() || null,
-    address: draft.location.trim() || null,
-    city,
-    country: "BE",
-    eligibilityRoute,
-    singlesOriented,
-    singlesOnly,
-    singlesOnlyEvidence:
-      singlesOnly === true
-        ? draft.notes.trim() || "Admin intake: singles-only met bewijs."
-        : null,
-    ageRule: "unknown",
-    category:
-      draft.category.trim() === "meet_new_people"
-        ? "meet_new_people"
-        : draft.category.trim() === "social"
-          ? "social"
-          : "dating",
-    subCategory: draft.category.trim() || null,
-    tags: [
-      "admin-intake",
-      "discovered_by=user",
-      ...(dateUnknown ? ["date_unknown"] : []),
-    ],
-    priceNote: draft.priceNotes.trim() || null,
-    priceCurrency: draft.currency.trim() || "EUR",
-    availabilityNote: draft.availability.trim() || null,
-    shortDescription: null,
-    internalNotes,
-    publicationStatus: "draft",
-    // Explicitly omit sourceCheckedAt / lastCheckedAt — screenshot ≠ freshness.
-  });
-
-  if (!edition) {
-    return { ok: false, error: "Kon event-kandidaat niet opslaan." };
-  }
-
-  if (sourceUrl) {
-    await attachSource({
-      eventEditionId: edition.id,
-      sourceType: "other",
-      url: sourceUrl,
-      normalizedUrl: normalizeRefreshUrl(sourceUrl),
-      isPrimary: true,
-      evidenceNote: "Admin Quick Intake",
+  try {
+    const edition = await createEdition({
+      slug,
+      organizerId: organizer.record.id,
+      title,
+      startsAt,
+      endsAt,
+      timezone: "Europe/Brussels",
+      venueName: draft.venue.trim() || null,
+      address: draft.location.trim() || null,
+      city,
+      country: "BE",
+      eligibilityRoute,
+      singlesOriented,
+      singlesOnly,
+      singlesOnlyEvidence:
+        singlesOnly === true
+          ? draft.notes.trim() || "Admin intake: singles-only met bewijs."
+          : null,
+      ageRule: "unknown",
+      category:
+        draft.category.trim() === "meet_new_people"
+          ? "meet_new_people"
+          : draft.category.trim() === "social"
+            ? "social"
+            : "dating",
+      subCategory: draft.category.trim() || null,
+      tags: [
+        "admin-intake",
+        "discovered_by=user",
+        ...(dateUnknown ? ["date_unknown"] : []),
+      ],
+      priceNote: draft.priceNotes.trim() || null,
+      priceCurrency: draft.currency.trim() || "EUR",
+      availabilityNote: draft.availability.trim() || null,
+      shortDescription: null,
+      internalNotes,
+      publicationStatus: "draft",
+      // Explicitly omit sourceCheckedAt / lastCheckedAt — screenshot ≠ freshness.
     });
-  }
 
-  return {
-    ok: true,
-    editionId: edition.id,
-    slug: edition.slug,
-    message: needsVerification
-      ? "Event-kandidaat (draft) bewaard. Bronverificatie nodig. Niet gepubliceerd."
-      : "Event-kandidaat (draft) bewaard. Niet gepubliceerd.",
-  };
+    if (!edition) {
+      return { ok: false, error: "Kon event-kandidaat niet opslaan." };
+    }
+
+    if (sourceUrl) {
+      await attachSource({
+        eventEditionId: edition.id,
+        sourceType: "other",
+        url: sourceUrl,
+        normalizedUrl: normalizeRefreshUrl(sourceUrl),
+        isPrimary: true,
+        evidenceNote: "Admin Quick Intake",
+      });
+    }
+
+    return {
+      ok: true,
+      editionId: edition.id,
+      slug: edition.slug,
+      message: needsVerification
+        ? "Event-kandidaat (draft) bewaard. Bronverificatie nodig. Niet gepubliceerd."
+        : "Event-kandidaat (draft) bewaard. Niet gepubliceerd.",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? `Opslaan mislukt: ${error.message}`
+          : "Opslaan mislukt door een onverwachte fout.",
+    };
+  }
 }
