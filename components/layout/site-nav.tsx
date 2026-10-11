@@ -2,9 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bookmark, Compass, Home, Info } from "lucide-react";
+import { Bookmark, Compass, Home, Info, Menu, Plus } from "lucide-react";
 import { useEffect, useState, type SVGProps } from "react";
 import { AccountNavLink } from "@/components/auth/account-nav-link";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 const INSTAGRAM_URL = "https://www.instagram.com/dateofflinehub/";
@@ -61,7 +69,13 @@ function InstagramIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-function InstagramNavLink({ light }: { light: boolean }) {
+function InstagramNavLink({
+  light,
+  className,
+}: {
+  light: boolean;
+  className?: string;
+}) {
   return (
     <a
       href={INSTAGRAM_URL}
@@ -74,10 +88,102 @@ function InstagramNavLink({ light }: { light: boolean }) {
         light
           ? "text-[var(--brand-gold-deep)] hover:bg-[var(--brand-gold-soft)] hover:text-[var(--brand-gold-ink)]"
           : "text-[var(--brand-gold)] hover:bg-white/15 hover:text-[var(--brand-gold-soft)]",
+        className,
       )}
     >
       <InstagramIcon className="size-6" strokeWidth={2} />
     </a>
+  );
+}
+
+function openTipForm() {
+  if (typeof window === "undefined") return;
+  window.setTimeout(() => {
+    window.dispatchEvent(new Event("offlineradar:open-tip"));
+  }, 0);
+}
+
+function MobileMenuSheet({ light }: { light: boolean }) {
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger
+        type="button"
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-semibold transition",
+          light
+            ? "border-border bg-white text-foreground hover:bg-muted/60"
+            : "border-white/45 bg-white/15 text-white hover:bg-white/25",
+        )}
+        aria-label="Menu openen"
+      >
+        <Menu className="size-5" aria-hidden />
+        Menu
+      </SheetTrigger>
+      <SheetContent
+        side="right"
+        className="w-[min(100%,20rem)] gap-0 p-0"
+        showCloseButton
+      >
+        <SheetHeader className="border-b border-border px-4 py-5 text-left">
+          <SheetTitle>Menu</SheetTitle>
+          <SheetDescription>
+            Alle pagina’s en acties op één plek.
+          </SheetDescription>
+        </SheetHeader>
+        <nav className="flex flex-1 flex-col gap-1 p-3" aria-label="Menu">
+          {mobileLinks.map((link) => {
+            const Icon = link.icon;
+            const active = link.isActive(pathname);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={active ? "page" : undefined}
+                onClick={() => setOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-semibold transition",
+                  active
+                    ? "bg-[var(--brand-gold-soft)] text-[var(--brand-gold-ink)]"
+                    : "text-foreground hover:bg-muted/70",
+                )}
+              >
+                <Icon className="size-5 shrink-0" aria-hidden />
+                {link.label}
+              </Link>
+            );
+          })}
+          <div className="my-2 border-t border-border" />
+          <Link
+            href="/#tip-een-activiteit"
+            aria-label="Ken je een singlesevent? Geef het aan ons door."
+            onClick={() => {
+              setOpen(false);
+              openTipForm();
+            }}
+            className="flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-semibold text-foreground hover:bg-muted/70"
+          >
+            <Plus className="size-5 shrink-0" aria-hidden />
+            Singlesevent doorgeven
+          </Link>
+          <div className="flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-semibold">
+            <AccountNavLink light />
+          </div>
+          <a
+            href={INSTAGRAM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-semibold text-[var(--brand-gold-deep)] hover:bg-[var(--brand-gold-soft)]"
+          >
+            <InstagramIcon className="size-5 shrink-0" strokeWidth={2} />
+            Instagram
+          </a>
+        </nav>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -160,39 +266,14 @@ export function SiteHeader() {
                 ? "bg-primary text-primary-foreground hover:bg-[var(--brand-gold-ink)]"
                 : "bg-white text-primary hover:bg-white/90",
             )}
-            onClick={() => {
-              // Same-page hash nav does not remount TipSection; open the form
-              // immediately so users do not need a second click.
-              if (typeof window === "undefined") return;
-              window.setTimeout(() => {
-                window.dispatchEvent(new Event("offlineradar:open-tip"));
-              }, 0);
-            }}
+            onClick={openTipForm}
           >
             Singlesevent doorgeven
           </Link>
         </nav>
-        <div className="flex min-w-0 items-center gap-2 md:hidden">
-          <Link
-            href="/#tip-een-activiteit"
-            aria-label="Ken je een singlesevent? Geef het aan ons door."
-            className={cn(
-              "shrink-0 text-sm font-medium transition",
-              light
-                ? "text-muted-foreground hover:text-foreground"
-                : "text-white/85 hover:text-white",
-            )}
-            onClick={() => {
-              if (typeof window === "undefined") return;
-              window.setTimeout(() => {
-                window.dispatchEvent(new Event("offlineradar:open-tip"));
-              }, 0);
-            }}
-          >
-            Doorgeven
-          </Link>
+        <div className="flex shrink-0 items-center gap-1.5 md:hidden">
           <InstagramNavLink light={light} />
-          <AccountNavLink light={light} />
+          <MobileMenuSheet light={light} />
         </div>
       </div>
     </header>
@@ -203,7 +284,7 @@ export function MobileNav() {
   const pathname = usePathname();
   return (
     <nav
-      aria-label="Hoofdnavigatie"
+      aria-label="Snelmenu"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-white/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur md:hidden"
     >
       <ul className="mx-auto grid max-w-lg grid-cols-4 px-1">
