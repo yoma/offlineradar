@@ -144,14 +144,14 @@ export default async function InterneTipsPage() {
       <div className="rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="font-semibold">Interne tipwachtrij (niet publiek)</p>
+            <p className="font-semibold">Tipwachtrij (alleen voor jou)</p>
             <p className="mt-1 leading-6">
               Ingelogd als beheerder
               {access.via === "dev_bypass"
                 ? " (lokale DEV-bypass, geen productie-auth)"
                 : ` (${access.email})`}
-              . Opslag: {tipsStorageMode()}. Goedkeuren publiceert niet
-              automatisch.
+              . “Tip is oké” of “voorlopig event” zet niets online voor
+              bezoekers. Online zetten doe je onder Events.
             </p>
           </div>
           {access.via === "google_session" ? (
