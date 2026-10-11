@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bookmark, Compass, Info } from "lucide-react";
+import { Bookmark, Compass, Home, Info } from "lucide-react";
 import { useEffect, useState, type SVGProps } from "react";
 import { AccountNavLink } from "@/components/auth/account-nav-link";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,33 @@ const links = [
   { href: "/ontdek", label: "Ontdek", icon: Compass },
   { href: "/bewaard", label: "Bewaard", icon: Bookmark },
   { href: "/over", label: "Over", icon: Info },
+];
+
+const mobileLinks = [
+  {
+    href: "/",
+    label: "Home",
+    icon: Home,
+    isActive: (pathname: string) => pathname === "/",
+  },
+  {
+    href: "/ontdek",
+    label: "Ontdek",
+    icon: Compass,
+    isActive: (pathname: string) => pathname.startsWith("/ontdek"),
+  },
+  {
+    href: "/bewaard",
+    label: "Bewaard",
+    icon: Bookmark,
+    isActive: (pathname: string) => pathname.startsWith("/bewaard"),
+  },
+  {
+    href: "/over",
+    label: "Over",
+    icon: Info,
+    isActive: (pathname: string) => pathname.startsWith("/over"),
+  },
 ];
 
 function InstagramIcon(props: SVGProps<SVGSVGElement>) {
@@ -156,21 +183,39 @@ export function SiteHeader() {
 export function MobileNav() {
   const pathname = usePathname();
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-white pb-[env(safe-area-inset-bottom,0px)] md:hidden">
-      <ul className="mx-auto grid max-w-lg grid-cols-3">
-        {links.map((link) => {
+    <nav
+      aria-label="Hoofdnavigatie"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-white/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur md:hidden"
+    >
+      <ul className="mx-auto grid max-w-lg grid-cols-4 px-1">
+        {mobileLinks.map((link) => {
           const Icon = link.icon;
-          const active = pathname.startsWith(link.href);
+          const active = link.isActive(pathname);
           return (
             <li key={link.href} className="min-w-0">
               <Link
                 href={link.href}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex min-h-12 flex-col items-center justify-center gap-1 px-1 py-2.5 text-[11px] font-medium",
-                  active ? "text-primary" : "text-muted-foreground",
+                  "flex min-h-14 flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-semibold tracking-tight",
+                  active
+                    ? "text-[var(--brand-gold-ink)]"
+                    : "text-muted-foreground",
                 )}
               >
-                <Icon className={cn("size-5", active && "stroke-[2.25]")} />
+                <span
+                  className={cn(
+                    "inline-flex size-8 items-center justify-center rounded-full transition-colors",
+                    active
+                      ? "bg-[var(--brand-gold-soft)]"
+                      : "bg-transparent",
+                  )}
+                >
+                  <Icon
+                    className={cn("size-5", active && "stroke-[2.35]")}
+                    aria-hidden
+                  />
+                </span>
                 {link.label}
               </Link>
             </li>
