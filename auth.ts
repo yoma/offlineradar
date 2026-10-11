@@ -25,6 +25,12 @@ function profileEmailVerified(profile: GoogleProfile | undefined): boolean {
  *
  * Scopes: openid + email + profile only (no Gmail/Drive/Calendar).
  */
+const authSecret =
+  process.env.AUTH_SECRET?.trim() ||
+  (process.env.NODE_ENV === "production"
+    ? undefined
+    : "offlineradar-auth-unconfigured");
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: isGoogleAuthConfigured()
     ? [
@@ -39,7 +45,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }),
       ]
     : [],
-  secret: process.env.AUTH_SECRET || "offlineradar-auth-unconfigured",
+  secret: authSecret,
   session: { strategy: "jwt" },
   pages: {
     signIn: "/inloggen",
@@ -79,13 +85,36 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               name: googleProfile.name ?? null,
               imageUrl: googleProfile.picture ?? null,
             });
-            if (user) t.appUserId = user.id;
+            if (user) {
+              t.appUserId = user.id;
+              t.accountProvisionError = false;
+            } else {
+              t.accountProvisionError = true;
+            }
           } catch {
-            // DB down: session still works for identity; prefs/saved degrade gracefully.
+            t.accountProvisionError = true;
           }
         }
       } else if (typeof t.email === "string") {
         t.email = t.email.toLowerCase();
+        // Retry Neon upsert on later JWT refreshes when the first login failed.
+        if (t.emailVerified && !t.appUserId && t.accountProvisionError) {
+          try {
+            const user = await upsertAppUserFromGoogle({
+              email: t.email,
+              googleSub:
+                typeof t.sub === "string" && t.sub.length > 0 ? t.sub : null,
+              name: typeof t.name === "string" ? t.name : null,
+              imageUrl: typeof t.picture === "string" ? t.picture : null,
+            });
+            if (user) {
+              t.appUserId = user.id;
+              t.accountProvisionError = false;
+            }
+          } catch {
+            t.accountProvisionError = true;
+          }
+        }
       }
       return t;
     },
@@ -106,6 +135,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           user.id = t.appUserId;
         }
       }
+      session.accountProvisionError = Boolean(
+        t.accountProvisionError && !t.appUserId,
+      );
       return session;
     },
   },

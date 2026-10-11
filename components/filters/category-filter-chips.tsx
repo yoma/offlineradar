@@ -32,32 +32,47 @@ export function applyCategoryChipPatch(
   chip: CategoryChip,
 ): Partial<SearchState> {
   if (chip.kind === "all") {
-    if (state.typesMode === "all") {
-      return { typesMode: "none", categories: [], activities: [] };
-    }
+    // "Alle soorten" is sticky: never toggle into empty "none" (false zeros).
     return { typesMode: "all", categories: [], activities: [] };
   }
   if (chip.kind === "category") {
+    // Leaving "all": start a fresh pick with only this chip.
+    if (state.typesMode === "all") {
+      return {
+        typesMode: "pick",
+        categories: [chip.id],
+        activities: [],
+      };
+    }
     const categories = state.categories.includes(chip.id)
       ? state.categories.filter((item) => item !== chip.id)
       : [...state.categories, chip.id];
     return {
       typesMode:
-        categories.length > 0 || state.activities.length > 0 ? "pick" : "none",
+        categories.length > 0 || state.activities.length > 0 ? "pick" : "all",
       categories,
+      activities: state.activities,
+    };
+  }
+  if (state.typesMode === "all") {
+    return {
+      typesMode: "pick",
+      categories: [],
+      activities: togglePublicActivityGroup([], chip.id),
     };
   }
   const activities = togglePublicActivityGroup(state.activities, chip.id);
   return {
     typesMode:
-      state.categories.length > 0 || activities.length > 0 ? "pick" : "none",
+      state.categories.length > 0 || activities.length > 0 ? "pick" : "all",
+    categories: state.categories,
     activities,
   };
 }
 
 function chipPressed(state: SearchState, chip: CategoryChip): boolean {
-  if (chip.kind === "all") return state.typesMode === "all";
-  if (state.typesMode === "all") return true;
+  if (chip.kind === "all") return state.typesMode !== "pick";
+  if (state.typesMode !== "pick") return false;
   if (chip.kind === "category") return state.categories.includes(chip.id);
   return isPublicActivityGroupSelected(state.activities, chip.id);
 }
@@ -80,7 +95,7 @@ export function CategoryFilterChips({
         Categorieën
       </legend>
       <p className="mb-2 text-xs text-muted-foreground">
-        Kies wat je wil zien. Zet bv. reizen uit als je die niet zoekt.
+        Laat Alle soorten staan, of tik wat je wil zien.
       </p>
       <div className="flex flex-wrap gap-1.5">
         {CATEGORY_CHIPS.map((chip) => {

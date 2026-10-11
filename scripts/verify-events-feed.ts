@@ -149,6 +149,24 @@ async function main() {
   assert.equal(routeA.officialUrl, "https://example.com/event");
   ok("published Route A maps with age/singles/mood/source");
 
+  const routeB = mapEditionToConsumerEvent(
+    sampleBundle({
+      eligibilityRoute: "route_b",
+      singlesOriented: true,
+      slug: "route-b-sample",
+    }),
+  );
+  assert.equal(routeB.listingPath, "meet_activation");
+  assert.equal(routeB.meetActivation, null);
+  assert.equal(isRouteABListable(routeB), true);
+  const routeBNotSingles = {
+    ...routeB,
+    id: "route-b-no-singles",
+    singlesOriented: false,
+  };
+  assert.equal(isRouteABListable(routeBNotSingles), false);
+  ok("Route B without Meet object lists via singlesOriented gate");
+
   const approvedLeak = sampleBundle({
     publicationStatus: "approved",
     publishedAt: null,

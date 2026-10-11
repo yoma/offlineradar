@@ -29,6 +29,7 @@ export default async function LoginPage({
       : "/account";
 
   const configured = isGoogleAuthConfigured();
+  const provisionError = Boolean(session?.accountProvisionError);
 
   return (
     <div className="mx-auto w-full max-w-md px-4 py-12 sm:px-6">
@@ -38,6 +39,16 @@ export default async function LoginPage({
         een account onthouden we je voorkeuren en bewaarde activiteiten op al
         je toestellen.
       </p>
+
+      {provisionError ? (
+        <p
+          className="mt-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          role="alert"
+        >
+          Google-login lukte, maar je account kon tijdelijk niet worden
+          opgeslagen. Probeer het zo opnieuw, of ga verder zonder account.
+        </p>
+      ) : null}
 
       {error ? (
         <p

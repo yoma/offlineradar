@@ -3,6 +3,10 @@
  * Usage: npm run verify:search-filters
  */
 import assert from "node:assert/strict";
+import {
+  applyCategoryChipPatch,
+  CATEGORY_CHIPS,
+} from "../components/filters/category-filter-chips";
 import { matchingEvents } from "../lib/filters";
 import {
   applySearchPatch,
@@ -270,6 +274,28 @@ async function main() {
     "singlesOriented matches Alleen singles",
   );
   ok("extra filters keep sparse catalog events");
+
+  {
+    const all = defaultSearchState();
+    assert.equal(all.typesMode, "all");
+    const dating = CATEGORY_CHIPS.find(
+      (chip) => chip.kind === "category" && chip.id === "dating",
+    )!;
+    const picked = applySearchPatch(all, applyCategoryChipPatch(all, dating));
+    assert.equal(picked.typesMode, "pick");
+    assert.deepEqual(picked.categories, ["dating"]);
+    assert.deepEqual(picked.activities, []);
+    const back = applySearchPatch(
+      picked,
+      applyCategoryChipPatch(
+        picked,
+        CATEGORY_CHIPS.find((chip) => chip.kind === "all")!,
+      ),
+    );
+    assert.equal(back.typesMode, "all");
+    assert.deepEqual(back.categories, []);
+    ok("category chips: Alle → pick one → Alle (no all-pressed pick mode)");
+  }
 
   console.log("\nOK: search filter + public card invariants.");
 }

@@ -6,25 +6,14 @@ import { useEffect, useRef } from "react";
 import { track } from "@/lib/analytics";
 import {
   FOLLOWED_ORGANIZERS_FILTER,
-  REFINE_DATE_LABEL,
   REFINE_SORT_LABEL,
   organizerSlugsFromParam,
   refinementFiltersActive,
   refinementIsActive,
   type OrganizerFilterOption,
-  type RefineDatePreset,
   type RefineSort,
   type ResultRefinement,
 } from "@/lib/result-refinement";
-
-const DATE_OPTIONS: RefineDatePreset[] = [
-  "all",
-  "today",
-  "weekend",
-  "7d",
-  "30d",
-  "custom",
-];
 
 const SORT_OPTIONS: RefineSort[] = ["soonest", "newest"];
 
@@ -98,8 +87,7 @@ export function ResultRefinementBar({
             Verfijn resultaten
           </h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Zoek op event of organisator. Gekozen organisatoren wis je via de
-            pillen.
+            Zoek op event of organisator. Datum wijzig je via Filters.
           </p>
         </div>
         {active ? (
@@ -114,7 +102,7 @@ export function ResultRefinementBar({
         ) : null}
       </div>
 
-      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.5fr)_minmax(9rem,0.7fr)_minmax(10rem,0.9fr)_minmax(9rem,0.7fr)] lg:items-center">
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.5fr)_minmax(10rem,0.9fr)_minmax(9rem,0.7fr)] lg:items-center">
         <label className="relative min-w-0 sm:col-span-2 lg:col-span-1">
           <span className="sr-only">Zoek op event, organisator of plaats</span>
           <Search
@@ -130,34 +118,6 @@ export function ResultRefinementBar({
             placeholder="Zoek op event, organisator of plaats…"
             className="h-10 w-full rounded-full border border-border bg-white pr-3 pl-9 text-sm outline-none focus:border-foreground"
           />
-        </label>
-
-        <label className="min-w-0">
-          <span className="sr-only">Datum</span>
-          <select
-            value={refinement.datePreset}
-            onChange={(event) => {
-              const datePreset = event.target.value as RefineDatePreset;
-              track("filter_change", {
-                datePreset,
-                source: "result_refinement",
-              });
-              onChange({
-                ...refinement,
-                datePreset,
-                dateFrom: datePreset === "custom" ? refinement.dateFrom : null,
-                dateTo: datePreset === "custom" ? refinement.dateTo : null,
-              });
-            }}
-            className={selectClassName}
-            aria-label="Datum verfijnen"
-          >
-            {DATE_OPTIONS.map((preset) => (
-              <option key={preset} value={preset}>
-                {REFINE_DATE_LABEL[preset]}
-              </option>
-            ))}
-          </select>
         </label>
 
         <label className="min-w-0">
@@ -262,43 +222,6 @@ export function ResultRefinementBar({
           </Link>{" "}
           om organisatoren te volgen.
         </p>
-      ) : null}
-
-      {refinement.datePreset === "custom" ? (
-        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
-          <label className="text-sm">
-            <span className="mb-1 block font-medium text-muted-foreground">
-              Van
-            </span>
-            <input
-              type="date"
-              value={refinement.dateFrom ?? ""}
-              onChange={(event) =>
-                onChange({
-                  ...refinement,
-                  dateFrom: event.target.value || null,
-                })
-              }
-              className="h-10 w-full rounded-xl border border-border px-3 text-sm"
-            />
-          </label>
-          <label className="text-sm">
-            <span className="mb-1 block font-medium text-muted-foreground">
-              Tot
-            </span>
-            <input
-              type="date"
-              value={refinement.dateTo ?? ""}
-              onChange={(event) =>
-                onChange({
-                  ...refinement,
-                  dateTo: event.target.value || null,
-                })
-              }
-              className="h-10 w-full rounded-xl border border-border px-3 text-sm"
-            />
-          </label>
-        </div>
       ) : null}
 
       {noOrganizerHits ? (
