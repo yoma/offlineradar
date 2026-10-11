@@ -1,8 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { PendingContent } from "@/components/ui/pending";
 import { Button } from "@/components/ui/button";
+import {
+  isAgendaLikePageKind,
+  resolveTipPageKind,
+  TIP_PAGE_KIND_LABEL,
+} from "@/lib/tips/page-kind";
 import {
   TIP_STATUSES,
   TIP_STATUS_LABEL,
@@ -326,6 +332,8 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
             const review = reviewsByTip.get(tip.id);
             const prep = review?.aiPrep ?? null;
             const hasAiAdvice = Boolean(prep?.routeSuggestion && !prep.scanError);
+            const pageKind = resolveTipPageKind(tip.originalUrl, prep);
+            const agendaLike = isAgendaLikePageKind(pageKind);
             const scanning = scanningId === tip.id || (isPending && scanningId === tip.id);
             return (
               <li
@@ -376,7 +384,23 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                   sourceUrlChecked={review?.sourceUrlChecked ?? null}
                   checkedAt={review?.checkedAt ?? null}
                   prep={prep}
+                  pageKindLabel={
+                    pageKind !== "unknown" ? TIP_PAGE_KIND_LABEL[pageKind] : null
+                  }
                 />
+
+                {agendaLike ? (
+                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                    <p className="font-semibold">
+                      {TIP_PAGE_KIND_LABEL[pageKind]}
+                    </p>
+                    <p className="mt-1 leading-6">
+                      Dit is geen enkel event. Maak hier geen voorlopig event van.
+                      Behandel het als bron/agenda: open Aanvoer om te scannen, of
+                      zet de bron op “later opnieuw checken”.
+                    </p>
+                  </div>
+                ) : null}
 
                 <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
                   <div>
@@ -477,13 +501,35 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                         setStatus(
                           tip.id,
                           "rejected",
-                          "De activiteit is niet aantoonbaar singlesgericht volgens Route A/B.",
+                          agendaLike
+                            ? "Tip wees naar een agenda/lijst, geen enkel event om te plaatsen."
+                            : "De activiteit is niet aantoonbaar singlesgericht volgens Route A/B.",
                         )
                       }
                     pending={isPending}
                     />
                   ) : null}
-                  {tip.status !== "approved_for_publication" &&
+                  {agendaLike ? (
+                    <>
+                      <Link
+                        href="/interne-aanvoer"
+                        className="inline-flex h-9 items-center rounded-full bg-stone-900 px-3 text-sm font-semibold text-white hover:bg-stone-800"
+                      >
+                        Open Aanvoer (bronnen)
+                      </Link>
+                      {tip.status !== "rejected" &&
+                      tip.status !== "published" &&
+                      tip.status !== "expired_or_cancelled" ? (
+                        <StatusButton
+                          label="Bron later opnieuw checken"
+                          onClick={() => addWatch(tip.id)}
+                          pending={isPending}
+                        />
+                      ) : null}
+                    </>
+                  ) : null}
+                  {!agendaLike &&
+                  tip.status !== "approved_for_publication" &&
                   tip.status !== "published" &&
                   tip.status !== "rejected" &&
                   tip.status !== "expired_or_cancelled" ? (
@@ -499,7 +545,8 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                     pending={isPending}
                     />
                   ) : null}
-                  {tip.status === "approved_for_publication" &&
+                  {!agendaLike &&
+                  tip.status === "approved_for_publication" &&
                   !tip.linkedEventId ? (
                     <div className="flex w-full flex-col gap-1 sm:w-auto">
                       <Button
@@ -527,9 +574,10 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                       Open in Events
                     </a>
                   ) : null}
-                  {tip.status === "approved_for_publication" ||
-                  tip.status === "published" ||
-                  hasAiAdvice ? (
+                  {!agendaLike &&
+                  (tip.status === "approved_for_publication" ||
+                    tip.status === "published" ||
+                    hasAiAdvice) ? (
                     <StatusButton
                       label="Bron later opnieuw checken"
                       onClick={() => addWatch(tip.id)}
@@ -608,11 +656,13 @@ function AiPrepPanel({
   sourceUrlChecked,
   checkedAt,
   prep,
+  pageKindLabel,
 }: {
   tipUrl: string;
   sourceUrlChecked: string | null;
   checkedAt: string | null;
   prep: TipAiPrep | null;
+  pageKindLabel?: string | null;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -651,6 +701,11 @@ function AiPrepPanel({
     <div className="mt-4 space-y-3">
       <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-3">
         <p className="text-sm font-bold text-stone-900">{humanBadge}</p>
+        {pageKindLabel ? (
+          <p className="mt-1 text-xs font-semibold tracking-wide text-stone-500 uppercase">
+            {pageKindLabel}
+          </p>
+        ) : null}
         {prep.proposedTitle ? (
           <p className="mt-1 text-[15px] font-semibold text-stone-900">
             {prep.proposedTitle}

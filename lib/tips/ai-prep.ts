@@ -12,6 +12,7 @@ export function emptyAiPrepPlaceholder(tip: TipSubmission): TipAiPrep {
     sourceContentHash: null,
     reusedFromTipId: null,
     sourceUrlsUsed: [],
+    pageKind: null,
     proposedTitle: null,
     proposedOrganizer: null,
     proposedStartDate: null,

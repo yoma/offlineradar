@@ -92,6 +92,16 @@ export type TipRouteSuggestion =
 
 export type TipAiConfidence = "low" | "medium" | "high";
 
+/** What kind of page the tip URL points at (steers admin next steps). */
+export const TIP_PAGE_KINDS = [
+  "single_event",
+  "agenda_list",
+  "organizer_home",
+  "unknown",
+] as const;
+
+export type TipPageKind = (typeof TIP_PAGE_KINDS)[number];
+
 export type TipAiPrep = {
   preparedAt: string;
   modelHint: string | null;
@@ -99,6 +109,11 @@ export type TipAiPrep = {
   reusedFromTipId: string | null;
   /** Sources actually used for this prep (never invent). */
   sourceUrlsUsed: string[];
+  /**
+   * Page shape: one concrete event vs calendar/list vs organizer home.
+   * Older scans may omit this; UI falls back via resolveTipPageKind().
+   */
+  pageKind: TipPageKind | null;
   proposedTitle: string | null;
   proposedOrganizer: string | null;
   proposedStartDate: string | null;
