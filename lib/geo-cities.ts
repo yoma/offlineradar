@@ -81,6 +81,58 @@ function compactCityKey(city: string): string {
   return normalizeCityKey(city).replace(/\s+/g, "");
 }
 
+/** Canonical Dutch/local labels for discoverable cities. */
+const CITY_LABEL_BY_KEY: Record<string, string> = {
+  antwerpen: "Antwerpen",
+  antwerp: "Antwerpen",
+  mechelen: "Mechelen",
+  brussel: "Brussel",
+  brussels: "Brussel",
+  bruxelles: "Brussel",
+  gent: "Gent",
+  ghent: "Gent",
+  leuven: "Leuven",
+  louvain: "Leuven",
+  turnhout: "Turnhout",
+  brugge: "Brugge",
+  bruges: "Brugge",
+  kortrijk: "Kortrijk",
+  hasselt: "Hasselt",
+  aalst: "Aalst",
+  geel: "Geel",
+  lochristi: "Lochristi",
+  "sint niklaas": "Sint-Niklaas",
+  sintniklaas: "Sint-Niklaas",
+  oostende: "Oostende",
+  ostend: "Oostende",
+  ieper: "Ieper",
+  ypres: "Ieper",
+  lier: "Lier",
+  kapellen: "Kapellen",
+  edegem: "Edegem",
+  gooik: "Gooik",
+  haacht: "Haacht",
+  "heusden zolder": "Heusden-Zolder",
+  heusdenzolder: "Heusden-Zolder",
+  oostkamp: "Oostkamp",
+  ronse: "Ronse",
+  stekene: "Stekene",
+  tremelo: "Tremelo",
+  wavre: "Wavre",
+  "louvain la neuve": "Louvain-la-Neuve",
+  louvainlaneuve: "Louvain-la-Neuve",
+  mons: "Mons",
+  namur: "Namur",
+  liege: "Luik",
+  luik: "Luik",
+  herve: "Herve",
+  hatrival: "Hatrival",
+  vielsalm: "Vielsalm",
+  "la roche en ardenne": "La Roche-en-Ardenne",
+  larocheenardenne: "La Roche-en-Ardenne",
+  viroinval: "Viroinval",
+};
+
 export function coordsForCity(city: string | null | undefined): {
   lat: number;
   lng: number;
@@ -98,6 +150,42 @@ export function coordsForCity(city: string | null | undefined): {
       key.includes(` ${name} `)
     ) {
       return coords;
+    }
+  }
+  return null;
+}
+
+/**
+ * Find a known (mappable) city label inside free text / venue / URL path.
+ * Prefers longer matches so “Louvain-la-Neuve” wins over “Louvain”.
+ */
+export function inferKnownCityLabel(
+  text: string | null | undefined,
+): string | null {
+  if (!text?.trim()) return null;
+  const hay = normalizeCityKey(text);
+  if (!hay) return null;
+
+  if (coordsForCity(text)) {
+    const key = normalizeCityKey(text);
+    const compact = compactCityKey(text);
+    return (
+      CITY_LABEL_BY_KEY[key] ||
+      CITY_LABEL_BY_KEY[compact] ||
+      text.trim().replace(/\s+/g, " ")
+    );
+  }
+
+  const keys = Object.keys(CITY_COORDS).sort((a, b) => b.length - a.length);
+  for (const key of keys) {
+    const asPhrase = key;
+    if (
+      hay === asPhrase ||
+      hay.startsWith(`${asPhrase} `) ||
+      hay.endsWith(` ${asPhrase}`) ||
+      hay.includes(` ${asPhrase} `)
+    ) {
+      return CITY_LABEL_BY_KEY[key] || key;
     }
   }
   return null;

@@ -222,7 +222,10 @@ export async function runGenericSourceFollow(input: {
     const proposal = await runAdminIntakeExtract({
       mode: "url",
       url: fetched.finalUrl,
-      text: htmlToPlainishText(fetched.text).slice(0, 12_000),
+      text: (fetched.html
+        ? htmlToPlainishText(fetched.html)
+        : fetched.text
+      ).slice(0, 12_000),
     });
     const cand = await proposalToCandidate(
       proposal,

@@ -164,10 +164,30 @@ function toIsoOrNull(value: unknown): string | null {
 }
 
 function extractStartTime(startsAt: string): string | null {
-  const m = startsAt.match(/T(\d{2}):(\d{2})/);
-  if (!m) return null;
-  if (m[1] === "12" && m[2] === "00" && startsAt.includes("2099")) return null;
-  return `${m[1]}:${m[2]}`;
+  if (!startsAt || startsAt.includes("2099")) return null;
+  const instant = new Date(startsAt);
+  if (!Number.isNaN(instant.getTime())) {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Brussels",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(instant);
+    const hour = parts.find((p) => p.type === "hour")?.value;
+    const minute = parts.find((p) => p.type === "minute")?.value;
+    if (hour && minute) {
+      if (hour === "12" && minute === "00" && startsAt.includes("2099")) {
+        return null;
+      }
+      return `${hour}:${minute}`;
+    }
+  }
+  // Fallback for odd non-ISO strings: prefer offset-local wall clock over UTC.
+  const offsetMatch = startsAt.match(
+    /T(\d{2}):(\d{2})(?::\d{2})?(?:[+-]\d{2}:?\d{2}|Z)?/,
+  );
+  if (!offsetMatch) return null;
+  return `${offsetMatch[1]}:${offsetMatch[2]}`;
 }
 
 function resolveOrigin(tags: string[], notes: string): CockpitCandidateRow["origin"] {
