@@ -305,7 +305,7 @@ export function HomeHero({
                 <select
                   value={state.placeId}
                   onChange={(event) => update({ placeId: event.target.value })}
-                  className="search-field-control w-full bg-transparent text-[15px] font-semibold leading-6 outline-none"
+                  className="search-field-control w-full bg-transparent text-base font-semibold leading-6 outline-none"
                 >
                   {USER_PLACES.map((place) => (
                     <option key={place.id} value={place.id}>
@@ -330,7 +330,7 @@ export function HomeHero({
                       }));
                     }
                   }}
-                  className="search-field-control w-full bg-transparent text-[15px] font-semibold leading-6 outline-none"
+                  className="search-field-control w-full bg-transparent text-base font-semibold leading-6 outline-none"
                 >
                   <option value="any">Alle datums</option>
                   <option value="today">Vandaag</option>
@@ -369,7 +369,7 @@ export function HomeHero({
                       setError("");
                     }
                   }}
-                  className="search-field-control w-full bg-transparent text-[15px] font-semibold leading-6 outline-none placeholder:font-normal placeholder:text-muted-foreground"
+                  className="search-field-control w-full bg-transparent text-base font-semibold leading-6 outline-none placeholder:font-normal placeholder:text-muted-foreground"
                 />
               </Field>
               <Field label="Gender" divide chevron optional>
@@ -380,7 +380,7 @@ export function HomeHero({
                       gender: (event.target.value || null) as UserGender | null,
                     })
                   }
-                  className="search-field-control w-full bg-transparent text-[15px] font-semibold leading-6 outline-none"
+                  className="search-field-control w-full bg-transparent text-base font-semibold leading-6 outline-none"
                 >
                   <option value="">Kies</option>
                   {(Object.keys(GENDER_LABEL) as UserGender[]).map((key) => (
@@ -396,7 +396,7 @@ export function HomeHero({
                   onChange={(event) =>
                     update({ maxDistanceKm: Number(event.target.value) })
                   }
-                  className="search-field-control w-full bg-transparent text-[15px] font-semibold leading-6 outline-none"
+                  className="search-field-control w-full bg-transparent text-base font-semibold leading-6 outline-none"
                 >
                   {DISTANCES.map((km) => (
                     <option key={km} value={km}>
@@ -445,7 +445,7 @@ export function HomeHero({
                         setError("");
                       }
                     }}
-                    className="w-full min-w-0 text-sm font-semibold leading-6 outline-none"
+                    className="w-full min-w-0 text-base font-semibold leading-6 outline-none md:text-sm"
                   />
                 </label>
               </div>

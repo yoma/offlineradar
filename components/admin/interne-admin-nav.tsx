@@ -42,7 +42,7 @@ export function InterneAdminNav({
 
   return (
     <nav
-      className="mb-6 overflow-x-auto"
+      className="mobile-scroll-x mb-6"
       aria-label="Interne navigatie"
     >
       <div className="inline-flex min-w-full gap-1 rounded-2xl border border-stone-200/80 bg-white/75 p-1 shadow-sm backdrop-blur sm:min-w-0">

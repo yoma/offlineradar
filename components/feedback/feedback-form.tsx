@@ -160,7 +160,7 @@ export function FeedbackForm({
           maxLength={2000}
           placeholder={isModal ? "In een of twee zinnen…" : undefined}
           className={cn(
-            "w-full rounded-2xl border border-border bg-white px-3.5 py-3 text-[15px] outline-none",
+            "w-full rounded-2xl border border-border bg-white px-3.5 py-3 text-base outline-none",
             "focus:border-primary/45 focus:ring-4 focus:ring-primary/15",
             !isModal && "mt-1.5 rounded-xl",
           )}

@@ -20,6 +20,7 @@ const CITY_COORDS: Record<string, { lat: number; lng: number }> = {
   kortrijk: { lat: 50.8279, lng: 3.2649 },
   hasselt: { lat: 50.9307, lng: 5.3378 },
   aalst: { lat: 50.9372, lng: 4.0403 },
+  eeklo: { lat: 51.1858, lng: 3.5668 },
   geel: { lat: 51.1655, lng: 4.9892 },
   lochristi: { lat: 51.0973, lng: 3.8396 },
   "sint niklaas": { lat: 51.1657, lng: 4.1437 },

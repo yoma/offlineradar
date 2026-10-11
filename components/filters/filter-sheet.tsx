@@ -480,7 +480,7 @@ function OrganizerPicker({
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Zoeken…"
-                className="h-10 w-full bg-transparent pr-3 pl-9 text-sm outline-none"
+                className="h-10 w-full bg-transparent pr-3 pl-9 text-base outline-none md:text-sm"
                 autoComplete="off"
               />
             </label>

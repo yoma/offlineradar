@@ -342,7 +342,7 @@ export function AdminChatPanel() {
             onKeyDown={onKeyDown}
             placeholder="Plak een link of vraag iets… (Enter = sturen)"
             disabled={pending}
-            className="max-h-40 min-h-[2.5rem] flex-1 resize-none bg-transparent px-2.5 py-2 text-sm leading-5 text-stone-900 outline-none placeholder:text-stone-400 disabled:opacity-60"
+            className="max-h-40 min-h-[2.5rem] flex-1 resize-none bg-transparent px-2.5 py-2 text-base leading-5 text-stone-900 outline-none placeholder:text-stone-400 disabled:opacity-60 md:text-sm"
           />
           <button
             type="submit"

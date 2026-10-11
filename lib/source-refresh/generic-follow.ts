@@ -5,6 +5,7 @@
 import { createHash } from "node:crypto";
 import { runAdminIntakeExtract } from "@/lib/aanvoer/extract";
 import { buildDeepSearchQueries } from "@/lib/aanvoer/deep-verify";
+import { harvestIntakeEventLinks } from "@/lib/aanvoer/page-kind";
 import { blankProposal } from "@/lib/aanvoer/types";
 import {
   htmlToPlainishText,
@@ -14,8 +15,8 @@ import { validateAndNormalizeTipUrl } from "@/lib/tips/url";
 import type { RefreshNormalizedCandidate } from "@/lib/source-refresh/types";
 import type { FollowMethod } from "@/lib/aanvoer/follow-capability";
 
-const MAX_GENERIC_CANDIDATES = 8;
-const MAX_LINK_FETCHES = 5;
+const MAX_GENERIC_CANDIDATES = 10;
+const MAX_LINK_FETCHES = 8;
 
 function externalKeyFor(url: string, title: string, date: string): string {
   return createHash("sha1")
@@ -25,32 +26,7 @@ function externalKeyFor(url: string, title: string, date: string): string {
 }
 
 function harvestEventishLinks(html: string, baseUrl: string): string[] {
-  const hrefs = [...html.matchAll(/href=["']([^"']+)["']/gi)].map((m) => m[1]!);
-  const out: string[] = [];
-  for (const href of hrefs) {
-    try {
-      const absolute = new URL(href, baseUrl).toString();
-      const validated = validateAndNormalizeTipUrl(absolute);
-      if (!validated.ok) continue;
-      const lower = validated.normalizedUrl.toLowerCase();
-      if (
-        /login|cart|privacy|cookie|account|mailto:/.test(lower) ||
-        /\.(pdf|jpg|png|svg|css|js)(\?|$)/.test(lower)
-      ) {
-        continue;
-      }
-      if (
-        /event|agenda|kalender|activiteit|singles|date|rencontre|workshop|reis|weekend/.test(
-          lower,
-        )
-      ) {
-        out.push(validated.normalizedUrl);
-      }
-    } catch {
-      // skip
-    }
-  }
-  return [...new Set(out)].slice(0, MAX_LINK_FETCHES);
+  return harvestIntakeEventLinks(html, baseUrl, MAX_LINK_FETCHES);
 }
 
 async function proposalToCandidate(
@@ -128,23 +104,45 @@ export async function runGenericSourceFollow(input: {
       );
       fetchedUrl = home.finalUrl;
       httpStatus = 200;
+      const html = home.html || home.text;
       pagesToScan.push(home.finalUrl);
-      for (const link of harvestEventishLinks(home.text, home.finalUrl)) {
+      for (const link of harvestEventishLinks(html, home.finalUrl)) {
         pagesToScan.push(link);
       }
 
-      // Also try homepage itself as a single-event page
+      // Homepage itself is rarely a single dated event; only try when it parses.
       const homeProposal = await runAdminIntakeExtract({
         mode: "url",
         url: home.finalUrl,
-        text: htmlToPlainishText(home.text).slice(0, 12_000),
+        text: (home.html
+          ? htmlToPlainishText(home.html)
+          : home.text
+        ).slice(0, 12_000),
       });
       const homeCand = await proposalToCandidate(
         homeProposal,
         home.finalUrl,
         input.sourceName,
       );
-      if (homeCand && !seen.has(homeCand.externalKey)) {
+      // Skip organizer-name-as-title homepage false positives.
+      const homeTitle = (homeProposal.title.value ?? "").trim().toLowerCase();
+      const orgName = input.sourceName.trim().toLowerCase();
+      let hostLabel = "";
+      try {
+        hostLabel = new URL(home.finalUrl).hostname
+          .replace(/^www\./, "")
+          .replace(/\.(be|com|nl|eu)$/i, "")
+          .replace(/[-_]+/g, " ")
+          .toLowerCase();
+      } catch {
+        /* ignore */
+      }
+      const looksLikeOrgHome =
+        !homeTitle ||
+        homeTitle === orgName ||
+        (hostLabel.length >= 4 && homeTitle.includes(hostLabel)) ||
+        /homepage|organisator/i.test(homeProposal.routeReason ?? "");
+      if (homeCand && !looksLikeOrgHome && !seen.has(homeCand.externalKey)) {
         seen.add(homeCand.externalKey);
         candidates.push(homeCand);
       }
