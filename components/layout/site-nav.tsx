@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bookmark, Compass, Home, Info, Menu, Plus } from "lucide-react";
+import {
+  Bookmark,
+  Compass,
+  Home,
+  Info,
+  Menu,
+  Plus,
+  Settings,
+} from "lucide-react";
 import { useEffect, useState, type SVGProps } from "react";
 import { AccountNavLink } from "@/components/auth/account-nav-link";
 import {
@@ -104,9 +112,16 @@ function openTipForm() {
   }, 0);
 }
 
-function MobileMenuSheet({ light }: { light: boolean }) {
+function MobileMenuSheet({
+  light,
+  showAdminEntry,
+}: {
+  light: boolean;
+  showAdminEntry: boolean;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const adminActive = pathname.startsWith("/interne-");
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -156,6 +171,22 @@ function MobileMenuSheet({ light }: { light: boolean }) {
               </Link>
             );
           })}
+          {showAdminEntry ? (
+            <Link
+              href="/interne-goedkeuren"
+              aria-current={adminActive ? "page" : undefined}
+              onClick={() => setOpen(false)}
+              className={cn(
+                "flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-semibold transition",
+                adminActive
+                  ? "bg-[var(--brand-gold-soft)] text-[var(--brand-gold-ink)]"
+                  : "text-foreground hover:bg-muted/70",
+              )}
+            >
+              <Settings className="size-5 shrink-0" aria-hidden />
+              Beheer
+            </Link>
+          ) : null}
           <div className="my-2 border-t border-border" />
           <div className="flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-semibold">
             <AccountNavLink light />
@@ -180,10 +211,15 @@ function MobileMenuSheet({ light }: { light: boolean }) {
   );
 }
 
-export function SiteHeader() {
+export function SiteHeader({
+  showAdminEntry = false,
+}: {
+  showAdminEntry?: boolean;
+}) {
   const pathname = usePathname();
   const onHome = pathname === "/";
   const [scrolled, setScrolled] = useState(false);
+  const adminActive = pathname.startsWith("/interne-");
 
   useEffect(() => {
     if (!onHome) return;
@@ -253,6 +289,23 @@ export function SiteHeader() {
                 </Link>
               );
             })}
+            {showAdminEntry ? (
+              <Link
+                href="/interne-goedkeuren"
+                aria-current={adminActive ? "page" : undefined}
+                className={cn(
+                  light
+                    ? adminActive
+                      ? "text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                    : adminActive
+                      ? "text-white"
+                      : "text-white/75 hover:text-white",
+                )}
+              >
+                Beheer
+              </Link>
+            ) : null}
             <AccountNavLink light={light} />
           </nav>
           <Link
@@ -270,7 +323,7 @@ export function SiteHeader() {
           </Link>
         </div>
         <div className="flex shrink-0 items-center md:hidden">
-          <MobileMenuSheet light={light} />
+          <MobileMenuSheet light={light} showAdminEntry={showAdminEntry} />
         </div>
       </div>
     </header>
