@@ -37,5 +37,12 @@ mustInclude("components/events/event-detail.tsx", "event_view");
 mustInclude("app/api/analytics/route.ts", "isAllowlistedAdminEmail");
 mustInclude("app/privacy/page.tsx", "Gebruiksstatistieken");
 mustInclude("lib/analytics.ts", "sendBeacon");
+mustInclude("lib/analytics/types.ts", "client_error");
+mustInclude("components/admin/dashboard-client.tsx", "Wat doen mensen?");
+mustInclude("components/admin/dashboard-client.tsx", "Waar lopen ze vast?");
+mustInclude("components/admin/dashboard-client.tsx", "Fouten die ze zagen");
+mustInclude("components/admin/dashboard-client.tsx", "Vanwaar komen ze?");
+mustInclude("app/error.tsx", 'track("client_error"');
+assert.ok(ALLOWED_ANALYTICS_NAMES.has("client_error"));
 
 console.log("OK: analytics dashboard verify passed.");

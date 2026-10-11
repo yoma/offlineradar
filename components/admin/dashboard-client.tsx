@@ -192,8 +192,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
             Dashboard
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
-            Anonieme product- en trafficanalytics. Data vanaf{" "}
-            {data.dataSince}. Geen persoonsgerichte tracking.
+            Eerst wat bezoekers doen, waar ze vastlopen en welke fouten ze zien.
+            Daarna meer detail. Data vanaf {data.dataSince}, anoniem.
           </p>
         </div>
         <div className="min-w-0">
@@ -257,6 +257,195 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           ) : null}
         </div>
       </div>
+
+      {/* Gebruikersblik — plain language */}
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-stone-200/80 bg-white/90 p-5 shadow-sm">
+          <h2 className="text-lg font-semibold text-stone-900">
+            Wat doen mensen?
+          </h2>
+          <p className="mb-4 text-sm text-stone-500">
+            In deze periode, anoniem geteld.
+          </p>
+          <ul className="space-y-2 text-sm text-stone-800">
+            <li className="flex justify-between gap-3">
+              <span>Bezoekers</span>
+              <span className="font-semibold tabular-nums">
+                {data.peopleGlance.whatTheyDo.visitors}
+              </span>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span>Pagina’s bekeken</span>
+              <span className="font-semibold tabular-nums">
+                {data.peopleGlance.whatTheyDo.pageViews}
+              </span>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span>Gezocht of gefilterd</span>
+              <span className="font-semibold tabular-nums">
+                {data.peopleGlance.whatTheyDo.searches}
+              </span>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span>Events bekeken</span>
+              <span className="font-semibold tabular-nums">
+                {data.peopleGlance.whatTheyDo.eventViews}
+              </span>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span>Bewaard</span>
+              <span className="font-semibold tabular-nums">
+                {data.peopleGlance.whatTheyDo.saves}
+              </span>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span>Doorgeklikt naar organisator</span>
+              <span className="font-semibold tabular-nums">
+                {data.peopleGlance.whatTheyDo.externalClicks}
+              </span>
+            </li>
+          </ul>
+        </div>
+
+        <div className="rounded-2xl border border-stone-200/80 bg-white/90 p-5 shadow-sm">
+          <h2 className="text-lg font-semibold text-stone-900">
+            Waar lopen ze vast?
+          </h2>
+          <p className="mb-4 text-sm text-stone-500">
+            Signalen dat iets niet lukt of onduidelijk is.
+          </p>
+          <ul className="space-y-2 text-sm text-stone-800">
+            <li className="flex justify-between gap-3">
+              <span>Zoeken zonder resultaten</span>
+              <span className="font-semibold tabular-nums">
+                {data.peopleGlance.whereStuck.noResults}
+              </span>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span>
+                Open feedback{" "}
+                <Link
+                  href="/interne-feedback"
+                  className="font-normal text-rose-800 underline-offset-2 hover:underline"
+                >
+                  (bekijk)
+                </Link>
+              </span>
+              <span className="font-semibold tabular-nums">
+                {data.peopleGlance.whereStuck.openFeedback}
+              </span>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span>Daarvan: gemelde bugs</span>
+              <span className="font-semibold tabular-nums">
+                {data.peopleGlance.whereStuck.openBugReports}
+              </span>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span>Event aangeklikt → echt bekeken</span>
+              <span className="font-semibold tabular-nums">
+                {data.peopleGlance.whereStuck.cardClicks} →{" "}
+                {data.peopleGlance.whereStuck.eventViewsFromCards}
+              </span>
+            </li>
+          </ul>
+          {data.peopleGlance.whereStuck.cardClicks > 0 &&
+          data.peopleGlance.whereStuck.eventViewsFromCards <
+            data.peopleGlance.whereStuck.cardClicks ? (
+            <p className="mt-3 text-xs text-stone-500">
+              Als “bekeken” lager is dan “aangeklikt”, haken mensen af vóór de
+              eventpagina.
+            </p>
+          ) : null}
+        </div>
+
+        <div className="rounded-2xl border border-stone-200/80 bg-white/90 p-5 shadow-sm">
+          <h2 className="text-lg font-semibold text-stone-900">
+            Fouten die ze zagen
+          </h2>
+          <p className="mb-4 text-sm text-stone-500">
+            Keer dat iemand “Er ging iets mis” te zien kreeg:{" "}
+            <span className="font-semibold text-stone-800">
+              {data.peopleGlance.errors.count}
+            </span>
+          </p>
+          {data.peopleGlance.errors.recent.length === 0 ? (
+            <p className="text-sm text-stone-500">
+              Geen foutschermen in deze periode. (Nieuwe fouten worden vanaf nu
+              hier bijgehouden.)
+            </p>
+          ) : (
+            <ul className="space-y-3 text-sm">
+              {data.peopleGlance.errors.recent.map((item, idx) => (
+                <li key={`${item.at}-${idx}`} className="min-w-0">
+                  <p className="font-medium text-stone-900">{item.message}</p>
+                  <p className="text-stone-500">
+                    {formatTime(item.at)} · {item.path}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-stone-200/80 bg-white/90 p-5 shadow-sm">
+          <h2 className="text-lg font-semibold text-stone-900">
+            Vanwaar komen ze?
+          </h2>
+          <p className="mb-4 text-sm text-stone-500">
+            Eerste pagina bij een bezoek, en (vanaf nu) of ze via Google,
+            Instagram, …
+          </p>
+          {data.peopleGlance.whereFrom.referrers.length > 0 ? (
+            <div className="mb-5">
+              <h3 className="mb-2 text-sm font-semibold text-stone-800">
+                Via welke site?
+              </h3>
+              <BarChart
+                items={data.peopleGlance.whereFrom.referrers.map((r) => ({
+                  label: r.label,
+                  value: r.count,
+                }))}
+              />
+            </div>
+          ) : (
+            <p className="mb-5 text-sm text-stone-500">
+              Herkomst via Google/Instagram/… wordt vanaf nu bijgehouden. Voor
+              oudere bezoeken zie je hieronder de startpagina.
+            </p>
+          )}
+          <div className="mb-5">
+            <h3 className="mb-2 text-sm font-semibold text-stone-800">
+              Waar starten ze?
+            </h3>
+            {data.peopleGlance.whereFrom.landings.length > 0 ? (
+              <BarChart
+                items={data.peopleGlance.whereFrom.landings.map((r) => ({
+                  label: r.label,
+                  value: r.count,
+                }))}
+              />
+            ) : (
+              <p className="text-sm text-stone-500">Nog geen data.</p>
+            )}
+          </div>
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-stone-800">
+              Meest bekeken pagina’s
+            </h3>
+            {data.peopleGlance.whereFrom.topPages.length > 0 ? (
+              <BarChart
+                items={data.peopleGlance.whereFrom.topPages.map((r) => ({
+                  label: r.label,
+                  value: r.count,
+                }))}
+              />
+            ) : (
+              <p className="text-sm text-stone-500">Nog geen data.</p>
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* Rij 1 — kern KPI's */}
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
