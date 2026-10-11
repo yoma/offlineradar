@@ -251,6 +251,83 @@ export type DashboardData = {
     title: string;
     detail: string;
   }[];
+  /** Plain-language user glance for non-technical admin reading. */
+  peopleGlance: {
+    whatTheyDo: {
+      visitors: number;
+      pageViews: number;
+      searches: number;
+      eventViews: number;
+      saves: number;
+      externalClicks: number;
+    };
+    whereStuck: {
+      noResults: number;
+      openBugReports: number;
+      openFeedback: number;
+      cardClicks: number;
+      eventViewsFromCards: number;
+    };
+    errors: {
+      count: number;
+      recent: { at: string; path: string; message: string }[];
+    };
+    whereFrom: {
+      landings: { label: string; count: number }[];
+      referrers: { label: string; count: number }[];
+      topPages: { label: string; count: number }[];
+    };
+  };
+};
+
+function pathLabel(path: string | null | undefined): string {
+  const raw = (path ?? "/").trim() || "/";
+  if (raw === "/") return "Home";
+  if (raw.startsWith("/ontdek")) return "Ontdek";
+  if (raw.startsWith("/bewaard")) return "Bewaard";
+  if (raw.startsWith("/over")) return "Over";
+  if (raw.startsWith("/event/")) return "Eventpagina";
+  if (raw.startsWith("/inloggen")) return "Inloggen";
+  if (raw.startsWith("/account")) return "Mijn account";
+  if (raw.startsWith("/feedback")) return "Feedback";
+  if (raw.startsWith("/privacy")) return "Privacy";
+  return raw.length > 40 ? `${raw.slice(0, 37)}…` : raw;
+}
+
+function referrerLabel(host: string | null | undefined): string {
+  const h = (host ?? "direct").trim().toLowerCase() || "direct";
+  if (h === "direct" || h === "(direct)") return "Direct (of onbekend)";
+  if (h.includes("google.")) return "Google";
+  if (h.includes("bing.")) return "Bing";
+  if (h.includes("instagram.") || h === "l.instagram.com") return "Instagram";
+  if (h.includes("facebook.") || h.includes("fb.") || h === "m.facebook.com") {
+    return "Facebook";
+  }
+  if (h.includes("linkedin.")) return "LinkedIn";
+  if (h.includes("tiktok.")) return "TikTok";
+  if (h.includes("x.com") || h.includes("twitter.")) return "X / Twitter";
+  if (h.includes("duckduckgo.")) return "DuckDuckGo";
+  return h;
+}
+
+const EMPTY_PEOPLE_GLANCE: DashboardData["peopleGlance"] = {
+  whatTheyDo: {
+    visitors: 0,
+    pageViews: 0,
+    searches: 0,
+    eventViews: 0,
+    saves: 0,
+    externalClicks: 0,
+  },
+  whereStuck: {
+    noResults: 0,
+    openBugReports: 0,
+    openFeedback: 0,
+    cardClicks: 0,
+    eventViewsFromCards: 0,
+  },
+  errors: { count: 0, recent: [] },
+  whereFrom: { landings: [], referrers: [], topPages: [] },
 };
 
 const ORIGIN_LABELS: Record<string, string> = {
@@ -323,6 +400,7 @@ export async function loadDashboardData(
       top: [],
     },
     recentActivity: [],
+    peopleGlance: EMPTY_PEOPLE_GLANCE,
   };
 
   if (!sql) return empty;
@@ -360,6 +438,13 @@ export async function loadDashboardData(
     recentScans,
     confirmedExisting,
     orgPerf,
+    productCounts,
+    landingRows,
+    referrerRows,
+    topPageRows,
+    recentErrorRows,
+    openBugRows,
+    openFeedbackRows,
   ] = await Promise.all([
     safeQuery(
       () => sql`
@@ -684,6 +769,124 @@ export async function loadDashboardData(
       `,
       [],
     ),
+    safeQuery(
+      () => sql`
+        SELECT
+          count(*) FILTER (WHERE event_name = 'discovery_search')::int AS searches,
+          count(*) FILTER (WHERE event_name = 'event_view')::int AS event_views,
+          count(*) FILTER (WHERE event_name = 'event_saved')::int AS saves,
+          count(*) FILTER (WHERE event_name = 'zero_results')::int AS zero_results,
+          count(*) FILTER (WHERE event_name = 'event_card_click')::int AS card_clicks,
+          count(*) FILTER (WHERE event_name = 'client_error')::int AS client_errors
+        FROM analytics_events
+        WHERE created_at >= ${startIso} AND created_at <= ${endIso}
+      `,
+      [
+        {
+          searches: 0,
+          event_views: 0,
+          saves: 0,
+          zero_results: 0,
+          card_clicks: 0,
+          client_errors: 0,
+        },
+      ],
+    ),
+    safeQuery(
+      () => sql`
+        SELECT path, count(*)::int AS n
+        FROM (
+          SELECT DISTINCT ON (anonymous_session_id)
+            anonymous_session_id,
+            COALESCE(NULLIF(path, ''), metadata->>'path', '/') AS path
+          FROM analytics_events
+          WHERE event_name = 'page_view'
+            AND created_at >= ${startIso}
+            AND created_at <= ${endIso}
+          ORDER BY anonymous_session_id, created_at ASC
+        ) firsts
+        GROUP BY path
+        ORDER BY n DESC
+        LIMIT 8
+      `,
+      [],
+    ),
+    safeQuery(
+      () => sql`
+        SELECT host, count(*)::int AS n
+        FROM (
+          SELECT DISTINCT ON (anonymous_session_id)
+            anonymous_session_id,
+            COALESCE(
+              NULLIF(trim(metadata->>'referrer_host'), ''),
+              'direct'
+            ) AS host
+          FROM analytics_events
+          WHERE event_name = 'page_view'
+            AND created_at >= ${startIso}
+            AND created_at <= ${endIso}
+            AND (
+              (metadata->>'is_landing') = 'true'
+              OR metadata ? 'referrer_host'
+            )
+          ORDER BY anonymous_session_id, created_at ASC
+        ) landings
+        GROUP BY host
+        ORDER BY n DESC
+        LIMIT 8
+      `,
+      [],
+    ),
+    safeQuery(
+      () => sql`
+        SELECT
+          COALESCE(NULLIF(path, ''), '/') AS path,
+          count(*)::int AS n
+        FROM analytics_events
+        WHERE event_name = 'page_view'
+          AND created_at >= ${startIso}
+          AND created_at <= ${endIso}
+        GROUP BY 1
+        ORDER BY n DESC
+        LIMIT 8
+      `,
+      [],
+    ),
+    safeQuery(
+      () => sql`
+        SELECT
+          created_at AS at,
+          COALESCE(NULLIF(path, ''), metadata->>'path', '/') AS path,
+          COALESCE(
+            NULLIF(trim(metadata->>'message'), ''),
+            'Er ging iets mis'
+          ) AS message
+        FROM analytics_events
+        WHERE event_name = 'client_error'
+          AND created_at >= ${startIso}
+          AND created_at <= ${endIso}
+        ORDER BY created_at DESC
+        LIMIT 8
+      `,
+      [],
+    ),
+    safeQuery(
+      () => sql`
+        SELECT count(*)::int AS n
+        FROM beta_feedback
+        WHERE category = 'bug'
+          AND status IN ('new', 'reviewing')
+      `,
+      [{ n: 0 }],
+    ),
+    safeQuery(
+      () => sql`
+        SELECT count(*)::int AS n
+        FROM beta_feedback
+        WHERE status IN ('new', 'reviewing')
+      `,
+      [{ n: 0 }],
+    ),
   ]);
 
   const visitors = visitorWindows[0] as {
@@ -978,5 +1181,73 @@ export async function loadDashboardData(
       })),
     },
     recentActivity: recentActivity.slice(0, 20),
+    peopleGlance: (() => {
+      const pc = productCounts[0] as {
+        searches: number;
+        event_views: number;
+        saves: number;
+        zero_results: number;
+        card_clicks: number;
+        client_errors: number;
+      };
+      return {
+        whatTheyDo: {
+          visitors: Number(traffic.visitors),
+          pageViews: Number(traffic.pageviews),
+          searches: Number(pc?.searches ?? 0),
+          eventViews: Number(pc?.event_views ?? 0),
+          saves: Number(pc?.saves ?? 0),
+          externalClicks: Number(traffic.external_clicks),
+        },
+        whereStuck: {
+          noResults: Number(pc?.zero_results ?? 0),
+          openBugReports: Number(
+            (openBugRows[0] as { n: number } | undefined)?.n ?? 0,
+          ),
+          openFeedback: Number(
+            (openFeedbackRows[0] as { n: number } | undefined)?.n ?? 0,
+          ),
+          cardClicks: Number(pc?.card_clicks ?? 0),
+          eventViewsFromCards: Number(pc?.event_views ?? 0),
+        },
+        errors: {
+          count: Number(pc?.client_errors ?? 0),
+          recent: (
+            recentErrorRows as {
+              at: string | Date;
+              path: string;
+              message: string;
+            }[]
+          ).map((row) => ({
+            at:
+              row.at instanceof Date
+                ? row.at.toISOString()
+                : String(row.at),
+            path: pathLabel(row.path),
+            message: String(row.message || "Er ging iets mis").slice(0, 120),
+          })),
+        },
+        whereFrom: {
+          landings: (landingRows as { path: string; n: number }[]).map(
+            (row) => ({
+              label: pathLabel(row.path),
+              count: Number(row.n),
+            }),
+          ),
+          referrers: (referrerRows as { host: string; n: number }[]).map(
+            (row) => ({
+              label: referrerLabel(row.host),
+              count: Number(row.n),
+            }),
+          ),
+          topPages: (topPageRows as { path: string; n: number }[]).map(
+            (row) => ({
+              label: pathLabel(row.path),
+              count: Number(row.n),
+            }),
+          ),
+        },
+      };
+    })(),
   };
 }

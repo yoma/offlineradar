@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { track } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 
 export default function AppError({
@@ -13,6 +14,15 @@ export default function AppError({
 }) {
   useEffect(() => {
     console.error(error);
+    const raw = typeof error.message === "string" ? error.message : "Er ging iets mis";
+    // Keep short + scrub-ish: no emails, no long stacks.
+    const message = raw.replace(/\S+@\S+/g, "[e-mail]").slice(0, 120);
+    track("client_error", {
+      message,
+      digest: error.digest ?? null,
+      path:
+        typeof window !== "undefined" ? window.location.pathname.slice(0, 200) : null,
+    });
   }, [error]);
 
   return (

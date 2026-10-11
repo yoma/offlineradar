@@ -15,6 +15,8 @@ export type AnalyticsEventName =
   | "beta_welcome_shown"
   | "beta_welcome_login_click"
   | "beta_welcome_skip"
+  /** Anonymous client error boundary hits (no stack / PII). */
+  | "client_error"
   /** Legacy aliases still accepted from older callers. */
   | "search_performed"
   | "filter_changed"
@@ -71,4 +73,5 @@ export const ALLOWED_ANALYTICS_NAMES = new Set([
   "beta_welcome_shown",
   "beta_welcome_login_click",
   "beta_welcome_skip",
+  "client_error",
 ]);
