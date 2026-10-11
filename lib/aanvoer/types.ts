@@ -1,6 +1,8 @@
 import { normalizeIntakeDateToYmd } from "@/lib/aanvoer/dates";
+import type { IntakePageKind } from "@/lib/aanvoer/page-kind";
 
 export type IntakeMode = "url" | "text" | "screenshot";
+export type { IntakePageKind };
 
 export type FieldStatus = "found" | "uncertain" | "unknown";
 
@@ -72,6 +74,13 @@ export type IntakeProposal = {
   aiError: string | null;
   /** Present after Pass 2 deep verification (FASE 26.16). */
   deepScan?: DeepScanReportLite | null;
+  /**
+   * Homepage / agenda vs single event. Set deterministically after fetch
+   * so admins don't save a whole organizer site as one edition.
+   */
+  pageKind?: IntakePageKind | null;
+  /** Sample event links found on a source/agenda page. */
+  discoveredEventUrls?: string[];
 };
 
 export type IntakeEditableDraft = {

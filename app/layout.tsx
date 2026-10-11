@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { auth } from "@/auth";
 import { AuthSessionProvider } from "@/components/auth/session-provider";
@@ -11,6 +11,13 @@ import "./globals.css";
 
 /** Run serverless near Neon (eu-central-1), not default iad1. */
 export const preferredRegion = "fra1";
+
+/** Keep layout stable on phones; do not lock pinch-zoom (a11y). */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -48,12 +55,12 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const showAdminEntry = isAllowlistedAdminEmail(session?.user?.email);
 
   return (
-    <html lang="nl" className={`${jakarta.variable} h-full`}>
-      <body className="min-h-full min-w-0 bg-background font-sans text-foreground">
+    <html lang="nl" className={`${jakarta.variable} h-full overflow-x-clip`}>
+      <body className="min-h-full min-w-0 overflow-x-clip bg-background font-sans text-foreground">
         <AuthSessionProvider>
           <AnalyticsBeacon />
           <SiteHeader showAdminEntry={showAdminEntry} />
-          <main className="min-w-0 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-8">
+          <main className="min-w-0 overflow-x-clip pb-[calc(5rem+env(safe-area-inset-bottom,0px))] md:pb-8">
             {children}
           </main>
           <MobileNav />

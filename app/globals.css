@@ -97,10 +97,30 @@
     @apply font-sans;
     /* Defensive after layout min-width fixes: clip stray overflow, no page side-scroll. */
     overflow-x: clip;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
   body {
     @apply min-w-0 bg-background text-foreground antialiased;
     overflow-x: clip;
+    /* Stop horizontal rubber-band / swipe chaining on the page itself. */
+    overscroll-behavior-x: none;
+  }
+  /*
+   * iOS Safari auto-zooms focused form controls under 16px. Users then pinch
+   * to "recalibrate" the viewport. Keep controls ≥16px on phones; desktop can
+   * stay denser via Tailwind md:text-sm on shared Input components.
+   */
+  @media (max-width: 767px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+        [type="file"]
+      ):not([type="hidden"]):not([type="button"]):not([type="submit"]):not(
+        [type="reset"]
+      ):not([type="image"]),
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
   }
 }
 
@@ -111,6 +131,8 @@
   .search-field-control {
     min-height: 1.5rem;
     min-width: 0;
+    /* Explicit 16px so home search never triggers iOS focus-zoom. */
+    font-size: 1rem;
   }
   .search-field-control[type="number"] {
     -moz-appearance: textfield;
@@ -127,10 +149,13 @@
   .listing-shadow {
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
   }
-  /* Intentional table scroll only; page itself must not widen. */
-  .admin-scroll-x {
+  /* Intentional horizontal scroll (tabs/tables); never chain to the page. */
+  .admin-scroll-x,
+  .mobile-scroll-x {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
   }
 
   /* Binnenkort: seamless infinite marquee (track is 2 identical halves). */
@@ -138,6 +163,9 @@
     --upcoming-marquee-duration: 40s;
     animation: upcoming-marquee var(--upcoming-marquee-duration) linear infinite;
     will-change: transform;
+  }
+  .upcoming-marquee-viewport {
+    touch-action: pan-y;
   }
   .upcoming-marquee-viewport:hover .upcoming-marquee-track,
   .upcoming-marquee-viewport:focus-within .upcoming-marquee-track {

@@ -18,7 +18,7 @@ import {
 const SORT_OPTIONS: RefineSort[] = ["soonest", "newest"];
 
 const selectClassName =
-  "h-10 w-full min-w-0 rounded-full border border-border bg-white px-3 text-sm outline-none focus:border-foreground";
+  "h-10 w-full min-w-0 rounded-full border border-border bg-white px-3 text-base outline-none focus:border-foreground md:text-sm";
 
 export function ResultRefinementBar({
   refinement,
@@ -116,7 +116,7 @@ export function ResultRefinementBar({
               onChange({ ...refinement, q: event.target.value })
             }
             placeholder="Zoek op event, organisator of plaats…"
-            className="h-10 w-full rounded-full border border-border bg-white pr-3 pl-9 text-sm outline-none focus:border-foreground"
+            className="h-10 w-full rounded-full border border-border bg-white pr-3 pl-9 text-base outline-none focus:border-foreground md:text-sm"
           />
         </label>
 

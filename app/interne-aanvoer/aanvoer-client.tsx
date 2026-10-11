@@ -459,7 +459,7 @@ export function AanvoerClient({
                   value={url}
                   onChange={(event) => setUrl(event.target.value)}
                   placeholder="https://…"
-                  className="h-12 w-full break-all rounded-xl border border-stone-200 bg-white px-3"
+                  className="h-12 w-full break-all rounded-xl border border-stone-200 bg-white px-3 text-base"
                   autoFocus
                 />
               </label>
@@ -490,7 +490,7 @@ export function AanvoerClient({
                   rows={12}
                   maxLength={INTAKE_MAX_TEXT_CHARS}
                   placeholder={`Voorbeeld:\nFlirt & Stride – The Breakfast Edition\n10 oktober 2026 · 09:00–12:30\nAlix – Maison d'Amis, Gent\nhttps://instagram.com/…\nhttps://allevents.in/…`}
-                  className="min-h-[220px] w-full resize-y rounded-xl border border-stone-200 bg-white px-3 py-3 text-[15px] leading-6 text-stone-900"
+                  className="min-h-[220px] w-full resize-y rounded-xl border border-stone-200 bg-white px-3 py-3 text-base leading-6 text-stone-900"
                   autoFocus
                 />
                 <span className="mt-1 block text-[11px] text-stone-500">
@@ -757,7 +757,7 @@ export function AanvoerClient({
                     onChange={(event) =>
                       patchDraft({ [key]: event.target.value })
                     }
-                    className="h-10 w-full rounded-xl border border-stone-200 bg-white px-3"
+                    className="h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-base md:text-sm"
                   />
                 </label>
               ))}
@@ -767,7 +767,7 @@ export function AanvoerClient({
                   value={draft.notes}
                   onChange={(event) => patchDraft({ notes: event.target.value })}
                   rows={2}
-                  className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2"
+                  className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-base md:text-sm"
                 />
               </label>
             </div>

@@ -238,7 +238,7 @@ export function AanvoerCockpit({
 
       <AdminChatPanel />
 
-      <div className="overflow-x-auto">
+      <div className="mobile-scroll-x">
         <div
           className="inline-flex min-w-full gap-1 rounded-2xl border border-stone-200/80 bg-white/70 p-1 shadow-sm backdrop-blur sm:min-w-0"
           role="tablist"
@@ -459,7 +459,7 @@ function SourcesPanel({
             setPage(0);
           }}
           placeholder="Zoek bron of organisator…"
-          className="h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm sm:max-w-md"
+          className="h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-base sm:max-w-md md:text-sm"
         />
         <select
           value={status}
@@ -467,7 +467,7 @@ function SourcesPanel({
             setStatus(e.target.value as SourceFollowStatus | "all");
             setPage(0);
           }}
-          className="h-11 rounded-xl border border-stone-200 bg-white px-3 text-sm"
+          className="h-11 rounded-xl border border-stone-200 bg-white px-3 text-base md:text-sm"
         >
           <option value="all">Alle</option>
           <option value="gevolgd">Wordt gevolgd</option>
@@ -479,7 +479,7 @@ function SourcesPanel({
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value)}
-          className="h-11 rounded-xl border border-stone-200 bg-white px-3 text-sm"
+          className="h-11 rounded-xl border border-stone-200 bg-white px-3 text-base md:text-sm"
         >
           <option value="next">Volgende scan</option>
           <option value="last">Laatst gescand</option>
@@ -1085,12 +1085,12 @@ function EventsPanel({
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Zoek event of organisator…"
-          className="h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm sm:max-w-md"
+          className="h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-base sm:max-w-md md:text-sm"
         />
         <select
           value={origin}
           onChange={(e) => setOrigin(e.target.value)}
-          className="h-11 rounded-xl border border-stone-200 bg-white px-3 text-sm"
+          className="h-11 rounded-xl border border-stone-200 bg-white px-3 text-base md:text-sm"
         >
           <option value="all">Alle oorsprong</option>
           <option value="admin_intake">Admin intake</option>
@@ -1422,7 +1422,7 @@ function AdminEventCard({
               rows={6}
               maxLength={INTAKE_MAX_TEXT_CHARS}
               placeholder="Plak hier alles wat je over het event gevonden hebt."
-              className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 outline-none focus:border-stone-400"
+              className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-base text-stone-900 outline-none focus:border-stone-400 md:text-sm"
               disabled={pending}
             />
             <div className="flex flex-wrap items-center gap-2">

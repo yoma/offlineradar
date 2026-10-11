@@ -119,7 +119,7 @@ function LineChart({
     return `${x},${y}`;
   });
   return (
-    <div className="w-full overflow-x-auto">
+    <div className="mobile-scroll-x w-full">
       <svg
         viewBox={`0 0 ${w} ${h}`}
         className="h-40 w-full min-w-[280px]"
