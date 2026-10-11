@@ -1,4 +1,3 @@
-import { UpcomingStrip } from "@/components/discover/upcoming-strip";
 import { HomeHero } from "@/components/home/home-search";
 import { TipSection } from "@/components/tips/tip-section";
 import { brusselsToday } from "@/lib/dates";
@@ -44,7 +43,11 @@ export default async function HomePage() {
 
   return (
     <div>
-      <HomeHero organizerOptions={organizerOptions} />
+      <HomeHero
+        organizerOptions={organizerOptions}
+        upcomingEvents={upcomingEvents}
+        today={today}
+      />
       {catalogUnavailable ? (
         <p
           className="mx-auto w-full max-w-6xl px-4 pt-8 text-sm text-muted-foreground sm:px-6"
@@ -53,15 +56,6 @@ export default async function HomePage() {
           De catalogus is tijdelijk niet beschikbaar. Zoeken kan zo opnieuw
           lukken.
         </p>
-      ) : null}
-      {upcomingEvents.length > 0 ? (
-        <section className="mx-auto w-full max-w-6xl px-4 pt-10 sm:px-6">
-          <UpcomingStrip
-            events={upcomingEvents}
-            today={today}
-            headingId="home-binnenkort-heading"
-          />
-        </section>
       ) : null}
       {/* Tip section sits where the first discovery strip would continue:
           visible after the hero, before the product explainer. */}

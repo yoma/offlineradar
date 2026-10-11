@@ -127,10 +127,10 @@ export function SiteHeader() {
             href="/#tip-een-activiteit"
             aria-label="Ken je een singlesevent? Geef het aan ons door."
             className={cn(
-              "rounded-full px-3 py-1.5 text-sm font-medium transition",
+              "rounded-full px-3 py-1.5 text-sm font-semibold transition",
               light
-                ? "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                : "text-white/80 hover:bg-white/10 hover:text-white",
+                ? "bg-primary text-primary-foreground hover:bg-[var(--brand-gold-ink)]"
+                : "bg-white text-primary hover:bg-white/90",
             )}
             onClick={() => {
               // Same-page hash nav does not remount TipSection; open the form
@@ -141,7 +141,7 @@ export function SiteHeader() {
               }, 0);
             }}
           >
-            Event doorgeven
+            Singlesevent doorgeven
           </Link>
         </nav>
         <div className="flex items-center gap-1.5 md:hidden">

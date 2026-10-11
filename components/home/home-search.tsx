@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { PendingContent } from "@/components/ui/pending";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { Plus, Search, SlidersHorizontal, X } from "lucide-react";
 import {
   useEffect,
   useMemo,
@@ -12,6 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import { markSearchPending } from "@/components/discover/search-loading";
+import { UpcomingStrip } from "@/components/discover/upcoming-strip";
 import { CategoryFilterChips } from "@/components/filters/category-filter-chips";
 import { FilterSheet } from "@/components/filters/filter-sheet";
 import { countHomeFilterMatches } from "@/app/home-filter-count";
@@ -37,13 +38,17 @@ import {
 } from "@/lib/search-state";
 import { expandActivityFilterSelection } from "@/lib/public-activity-groups";
 import { readProfile, writeProfile } from "@/lib/storage";
-import type { UserGender } from "@/types/event";
+import type { Event, UserGender } from "@/types/event";
 import type { SearchState, WhenFilter } from "@/types/search";
 
 export function HomeHero({
   organizerOptions = [],
+  upcomingEvents = [],
+  today,
 }: {
   organizerOptions?: PublishedOrganizerOption[];
+  upcomingEvents?: Event[];
+  today?: string;
 }) {
   const [state, setState] = useState<SearchState>(() => defaultSearchState());
   const [ageDraft, setAgeDraft] = useState("");
@@ -275,6 +280,17 @@ export function HomeHero({
           Ontdek hier singlesevents en activiteiten waar je andere singles in
           het echt kunt ontmoeten.
         </p>
+
+        {upcomingEvents.length > 0 && today ? (
+          <div className="mt-5 w-full min-w-0 max-w-4xl sm:mt-6">
+            <UpcomingStrip
+              events={upcomingEvents}
+              today={today}
+              variant="onDark"
+              headingId="home-binnenkort-heading"
+            />
+          </div>
+        ) : null}
 
         <form
           className="mt-6 w-full min-w-0 max-w-4xl sm:mt-8"
@@ -527,6 +543,25 @@ export function HomeHero({
                   Vind activiteiten
                 </PendingContent>
               </button>
+              <a
+                href="#tip-een-activiteit"
+                aria-label="Ken je een singlesevent? Geef het aan ons door."
+                className="inline-flex w-full flex-col items-center justify-center gap-0.5 rounded-2xl border border-white/40 bg-white/10 px-5 py-3 text-center text-white backdrop-blur-sm transition hover:bg-white/20 sm:w-auto sm:min-w-[220px] sm:items-start sm:text-left"
+                onClick={() => {
+                  if (typeof window === "undefined") return;
+                  window.setTimeout(() => {
+                    window.dispatchEvent(new Event("offlineradar:open-tip"));
+                  }, 0);
+                }}
+              >
+                <span className="inline-flex items-center gap-1.5 text-[15px] font-semibold leading-5">
+                  <Plus className="size-3.5 shrink-0 opacity-90" aria-hidden />
+                  Ken je een singlesevent?
+                </span>
+                <span className="text-[13px] font-normal leading-5 text-white/75">
+                  Geef het aan ons door.
+                </span>
+              </a>
             </div>
           </div>
         </form>
