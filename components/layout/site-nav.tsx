@@ -171,16 +171,6 @@ function MobileMenuSheet({ light }: { light: boolean }) {
           <div className="flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-semibold">
             <AccountNavLink light />
           </div>
-          <a
-            href={INSTAGRAM_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-semibold text-[var(--brand-gold-deep)] hover:bg-[var(--brand-gold-soft)]"
-          >
-            <InstagramIcon className="size-5 shrink-0" strokeWidth={2} />
-            Instagram
-          </a>
         </nav>
       </SheetContent>
     </Sheet>
@@ -212,28 +202,32 @@ export function SiteHeader() {
       )}
     >
       <div className="mx-auto flex h-16 w-full min-w-0 max-w-6xl items-center justify-between gap-3 overflow-visible px-4 sm:px-6">
-        <Link
-          href="/"
-          className="flex min-w-0 shrink-0 items-center gap-2.5 overflow-visible"
-          aria-label="DateOfflineHub home"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/brand/dateofflinehub-mark.png"
-            alt=""
-            width={64}
-            height={52}
-            className="h-12 w-auto shrink-0 object-contain sm:h-[3.25rem]"
-          />
-          <span
-            className={cn(
-              "truncate text-[16px] font-semibold tracking-tight sm:text-[18px]",
-              light ? "text-[var(--brand-gold-deep)]" : "text-white",
-            )}
+        <div className="flex min-w-0 items-center gap-1 sm:gap-1.5">
+          <Link
+            href="/"
+            className="flex min-w-0 shrink-0 items-center gap-2.5 overflow-visible"
+            aria-label="DateOfflineHub home"
           >
-            DateOfflineHub
-          </span>
-        </Link>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/dateofflinehub-mark.png"
+              alt=""
+              width={64}
+              height={52}
+              className="h-12 w-auto shrink-0 object-contain sm:h-[3.25rem]"
+            />
+            <span
+              className={cn(
+                "truncate text-[16px] font-semibold tracking-tight sm:text-[18px]",
+                light ? "text-[var(--brand-gold-deep)]" : "text-white",
+              )}
+            >
+              DateOfflineHub
+            </span>
+          </Link>
+          {/* Brand-side social: keep away from account/login in the menu. */}
+          <InstagramNavLink light={light} />
+        </div>
         <nav className="hidden items-center gap-5 text-sm font-medium md:flex lg:gap-7">
           {links.map((link) => {
             const active = pathname.startsWith(link.href);
@@ -255,8 +249,6 @@ export function SiteHeader() {
               </Link>
             );
           })}
-          <AccountNavLink light={light} />
-          <InstagramNavLink light={light} />
           <Link
             href="/#tip-een-activiteit"
             aria-label="Ken je een singlesevent? Geef het aan ons door."
@@ -270,9 +262,9 @@ export function SiteHeader() {
           >
             Singlesevent doorgeven
           </Link>
+          <AccountNavLink light={light} />
         </nav>
-        <div className="flex shrink-0 items-center gap-1.5 md:hidden">
-          <InstagramNavLink light={light} />
+        <div className="flex shrink-0 items-center md:hidden">
           <MobileMenuSheet light={light} />
         </div>
       </div>
