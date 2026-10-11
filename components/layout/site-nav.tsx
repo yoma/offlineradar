@@ -89,9 +89,11 @@ function InstagramIcon(props: SVGProps<SVGSVGElement>) {
 function InstagramNavLink({
   light,
   className,
+  menuRow = false,
 }: {
   light: boolean;
   className?: string;
+  menuRow?: boolean;
 }) {
   return (
     <a
@@ -100,15 +102,22 @@ function InstagramNavLink({
       rel="noopener noreferrer"
       aria-label="DateOfflineHub op Instagram"
       className={cn(
-        "inline-flex size-11 items-center justify-center rounded-full transition",
+        menuRow
+          ? "inline-flex w-full items-center gap-3 rounded-xl px-3 py-3 text-[15px] font-semibold text-foreground transition hover:bg-muted/70"
+          : "inline-flex size-11 items-center justify-center rounded-full transition",
         // Always gold so it stands out on both the dark hero header and light pages.
-        light
-          ? "text-[var(--brand-gold-deep)] hover:bg-[var(--brand-gold-soft)] hover:text-[var(--brand-gold-ink)]"
-          : "text-[var(--brand-gold)] hover:bg-white/15 hover:text-[var(--brand-gold-soft)]",
+        !menuRow &&
+          (light
+            ? "text-[var(--brand-gold-deep)] hover:bg-[var(--brand-gold-soft)] hover:text-[var(--brand-gold-ink)]"
+            : "text-[var(--brand-gold)] hover:bg-white/15 hover:text-[var(--brand-gold-soft)]"),
         className,
       )}
     >
-      <InstagramIcon className="size-6" strokeWidth={2} />
+      <InstagramIcon
+        className={menuRow ? "size-5 shrink-0" : "size-6"}
+        strokeWidth={2}
+      />
+      {menuRow ? <span>Instagram</span> : null}
     </a>
   );
 }
@@ -154,7 +163,7 @@ function MobileMenuSheet({
       <SheetTrigger
         type="button"
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-semibold transition",
+          "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-2 text-sm font-semibold transition sm:px-3",
           light
             ? "border-border bg-white text-foreground hover:bg-muted/60"
             : "border-white/45 bg-white/15 text-white hover:bg-white/25",
@@ -162,7 +171,7 @@ function MobileMenuSheet({
         aria-label="Menu openen"
       >
         <Menu className="size-5" aria-hidden />
-        Menu
+        <span className="hidden min-[360px]:inline">Menu</span>
       </SheetTrigger>
       <SheetContent
         side="right"
@@ -224,6 +233,7 @@ function MobileMenuSheet({
                 : undefined
             }
           />
+          <InstagramNavLink light menuRow className="mt-1 sm:hidden" />
         </nav>
         <SheetFooter className="border-t border-border p-4">
           <Link
@@ -277,7 +287,7 @@ export function SiteHeader({
         <div className="flex min-w-0 items-center gap-1 sm:gap-1.5">
           <Link
             href="/"
-            className="flex min-w-0 shrink-0 items-center gap-2.5 overflow-visible"
+            className="flex min-w-0 items-center gap-2 overflow-hidden sm:gap-2.5"
             aria-label="DateOfflineHub home"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -297,8 +307,8 @@ export function SiteHeader({
               DateOfflineHub
             </span>
           </Link>
-          {/* Brand-side social: keep away from account/login in the menu. */}
-          <InstagramNavLink light={light} />
+          {/* Desktop/tablet: brand-side social. On phones it lives in the menu. */}
+          <InstagramNavLink light={light} className="hidden sm:inline-flex" />
         </div>
         <div className="hidden min-w-0 items-center gap-6 md:flex lg:gap-8">
           <nav className="flex items-center gap-5 text-sm font-medium lg:gap-7">

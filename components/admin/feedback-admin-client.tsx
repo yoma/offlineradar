@@ -182,7 +182,7 @@ export function FeedbackAdminClient({
                         <select
                           name="status"
                           defaultValue={item.status}
-                          className="mt-1 block h-10 rounded-md border border-border bg-white px-2"
+                          className="mt-1 block h-10 rounded-md border border-border bg-white px-2 text-base md:text-sm"
                         >
                           {FEEDBACK_STATUSES.map((status) => (
                             <option key={status} value={status}>
@@ -209,7 +209,7 @@ export function FeedbackAdminClient({
                         <select
                           name="category"
                           defaultValue={item.category}
-                          className="mt-1 block h-10 max-w-full rounded-md border border-border bg-white px-2"
+                          className="mt-1 block h-10 max-w-full rounded-md border border-border bg-white px-2 text-base md:text-sm"
                         >
                           {FEEDBACK_CATEGORIES.map((category) => (
                             <option key={category} value={category}>
@@ -240,7 +240,7 @@ export function FeedbackAdminClient({
                           rows={2}
                           defaultValue={item.adminNote ?? ""}
                           maxLength={1000}
-                          className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-sm"
+                          className="mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-base md:text-sm"
                         />
                       </label>
                       <ActionSubmitButton

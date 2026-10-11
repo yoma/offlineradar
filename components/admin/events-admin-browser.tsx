@@ -106,7 +106,7 @@ export function EventsAdminBrowser({
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Zoek titel / stad / slug"
-          className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+          className="rounded-md border border-border bg-background px-3 py-2 text-base md:text-sm"
           aria-label="Zoek events"
         />
         <div className="flex flex-wrap gap-1">

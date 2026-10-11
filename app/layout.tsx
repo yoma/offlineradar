@@ -28,7 +28,7 @@ const siteDescription =
   "Ontdek hier singlesevents en activiteiten waar je andere singles in het echt kunt ontmoeten.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://dateofflinehub.vercel.app"),
+  metadataBase: new URL("https://dateofflinehub.be"),
   applicationName: "DateOfflineHub",
   title: {
     default: "DateOfflineHub",

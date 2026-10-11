@@ -233,7 +233,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   name="from"
                   type="date"
                   defaultValue={searchParams.get("from") ?? ""}
-                  className="mt-1 block rounded-lg border border-stone-200 px-2 py-1.5 text-sm"
+                  className="mt-1 block rounded-lg border border-stone-200 px-2 py-1.5 text-base md:text-sm"
                   required
                 />
               </label>
@@ -243,7 +243,7 @@ export function DashboardClient({ data }: { data: DashboardData }) {
                   name="to"
                   type="date"
                   defaultValue={searchParams.get("to") ?? ""}
-                  className="mt-1 block rounded-lg border border-stone-200 px-2 py-1.5 text-sm"
+                  className="mt-1 block rounded-lg border border-stone-200 px-2 py-1.5 text-base md:text-sm"
                   required
                 />
               </label>
