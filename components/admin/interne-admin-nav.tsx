@@ -7,10 +7,21 @@ export function InterneAdminNav({
   active,
   newFeedbackCount = 0,
 }: {
-  active: "dashboard" | "events" | "tips" | "feedback" | "aanvoer";
+  active:
+    | "dashboard"
+    | "goedkeuren"
+    | "events"
+    | "tips"
+    | "feedback"
+    | "aanvoer";
   newFeedbackCount?: number;
 }) {
   const items = [
+    {
+      href: "/interne-goedkeuren",
+      key: "goedkeuren" as const,
+      label: "Goedkeuren",
+    },
     {
       href: "/interne-dashboard",
       key: "dashboard" as const,

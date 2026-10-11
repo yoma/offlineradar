@@ -1084,6 +1084,7 @@ export async function updateAanvoerCandidateStatusAction(
     }
     if (!updated) return { ok: false, error: "Kon event niet toevoegen." };
     revalidatePath("/interne-aanvoer");
+    revalidatePath("/interne-goedkeuren");
     revalidatePath("/interne-events");
     revalidatePath("/ontdek");
     revalidatePath(`/event/${updated.slug}`);
@@ -1105,6 +1106,7 @@ export async function updateAanvoerCandidateStatusAction(
       if (!fallback) return { ok: false, error: "Kon status niet bijwerken." };
     }
     revalidatePath("/interne-aanvoer");
+    revalidatePath("/interne-goedkeuren");
     revalidatePath("/interne-events");
     revalidatePath("/ontdek");
     return { ok: true, message: "Niet toegevoegd." };
@@ -1117,6 +1119,7 @@ export async function updateAanvoerCandidateStatusAction(
   });
   if (!updated) return { ok: false, error: "Kon status niet bijwerken." };
   revalidatePath("/interne-aanvoer");
+  revalidatePath("/interne-goedkeuren");
   revalidatePath("/interne-events");
   return { ok: true };
 }
