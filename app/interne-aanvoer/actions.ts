@@ -283,7 +283,13 @@ export async function analyzeIntakeAction(
 }
 
 export type SaveIntakeResult =
-  | { ok: true; message: string; sourceId?: string; editionId?: string }
+  | {
+      ok: true;
+      message: string;
+      sourceId?: string;
+      editionId?: string;
+      sourceFollowMessage?: string | null;
+    }
   | { ok: false; error: string; matches?: IntakeMatch[] };
 
 export type ApproveIntakeResult =
@@ -404,20 +410,17 @@ export async function approveIntakeAction(
       if (approval.canPublish) return source;
     } else {
       sourceId = source.sourceId;
-      const { setSourceRefreshEnabled } = await import(
-        "@/lib/source-refresh/store"
-      );
       const { listCatalogSources } = await import(
         "@/lib/events/catalog-sources"
       );
-      const { getSourceFollowCapability } = await import(
+      const { enableCatalogSourceAutoFollow } = await import(
         "@/lib/aanvoer/source-follow"
       );
       const catalog = (await listCatalogSources()).find(
         (s) => s.id === source.sourceId,
       );
       const name = (catalog?.name ?? draft.organizer.trim()) || "Bron";
-      const capability = getSourceFollowCapability({
+      const follow = await enableCatalogSourceAutoFollow({
         catalogSourceId: source.sourceId,
         officialUrl:
           catalog?.officialUrl ||
@@ -425,12 +428,7 @@ export async function approveIntakeAction(
           draft.organizerUrl.trim(),
         name,
       });
-      if (capability.autoFollowable) {
-        await setSourceRefreshEnabled(source.sourceId, true);
-        sourceFollowMessage = `Bron herkend: ${name}. ✓ Toegevoegd aan bronnen. ✓ Wordt voortaan automatisch gevolgd (${capability.methodLabel}).`;
-      } else {
-        sourceFollowMessage = `Bron herkend: ${name}. Handmatige bron — ${capability.manualReason ?? "automatische opvolging momenteel niet mogelijk"}.`;
-      }
+      sourceFollowMessage = follow.message;
     }
   }
 
@@ -505,12 +503,32 @@ export async function saveIntakeSourceAction(
 
   const result = await saveIntakeAsSource({ draft, assetId, force });
   if (!result.ok) return result;
+
+  const { listCatalogSources } = await import("@/lib/events/catalog-sources");
+  const { enableCatalogSourceAutoFollow } = await import(
+    "@/lib/aanvoer/source-follow"
+  );
+  const catalog = (await listCatalogSources()).find(
+    (s) => s.id === result.sourceId,
+  );
+  const name = (catalog?.name ?? draft.organizer.trim()) || "Bron";
+  const follow = await enableCatalogSourceAutoFollow({
+    catalogSourceId: result.sourceId,
+    officialUrl:
+      catalog?.officialUrl ||
+      draft.sourceUrl.trim() ||
+      draft.organizerUrl.trim(),
+    name,
+    namePrefix: result.message,
+  });
+
   revalidatePath("/interne-aanvoer");
   revalidatePath("/interne-events");
   return {
     ok: true,
     message: result.message,
     sourceId: result.sourceId,
+    sourceFollowMessage: follow.message,
   };
 }
 

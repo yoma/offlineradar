@@ -7,6 +7,7 @@ import {
 import { AanvoerCockpit } from "@/components/admin/aanvoer-cockpit";
 import { InterneAdminNav } from "@/components/admin/interne-admin-nav";
 import { InterneAdminShell } from "@/components/admin/interne-admin-shell";
+import { ScheduledRefreshBanner } from "@/components/admin/scheduled-refresh-banner";
 import { loadAanvoerCockpitData } from "@/lib/aanvoer/cockpit-data";
 import { assertOfflineRadarDbConfig } from "@/lib/events/db";
 import { countBetaFeedbackByStatus } from "@/lib/feedback/store";
@@ -140,6 +141,7 @@ export default async function InterneAanvoerPage({
           via Toevoegen aan DateOfflineHub. Geen auto-publicatie.
         </p>
       </header>
+      <ScheduledRefreshBanner />
       <Suspense fallback={<p className="text-sm text-stone-500">Laden…</p>}>
         <AanvoerCockpit
           data={data}

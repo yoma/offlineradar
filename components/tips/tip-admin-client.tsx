@@ -177,7 +177,14 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
     startTransition(async () => {
       const data = await postAction({ action: "add_source_watch", tipId });
       if (!data) return;
-      setMessage("Bron toegevoegd aan tip-watchlist (geen auto-monitoring).");
+      const follow =
+        typeof data.followMessage === "string" && data.followMessage.trim()
+          ? data.followMessage.trim()
+          : null;
+      setMessage(
+        follow ??
+          "Bron toegevoegd aan Source Map. Automatische opvolging waar mogelijk.",
+      );
       await refresh();
     });
   }

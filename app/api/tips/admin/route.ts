@@ -223,7 +223,7 @@ export async function POST(request: Request) {
     const name =
       found.review.aiPrep?.proposedOrganizer?.trim() ||
       new URL(found.tip.originalUrl).hostname;
-    const sourceId = await neonUpsertSourceWatch({
+    const watchId = await neonUpsertSourceWatch({
       officialUrl: found.tip.originalUrl,
       normalizedUrl: urlResult.normalizedUrl,
       organizerOrSeriesName: name,
@@ -232,7 +232,46 @@ export async function POST(request: Request) {
         "Handmatig toegevoegd vanuit tipwachtrij.",
       tipId,
     });
-    return NextResponse.json({ ok: true, sourceId });
+
+    // Also land on the scheduled catalog Source Map (watchlist alone is not cron-fed).
+    const { upsertCatalogSourceByUrl } = await import(
+      "@/lib/events/catalog-sources"
+    );
+    const { enableCatalogSourceAutoFollow } = await import(
+      "@/lib/aanvoer/source-follow"
+    );
+    const catalog = await upsertCatalogSourceByUrl({
+      name,
+      officialUrl: found.tip.originalUrl,
+      status: "promising",
+      notes: [
+        "discovered_by=user",
+        "via=tip_source_watch",
+        found.review.aiPrep?.suggestSourceWatchReason ||
+          "Handmatig toegevoegd vanuit tipwachtrij.",
+      ]
+        .filter(Boolean)
+        .join(" | "),
+    });
+    let followMessage: string | null = null;
+    let catalogSourceId: string | null = null;
+    if (catalog) {
+      catalogSourceId = catalog.record.id;
+      const follow = await enableCatalogSourceAutoFollow({
+        catalogSourceId: catalog.record.id,
+        officialUrl: catalog.record.officialUrl,
+        name: catalog.record.name,
+        namePrefix: `Tip-bron ${catalog.record.name} in Source Map.`,
+      });
+      followMessage = follow.message;
+    }
+
+    return NextResponse.json({
+      ok: true,
+      sourceId: watchId,
+      catalogSourceId,
+      followMessage,
+    });
   }
 
   if (action === "preview_status_mail") {

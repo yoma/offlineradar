@@ -245,6 +245,57 @@ export function getSourceFollowCapability(input: {
   return resolveSourceFollowCapability(input);
 }
 
+export type EnableAutoFollowResult = {
+  enabled: boolean;
+  methodLabel: string | null;
+  manualReason: string | null;
+  /** Short admin-facing status line after save. */
+  message: string;
+};
+
+/**
+ * Turn on refresh_enabled when the catalog source has any auto-follow method.
+ * Shared by intake approve, “alleen bron”, catalog add, and tip watch.
+ */
+export async function enableCatalogSourceAutoFollow(input: {
+  catalogSourceId: string;
+  officialUrl: string;
+  name?: string | null;
+  /** Optional prefix, e.g. "Bron herkend: Speeddaten." */
+  namePrefix?: string;
+}): Promise<EnableAutoFollowResult> {
+  const { setSourceRefreshEnabled } = await import("@/lib/source-refresh/store");
+  const name = (input.name ?? "").trim() || "Bron";
+  const capability = getSourceFollowCapability({
+    catalogSourceId: input.catalogSourceId,
+    officialUrl: input.officialUrl,
+    name,
+  });
+  const prefix =
+    input.namePrefix?.trim() ||
+    `Bron herkend: ${name}. ✓ Toegevoegd aan bronnen.`;
+
+  if (!capability.autoFollowable) {
+    return {
+      enabled: false,
+      methodLabel: null,
+      manualReason: capability.manualReason,
+      message: `${prefix} Handmatige bron — ${
+        capability.manualReason ??
+        "automatische opvolging momenteel niet mogelijk"
+      }.`,
+    };
+  }
+
+  await setSourceRefreshEnabled(input.catalogSourceId, true);
+  return {
+    enabled: true,
+    methodLabel: capability.methodLabel,
+    manualReason: null,
+    message: `${prefix} ✓ Wordt voortaan automatisch gevolgd (${capability.methodLabel}).`,
+  };
+}
+
 /** Append or remove a follow tag in notes without wiping other content. */
 export function patchFollowNotes(
   notes: string | null | undefined,
