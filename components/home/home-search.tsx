@@ -278,7 +278,7 @@ export function HomeHero({
           <br />
           Ervaar opnieuw de kracht van echte connecties.
         </h1>
-        <p className="mt-4 max-w-lg text-pretty text-[14px] leading-7 font-normal text-white/75 sm:mt-5 sm:max-w-xl sm:text-[15px] sm:leading-7">
+        <p className="mt-4 max-w-xl text-[14px] leading-7 font-normal text-white/75 sm:mt-5 sm:max-w-3xl sm:text-[15px] lg:max-w-none lg:whitespace-nowrap">
           Ontdek hier singlesevents en activiteiten waar je andere singles in
           het echt kunt ontmoeten.
         </p>
