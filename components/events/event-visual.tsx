@@ -95,7 +95,7 @@ export function EventVisual({
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
       {showAtmosphere && kindLabel !== "Neutraal fallbackbeeld" ? (
-        <p className="absolute top-3 left-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium tracking-wide text-white">
+        <p className="brand-sfeerbeeld absolute top-3 left-3 rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wide">
           Sfeerbeeld
         </p>
       ) : null}

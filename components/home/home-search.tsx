@@ -548,7 +548,7 @@ export function HomeHero({
               <a
                 href="#tip-een-activiteit"
                 aria-label="Ken je een singlesevent? Geef het aan ons door."
-                className="inline-flex w-full flex-col items-center justify-center gap-0.5 rounded-2xl border border-white/40 bg-white/10 px-5 py-3 text-center text-white backdrop-blur-sm transition hover:bg-white/20 sm:w-auto sm:min-w-[220px] sm:items-start sm:text-left"
+                className="inline-flex w-full flex-col items-center justify-center gap-0.5 rounded-2xl border border-[color-mix(in_srgb,#ffffff_55%,var(--brand-rose)_45%)] bg-[color-mix(in_srgb,var(--brand-bordeaux)_42%,transparent)] px-5 py-3 text-center text-white backdrop-blur-sm transition hover:border-white/55 hover:bg-[color-mix(in_srgb,var(--brand-bordeaux)_55%,transparent)] sm:w-auto sm:min-w-[220px] sm:items-start sm:text-left"
                 onClick={() => {
                   if (typeof window === "undefined") return;
                   window.setTimeout(() => {
@@ -560,7 +560,7 @@ export function HomeHero({
                   <Plus className="size-3.5 shrink-0 opacity-90" aria-hidden />
                   Ken je een singlesevent?
                 </span>
-                <span className="text-[13px] font-normal leading-5 text-white/75">
+                <span className="text-[13px] font-normal leading-5 text-white/80">
                   Geef het aan ons door.
                 </span>
               </a>
@@ -620,7 +620,7 @@ function Field({
     >
       <span
         className={`mb-1.5 flex h-4 items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold tracking-[0.08em] uppercase ${
-          invalid ? "text-primary" : "text-muted-foreground"
+          invalid ? "text-primary" : "text-[var(--brand-bordeaux)]"
         }`}
       >
         <span className="truncate">{label}</span>

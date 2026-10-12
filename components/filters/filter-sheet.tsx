@@ -97,8 +97,8 @@ export function FilterSheet({
         side="bottom"
         className="gap-0 overflow-hidden p-0 max-h-[min(92vh,100dvh)] rounded-t-2xl pb-[env(safe-area-inset-bottom,0px)] md:data-[side=bottom]:inset-x-auto md:data-[side=bottom]:bottom-auto md:data-[side=bottom]:top-1/2 md:data-[side=bottom]:left-1/2 md:data-[side=bottom]:right-auto md:data-[side=bottom]:h-auto md:data-[side=bottom]:max-h-[min(85vh,840px)] md:data-[side=bottom]:w-[min(calc(100%-2rem),980px)] md:data-[side=bottom]:-translate-x-1/2 md:data-[side=bottom]:-translate-y-1/2 md:data-[side=bottom]:rounded-2xl md:data-[side=bottom]:border md:data-[side=bottom]:shadow-xl md:data-[side=bottom]:data-open:slide-in-from-bottom-0 md:data-[side=bottom]:data-open:fade-in-0"
       >
-        <SheetHeader className="shrink-0 border-b border-border/70 px-5 py-4 md:px-6">
-          <SheetTitle className="text-lg font-semibold tracking-tight">
+        <SheetHeader className="shrink-0 border-b border-[color-mix(in_srgb,var(--border)_70%,var(--brand-bordeaux)_30%)] px-5 py-4 md:px-6">
+          <SheetTitle className="font-heading-section text-lg tracking-tight text-[var(--brand-bordeaux)]">
             Meer filters
           </SheetTitle>
           <SheetDescription className="text-sm text-muted-foreground">
@@ -562,7 +562,7 @@ function FilterGroup({
 }) {
   return (
     <fieldset className={`min-w-0 space-y-2 ${className}`}>
-      <legend className="text-xs font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+      <legend className="brand-section-label text-xs font-semibold tracking-[0.06em] uppercase">
         {title}
       </legend>
       {children}
@@ -584,10 +584,10 @@ function Choice({
       type="button"
       aria-pressed={pressed}
       onClick={onClick}
-      className={`rounded-full border px-2.5 py-1.5 text-sm transition ${
+      className={`rounded-full border px-2.5 py-1.5 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_srgb,var(--brand-bordeaux)_55%,var(--brand-gold))] ${
         pressed
           ? "border-primary bg-primary text-primary-foreground"
-          : "border-border bg-card text-foreground hover:border-foreground/25"
+          : "brand-chip-idle"
       }`}
     >
       {children}

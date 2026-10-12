@@ -63,6 +63,14 @@
   --brand-cream: #f9f2ea;
   --brand-bordeaux: #67283a;
   --brand-rose: #c98188;
+  /* Soft washes: warmth without full-page colour blocks */
+  --brand-rose-soft: color-mix(in srgb, var(--brand-rose) 16%, #ffffff);
+  --brand-bordeaux-soft: color-mix(in srgb, var(--brand-bordeaux) 9%, #ffffff);
+  --brand-bordeaux-muted: color-mix(
+    in srgb,
+    var(--brand-bordeaux) 78%,
+    var(--brand-anthracite)
+  );
   /* Instagram-style edge blobs (visible but softer than the poster) */
   --brand-shape-rose: #e8b5a6;
   --brand-shape-terracotta: #c47a68;
@@ -88,7 +96,7 @@
   --accent: #fbf6e8;
   --accent-foreground: #7a5c1e;
   --destructive: #9b2c2c;
-  --border: #e8ddd2;
+  --border: #e4d5cb;
   --input: #ddd2c6;
   --ring: #9c7c25;
   --chart-1: #9c7c25;
@@ -180,8 +188,52 @@
   }
   .brand-card {
     background-color: var(--card);
-    border: 1px solid color-mix(in srgb, var(--border) 90%, var(--brand-gold) 10%);
-    box-shadow: 0 8px 24px -14px rgba(47, 48, 53, 0.14);
+    border: 1px solid
+      color-mix(in srgb, var(--border) 82%, var(--brand-bordeaux) 18%);
+    box-shadow:
+      0 8px 24px -14px rgba(47, 48, 53, 0.12),
+      0 2px 8px -6px color-mix(in srgb, var(--brand-bordeaux) 18%, transparent);
+  }
+  .brand-event-title {
+    color: var(--brand-bordeaux);
+  }
+  .brand-meta-icon {
+    color: color-mix(in srgb, var(--brand-bordeaux) 82%, var(--brand-rose));
+  }
+  .brand-section-label {
+    color: var(--brand-bordeaux);
+  }
+  .brand-accent-rule {
+    display: block;
+    width: 1.75rem;
+    height: 2px;
+    border-radius: 999px;
+    background: color-mix(
+      in srgb,
+      var(--brand-bordeaux) 70%,
+      var(--brand-gold) 30%
+    );
+  }
+  .brand-sfeerbeeld {
+    background: color-mix(in srgb, var(--brand-cream) 88%, #ffffff);
+    color: var(--brand-bordeaux);
+    border: 1px solid
+      color-mix(in srgb, var(--brand-bordeaux) 22%, transparent);
+    box-shadow: 0 4px 12px -8px rgba(47, 48, 53, 0.45);
+  }
+  .brand-chip-idle {
+    border-color: color-mix(in srgb, var(--border) 70%, var(--brand-bordeaux) 30%);
+    background-color: var(--card);
+    color: var(--foreground);
+  }
+  .brand-chip-idle:hover {
+    border-color: color-mix(in srgb, var(--brand-bordeaux) 35%, var(--border));
+    background-color: var(--brand-rose-soft);
+  }
+  .brand-focus-ring:focus-visible {
+    outline: 2px solid
+      color-mix(in srgb, var(--brand-bordeaux) 55%, var(--brand-gold));
+    outline-offset: 2px;
   }
   /* Intentional horizontal scroll (tabs/tables); never chain to the page.
    * Keep pan-y so a finger starting on the tab strip can still scroll the page. */

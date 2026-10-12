@@ -91,7 +91,7 @@ export function CategoryFilterChips({
 }) {
   return (
     <fieldset className={`min-w-0 ${className}`}>
-      <legend className="mb-2 text-[11px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+      <legend className="brand-section-label mb-2 text-[11px] font-semibold tracking-[0.08em] uppercase">
         Categorieën
       </legend>
       <p className="mb-2 text-xs text-muted-foreground">
@@ -108,10 +108,10 @@ export function CategoryFilterChips({
               type="button"
               aria-pressed={pressed}
               onClick={() => onChange(applyCategoryChipPatch(state, chip))}
-              className={`rounded-full border px-2.5 py-1.5 text-sm transition ${
+              className={`rounded-full border px-2.5 py-1.5 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_srgb,var(--brand-bordeaux)_55%,var(--brand-gold))] ${
                 pressed
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-foreground hover:border-foreground/25"
+                  ? "border-primary bg-primary text-primary-foreground shadow-[0_4px_12px_-8px_rgba(156,124,37,0.55)]"
+                  : "brand-chip-idle"
               }`}
             >
               {chip.label}

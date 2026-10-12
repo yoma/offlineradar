@@ -18,7 +18,7 @@ import {
 const SORT_OPTIONS: RefineSort[] = ["soonest", "newest"];
 
 const selectClassName =
-  "h-10 w-full min-w-0 rounded-full border border-border bg-white px-3 text-base outline-none focus:border-foreground md:text-sm";
+  "h-10 w-full min-w-0 rounded-full border border-[color-mix(in_srgb,var(--border)_75%,var(--brand-bordeaux)_25%)] bg-white px-3 text-base outline-none focus:border-[var(--brand-bordeaux)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--brand-bordeaux)_18%,transparent)] md:text-sm";
 
 export function ResultRefinementBar({
   refinement,
@@ -78,12 +78,12 @@ export function ResultRefinementBar({
 
   return (
     <section
-      className="mt-5 rounded-2xl border border-border bg-white px-3 py-3 sm:px-4"
+      className="mt-5 rounded-2xl border border-[color-mix(in_srgb,var(--border)_72%,var(--brand-bordeaux)_28%)] bg-white px-3 py-3 shadow-[0_8px_24px_-20px_color-mix(in_srgb,var(--brand-bordeaux)_20%,transparent)] sm:px-4"
       aria-label="Verfijn resultaten"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold tracking-tight">
+          <h2 className="brand-section-label text-sm font-semibold tracking-tight">
             Verfijn resultaten
           </h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -116,7 +116,7 @@ export function ResultRefinementBar({
               onChange({ ...refinement, q: event.target.value })
             }
             placeholder="Zoek op event, organisator of plaats…"
-            className="h-10 w-full rounded-full border border-border bg-white pr-3 pl-9 text-base outline-none focus:border-foreground md:text-sm"
+            className="h-10 w-full rounded-full border border-[color-mix(in_srgb,var(--border)_75%,var(--brand-bordeaux)_25%)] bg-white pr-3 pl-9 text-base outline-none focus:border-[var(--brand-bordeaux)] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--brand-bordeaux)_18%,transparent)] md:text-sm"
           />
         </label>
 

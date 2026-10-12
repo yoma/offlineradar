@@ -72,11 +72,12 @@ export function SaveButton({
       aria-pressed={saved}
       aria-label={saved ? `Verwijder ${title} uit bewaard` : `Bewaar ${title}`}
       className={cn(
-        "inline-flex size-9 items-center justify-center rounded-full transition",
+        "inline-flex size-9 items-center justify-center rounded-full transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_srgb,var(--brand-bordeaux)_55%,var(--brand-gold))]",
         overlay
-          ? "bg-white/90 text-foreground shadow-sm hover:scale-105"
-          : "border border-border bg-white text-foreground hover:border-foreground",
-        saved && "text-primary",
+          ? "bg-white/92 text-[var(--brand-bordeaux)] shadow-sm hover:scale-105 hover:bg-[var(--brand-rose-soft)]"
+          : "border border-[color-mix(in_srgb,var(--border)_70%,var(--brand-bordeaux)_30%)] bg-white text-[var(--brand-bordeaux)] hover:border-[var(--brand-bordeaux)] hover:bg-[var(--brand-rose-soft)]",
+        saved &&
+          "bg-[var(--brand-bordeaux)] text-white hover:bg-[var(--brand-bordeaux-muted)] hover:text-white",
       )}
       aria-busy={pending || undefined}
     >
