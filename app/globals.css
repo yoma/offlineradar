@@ -63,10 +63,10 @@
   --brand-cream: #f9f2ea;
   --brand-bordeaux: #67283a;
   --brand-rose: #c98188;
-  /* Instagram-style edge blobs (subtle on cream pages) */
-  --brand-shape-rose: #e5b5a8;
-  --brand-shape-terracotta: #c98978;
-  --brand-shape-bordeaux: #88333d;
+  /* Instagram-style edge blobs (visible but softer than the poster) */
+  --brand-shape-rose: #e8b5a6;
+  --brand-shape-terracotta: #c47a68;
+  --brand-shape-bordeaux: #8b3a42;
   --brand-anthracite: #2f3035;
   --brand-gold: #d4af37;
   --brand-gold-light: #f5e49f;

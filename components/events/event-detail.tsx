@@ -132,7 +132,7 @@ export function EventDetail({
   return (
     <article className="relative overflow-x-clip pb-32 md:pb-16">
       <BrandShapes variant="detail" />
-      <div className="relative mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6">
+      <div className="relative z-[1] mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6">
         <p className="mb-3 text-sm">
           <a
             href={backHref}
@@ -161,7 +161,7 @@ export function EventDetail({
         />
       </div>
 
-      <div className="relative mx-auto grid w-full min-w-0 max-w-6xl gap-10 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)]">
+      <div className="relative z-[1] mx-auto grid w-full min-w-0 max-w-6xl gap-10 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)]">
         <div className="min-w-0 space-y-10">
           <header className="space-y-3 border-b border-border pb-8">
             <div className="flex items-start justify-between gap-3">

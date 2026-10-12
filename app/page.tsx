@@ -61,7 +61,7 @@ export default async function HomePage() {
       {/* Organic shapes only below the hero photo. */}
       <div className="relative overflow-x-clip">
         <BrandShapes variant="home-lower" />
-        <div className="relative">
+        <div className="relative z-[1]">
           <TipSection />
           <section className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-16">
             <h2 className="font-heading text-3xl tracking-tight text-[var(--brand-bordeaux)] sm:text-[2rem]">

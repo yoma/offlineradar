@@ -1,9 +1,9 @@
 import { cn } from "@/lib/utils";
 
 /**
- * Soft organic edge shapes from the DateOfflineHub Instagram look.
- * Decorative only. Different layouts per surface, kept low-contrast.
- * Do not place over the homepage hero photo; use home-lower below it.
+ * Organic edge shapes from the DateOfflineHub Instagram look.
+ * Full-bleed SVG so shapes hug the sides (not clipped off-screen).
+ * Homepage: only use home-lower below the hero photo.
  */
 export type BrandShapeVariant =
   | "home-lower"
@@ -11,12 +11,6 @@ export type BrandShapeVariant =
   | "detail"
   | "about"
   | "saved";
-
-const FILL = {
-  rose: "var(--brand-shape-rose)",
-  terracotta: "var(--brand-shape-terracotta)",
-  bordeaux: "var(--brand-shape-bordeaux)",
-} as const;
 
 export function BrandShapes({
   variant,
@@ -29,140 +23,163 @@ export function BrandShapes({
     <div
       aria-hidden
       className={cn(
-        "pointer-events-none absolute inset-0 overflow-hidden",
+        "pointer-events-none absolute inset-0 z-0 overflow-hidden",
         className,
       )}
     >
-      {variant === "home-lower" ? <HomeLowerShapes /> : null}
-      {variant === "discover" ? <DiscoverShapes /> : null}
-      {variant === "detail" ? <DetailShapes /> : null}
-      {variant === "about" ? <AboutShapes /> : null}
-      {variant === "saved" ? <SavedShapes /> : null}
+      <svg
+        className="absolute inset-0 h-full w-full"
+        viewBox="0 0 1000 1400"
+        preserveAspectRatio="xMidYMid slice"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        {variant === "home-lower" ? <HomeLowerPaths /> : null}
+        {variant === "discover" ? <DiscoverPaths /> : null}
+        {variant === "detail" ? <DetailPaths /> : null}
+        {variant === "about" ? <AboutPaths /> : null}
+        {variant === "saved" ? <SavedPaths /> : null}
+      </svg>
     </div>
   );
 }
 
-function Blob({
-  className,
-  fill,
-  d,
-  viewBox = "0 0 320 320",
-}: {
-  className?: string;
-  fill: string;
-  d: string;
-  viewBox?: string;
-}) {
-  return (
-    <svg
-      className={cn("absolute", className)}
-      viewBox={viewBox}
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden
-    >
-      <path d={d} fill={fill} />
-    </svg>
-  );
-}
-
-/** Softer side accents for tip + how-it-works under the hero. */
-function HomeLowerShapes() {
+/** Instagram-like: top-right stack + bottom-left layers + small right peek. */
+function AboutPaths() {
   return (
     <>
-      <Blob
-        className="top-[8%] left-[-16%] h-[14rem] w-[14rem] opacity-[0.34] sm:h-[18rem] sm:w-[18rem] sm:opacity-[0.4]"
-        fill={FILL.rose}
-        d="M20 120C55 60 130 35 185 60C240 85 270 155 245 210C220 265 145 285 90 255C35 225 -15 180 20 120Z"
+      {/* Top-right: soft rose behind */}
+      <path
+        fill="var(--brand-shape-rose)"
+        opacity="0.72"
+        d="M680 -40C780 -20 920 40 1000 140V320C940 260 860 220 780 250C700 280 660 360 620 300C580 240 600 120 680 -40Z"
       />
-      <Blob
-        className="top-[4%] left-[-6%] h-[8rem] w-[9rem] opacity-[0.28] sm:h-[11rem] sm:w-[12rem]"
-        fill={FILL.terracotta}
-        d="M30 80C70 40 135 35 170 70C205 105 200 170 160 200C120 230 55 220 30 175C5 130 0 110 30 80Z"
+      {/* Top-right: terracotta front */}
+      <path
+        fill="var(--brand-shape-terracotta)"
+        opacity="0.78"
+        d="M820 -20C900 10 980 80 1020 180V280C960 220 900 200 850 230C800 260 780 320 750 270C720 220 760 60 820 -20Z"
       />
-      <Blob
-        className="right-[-12%] bottom-[5%] h-[12rem] w-[13rem] opacity-[0.3] sm:h-[16rem] sm:w-[17rem] sm:opacity-[0.36]"
-        fill={FILL.terracotta}
-        d="M250 220C295 250 310 310 275 340C240 370 175 360 145 320C115 280 130 220 175 200C205 185 225 200 250 220Z"
-        viewBox="0 0 360 400"
+      {/* Bottom-left: soft rose */}
+      <path
+        fill="var(--brand-shape-rose)"
+        opacity="0.7"
+        d="M-40 980C40 920 160 900 260 960C360 1020 400 1140 320 1220C240 1300 80 1340 -20 1280C-80 1240 -100 1080 -40 980Z"
       />
-      <Blob
-        className="right-[-4%] bottom-[18%] h-[6rem] w-[5rem] opacity-[0.26] sm:h-[7.5rem] sm:w-[6rem]"
-        fill={FILL.bordeaux}
-        d="M280 160C310 185 305 230 275 255C245 280 200 270 185 235C170 200 195 160 230 150C250 145 265 145 280 160Z"
+      {/* Bottom-left: deeper terracotta */}
+      <path
+        fill="var(--brand-shape-terracotta)"
+        opacity="0.8"
+        d="M-60 1100C20 1060 120 1080 180 1160C240 1240 220 1340 120 1380C20 1420 -80 1360 -100 1260C-110 1200 -100 1140 -60 1100Z"
+      />
+      {/* Bottom-left: bordeaux tip */}
+      <path
+        fill="var(--brand-shape-bordeaux)"
+        opacity="0.7"
+        d="M-40 1220C20 1200 80 1240 100 1300C120 1360 60 1420 -20 1400C-80 1380 -90 1280 -40 1220Z"
+      />
+      {/* Mid-right peek */}
+      <path
+        fill="var(--brand-shape-bordeaux)"
+        opacity="0.68"
+        d="M960 620C1020 660 1040 760 1000 820C960 880 880 860 860 780C840 700 900 600 960 620Z"
       />
     </>
   );
 }
 
-function DiscoverShapes() {
+/** Under hero: left cluster + right accents. */
+function HomeLowerPaths() {
   return (
     <>
-      <Blob
-        className="top-[-4%] right-[-18%] h-[15rem] w-[15rem] opacity-[0.3] sm:h-[20rem] sm:w-[20rem] sm:opacity-[0.36]"
-        fill={FILL.rose}
-        d="M260 30C300 75 295 150 255 195C215 240 140 250 90 215C40 180 25 105 60 55C95 5 165 -10 215 10C235 20 245 5 260 30Z"
+      <path
+        fill="var(--brand-shape-rose)"
+        opacity="0.68"
+        d="M-60 80C40 20 180 0 280 80C380 160 360 320 240 380C120 440 -40 400 -80 280C-100 200 -100 140 -60 80Z"
       />
-      <Blob
-        className="bottom-[10%] left-[-14%] h-[11rem] w-[12rem] opacity-[0.24] sm:h-[15rem] sm:w-[16rem]"
-        fill={FILL.bordeaux}
-        d="M25 220C65 260 130 265 170 230C210 195 215 130 175 95C135 60 70 70 40 110C10 150 -5 190 25 220Z"
+      <path
+        fill="var(--brand-shape-terracotta)"
+        opacity="0.72"
+        d="M-40 200C40 160 120 180 160 250C200 320 160 400 60 420C-40 440 -100 360 -80 280C-70 240 -70 220 -40 200Z"
+      />
+      <path
+        fill="var(--brand-shape-terracotta)"
+        opacity="0.7"
+        d="M760 980C860 940 980 980 1040 1080V1280C960 1200 860 1180 780 1240C700 1300 680 1400 620 1320C560 1240 640 1040 760 980Z"
+      />
+      <path
+        fill="var(--brand-shape-bordeaux)"
+        opacity="0.62"
+        d="M940 740C1000 780 1020 880 980 940C940 1000 860 980 840 900C820 820 880 720 940 740Z"
       />
     </>
   );
 }
 
-function DetailShapes() {
+/** Discover: top-right rose + bottom-left bordeaux. */
+function DiscoverPaths() {
   return (
     <>
-      <Blob
-        className="top-[12%] left-[-12%] h-[10rem] w-[10rem] opacity-[0.22] sm:h-[13rem] sm:w-[13rem]"
-        fill={FILL.terracotta}
-        d="M40 100C75 55 145 45 185 80C225 115 230 180 190 215C150 250 80 245 45 205C10 165 5 145 40 100Z"
+      <path
+        fill="var(--brand-shape-rose)"
+        opacity="0.7"
+        d="M720 -60C840 -40 960 40 1040 160V360C960 280 860 240 780 280C700 320 680 420 620 340C560 260 600 40 720 -60Z"
       />
-      <Blob
-        className="right-[-10%] bottom-[20%] h-[12rem] w-[11rem] opacity-[0.26] sm:h-[15rem] sm:w-[14rem]"
-        fill={FILL.rose}
-        d="M240 180C285 200 300 260 270 300C240 340 175 340 140 305C105 270 110 210 150 185C180 165 210 165 240 180Z"
+      <path
+        fill="var(--brand-shape-terracotta)"
+        opacity="0.65"
+        d="M880 -20C960 20 1020 100 1040 200V300C980 240 920 220 870 260C820 300 810 360 780 300C750 240 820 40 880 -20Z"
+      />
+      <path
+        fill="var(--brand-shape-bordeaux)"
+        opacity="0.58"
+        d="M-50 900C40 860 160 900 220 1000C280 1100 220 1240 100 1280C-20 1320 -100 1200 -80 1080C-70 1000 -90 940 -50 900Z"
       />
     </>
   );
 }
 
-function AboutShapes() {
+/** Detail: quieter left + right accents. */
+function DetailPaths() {
   return (
     <>
-      <Blob
-        className="top-[-2%] right-[-20%] h-[13rem] w-[14rem] opacity-[0.32] sm:h-[17rem] sm:w-[18rem]"
-        fill={FILL.rose}
-        d="M250 20C295 55 300 125 265 170C230 215 155 225 110 185C65 145 55 75 95 35C135 -5 195 -10 230 10C240 15 240 5 250 20Z"
+      <path
+        fill="var(--brand-shape-terracotta)"
+        opacity="0.55"
+        d="M-50 160C40 100 160 120 220 220C280 320 220 440 100 460C-20 480 -100 360 -80 260C-70 210 -90 190 -50 160Z"
       />
-      <Blob
-        className="bottom-[-4%] left-[-16%] h-[12rem] w-[13rem] opacity-[0.28] sm:h-[16rem] sm:w-[17rem]"
-        fill={FILL.terracotta}
-        d="M30 240C75 280 150 285 195 245C240 205 245 135 205 95C165 55 95 60 55 100C15 140 -5 210 30 240Z"
+      <path
+        fill="var(--brand-shape-rose)"
+        opacity="0.62"
+        d="M820 700C920 660 1020 720 1060 840V1040C980 960 880 940 820 1000C760 1060 760 1180 700 1100C640 1020 720 760 820 700Z"
       />
-      <Blob
-        className="right-[-3%] bottom-[35%] h-[5.5rem] w-[4.5rem] opacity-[0.25]"
-        fill={FILL.bordeaux}
-        d="M280 150C305 170 300 210 275 230C250 250 215 240 205 210C195 180 220 150 250 145C265 142 270 140 280 150Z"
+      <path
+        fill="var(--brand-shape-bordeaux)"
+        opacity="0.5"
+        d="M960 500C1010 540 1020 620 980 670C940 720 870 700 860 630C850 560 910 480 960 500Z"
       />
     </>
   );
 }
 
-function SavedShapes() {
+/** Saved: left rose + right bordeaux. */
+function SavedPaths() {
   return (
     <>
-      <Blob
-        className="top-[6%] left-[-15%] h-[11rem] w-[12rem] opacity-[0.26] sm:h-[14rem] sm:w-[15rem]"
-        fill={FILL.rose}
-        d="M20 90C55 40 130 25 175 55C220 85 235 155 200 200C165 245 90 250 45 210C0 170 -15 140 20 90Z"
+      <path
+        fill="var(--brand-shape-rose)"
+        opacity="0.66"
+        d="M-40 40C60 -20 200 0 260 100C320 200 260 340 140 360C20 380 -80 280 -60 160C-50 100 -80 80 -40 40Z"
       />
-      <Blob
-        className="right-[-14%] bottom-[8%] h-[13rem] w-[12rem] opacity-[0.24] sm:h-[17rem] sm:w-[15rem]"
-        fill={FILL.bordeaux}
-        d="M250 200C290 230 295 295 260 330C225 365 160 360 130 320C100 280 115 220 160 200C190 185 220 180 250 200Z"
+      <path
+        fill="var(--brand-shape-bordeaux)"
+        opacity="0.58"
+        d="M780 900C880 860 1000 900 1060 1020V1220C980 1140 880 1120 800 1180C720 1240 700 1360 640 1280C580 1200 660 960 780 900Z"
+      />
+      <path
+        fill="var(--brand-shape-terracotta)"
+        opacity="0.55"
+        d="M920 560C980 600 1000 700 960 760C920 820 840 800 820 720C800 640 860 540 920 560Z"
       />
     </>
   );

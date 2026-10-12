@@ -293,9 +293,9 @@ export function DiscoverView({
           } voor jou`;
 
   return (
-    <div className="relative overflow-x-clip">
+    <div className="relative min-h-[70vh] overflow-x-clip">
       <BrandShapes variant="discover" />
-      <div className="relative mx-auto w-full min-w-0 max-w-6xl px-4 py-8 sm:px-6">
+      <div className="relative z-[1] mx-auto w-full min-w-0 max-w-6xl px-4 py-8 sm:px-6">
       {upcoming.events.length > 0 ? (
         <UpcomingStrip
           events={upcoming.events}
