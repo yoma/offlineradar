@@ -231,6 +231,29 @@ const CUSHION_INTERIOR =
 
   assert.ok(TITLE_THEME_RULES.some((r) => r.id === "carnival"));
   assert.ok(TITLE_THEME_RULES.some((r) => r.id === "new_year"));
+
+  // Unthemed party must never randomly get halloween/christmas stock.
+  for (let i = 0; i < 12; i++) {
+    const party = resolvePublicEventImage(
+      {
+        category: "social",
+        activities: ["party"],
+        title: "Singles Night Out Antwerpen",
+      },
+      null,
+      false,
+      `event:party-leak:${i}`,
+    );
+    const subjects = getMoodAssetMeta(party.url)?.subjects ?? [];
+    assert.ok(
+      !subjects.some((s) =>
+        ["halloween", "christmas", "valentine", "carnival", "new_year"].includes(
+          s,
+        ),
+      ),
+      `unthemed party must not get seasonal stock (${party.url})`,
+    );
+  }
   ok("title theme registry steers mood for future themes");
 }
 

@@ -472,8 +472,7 @@ export const CATEGORY_MOOD_POOLS: Record<
     "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1478144592103-25e218a04891?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=1200&q=80",
+    // Seasonal theme stock lives only in THEME_MOOD_POOLS (never generic party).
   ],
   workshop: [
     "/preview-mood/mood-embodied-dating.png",
@@ -791,6 +790,15 @@ const COMPATIBLE: Record<ImageCategory, readonly ImageCategory[]> = {
   neutral: ["neutral"],
 };
 
+/** Strong seasonal subjects that must only appear when the event has that theme. */
+const EXCLUSIVE_THEME_SUBJECTS = [
+  "halloween",
+  "christmas",
+  "valentine",
+  "carnival",
+  "new_year",
+] as const;
+
 function subjectsConflict(
   profile: VisualProfile,
   imageUrl: string,
@@ -818,6 +826,16 @@ function subjectsConflict(
     )
   ) {
     return true;
+  }
+  // Hard: seasonal stock never leaks onto unthemed / other-themed events.
+  const imageThemes = EXCLUSIVE_THEME_SUBJECTS.filter((s) =>
+    meta.subjects.includes(s),
+  );
+  if (imageThemes.length > 0) {
+    if (!profile.theme) return true;
+    const allowed = new Set(themeSubjectsFor(profile));
+    // OK when at least one exclusive theme subject matches the event theme.
+    if (!imageThemes.some((t) => allowed.has(t))) return true;
   }
   return false;
 }
