@@ -4,10 +4,17 @@ import dynamic from "next/dynamic";
 import { PendingContent } from "@/components/ui/pending";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+  type FormEvent,
+} from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AanvoerClient } from "@/app/interne-aanvoer/aanvoer-client";
 import {
+  addSourceByUrlAction,
   updateAanvoerCandidateStatusAction,
   pasteInfoOntoAandachtCandidateAction,
   scanSourceNowAction,
@@ -24,10 +31,7 @@ import {
   type CockpitCandidateRow,
   type CockpitSourceRow,
 } from "@/lib/aanvoer/cockpit-data";
-import {
-  SOURCE_FOLLOW_LABEL,
-  type SourceFollowStatus,
-} from "@/lib/aanvoer/source-follow";
+import type { SourceFollowStatus } from "@/lib/aanvoer/source-follow";
 import { INTAKE_MAX_TEXT_CHARS } from "@/lib/aanvoer/types";
 import {
   publicImageKindLabel,
@@ -311,42 +315,6 @@ export function AanvoerCockpit({
   );
 }
 
-function FollowBadge({ status }: { status: SourceFollowStatus }) {
-  if (status === "gevolgd") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-900">
-        ✓ {SOURCE_FOLLOW_LABEL.gevolgd}
-      </span>
-    );
-  }
-  if (status === "aandacht_nodig") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-950">
-        ⚠ {SOURCE_FOLLOW_LABEL.aandacht_nodig}
-      </span>
-    );
-  }
-  if (status === "gepauzeerd") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-lg bg-sky-100 px-2.5 py-1 text-xs font-bold text-sky-950">
-        {SOURCE_FOLLOW_LABEL.gepauzeerd}
-      </span>
-    );
-  }
-  if (status === "uitgeschakeld") {
-    return (
-      <span className="inline-flex items-center gap-1.5 rounded-lg bg-stone-200 px-2.5 py-1 text-xs font-bold text-stone-800">
-        {SOURCE_FOLLOW_LABEL.uitgeschakeld}
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-lg bg-violet-100 px-2.5 py-1 text-xs font-bold text-violet-950">
-      {SOURCE_FOLLOW_LABEL.handmatig}
-    </span>
-  );
-}
-
 function SourcesPanel({
   sources,
   highlightId,
@@ -357,10 +325,9 @@ function SourcesPanel({
   const router = useRouter();
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<SourceFollowStatus | "all">("all");
-  const [sort, setSort] = useState("next");
+  const [sort, setSort] = useState("name");
   const [page, setPage] = useState(0);
   const [moreId, setMoreId] = useState<string | null>(null);
-  const [detailId, setDetailId] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [actionErr, setActionErr] = useState<string | null>(null);
   const [scanningId, setScanningId] = useState<string | null>(null);
@@ -383,19 +350,22 @@ function SourcesPanel({
       return hay.includes(needle);
     });
     list = [...list].sort((a, b) => {
-      if (sort === "name") return a.name.localeCompare(b.name, "nl");
       if (sort === "newest") {
         return sortKey(b.createdAt).localeCompare(sortKey(a.createdAt));
       }
       if (sort === "last") {
         return sortKey(b.lastScanAt).localeCompare(sortKey(a.lastScanAt));
       }
-      // next scan: due first, then soonest
-      const an = a.nextScanAt ? sortKey(a.nextScanAt) : "9999";
-      const bn = b.nextScanAt ? sortKey(b.nextScanAt) : "9999";
-      if (a.followStatus === "gevolgd" && b.followStatus !== "gevolgd") return -1;
-      if (b.followStatus === "gevolgd" && a.followStatus !== "gevolgd") return 1;
-      return an.localeCompare(bn);
+      if (sort === "next") {
+        const an = a.nextScanAt ? sortKey(a.nextScanAt) : "9999";
+        const bn = b.nextScanAt ? sortKey(b.nextScanAt) : "9999";
+        if (a.followStatus === "gevolgd" && b.followStatus !== "gevolgd")
+          return -1;
+        if (b.followStatus === "gevolgd" && a.followStatus !== "gevolgd")
+          return 1;
+        return an.localeCompare(bn);
+      }
+      return a.name.localeCompare(b.name, "nl");
     });
     return list;
   }, [sources, q, status, sort]);
@@ -448,8 +418,77 @@ function SourcesPanel({
     });
   }
 
+  const [addUrl, setAddUrl] = useState("");
+  const [addName, setAddName] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  function submitAddUrl(e: FormEvent) {
+    e.preventDefault();
+    setActionErr(null);
+    setActionMsg(null);
+    setAdding(true);
+    const fd = new FormData();
+    fd.set("officialUrl", addUrl.trim());
+    if (addName.trim()) fd.set("name", addName.trim());
+    startTransition(async () => {
+      try {
+        const result = await addSourceByUrlAction(fd);
+        if (!result.ok) {
+          setActionErr(result.error);
+          return;
+        }
+        setActionMsg(result.message);
+        setAddUrl("");
+        setAddName("");
+        router.refresh();
+      } finally {
+        setAdding(false);
+      }
+    });
+  }
+
   return (
     <section className="space-y-4">
+      <form
+        onSubmit={submitAddUrl}
+        className="flex flex-col gap-2 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm sm:flex-row sm:items-end"
+      >
+        <label className="min-w-0 flex-1 text-sm">
+          <span className="mb-1 block text-xs font-semibold text-stone-500">
+            Nieuwe bron (URL)
+          </span>
+          <input
+            type="url"
+            required
+            value={addUrl}
+            onChange={(e) => setAddUrl(e.target.value)}
+            placeholder="https://…"
+            className="h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-base md:text-sm"
+          />
+        </label>
+        <label className="w-full text-sm sm:max-w-[12rem]">
+          <span className="mb-1 block text-xs font-semibold text-stone-500">
+            Naam (optioneel)
+          </span>
+          <input
+            type="text"
+            value={addName}
+            onChange={(e) => setAddName(e.target.value)}
+            placeholder="Automatisch uit URL"
+            className="h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-base md:text-sm"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={pending || adding || !addUrl.trim()}
+          className="h-11 shrink-0 rounded-full bg-stone-900 px-5 text-sm font-semibold text-white disabled:opacity-60"
+        >
+          <PendingContent pending={pending || adding} pendingLabel="Bezig…">
+            Toevoegen
+          </PendingContent>
+        </button>
+      </form>
+
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <input
           type="search"
@@ -458,7 +497,7 @@ function SourcesPanel({
             setQ(e.target.value);
             setPage(0);
           }}
-          placeholder="Zoek bron of organisator…"
+          placeholder="Zoek in lijst…"
           className="h-11 w-full rounded-xl border border-stone-200 bg-white px-3 text-base sm:max-w-md md:text-sm"
         />
         <select
@@ -469,7 +508,7 @@ function SourcesPanel({
           }}
           className="h-11 rounded-xl border border-stone-200 bg-white px-3 text-base md:text-sm"
         >
-          <option value="all">Alle</option>
+          <option value="all">Alle statussen</option>
           <option value="gevolgd">Wordt gevolgd</option>
           <option value="handmatig">Handmatig</option>
           <option value="gepauzeerd">Gepauzeerd</option>
@@ -481,10 +520,10 @@ function SourcesPanel({
           onChange={(e) => setSort(e.target.value)}
           className="h-11 rounded-xl border border-stone-200 bg-white px-3 text-base md:text-sm"
         >
-          <option value="next">Volgende scan</option>
-          <option value="last">Laatst gescand</option>
-          <option value="newest">Laatst toegevoegd</option>
           <option value="name">Naam A–Z</option>
+          <option value="newest">Laatst toegevoegd</option>
+          <option value="last">Laatst gescand</option>
+          <option value="next">Volgende scan</option>
         </select>
       </div>
 
@@ -503,188 +542,76 @@ function SourcesPanel({
         </p>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {pageItems.map((s) => {
-          const highlighted = highlightId === s.id;
-          const moreOpen = moreId === s.id;
-          const detailOpen = detailId === s.id;
-          const scanning = scanningId === s.id;
-          return (
-            <article
-              key={s.id}
-              id={`source-${s.id}`}
-              className={`flex min-w-0 flex-col gap-3 rounded-2xl border bg-white p-4 shadow-sm ${
-                highlighted
-                  ? "border-rose-300 ring-2 ring-rose-200"
-                  : "border-stone-200/80"
-              }`}
-            >
-              <div className="space-y-1">
-                <h3 className="text-[15px] font-semibold tracking-tight text-stone-900">
-                  {s.name}
-                </h3>
-                <p className="truncate text-sm text-stone-600">{s.domain}</p>
-                <p className="text-[11px] font-medium text-stone-500">
-                  {s.userSupplied
-                    ? "Door jou aangebracht"
-                    : "Automatisch ontdekt"}
-                </p>
-              </div>
-
-              <FollowBadge status={s.followStatus} />
-
-              {s.followMethods.length > 0 ? (
-                <p className="text-sm text-stone-700">
-                  <span className="text-xs font-semibold text-stone-500">
-                    Followmethode:{" "}
-                  </span>
-                  {s.followMethodLabel}
-                </p>
-              ) : null}
-
-              {s.followStatus === "handmatig" && !s.refreshSupported ? (
-                <p className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700">
-                  Automatische opvolging momenteel niet mogelijk
-                  <span className="mt-1 block text-xs text-stone-500">
-                    Reden:{" "}
-                    {s.manualFollowReason ??
-                      "Geen betrouwbare website-, agenda- of websearch-route."}
-                  </span>
-                </p>
-              ) : null}
-
-              {s.followStatus === "aandacht_nodig" ? (
-                <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950">
-                  {s.consecutiveFailures} opeenvolgende scans mislukt
-                </p>
-              ) : null}
-
-              <dl className="space-y-1.5 text-sm text-stone-700">
-                <div>
-                  <dt className="text-xs font-semibold text-stone-500">
-                    Laatste scan
-                  </dt>
-                  <dd>{s.lastScanLabel}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs font-semibold text-stone-500">
-                    Volgende scan
-                  </dt>
-                  <dd>{s.nextScanLabel}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs font-semibold text-stone-500">
-                    Frequentie
-                  </dt>
-                  <dd>{s.frequencyLabel}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs font-semibold text-stone-500">
-                    Laatste resultaat
-                  </dt>
-                  <dd>{s.lastResultLabel}</dd>
-                </div>
-              </dl>
-
-              <p className="text-sm text-stone-700">
-                <span className="font-semibold">{s.futureEventCount}</span>{" "}
-                toekomstige events
-                {s.publishedEventCount > 0 ? (
-                  <>
-                    {" · "}
-                    <span className="font-semibold">{s.publishedEventCount}</span>{" "}
-                    gepubliceerd
-                  </>
-                ) : null}
-              </p>
-
-              <div className="text-sm text-stone-700">
-                <p className="text-xs font-semibold text-stone-500">
-                  Laatste gevonden event
-                </p>
-                {s.lastFoundEvent ? (
-                  s.lastFoundEvent.slug ? (
-                    <Link
-                      href={`/event/${s.lastFoundEvent.slug}`}
-                      className="font-medium underline-offset-4 hover:underline"
+      <ul className="divide-y divide-stone-200 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
+        {pageItems.length === 0 ? (
+          <li className="px-4 py-8 text-center text-sm text-stone-500">
+            Geen bronnen in deze filter.
+          </li>
+        ) : (
+          pageItems.map((s) => {
+            const highlighted = highlightId === s.id;
+            const moreOpen = moreId === s.id;
+            const scanning = scanningId === s.id;
+            const extra = [
+              s.followLabel,
+              s.futureEventCount > 0
+                ? `${s.futureEventCount} toekomstig`
+                : null,
+              s.lastScanAt ? s.lastScanLabel : null,
+            ]
+              .filter(Boolean)
+              .join(" · ");
+            return (
+              <li
+                key={s.id}
+                id={`source-${s.id}`}
+                className={`px-4 py-3 ${
+                  highlighted ? "bg-rose-50" : "bg-white"
+                }`}
+              >
+                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <p className="font-semibold text-stone-900">{s.name}</p>
+                    <a
+                      href={s.officialUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block truncate text-sm text-stone-600 underline-offset-4 hover:underline"
                     >
-                      {s.lastFoundEvent.title}
-                    </Link>
-                  ) : (
-                    <p className="font-medium">{s.lastFoundEvent.title}</p>
-                  )
-                ) : (
-                  <p>Nog geen geschikte events gevonden</p>
-                )}
-              </div>
-
-              <div className="mt-auto flex flex-col gap-2">
-                {s.refreshSupported ? (
-                  <button
-                    type="button"
-                    disabled={pending || scanning}
-                    onClick={() => runScan(s.id)}
-                    className="h-11 w-full rounded-full bg-stone-900 text-sm font-semibold text-white disabled:opacity-60"
-                  >
-                    {scanning ? "Bezig…" : "Controleren"}
-                  </button>
-                ) : (
-                  <p className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-600">
-                    Alleen handmatig bijhouden
-                    <span className="mt-1 block text-stone-500">
-                      {s.manualFollowReason ??
-                        "Geen betrouwbare website of agenda."}
-                    </span>
-                  </p>
-                )}
-
-                {s.followStatus === "gepauzeerd" ? (
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => runFollow(s.id, "resume")}
-                    className="h-11 w-full rounded-full border border-stone-300 text-sm font-semibold text-stone-800 disabled:opacity-60"
-                  >
-                    Opnieuw volgen
-                  </button>
-                ) : null}
-
-                {s.followStatus === "uitgeschakeld" ? (
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => runFollow(s.id, "enable")}
-                    className="h-11 w-full rounded-full border border-stone-300 text-sm font-semibold text-stone-800 disabled:opacity-60"
-                  >
-                    Opnieuw inschakelen
-                  </button>
-                ) : null}
-
-                <a
-                  href={s.officialUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-center text-sm font-medium text-stone-600 underline-offset-4 hover:underline"
-                >
-                  Open website
-                </a>
-
-                <button
-                  type="button"
-                  className="text-left text-xs font-medium text-stone-500 underline-offset-4 hover:underline"
-                  onClick={() => setMoreId(moreOpen ? null : s.id)}
-                >
-                  {moreOpen ? "Minder" : "Meer"}
-                </button>
-
+                      {s.officialUrl}
+                    </a>
+                    {extra ? (
+                      <p className="text-xs text-stone-500">{extra}</p>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    {s.refreshSupported ? (
+                      <button
+                        type="button"
+                        disabled={pending || scanning}
+                        onClick={() => runScan(s.id)}
+                        className="rounded-full bg-stone-900 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+                      >
+                        {scanning ? "…" : "Controleren"}
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-stone-500 underline-offset-4 hover:underline"
+                      onClick={() => setMoreId(moreOpen ? null : s.id)}
+                    >
+                      {moreOpen ? "Minder" : "Meer"}
+                    </button>
+                  </div>
+                </div>
                 {moreOpen ? (
-                  <div className="space-y-2 rounded-xl border border-stone-200 bg-stone-50 p-3">
+                  <div className="mt-3 flex flex-wrap gap-2 border-t border-stone-100 pt-3">
                     {s.followStatus === "handmatig" && s.refreshSupported ? (
                       <button
                         type="button"
                         disabled={pending}
                         onClick={() => runFollow(s.id, "enable")}
-                        className="h-10 w-full rounded-full border border-stone-300 bg-white text-sm font-semibold text-stone-800 disabled:opacity-60"
+                        className="rounded-full border border-stone-300 px-3 py-1.5 text-xs font-semibold disabled:opacity-60"
                       >
                         Automatisch volgen
                       </button>
@@ -695,9 +622,29 @@ function SourcesPanel({
                         type="button"
                         disabled={pending}
                         onClick={() => runFollow(s.id, "pause")}
-                        className="h-10 w-full rounded-full border border-stone-300 bg-white text-sm font-semibold text-stone-800 disabled:opacity-60"
+                        className="rounded-full border border-stone-300 px-3 py-1.5 text-xs font-semibold disabled:opacity-60"
                       >
                         Pauzeren
+                      </button>
+                    ) : null}
+                    {s.followStatus === "gepauzeerd" ? (
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => runFollow(s.id, "resume")}
+                        className="rounded-full border border-stone-300 px-3 py-1.5 text-xs font-semibold disabled:opacity-60"
+                      >
+                        Opnieuw volgen
+                      </button>
+                    ) : null}
+                    {s.followStatus === "uitgeschakeld" ? (
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => runFollow(s.id, "enable")}
+                        className="rounded-full border border-stone-300 px-3 py-1.5 text-xs font-semibold disabled:opacity-60"
+                      >
+                        Opnieuw inschakelen
                       </button>
                     ) : null}
                     {s.followStatus !== "uitgeschakeld" &&
@@ -706,60 +653,31 @@ function SourcesPanel({
                         type="button"
                         disabled={pending}
                         onClick={() => runFollow(s.id, "disable")}
-                        className="h-10 w-full rounded-full border border-stone-300 bg-white text-sm font-semibold text-stone-800 disabled:opacity-60"
+                        className="rounded-full border border-stone-300 px-3 py-1.5 text-xs font-semibold disabled:opacity-60"
                       >
                         Uitschakelen
                       </button>
-                    ) : null}
-                    {s.linkedFutureEvents.length > 0 ? (
-                      <ul className="space-y-1 text-xs text-stone-600">
-                        {s.linkedFutureEvents.slice(0, 5).map((ev) => (
-                          <li key={ev.id} className="truncate">
-                            {ev.title} · {ev.startsAt.slice(0, 10)}
-                          </li>
-                        ))}
-                      </ul>
                     ) : null}
                     <button
                       type="button"
                       disabled={pending}
                       onClick={() => runFollow(s.id, "archive")}
-                      className="h-10 w-full rounded-full text-sm font-medium text-red-800 underline-offset-4 hover:underline disabled:opacity-60"
+                      className="rounded-full px-3 py-1.5 text-xs font-medium text-red-800 underline-offset-4 hover:underline disabled:opacity-60"
                     >
                       Archiveren
                     </button>
+                    {s.lastRunError ? (
+                      <p className="w-full text-xs text-stone-500">
+                        Laatste fout: {s.lastRunError}
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
-
-                {(s.lastRunError || s.consecutiveFailures > 0) && (
-                  <>
-                    <button
-                      type="button"
-                      className="text-left text-xs font-medium text-stone-500 underline-offset-4 hover:underline"
-                      onClick={() => setDetailId(detailOpen ? null : s.id)}
-                    >
-                      {detailOpen ? "Verberg details" : "Bekijk details"}
-                    </button>
-                    {detailOpen ? (
-                      <div className="rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs text-stone-600">
-                        {s.lastRunHttpStatus != null ? (
-                          <p>HTTP: {s.lastRunHttpStatus}</p>
-                        ) : null}
-                        {s.lastRunError ? (
-                          <p className="mt-1 break-words">{s.lastRunError}</p>
-                        ) : null}
-                        <p className="mt-1">
-                          Opeenvolgende mislukkingen: {s.consecutiveFailures}
-                        </p>
-                      </div>
-                    ) : null}
-                  </>
-                )}
-              </div>
-            </article>
-          );
-        })}
-      </div>
+              </li>
+            );
+          })
+        )}
+      </ul>
 
       {pageCount > 1 ? (
         <div className="flex items-center justify-between gap-2">
