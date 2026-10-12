@@ -532,6 +532,73 @@ export async function saveIntakeSourceAction(
   };
 }
 
+/**
+ * Simple URL → Source Map add (Bronnenlijst). Name optional; hostname used as fallback.
+ */
+export async function addSourceByUrlAction(
+  formData: FormData,
+): Promise<
+  | { ok: true; message: string; sourceId: string }
+  | { ok: false; error: string }
+> {
+  const gate = await requireAdmin();
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  const officialUrl = String(formData.get("officialUrl") ?? "").trim();
+  let name = String(formData.get("name") ?? "").trim();
+  if (!officialUrl) return { ok: false, error: "URL is verplicht." };
+
+  let parsed: URL;
+  try {
+    parsed = new URL(officialUrl);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return { ok: false, error: "Gebruik een http(s)-URL." };
+    }
+  } catch {
+    return { ok: false, error: "Ongeldige URL." };
+  }
+
+  if (!name) {
+    name = parsed.hostname.replace(/^www\./, "") || "Bron";
+  }
+
+  const { upsertCatalogSourceByUrl } = await import(
+    "@/lib/events/catalog-sources"
+  );
+  const { withUserSuppliedProvenance } = await import(
+    "@/lib/discovery/user-supplied"
+  );
+  const { enableCatalogSourceAutoFollow } = await import(
+    "@/lib/aanvoer/source-follow"
+  );
+
+  const result = await upsertCatalogSourceByUrl({
+    name,
+    officialUrl,
+    status: "promising",
+    notes: withUserSuppliedProvenance("via=bronnen_lijst"),
+  });
+  if (!result) return { ok: false, error: "Kon bron niet opslaan." };
+
+  const follow = await enableCatalogSourceAutoFollow({
+    catalogSourceId: result.record.id,
+    officialUrl: result.record.officialUrl,
+    name: result.record.name,
+    namePrefix: result.created
+      ? `${result.record.name} toegevoegd.`
+      : `${result.record.name} stond al in de lijst.`,
+  });
+
+  revalidatePath("/interne-aanvoer");
+  revalidatePath("/interne-events");
+  revalidatePath("/interne-goedkeuren");
+  return {
+    ok: true,
+    sourceId: result.record.id,
+    message: follow.message,
+  };
+}
+
 export async function updateAanvoerSourceAction(
   formData: FormData,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
