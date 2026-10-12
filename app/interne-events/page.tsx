@@ -238,7 +238,7 @@ export default async function InterneEventsPage() {
         <div className="mb-6 rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm">
           Nieuwe bronupdates: {openRefreshReviews}{" "}
           <a
-            href="#bronnen"
+            href="/interne-aanvoer?tab=bronnen"
             className="ml-2 font-medium underline-offset-4 hover:underline"
           >
             Bekijk bronnen
@@ -377,14 +377,27 @@ export default async function InterneEventsPage() {
       </section>
 
       <section id="bronnen" className="mb-10 space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">Bronnen</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Curated Source Map. Pilotbronnen hebben “Controleer bron” (geen
-            crawler, geen auto-publish). Scheduled refresh{" "}
-            {scheduledGlobalOn ? "globaal aan" : "globaal uit"}{" "}
-            (OFFLINERADAR_SCHEDULED_REFRESH).
-          </p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">Bronnen</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Dagelijks overzicht staat onder{" "}
+              <a
+                href="/interne-aanvoer?tab=bronnen"
+                className="font-medium text-stone-900 underline-offset-4 hover:underline"
+              >
+                Bronnen
+              </a>
+              . Hieronder de technische Source Map. Scheduled refresh{" "}
+              {scheduledGlobalOn ? "globaal aan" : "globaal uit"}.
+            </p>
+          </div>
+          <a
+            href="/interne-aanvoer?tab=bronnen"
+            className="inline-flex h-10 items-center rounded-full bg-stone-900 px-4 text-sm font-semibold text-white"
+          >
+            Open bronnenlijst
+          </a>
         </div>
 
         <form

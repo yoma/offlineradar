@@ -2,7 +2,7 @@ import Link from "next/link";
 
 /**
  * Shared internal admin nav.
- * Daily path first: Toevoegen → Wachtrij → Live. Secondary tools after.
+ * Daily path: Toevoegen → Bronnen → Wachtrij → Live. Secondary tools after.
  */
 export function InterneAdminNav({
   active,
@@ -14,11 +14,17 @@ export function InterneAdminNav({
     | "events"
     | "tips"
     | "feedback"
-    | "aanvoer";
+    | "aanvoer"
+    | "bronnen";
   newFeedbackCount?: number;
 }) {
   const items = [
     { href: "/interne-aanvoer", key: "aanvoer" as const, label: "Toevoegen" },
+    {
+      href: "/interne-aanvoer?tab=bronnen",
+      key: "bronnen" as const,
+      label: "Bronnen",
+    },
     {
       href: "/interne-goedkeuren",
       key: "goedkeuren" as const,
