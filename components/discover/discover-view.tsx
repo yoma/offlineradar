@@ -2,6 +2,7 @@
 
 import { SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { BrandShapes } from "@/components/brand/brand-shapes";
 import { EventCard } from "@/components/events/event-card";
 import { ResultRefinementBar } from "@/components/discover/result-refinement";
 import {
@@ -292,7 +293,9 @@ export function DiscoverView({
           } voor jou`;
 
   return (
-    <div className="mx-auto w-full min-w-0 max-w-6xl px-4 py-8 sm:px-6">
+    <div className="relative overflow-x-clip">
+      <BrandShapes variant="discover" />
+      <div className="relative mx-auto w-full min-w-0 max-w-6xl px-4 py-8 sm:px-6">
       {upcoming.events.length > 0 ? (
         <UpcomingStrip
           events={upcoming.events}
@@ -303,7 +306,7 @@ export function DiscoverView({
 
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-6">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+          <h1 className="font-heading text-2xl tracking-tight text-[var(--brand-bordeaux)] sm:text-3xl">
             {resultHeading}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -343,14 +346,14 @@ export function DiscoverView({
       ) : null}
 
       {state.age != null && !catalogError ? (
-        <div className="mt-5 rounded-2xl border border-border bg-white px-4 py-3.5 sm:px-5">
+        <div className="mt-5 rounded-2xl border border-[color-mix(in_srgb,var(--border)_80%,var(--brand-gold)_20%)] bg-white px-4 py-3.5 shadow-[0_8px_24px_-18px_rgba(47,48,53,0.22)] sm:px-5">
           <CategoryFilterChips state={state} onChange={update} />
         </div>
       ) : null}
 
       {catalogError ? (
         <div className="mt-12 max-w-xl">
-          <h2 className="text-2xl font-semibold tracking-tight">
+          <h2 className="font-heading text-2xl tracking-tight text-[var(--brand-bordeaux)]">
             Catalogus tijdelijk niet beschikbaar
           </h2>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
@@ -522,7 +525,7 @@ export function DiscoverView({
           >
           {baseVisible.length === 0 ? (
             <div className="mt-12 max-w-xl">
-              <h2 className="text-2xl font-semibold tracking-tight">
+              <h2 className="font-heading text-2xl tracking-tight text-[var(--brand-bordeaux)]">
                 Geen passende singlesactiviteiten gevonden met deze filters.
               </h2>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
@@ -617,6 +620,7 @@ export function DiscoverView({
         }}
       />
       <p className="sr-only">{USER_PLACES.length} plaatsen</p>
+      </div>
     </div>
   );
 }

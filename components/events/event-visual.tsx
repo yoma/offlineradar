@@ -79,7 +79,12 @@ export function EventVisual({
         : `Beeld bij activiteit in ${city}`;
 
   return (
-    <div className={cn("relative min-w-0 overflow-hidden bg-stone-200", className)}>
+    <div
+      className={cn(
+        "relative min-w-0 overflow-hidden bg-[var(--brand-cream)]",
+        className,
+      )}
+    >
       <EventVisualImage
         src={src}
         alt={alt}

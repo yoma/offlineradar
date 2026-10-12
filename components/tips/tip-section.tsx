@@ -176,10 +176,10 @@ export function TipSection() {
       id="tip-een-activiteit"
       className="mx-auto w-full min-w-0 max-w-6xl scroll-mt-24 px-4 py-12 sm:px-6"
     >
-      <div className="min-w-0 rounded-2xl border border-border bg-secondary/40 px-5 py-8 sm:px-8">
+      <div className="min-w-0 rounded-2xl border border-[color-mix(in_srgb,var(--border)_75%,var(--brand-gold)_25%)] bg-white px-5 py-8 shadow-[0_12px_32px_-20px_rgba(47,48,53,0.28)] sm:px-8">
         {success ? (
           <div className="space-y-4" role="status" aria-live="polite">
-            <h2 className="text-2xl font-semibold tracking-tight text-emerald-900 sm:text-3xl">
+            <h2 className="font-heading text-2xl tracking-tight text-[var(--brand-bordeaux)] sm:text-3xl">
               Bedankt voor je tip!
             </h2>
             <p className="max-w-2xl text-[15px] leading-6 text-emerald-950/80">
@@ -203,11 +203,12 @@ export function TipSection() {
           </div>
         ) : (
           <>
-            <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            <h2 className="font-heading text-2xl tracking-tight text-[var(--brand-bordeaux)] sm:text-3xl">
               Ken je een singlesevent?
             </h2>
             <p className="mt-2 max-w-2xl text-[15px] leading-6 text-muted-foreground">
-              Geef het aan ons door.
+              Geef het aan ons door. Wij bekijken of het past bij singles die
+              offline willen afspreken.
             </p>
 
             {!open ? (

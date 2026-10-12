@@ -2,6 +2,7 @@
 
 import { ArrowUpRight } from "lucide-react";
 import { useEffect, useState } from "react";
+import { BrandShapes } from "@/components/brand/brand-shapes";
 import { CapacityStatus } from "@/components/events/capacity-status";
 import { EventLabels } from "@/components/events/event-labels";
 import { EventVisual } from "@/components/events/event-visual";
@@ -129,8 +130,9 @@ export function EventDetail({
       : null;
 
   return (
-    <article className="pb-32 md:pb-16">
-      <div className="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6">
+    <article className="relative overflow-x-clip pb-32 md:pb-16">
+      <BrandShapes variant="detail" />
+      <div className="relative mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6">
         <p className="mb-3 text-sm">
           <a
             href={backHref}
@@ -159,7 +161,7 @@ export function EventDetail({
         />
       </div>
 
-      <div className="mx-auto grid w-full min-w-0 max-w-6xl gap-10 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)]">
+      <div className="relative mx-auto grid w-full min-w-0 max-w-6xl gap-10 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)]">
         <div className="min-w-0 space-y-10">
           <header className="space-y-3 border-b border-border pb-8">
             <div className="flex items-start justify-between gap-3">
@@ -168,7 +170,7 @@ export function EventDetail({
               </p>
               <SaveButton eventId={event.id} title={event.title} />
             </div>
-            <h1 className="break-words text-3xl font-semibold tracking-tight sm:text-4xl">
+            <h1 className="font-heading break-words text-3xl tracking-tight text-[var(--brand-bordeaux)] sm:text-4xl">
               {event.title}
             </h1>
             <EventLabels
@@ -314,7 +316,7 @@ export function EventDetail({
         </div>
 
         <aside className="min-w-0 lg:pt-2">
-          <div className="listing-shadow sticky top-24 space-y-4 rounded-2xl border border-border bg-white p-5">
+          <div className="listing-shadow sticky top-24 space-y-4 rounded-2xl border border-[color-mix(in_srgb,var(--border)_80%,var(--brand-gold)_20%)] bg-white p-5">
             <div className="flex items-end justify-between gap-3">
               <p className="min-w-0 break-words text-2xl font-semibold">
                 {priceLabel}
