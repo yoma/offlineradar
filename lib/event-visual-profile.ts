@@ -545,8 +545,18 @@ function defaultsForActivity(
   };
 }
 
+function matchActivityRules(text: string): ActivityRule[] {
+  const matched: ActivityRule[] = [];
+  for (const rule of ACTIVITY_RULES) {
+    if (rule.pattern.test(text)) matched.push(rule);
+  }
+  return matched;
+}
+
 /**
- * Build a visual profile. Activity keywords beat category=dating.
+ * Build a visual profile.
+ * Title/tags drive activity + theme first; age from min/max or title hints.
+ * Category=dating is context only when a concrete activity is known.
  */
 export function buildVisualProfile(input: VisualProfileInput): VisualProfile {
   const text = [
@@ -559,10 +569,18 @@ export function buildVisualProfile(input: VisualProfileInput): VisualProfile {
     .join(" ")
     .toLowerCase();
 
+  // Prefer the title line: description noise must not override "Soep & Singles".
+  const titleFirst = [
+    input.title ?? "",
+    input.subCategory ?? "",
+    ...(input.tags ?? []),
+  ]
+    .join(" ")
+    .toLowerCase();
   const matched: ActivityRule[] = [];
-  for (const rule of ACTIVITY_RULES) {
-    if (rule.pattern.test(text)) matched.push(rule);
-  }
+  const fromTitle = matchActivityRules(titleFirst);
+  const fromFull = matchActivityRules(text);
+  matched.push(...(fromTitle.length > 0 ? fromTitle : fromFull));
 
   // Named drinks formats beat outdoor when both present (Apero + wandeling).
   const drinksHit = matched.find((m) => m.activity === "drinks");

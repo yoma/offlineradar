@@ -257,6 +257,45 @@ const CUSHION_INTERIOR =
   ok("title theme registry steers mood for future themes");
 }
 
+// Title beats description noise; age from title steers people stock.
+{
+  const soup = buildVisualProfile({
+    category: "dating",
+    activities: [],
+    title: "Soep & Singles 45-55",
+    description: "Na de soep gaan we feesten en dansen in de club.",
+    minAge: 45,
+    maxAge: 55,
+  });
+  assert.equal(soup.primaryActivity, "soup_tasting");
+  assert.equal(soup.imageCategory, "food");
+  assert.ok(["40-50", "50-60"].includes(soup.ageBand));
+
+  const matureParty = resolvePublicEventImage(
+    {
+      category: "social",
+      activities: ["party"],
+      title: "Singles Night Out 50+",
+      minAge: 50,
+    },
+    null,
+    false,
+    "event:mature-party",
+  );
+  const matureBands = getMoodAssetMeta(matureParty.url)?.ageBands ?? [];
+  assert.ok(
+    matureBands.length === 0 ||
+      matureBands.includes("mature") ||
+      matureBands.includes("any") ||
+      matureBands.includes("mid"),
+    `50+ party must not resolve young-only stock (${matureParty.url})`,
+  );
+  assert.ok(
+    !(matureBands.includes("young") && !matureBands.includes("mature") && !matureBands.includes("mid")),
+  );
+  ok("title-first activity + age-aware people stock");
+}
+
 const prompt = buildVisualGenerationPrompt(
   buildVisualProfile({
     category: "dating",

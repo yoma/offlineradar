@@ -293,24 +293,29 @@ export const MOOD_ASSET_META: Record<string, MoodAssetMeta> = {
     subjects: ["nightlife", "party", "dancing", "social"],
     setting: ["indoor", "bar"],
     moment: ["evening", "nightlife"],
+    ageBands: ["young", "mid"],
   },
   "photo-1492684223066-81342ee5ff30": {
     subjects: ["nightlife", "party", "stage"],
     setting: ["indoor"],
     moment: ["nightlife"],
+    ageBands: ["young", "mid"],
   },
   "photo-1514525253161-7a46d19cd819": {
     subjects: ["nightlife", "party", "dancing", "microphone", "karaoke"],
     setting: ["indoor"],
     moment: ["nightlife"],
+    ageBands: ["young", "mid"],
   },
   "photo-1516450360452-9312f5e86fc7": {
     subjects: ["nightlife", "party", "dancing"],
     setting: ["indoor"],
+    ageBands: ["young", "mid"],
   },
   "photo-1470229722913-7c0e2dbbafd3": {
     subjects: ["nightlife", "party", "stage", "microphone"],
     setting: ["indoor"],
+    ageBands: ["young", "mid"],
   },
   // seasonal themes
   "photo-1509557965043-4e929c0c1b9d": {
@@ -614,22 +619,39 @@ function datingMoodAgeBands(url: string): ImageAgeBand[] {
   return ["any"];
 }
 
+/** People-centric categories where age in the title/eligibility must steer stock. */
+const AGE_SENSITIVE_CATEGORIES: ReadonlySet<Exclude<ImageCategory, "neutral">> =
+  new Set(["dating_social", "drinks", "party", "generic_social"]);
+
+function moodAgeBandsForUrl(url: string): ImageAgeBand[] {
+  const meta = getMoodAssetMeta(url);
+  if (meta?.ageBands?.length) return meta.ageBands;
+  return datingMoodAgeBands(url);
+}
+
 function moodPoolForAge(
   category: Exclude<ImageCategory, "neutral">,
   ageBand: ImageAgeBand,
 ): readonly string[] {
   const pool = CATEGORY_MOOD_POOLS[category];
-  if (category !== "dating_social" || ageBand === "any") return pool;
+  if (ageBand === "any" || !AGE_SENSITIVE_CATEGORIES.has(category)) {
+    return pool;
+  }
 
   const filtered = pool.filter((url) => {
-    const bands = datingMoodAgeBands(url);
+    const bands = moodAgeBandsForUrl(url);
     return bands.includes(ageBand) || bands.includes("any");
   });
   if (filtered.length > 0) return filtered;
 
   // Hard fallback: never show young stock on mature events.
   if (ageBand === "mature") {
-    return pool.filter((url) => datingMoodAgeBands(url).includes("mature"));
+    const matureOnly = pool.filter((url) => {
+      const bands = moodAgeBandsForUrl(url);
+      return bands.includes("mature") && !bands.includes("young");
+    });
+    if (matureOnly.length > 0) return matureOnly;
+    return pool.filter((url) => moodAgeBandsForUrl(url).includes("mature"));
   }
   return pool;
 }
@@ -867,26 +889,26 @@ function subjectsMatchEnough(
   if (profile.theme && !imageMatchesTitleTheme(profile, meta)) {
     return false;
   }
-  if (profile.mustInclude.length === 0) return true;
-  const overlap = profile.mustInclude.filter((s) => meta.subjects.includes(s));
-  // Require at least one concrete subject overlap for specific activities.
-  const specific = ![
-    "dating_social",
-    "generic_social",
-  ].includes(profile.primaryActivity);
-  if (!specific && !profile.theme) return true;
-  if (profile.theme) {
-    return imageMatchesTitleTheme(profile, meta);
+  // Theme stock may be ambience-only (pumpkins, decor); title theme is enough.
+  if (profile.theme && imageMatchesTitleTheme(profile, meta)) {
+    return true;
   }
+  if (profile.mustInclude.length === 0) return true;
+  // Title/activity subjects must overlap the image — no free pass for dating/social.
+  const overlap = profile.mustInclude.filter((s) => meta.subjects.includes(s));
   return overlap.length > 0;
 }
 
 function ageCompatible(profile: VisualProfile, imageUrl: string): boolean {
-  const meta = getMoodAssetMeta(imageUrl);
-  if (!meta?.ageBands?.length) return true;
   const legacy = visualAgeToLegacyBand(profile.ageBand);
   if (legacy === "any") return true;
-  return meta.ageBands.includes(legacy) || meta.ageBands.includes("any");
+  const bands = moodAgeBandsForUrl(imageUrl);
+  if (!bands.length || bands.includes("any")) return true;
+  // Mature events must never keep young-adult people stock.
+  if (legacy === "mature" && bands.includes("young") && !bands.includes("mature")) {
+    return false;
+  }
+  return bands.includes(legacy);
 }
 
 export function isImageCompatibleWithEvent(
