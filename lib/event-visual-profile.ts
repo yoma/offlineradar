@@ -73,7 +73,7 @@ export const TITLE_THEME_RULES: readonly TitleThemeRule[] = [
   {
     id: "halloween",
     pattern:
-      /\b(halloween|hallowe'?en|bloody.?kiss|griezel|pumpkin|spooky|trick.?or.?treat)\b/,
+      /\b(halloween|hallowe'?en|bloody.?kiss|griezel|gruwel|spook(?:y|verhaal|verhalen)?|pumpkin|trick.?or.?treat)\b/,
     subjects: ["halloween"],
     why: "Thema in titel/tags",
     promptHint:
