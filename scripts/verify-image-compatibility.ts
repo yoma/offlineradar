@@ -175,6 +175,22 @@ check("incompatible unknown image does not render as-is", () => {
 
 check("neutral data uri available", () => {
   assert.ok(NEUTRAL_FALLBACK_DATA_URI.startsWith("data:image/svg"));
+  assert.ok(
+    !NEUTRAL_FALLBACK_DATA_URI.includes("niet beschikbaar"),
+    "neutral placeholder must not show error copy to users",
+  );
+  const withCandidates = resolvePublicEventImage(
+    {
+      category: "dating",
+      activities: [],
+      title: "Speeddate Antwerpen",
+    },
+    null,
+    false,
+    "event:candidates",
+  );
+  assert.ok(withCandidates.candidates.length >= 1);
+  assert.equal(withCandidates.candidates[0], withCandidates.url);
 });
 
 check("import mapping blocks incompatible public image", () => {

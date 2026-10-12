@@ -73,18 +73,50 @@ function assetKey(url: string): string {
 }
 
 /**
- * Dead remote mood assets (Unsplash 404s). Rewrite so stored DB rows and
- * cached URLs still resolve to a working soup / food image.
+ * Dead remote mood assets (Unsplash 404s). Rewrite so stored DB rows,
+ * pools, and cached URLs still resolve to a live replacement.
+ * Add new 404 photo ids here rather than leaving broken cards in production.
  */
 const DEAD_MOOD_URL_REWRITES: Record<string, string> = {
   "photo-1547592160-406d259ca962":
     "https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=1200&q=80",
+  // Seasonal theme stock that Unsplash removed
+  "photo-1509557965043-4e929c0c1b9d":
+    "https://images.unsplash.com/photo-1478144592103-25e218a04891?auto=format&fit=crop&w=1200&q=80",
+  "photo-1605792657660-596af9009ce3":
+    "https://images.unsplash.com/photo-1478144592103-25e218a04891?auto=format&fit=crop&w=1200&q=80",
 };
 
 export function rewriteDeadMoodUrl(url: string | null | undefined): string | null {
   if (!url) return null;
   const key = assetKey(url);
   return DEAD_MOOD_URL_REWRITES[key] ?? url;
+}
+
+/** Dedupe + rewrite pool URLs so resolve never picks a known-dead asset. */
+export function liveMoodUrls(urls: readonly string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of urls) {
+    const url = rewriteDeadMoodUrl(raw);
+    if (!url || url.startsWith("data:")) continue;
+    const key = assetKey(url);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(url);
+  }
+  return out;
+}
+
+function orderPoolByDiversity(
+  pool: readonly string[],
+  mix: string | null,
+): string[] {
+  const live = liveMoodUrls(pool);
+  if (live.length === 0) return [];
+  if (!mix) return live;
+  const start = hashDiversityKey(mix) % live.length;
+  return [...live.slice(start), ...live.slice(0, start)];
 }
 
 /** Subject tags for known mood / Unsplash assets. */
@@ -440,7 +472,6 @@ export const CATEGORY_MOOD_POOLS: Record<
     "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?auto=format&fit=crop&w=1200&q=80",
-    // seasonal (also in THEME_MOOD_POOLS; kept here for category fallbacks)
     "https://images.unsplash.com/photo-1478144592103-25e218a04891?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=1200&q=80",
   ],
@@ -474,9 +505,8 @@ export const CATEGORY_MOOD_POOLS: Record<
  */
 export const THEME_MOOD_POOLS: Record<string, readonly string[]> = {
   halloween: [
+    // Keep only live Unsplash assets; dead ids are rewritten via DEAD_MOOD_URL_REWRITES.
     "https://images.unsplash.com/photo-1478144592103-25e218a04891?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1509557965043-4e929c0c1b9d?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1605792657660-596af9009ce3?auto=format&fit=crop&w=1200&q=80",
   ],
   christmas: [
     "https://images.unsplash.com/photo-1512389142860-9c449e58a543?auto=format&fit=crop&w=1200&q=80",
@@ -662,21 +692,21 @@ export function isKnownMoodAssetUrl(url: string | null | undefined): boolean {
   return false;
 }
 
-/** SVG data-URI: calm branded surface, no false activity. */
+/** SVG data-URI: calm branded surface, no false activity, no error copy. */
 export const NEUTRAL_FALLBACK_DATA_URI =
   "data:image/svg+xml;charset=utf-8," +
   encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
       <defs>
         <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#1f2937"/>
-          <stop offset="100%" stop-color="#374151"/>
+          <stop offset="0%" stop-color="#67283a"/>
+          <stop offset="55%" stop-color="#2f3035"/>
+          <stop offset="100%" stop-color="#1c1d21"/>
         </linearGradient>
       </defs>
       <rect width="1200" height="900" fill="url(#g)"/>
-      <circle cx="920" cy="180" r="120" fill="#d4af37" fill-opacity="0.35"/>
-      <text x="72" y="780" fill="#f8fafc" font-family="system-ui,sans-serif" font-size="42" font-weight="600">DateOfflineHub</text>
-      <text x="72" y="830" fill="#cbd5e1" font-family="system-ui,sans-serif" font-size="28">Sfeerbeeld niet beschikbaar</text>
+      <circle cx="920" cy="180" r="120" fill="#c4a35a" fill-opacity="0.28"/>
+      <circle cx="180" cy="720" r="160" fill="#c4a35a" fill-opacity="0.12"/>
     </svg>`,
   );
 
@@ -867,6 +897,11 @@ export type PublicImageKind =
 
 export type ResolvedEventImage = {
   url: string;
+  /**
+   * Ordered failover list for the client: primary first, then alternates.
+   * When a remote URL 404s, UI tries the next candidate before the calm neutral.
+   */
+  candidates: string[];
   imageCategory: ImageCategory;
   usedFallback: boolean;
   keptAtmosphere: boolean;
@@ -874,6 +909,22 @@ export type ResolvedEventImage = {
   why?: string[];
   imageKind?: PublicImageKind;
 };
+
+function withCandidates(
+  resolved: Omit<ResolvedEventImage, "candidates">,
+  extras: readonly string[] = [],
+): ResolvedEventImage {
+  const candidates = liveMoodUrls([resolved.url, ...extras]).filter(
+    (url) => url !== NEUTRAL_FALLBACK_DATA_URI,
+  );
+  if (resolved.url.startsWith("data:")) {
+    return { ...resolved, candidates: [resolved.url] };
+  }
+  return {
+    ...resolved,
+    candidates: candidates.length > 0 ? candidates : [resolved.url],
+  };
+}
 
 function filterPoolByProfile(
   pool: readonly string[],
@@ -908,7 +959,7 @@ export function resolvePublicEventImage(
   imageUrl = rewriteDeadMoodUrl(imageUrl);
 
   if (options?.adminLocked && imageUrl) {
-    return {
+    return withCandidates({
       url: imageUrl,
       imageCategory: (inferImageCategoryFromUrl(imageUrl) === "unknown"
         ? required
@@ -923,7 +974,7 @@ export function resolvePublicEventImage(
           : options.imageType === "mood"
             ? "mood"
             : "official",
-    };
+    });
   }
 
   const treatAsLegacyMood =
@@ -942,24 +993,35 @@ export function resolvePublicEventImage(
     !storedDatingAgeMismatch &&
     isImageCompatibleWithEvent(event, imageUrl)
   ) {
-    return {
-      url: imageUrl,
-      imageCategory: inferImageCategoryFromUrl(imageUrl) as ImageCategory,
-      usedFallback: false,
-      keptAtmosphere: false,
-      profile,
-      why,
-      imageKind: "official",
-    };
+    const categoryKey =
+      required === "neutral" ? ("party" as const) : required;
+    const moodAlts = liveMoodUrls(
+      filterPoolByProfile(
+        moodPoolForAge(categoryKey, ageBand),
+        profile,
+      ),
+    );
+    return withCandidates(
+      {
+        url: imageUrl,
+        imageCategory: inferImageCategoryFromUrl(imageUrl) as ImageCategory,
+        usedFallback: false,
+        keptAtmosphere: false,
+        profile,
+        why,
+        imageKind: "official",
+      },
+      moodAlts,
+    );
   }
 
   if (profile.theme || required !== "neutral") {
-    const themePool = profile.theme
-      ? filterPoolByProfile(THEME_MOOD_POOLS[profile.theme] ?? [], profile)
-      : [];
+    const themePool = liveMoodUrls(
+      filterPoolByProfile(THEME_MOOD_POOLS[profile.theme ?? ""] ?? [], profile),
+    );
     // Strong title theme: never fall back to unrelated category stock.
     if (profile.theme && themePool.length === 0) {
-      return {
+      return withCandidates({
         url: NEUTRAL_FALLBACK_DATA_URI,
         imageCategory: "neutral",
         usedFallback: true,
@@ -970,37 +1032,41 @@ export function resolvePublicEventImage(
           "Neutrale fallback (thema zonder veilig passend sfeerbeeld)",
         ],
         imageKind: "neutral_fallback",
-      };
+      });
     }
     const categoryKey =
       required === "neutral" ? ("party" as const) : required;
     const rawPool = moodPoolForAge(categoryKey, ageBand);
-    const filtered = filterPoolByProfile(rawPool, profile);
+    const filtered = liveMoodUrls(filterPoolByProfile(rawPool, profile));
     const categoryPool =
       filtered.length > 0
         ? filtered
-        : filterPoolByProfile(CATEGORY_MOOD_POOLS[categoryKey] ?? [], profile);
+        : liveMoodUrls(
+            filterPoolByProfile(CATEGORY_MOOD_POOLS[categoryKey] ?? [], profile),
+          );
     const pool = themePool.length > 0 ? themePool : categoryPool;
     if (pool.length > 0) {
       const mix = key
         ? `${required}|${profile.theme ?? "none"}|${profile.primaryActivity}|${profile.ageBand}|${key}`
         : null;
-      const url = mix
-        ? pool[hashDiversityKey(mix) % pool.length]!
-        : pool[0]!;
-      return {
-        url,
-        imageCategory: required === "neutral" ? "party" : required,
-        usedFallback: true,
-        keptAtmosphere: true,
-        profile,
-        why,
-        imageKind: "mood",
-      };
+      const ordered = orderPoolByDiversity(pool, mix);
+      const url = ordered[0]!;
+      return withCandidates(
+        {
+          url,
+          imageCategory: required === "neutral" ? "party" : required,
+          usedFallback: true,
+          keptAtmosphere: true,
+          profile,
+          why,
+          imageKind: "mood",
+        },
+        ordered.slice(1),
+      );
     }
   }
 
-  return {
+  return withCandidates({
     url: NEUTRAL_FALLBACK_DATA_URI,
     imageCategory: "neutral",
     usedFallback: true,
@@ -1008,7 +1074,7 @@ export function resolvePublicEventImage(
     profile,
     why: [...why, "Neutrale fallback (geen veilig passend beeld)"],
     imageKind: "neutral_fallback",
-  };
+  });
 }
 
 export function publicImageKindLabel(kind: PublicImageKind | undefined): string {

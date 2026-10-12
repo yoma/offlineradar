@@ -91,11 +91,12 @@ export function EventVisual({
         priority={priority}
         sizes="(max-width: 768px) 100vw, 33vw"
         className="object-cover transition duration-500 group-hover:scale-[1.03]"
+        candidates={resolved.candidates}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
-      {showAtmosphere ? (
+      {showAtmosphere && kindLabel !== "Neutraal fallbackbeeld" ? (
         <p className="absolute top-3 left-3 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-medium tracking-wide text-white">
-          {kindLabel === "Neutraal fallbackbeeld" ? kindLabel : "Sfeerbeeld"}
+          Sfeerbeeld
         </p>
       ) : null}
       {showImageMeta ? (
