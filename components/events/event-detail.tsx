@@ -233,7 +233,7 @@ export function EventDetail({
                   : "border-emerald-200 bg-emerald-50"
             }`}
           >
-            <h2 className="text-lg font-semibold">{eligibility.title}</h2>
+            <h2 className="font-heading-section text-lg">{eligibility.title}</h2>
             <p className="mt-1.5 text-sm leading-6 text-foreground/80">
               {eligibility.detail}
             </p>
@@ -246,7 +246,7 @@ export function EventDetail({
 
           {isActiveMeetActivation(event.meetActivation) && event.meetActivation ? (
             <section className="space-y-2 rounded-2xl border border-border bg-secondary/40 px-5 py-4">
-              <h2 className="text-lg font-semibold tracking-tight">
+              <h2 className="font-heading-section text-lg tracking-tight">
                 DateOfflineHub Meet
               </h2>
               <p className="text-sm leading-6 text-muted-foreground">
@@ -270,7 +270,7 @@ export function EventDetail({
           ) : null}
 
           <section className="space-y-3">
-            <h2 className="text-xl font-semibold tracking-tight">
+            <h2 className="font-heading-section text-xl tracking-tight">
               Waarom past dit bij jou?
             </h2>
             <ul className="space-y-2 text-[15px] leading-6">
@@ -290,7 +290,7 @@ export function EventDetail({
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-xl font-semibold tracking-tight">
+            <h2 className="font-heading-section text-xl tracking-tight">
               Over deze activiteit
             </h2>
             <p className="text-[15px] leading-7 text-muted-foreground">
@@ -303,7 +303,9 @@ export function EventDetail({
 
           {event.practicalInfo.length > 0 ? (
             <section className="space-y-3">
-              <h2 className="text-xl font-semibold tracking-tight">Praktisch</h2>
+              <h2 className="font-heading-section text-xl tracking-tight">
+                Praktisch
+              </h2>
               <ul className="space-y-2 text-[15px] leading-6 text-muted-foreground">
                 {event.practicalInfo.map((item) => (
                   <li key={item}>{item}</li>

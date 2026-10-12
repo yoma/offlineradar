@@ -10,7 +10,9 @@ export default function PrivacyPage() {
   return (
     <div className="mx-auto w-full min-w-0 max-w-2xl space-y-8 px-4 py-12 sm:px-6">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Privacy</h1>
+        <h1 className="font-heading text-3xl tracking-tight text-[var(--brand-bordeaux)]">
+          Privacy
+        </h1>
         <p className="mt-3 text-[15px] leading-7 text-muted-foreground">
           DateOfflineHub helpt je offline singlesactiviteiten te ontdekken. We
           bewaren zo weinig mogelijk gegevens.
@@ -18,7 +20,9 @@ export default function PrivacyPage() {
       </div>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold tracking-tight">Wie beheert dit?</h2>
+        <h2 className="font-heading-section text-xl tracking-tight text-[var(--brand-bordeaux)]">
+          Wie beheert dit?
+        </h2>
         <p className="text-[15px] leading-7 text-muted-foreground">
           DateOfflineHub is een onafhankelijk productproject (beta). Contact via
           de{" "}
@@ -30,7 +34,8 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold tracking-tight">
+        <h2 className="font-heading-section text-xl tracking-tight text-[var(--brand-bordeaux)]">
+
           Zonder account
         </h2>
         <p className="text-[15px] leading-7 text-muted-foreground">
@@ -41,7 +46,8 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold tracking-tight">
+        <h2 className="font-heading-section text-xl tracking-tight text-[var(--brand-bordeaux)]">
+
           Met Google-account (optioneel)
         </h2>
         <p className="text-[15px] leading-7 text-muted-foreground">
@@ -61,7 +67,8 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold tracking-tight">
+        <h2 className="font-heading-section text-xl tracking-tight text-[var(--brand-bordeaux)]">
+
           Cookies / sessie
         </h2>
         <p className="text-[15px] leading-7 text-muted-foreground">
@@ -71,7 +78,8 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold tracking-tight">
+        <h2 className="font-heading-section text-xl tracking-tight text-[var(--brand-bordeaux)]">
+
           Tips, meldingen en feedback
         </h2>
         <p className="text-[15px] leading-7 text-muted-foreground">
@@ -82,7 +90,8 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold tracking-tight">
+        <h2 className="font-heading-section text-xl tracking-tight text-[var(--brand-bordeaux)]">
+
           Externe eventlinks
         </h2>
         <p className="text-[15px] leading-7 text-muted-foreground">
@@ -94,7 +103,8 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold tracking-tight">
+        <h2 className="font-heading-section text-xl tracking-tight text-[var(--brand-bordeaux)]">
+
           Gebruiksstatistieken
         </h2>
         <p className="text-[15px] leading-7 text-muted-foreground">
@@ -107,7 +117,8 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold tracking-tight">
+        <h2 className="font-heading-section text-xl tracking-tight text-[var(--brand-bordeaux)]">
+
           Account verwijderen
         </h2>
         <p className="text-[15px] leading-7 text-muted-foreground">

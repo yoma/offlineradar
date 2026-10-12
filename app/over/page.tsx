@@ -25,7 +25,7 @@ export default function AboutPage() {
       </div>
 
       <div>
-        <h2 className="font-heading text-xl tracking-tight text-[var(--brand-bordeaux)]">
+        <h2 className="font-heading-section text-xl tracking-tight text-[var(--brand-bordeaux)]">
           Hoe actueel is de informatie?
         </h2>
         <p className="mt-3 text-[15px] leading-7 text-muted-foreground">
@@ -36,7 +36,7 @@ export default function AboutPage() {
       </div>
 
       <div>
-        <h2 className="font-heading text-xl tracking-tight text-[var(--brand-bordeaux)]">
+        <h2 className="font-heading-section text-xl tracking-tight text-[var(--brand-bordeaux)]">
           Gesloten beta
         </h2>
         <p className="mt-3 text-[15px] leading-7 text-muted-foreground">
@@ -54,7 +54,7 @@ export default function AboutPage() {
       </div>
 
       <div>
-        <h2 className="font-heading text-xl tracking-tight text-[var(--brand-bordeaux)]">
+        <h2 className="font-heading-section text-xl tracking-tight text-[var(--brand-bordeaux)]">
           Privacy
         </h2>
         <p className="mt-3 text-[15px] leading-7 text-muted-foreground">
