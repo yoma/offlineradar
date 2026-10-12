@@ -94,6 +94,7 @@ export async function publishEventAction(formData: FormData) {
 
   revalidatePath("/interne-events");
   revalidatePath("/interne-tips");
+  revalidatePath("/interne-goedkeuren");
   revalidatePath("/ontdek");
   revalidatePath(`/event/${updated.slug}`);
 }

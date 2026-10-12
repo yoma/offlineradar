@@ -3,9 +3,9 @@
 import { signIn, signOut } from "@/auth";
 
 export async function startGoogleSignIn() {
-  await signIn("google", { redirectTo: "/interne-tips" });
+  await signIn("google", { redirectTo: "/interne-goedkeuren#tips" });
 }
 
 export async function signOutTipsAdmin() {
-  await signOut({ redirectTo: "/interne-tips" });
+  await signOut({ redirectTo: "/interne-goedkeuren" });
 }

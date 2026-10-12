@@ -10,10 +10,9 @@ import { ORIGIN_LABEL } from "@/lib/aanvoer/cockpit-data";
 
 type Props = {
   items: CockpitCandidateRow[];
-  tipQueueCount: number;
 };
 
-export function GoedkeurenInbox({ items: initial, tipQueueCount }: Props) {
+export function GoedkeurenInbox({ items: initial }: Props) {
   const router = useRouter();
   const [items, setItems] = useState(initial);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -48,18 +47,6 @@ export function GoedkeurenInbox({ items: initial, tipQueueCount }: Props) {
 
   return (
     <div className="space-y-5">
-      {tipQueueCount > 0 ? (
-        <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          {tipQueueCount} tip{tipQueueCount === 1 ? "" : "s"} wacht in de tipwachtrij.{" "}
-          <Link
-            href="/interne-tips"
-            className="font-semibold underline-offset-4 hover:underline"
-          >
-            Open tips
-          </Link>
-        </p>
-      ) : null}
-
       {message ? (
         <p
           className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950"
@@ -78,18 +65,11 @@ export function GoedkeurenInbox({ items: initial, tipQueueCount }: Props) {
       ) : null}
 
       {items.length === 0 ? (
-        <div className="rounded-2xl border border-stone-200 bg-white/90 px-5 py-10 text-center">
-          <p className="text-lg font-semibold text-stone-900">Niets te doen</p>
-          <p className="mt-2 text-sm text-stone-600">
-            Geen events die jouw goedkeuring vragen. Kom later terug of check de
-            volledige aanvoer.
+        <div className="rounded-2xl border border-stone-200 bg-white/90 px-5 py-8 text-center">
+          <p className="font-semibold text-stone-900">Geen events ter review</p>
+          <p className="mt-1 text-sm text-stone-600">
+            Tips staan hieronder als er open tips zijn.
           </p>
-          <Link
-            href="/interne-aanvoer?tab=aandacht"
-            className="mt-5 inline-flex rounded-full bg-stone-900 px-4 py-2 text-sm font-semibold text-white"
-          >
-            Naar aanvoer
-          </Link>
         </div>
       ) : (
         <ul className="space-y-4">
