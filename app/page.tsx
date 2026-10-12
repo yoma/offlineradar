@@ -1,4 +1,3 @@
-import { BrandShapes } from "@/components/brand/brand-shapes";
 import { HomeHero } from "@/components/home/home-search";
 import { TipSection } from "@/components/tips/tip-section";
 import { brusselsToday } from "@/lib/dates";
@@ -58,39 +57,33 @@ export default async function HomePage() {
           lukken.
         </p>
       ) : null}
-      {/* Organic shapes only below the hero photo. */}
-      <div className="relative overflow-x-clip">
-        <BrandShapes variant="home-lower" />
-        <div className="relative z-[1]">
-          <TipSection />
-          <section className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-16">
-            <h2 className="font-heading text-3xl tracking-tight text-[var(--brand-bordeaux)] sm:text-[2rem]">
-              Zo werkt DateOfflineHub
-            </h2>
-            <p className="mt-2 max-w-2xl text-[15px] leading-6 text-muted-foreground">
-              Geen swipes, geen chat. Alleen ontdekken wat er binnenkort
-              gebeurt, en doorklikken naar de organisator.
-            </p>
-            <ol className="mt-10 grid gap-8 sm:grid-cols-3 sm:gap-10">
-              <Step
-                n="01"
-                title="Zoek"
-                text="Kies waar, wanneer en wat je wilt doen."
-              />
-              <Step
-                n="02"
-                title="Controleer"
-                text="Je leeftijd bepaalt of je mag deelnemen."
-              />
-              <Step
-                n="03"
-                title="Ga erheen"
-                text="Tickets en reservatie blijven bij de organisator."
-              />
-            </ol>
-          </section>
-        </div>
-      </div>
+      <TipSection />
+      <section className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6 sm:py-16">
+        <h2 className="font-heading text-3xl tracking-tight text-[var(--brand-bordeaux)] sm:text-[2rem]">
+          Zo werkt DateOfflineHub
+        </h2>
+        <p className="mt-2 max-w-2xl text-[15px] leading-6 text-muted-foreground">
+          Geen swipes, geen chat. Alleen ontdekken wat er binnenkort gebeurt, en
+          doorklikken naar de organisator.
+        </p>
+        <ol className="mt-10 grid gap-8 sm:grid-cols-3 sm:gap-10">
+          <Step
+            n="01"
+            title="Zoek"
+            text="Kies waar, wanneer en wat je wilt doen."
+          />
+          <Step
+            n="02"
+            title="Controleer"
+            text="Je leeftijd bepaalt of je mag deelnemen."
+          />
+          <Step
+            n="03"
+            title="Ga erheen"
+            text="Tickets en reservatie blijven bij de organisator."
+          />
+        </ol>
+      </section>
     </div>
   );
 }

@@ -2,7 +2,6 @@
 
 import { SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { BrandShapes } from "@/components/brand/brand-shapes";
 import { EventCard } from "@/components/events/event-card";
 import { ResultRefinementBar } from "@/components/discover/result-refinement";
 import {
@@ -293,9 +292,7 @@ export function DiscoverView({
           } voor jou`;
 
   return (
-    <div className="relative min-h-[70vh] overflow-x-clip">
-      <BrandShapes variant="discover" />
-      <div className="relative z-[1] mx-auto w-full min-w-0 max-w-6xl px-4 py-8 sm:px-6">
+    <div className="mx-auto w-full min-w-0 max-w-6xl px-4 py-8 sm:px-6">
       {upcoming.events.length > 0 ? (
         <UpcomingStrip
           events={upcoming.events}
@@ -620,7 +617,6 @@ export function DiscoverView({
         }}
       />
       <p className="sr-only">{USER_PLACES.length} plaatsen</p>
-      </div>
     </div>
   );
 }
