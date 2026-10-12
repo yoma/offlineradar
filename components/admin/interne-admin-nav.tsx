@@ -25,7 +25,6 @@ export function InterneAdminNav({
       label: "Wachtrij",
     },
     { href: "/interne-events", key: "events" as const, label: "Live" },
-    { href: "/interne-tips", key: "tips" as const, label: "Tips" },
     {
       href: "/interne-feedback",
       key: "feedback" as const,
@@ -40,12 +39,14 @@ export function InterneAdminNav({
       label: "Cijfers",
     },
   ];
+  // "tips" still accepted as active for old links; highlight Wachtrij instead.
+  const activeKey = active === "tips" ? "goedkeuren" : active;
 
   return (
     <nav className="mobile-scroll-x mb-6" aria-label="Interne navigatie">
       <div className="inline-flex min-w-full gap-1 rounded-2xl border border-stone-200/80 bg-white/75 p-1 shadow-sm backdrop-blur sm:min-w-0">
         {items.map((item) => {
-          const isActive = item.key === active;
+          const isActive = item.key === activeKey;
           return (
             <Link
               key={item.href}

@@ -26,17 +26,38 @@ const ROUTE_LABEL: Record<TipRouteSuggestion, string> = {
   needs_manual_review: "Handmatige controle nodig",
 };
 
-export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
+const OPEN_TIP_STATUSES: TipStatus[] = [
+  "received",
+  "in_review",
+  "needs_info",
+  "duplicate",
+  "approved_for_publication",
+];
+
+export function TipAdminClient({
+  initial,
+  embedded = false,
+}: {
+  initial: TipsStoreSnapshot;
+  /** When true: section inside Wachtrij, open tips first. */
+  embedded?: boolean;
+}) {
   const [snapshot, setSnapshot] = useState(initial);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [scanningId, setScanningId] = useState<string | null>(null);
+  const [showClosed, setShowClosed] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const reviewsByTip = useMemo(() => {
     const map = new Map(snapshot.reviews.map((review) => [review.tipId, review]));
     return map;
   }, [snapshot.reviews]);
+
+  const visibleTips = useMemo(() => {
+    if (!embedded || showClosed) return snapshot.tips;
+    return snapshot.tips.filter((tip) => OPEN_TIP_STATUSES.includes(tip.status));
+  }, [embedded, showClosed, snapshot.tips]);
 
   async function refresh() {
     try {
@@ -262,53 +283,86 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
     });
   }
 
+  const openCount = snapshot.tips.filter((t) =>
+    OPEN_TIP_STATUSES.includes(t.status),
+  ).length;
+
   return (
-    <div className="mt-8 space-y-6">
+    <div className={embedded ? "space-y-5" : "mt-8 space-y-6"} id="tips">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          Tips
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {snapshot.tips.length} tip{snapshot.tips.length === 1 ? "" : "s"} die
-          mensen doorgaven.
-        </p>
-        <p className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm leading-6 text-stone-700">
-          Per tip: <span className="font-semibold">Checken</span>,{" "}
-          <span className="font-semibold">Goedkeuren</span>, concept maken, dan
-          online zetten onder Live. Extra knoppen zitten onder Meer acties.
-        </p>
-        <div className="grid grid-cols-3 gap-1.5 pt-1 sm:gap-2">
-          {[
-            {
-              label: "Aandacht",
-              n: snapshot.tips.filter((t) =>
-                ["received", "in_review", "needs_info", "duplicate"].includes(
-                  t.status,
-                ),
-              ).length,
-            },
-            {
-              label: "Toegevoegd",
-              n: snapshot.tips.filter((t) => t.status === "published").length,
-            },
-            {
-              label: "Niet toegevoegd",
-              n: snapshot.tips.filter((t) =>
-                ["rejected", "expired_or_cancelled"].includes(t.status),
-              ).length,
-            },
-          ].map((c) => (
-            <div
-              key={c.label}
-              className="min-w-0 rounded-xl border border-stone-200 bg-white px-2 py-2 sm:px-3"
-            >
-              <p className="text-[10px] leading-tight font-semibold tracking-wide text-stone-500 uppercase">
-                {c.label}
-              </p>
-              <p className="text-xl font-semibold text-stone-900">{c.n}</p>
-            </div>
-          ))}
-        </div>
+        {embedded ? (
+          <>
+            <h2 className="text-xl font-semibold tracking-tight text-stone-900">
+              Tips van bezoekers
+            </h2>
+            <p className="text-sm text-stone-600">
+              {openCount} open
+              {openCount === 1 ? " tip" : " tips"}. Checken → goedkeuren →
+              concept → Live.
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+              Tips
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {snapshot.tips.length} tip
+              {snapshot.tips.length === 1 ? "" : "s"} die mensen doorgaven.
+            </p>
+            <p className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm leading-6 text-stone-700">
+              Per tip: <span className="font-semibold">Checken</span>,{" "}
+              <span className="font-semibold">Goedkeuren</span>, concept maken,
+              dan online zetten onder Live. Extra knoppen zitten onder Meer
+              acties.
+            </p>
+          </>
+        )}
+        {!embedded ? (
+          <div className="grid grid-cols-3 gap-1.5 pt-1 sm:gap-2">
+            {[
+              {
+                label: "Aandacht",
+                n: snapshot.tips.filter((t) =>
+                  ["received", "in_review", "needs_info", "duplicate"].includes(
+                    t.status,
+                  ),
+                ).length,
+              },
+              {
+                label: "Toegevoegd",
+                n: snapshot.tips.filter((t) => t.status === "published").length,
+              },
+              {
+                label: "Niet toegevoegd",
+                n: snapshot.tips.filter((t) =>
+                  ["rejected", "expired_or_cancelled"].includes(t.status),
+                ).length,
+              },
+            ].map((c) => (
+              <div
+                key={c.label}
+                className="min-w-0 rounded-xl border border-stone-200 bg-white px-2 py-2 sm:px-3"
+              >
+                <p className="text-[10px] leading-tight font-semibold tracking-wide text-stone-500 uppercase">
+                  {c.label}
+                </p>
+                <p className="text-xl font-semibold text-stone-900">{c.n}</p>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {embedded && snapshot.tips.length > openCount ? (
+          <button
+            type="button"
+            className="text-sm font-medium text-stone-600 underline-offset-4 hover:underline"
+            onClick={() => setShowClosed((v) => !v)}
+          >
+            {showClosed
+              ? "Alleen open tips"
+              : `Toon ook afgehandelde (${snapshot.tips.length - openCount})`}
+          </button>
+        ) : null}
       </header>
 
       {error ? (
@@ -322,11 +376,13 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
         </p>
       ) : null}
 
-      {snapshot.tips.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nog geen tips ontvangen.</p>
+      {visibleTips.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {embedded ? "Geen open tips." : "Nog geen tips ontvangen."}
+        </p>
       ) : (
         <ul className="space-y-4">
-          {snapshot.tips.map((tip) => {
+          {visibleTips.map((tip) => {
             const review = reviewsByTip.get(tip.id);
             const prep = review?.aiPrep ?? null;
             const hasAiAdvice = Boolean(prep?.routeSuggestion && !prep.scanError);
