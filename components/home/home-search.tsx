@@ -273,10 +273,12 @@ export function HomeHero({
       <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/60" />
 
       <div className="relative mx-auto flex min-h-[100svh] w-full min-w-0 max-w-6xl flex-col justify-center px-4 pt-24 pb-24 sm:px-6 sm:pt-28 sm:pb-16">
-        <h1 className="font-heading max-w-[18ch] text-balance text-[1.55rem] leading-[1.2] text-white sm:max-w-2xl sm:text-[2.35rem] sm:leading-[1.15] lg:text-[2.75rem] lg:leading-[1.12]">
-          Date offline. Ervaar opnieuw de kracht van echte connecties.
+        <h1 className="font-heading max-w-xl text-[1.6rem] leading-[1.3] text-white sm:max-w-3xl sm:text-[2.4rem] sm:leading-[1.28] lg:text-[2.7rem] lg:leading-[1.26]">
+          Date offline.
+          <br />
+          Ervaar opnieuw de kracht van echte connecties.
         </h1>
-        <p className="mt-3.5 max-w-md text-pretty text-[13.5px] leading-6 font-normal text-white/75 sm:mt-4 sm:max-w-lg sm:text-[15px] sm:leading-7">
+        <p className="mt-4 max-w-lg text-pretty text-[14px] leading-7 font-normal text-white/75 sm:mt-5 sm:max-w-xl sm:text-[15px] sm:leading-7">
           Ontdek hier singlesevents en activiteiten waar je andere singles in
           het echt kunt ontmoeten.
         </p>
