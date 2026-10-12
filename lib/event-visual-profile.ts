@@ -48,8 +48,67 @@ export type VisualPrimaryActivity =
   | "dating_social"
   | "generic_social";
 
-/** Seasonal / title themes that should steer mood photos. */
-export type VisualTheme = "halloween" | "christmas" | null;
+/**
+ * Strong title/tag themes that must steer mood photos.
+ * Add a rule here + optional mood URLs in THEME_MOOD_POOLS for future themes.
+ */
+export type VisualTheme = string | null;
+
+export type TitleThemeRule = {
+  /** Stable id used in image subject tags and THEME_MOOD_POOLS keys. */
+  id: string;
+  pattern: RegExp;
+  /** Subjects a mood asset must carry to count as a match. */
+  subjects: string[];
+  why: string;
+  /** Hint for optional image generation. */
+  promptHint: string;
+};
+
+/**
+ * Registry of title themes. Order matters: first match wins.
+ * Prefer distinctive themes over broad ones.
+ */
+export const TITLE_THEME_RULES: readonly TitleThemeRule[] = [
+  {
+    id: "halloween",
+    pattern:
+      /\b(halloween|hallowe'?en|bloody.?kiss|griezel|pumpkin|spooky|trick.?or.?treat)\b/,
+    subjects: ["halloween"],
+    why: "Thema in titel/tags",
+    promptHint:
+      "Clearly Halloween-themed (costumes, pumpkins, or spooky seasonal decor).",
+  },
+  {
+    id: "christmas",
+    pattern:
+      /\b(kerst(?:mis|feest|borrel|party|markt)?|christmas|x-?mas|sinterklaas)\b/,
+    subjects: ["christmas"],
+    why: "Thema in titel/tags",
+    promptHint: "Clearly Christmas / festive holiday themed.",
+  },
+  {
+    id: "new_year",
+    pattern: /\b(nieuwjaar|new.?year|nye|réveillon|reveillon)\b/,
+    subjects: ["new_year", "celebration"],
+    why: "Thema in titel/tags",
+    promptHint: "Clearly New Year's Eve / New Year celebration themed.",
+  },
+  {
+    id: "valentine",
+    pattern: /\b(valentijn|valentine'?s?|cupido)\b/,
+    subjects: ["valentine"],
+    why: "Thema in titel/tags",
+    promptHint: "Clearly Valentine's Day themed, without cheesy dating-app look.",
+  },
+  {
+    id: "carnival",
+    pattern: /\b(carnaval|carnival|vastenavond)\b/,
+    subjects: ["carnival"],
+    why: "Thema in titel/tags",
+    promptHint: "Clearly carnival / mardi gras themed (costumes, festive parade energy).",
+  },
+];
 
 export type VisualProfile = {
   primaryActivity: VisualPrimaryActivity;
@@ -62,7 +121,7 @@ export type VisualProfile = {
   mustInclude: string[];
   mustAvoid: string[];
   imageCategory: ProfileImageCategory;
-  /** Strong title theme (halloween, christmas, …). */
+  /** Strong title theme id from TITLE_THEME_RULES, if any. */
   theme: VisualTheme;
   /** Short Dutch reasons for admin UI. */
   why: string[];
@@ -106,23 +165,43 @@ function sanitizeUntrustedText(value: string | null | undefined): string {
     .slice(0, 4000);
 }
 
-export function inferVisualTheme(text: string): VisualTheme {
+export function matchTitleThemeRule(text: string): TitleThemeRule | null {
   const t = text.toLowerCase();
-  if (
-    /\b(halloween|hallowe'?en|bloody.?kiss|griezel|pumpkin|spooky|trick.?or.?treat)\b/.test(
-      t,
-    )
-  ) {
-    return "halloween";
-  }
-  if (
-    /\b(kerst(?:mis|feest|borrel|party)?|christmas|x-?mas|sinterklaas|nieuwjaar|nye)\b/.test(
-      t,
-    )
-  ) {
-    return "christmas";
+  for (const rule of TITLE_THEME_RULES) {
+    if (rule.pattern.test(t)) return rule;
   }
   return null;
+}
+
+export function inferVisualTheme(text: string): VisualTheme {
+  return matchTitleThemeRule(text)?.id ?? null;
+}
+
+/** Prefer title/tags over long body copy to reduce false theme hits. */
+export function inferVisualThemeFromInput(
+  input: Pick<
+    VisualProfileInput,
+    "title" | "subCategory" | "tags" | "shortDescription" | "description"
+  >,
+): TitleThemeRule | null {
+  const titleFirst = [
+    input.title ?? "",
+    input.subCategory ?? "",
+    ...(input.tags ?? []),
+  ]
+    .join(" ")
+    .toLowerCase();
+  return (
+    matchTitleThemeRule(titleFirst) ??
+    matchTitleThemeRule(
+      [
+        sanitizeUntrustedText(input.shortDescription),
+        sanitizeUntrustedText(input.description),
+      ]
+        .join(" ")
+        .toLowerCase(),
+    )
+  );
 }
 
 export function inferVisualAgeBand(input: {
@@ -588,20 +667,15 @@ export function buildVisualProfile(input: VisualProfileInput): VisualProfile {
     why.push("overdag / breakfast");
   }
 
-  const theme = inferVisualTheme(text);
+  const themeRule = inferVisualThemeFromInput(input);
   let subjects = [...base.subjects];
   let mustInclude = [...base.mustInclude];
   let mood = [...base.mood];
-  if (theme === "halloween") {
-    subjects = Array.from(new Set([...subjects, "halloween"]));
-    mustInclude = Array.from(new Set(["halloween", ...mustInclude]));
-    mood = Array.from(new Set([...mood, "halloween", "seasonal"]));
-    why.push("Halloween-thema in titel");
-  } else if (theme === "christmas") {
-    subjects = Array.from(new Set([...subjects, "christmas"]));
-    mustInclude = Array.from(new Set(["christmas", ...mustInclude]));
-    mood = Array.from(new Set([...mood, "christmas", "seasonal"]));
-    why.push("Kerst / feestdagen-thema in titel");
+  if (themeRule) {
+    subjects = Array.from(new Set([...subjects, ...themeRule.subjects]));
+    mustInclude = Array.from(new Set([...themeRule.subjects, ...mustInclude]));
+    mood = Array.from(new Set([...mood, themeRule.id, "themed"]));
+    why.push(themeRule.why);
   }
 
   return {
@@ -615,7 +689,7 @@ export function buildVisualProfile(input: VisualProfileInput): VisualProfile {
     mustInclude,
     mustAvoid: base.mustAvoid,
     imageCategory: base.imageCategory,
-    theme,
+    theme: themeRule?.id ?? null,
     why,
   };
 }
@@ -641,17 +715,14 @@ export function buildVisualGenerationPrompt(profile: VisualProfile): string {
   const subjects = profile.subjects.join(", ");
   const setting = profile.setting.join(", ") || "realistic European setting";
   const mood = profile.mood.join(", ") || "natural and social";
-  const themeLine =
-    profile.theme === "halloween"
-      ? "Clearly Halloween-themed (costumes, pumpkins, or spooky seasonal decor)."
-      : profile.theme === "christmas"
-        ? "Clearly Christmas / festive holiday themed."
-        : null;
+  const themeRule = profile.theme
+    ? TITLE_THEME_RULES.find((r) => r.id === profile.theme)
+    : null;
   return [
     `Authentic natural photo of a small group of adults (${age}) during ${activity}.`,
     `Visual focus: ${subjects}.`,
     `Setting: ${setting}. Mood: ${mood}.`,
-    themeLine,
+    themeRule?.promptHint ?? null,
     "Group of adults preferred over one romantic couple.",
     "No text, no logos, no hearts, no dating-app look, no staged handshake stock.",
     `Avoid: ${profile.mustAvoid.join(", ") || "generic dating clichés"}.`,

@@ -7,10 +7,10 @@
 import type { ActivityId, EventCategory } from "@/types/event";
 import {
   buildVisualProfile,
+  TITLE_THEME_RULES,
   visualAgeToLegacyBand,
   type VisualProfile,
   type VisualProfileInput,
-  type VisualTheme,
 } from "@/lib/event-visual-profile";
 
 export const IMAGE_CATEGORIES = [
@@ -302,9 +302,27 @@ export const MOOD_ASSET_META: Record<string, MoodAssetMeta> = {
     moment: ["evening"],
   },
   "photo-1513151233558-d860c5398176": {
-    subjects: ["christmas", "party", "seasonal", "celebration"],
+    subjects: ["christmas", "party", "seasonal", "celebration", "new_year"],
     setting: ["indoor"],
     moment: ["evening"],
+  },
+  "photo-1467810563316-b5476525c0f9": {
+    subjects: ["new_year", "celebration", "party", "seasonal"],
+    setting: ["outdoor", "indoor"],
+    moment: ["evening", "nightlife"],
+  },
+  "photo-1518199266791-5375a83190b7": {
+    subjects: ["valentine", "seasonal", "decor"],
+    setting: ["indoor"],
+  },
+  "photo-1516589178581-6cd7833ae3b2": {
+    subjects: ["valentine", "social", "seasonal"],
+    setting: ["indoor"],
+  },
+  "photo-1533174072545-7a4b6ad7a6c3": {
+    subjects: ["carnival", "costume", "party", "seasonal", "celebration"],
+    setting: ["outdoor"],
+    moment: ["evening", "nightlife"],
   },
   // workshop
   "mood-embodied-dating.png": {
@@ -449,11 +467,12 @@ export const CATEGORY_MOOD_POOLS: Record<
   ],
 };
 
-/** Theme-first mood pools when the title signals a strong seasonal theme. */
-export const THEME_MOOD_POOLS: Record<
-  Exclude<VisualTheme, null>,
-  readonly string[]
-> = {
+/**
+ * Theme-first mood pools keyed by TITLE_THEME_RULES id.
+ * Missing pool ⇒ neutral fallback (never wrong generic category stock).
+ * Extend this map when you add a new title theme rule.
+ */
+export const THEME_MOOD_POOLS: Record<string, readonly string[]> = {
   halloween: [
     "https://images.unsplash.com/photo-1478144592103-25e218a04891?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1509557965043-4e929c0c1b9d?auto=format&fit=crop&w=1200&q=80",
@@ -462,6 +481,17 @@ export const THEME_MOOD_POOLS: Record<
   christmas: [
     "https://images.unsplash.com/photo-1512389142860-9c449e58a543?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=1200&q=80",
+  ],
+  new_year: [
+    "https://images.unsplash.com/photo-1467810563316-b5476525c0f9?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=1200&q=80",
+  ],
+  valentine: [
+    "https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&w=1200&q=80",
+  ],
+  carnival: [
+    "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=1200&q=80",
   ],
 };
 
@@ -762,6 +792,21 @@ function subjectsConflict(
   return false;
 }
 
+function themeSubjectsFor(profile: VisualProfile): string[] {
+  if (!profile.theme) return [];
+  const rule = TITLE_THEME_RULES.find((r) => r.id === profile.theme);
+  return rule ? [...rule.subjects, rule.id] : [profile.theme];
+}
+
+function imageMatchesTitleTheme(
+  profile: VisualProfile,
+  meta: MoodAssetMeta,
+): boolean {
+  const needed = themeSubjectsFor(profile);
+  if (needed.length === 0) return true;
+  return needed.some((s) => meta.subjects.includes(s));
+}
+
 function subjectsMatchEnough(
   profile: VisualProfile,
   imageUrl: string,
@@ -771,7 +816,7 @@ function subjectsMatchEnough(
     // Unknown assets cannot satisfy a strong title theme.
     return profile.theme == null;
   }
-  if (profile.theme && !meta.subjects.includes(profile.theme)) {
+  if (profile.theme && !imageMatchesTitleTheme(profile, meta)) {
     return false;
   }
   if (profile.mustInclude.length === 0) return true;
@@ -783,7 +828,7 @@ function subjectsMatchEnough(
   ].includes(profile.primaryActivity);
   if (!specific && !profile.theme) return true;
   if (profile.theme) {
-    return meta.subjects.includes(profile.theme);
+    return imageMatchesTitleTheme(profile, meta);
   }
   return overlap.length > 0;
 }
@@ -908,10 +953,25 @@ export function resolvePublicEventImage(
     };
   }
 
-  if (required !== "neutral" || profile.theme) {
+  if (profile.theme || required !== "neutral") {
     const themePool = profile.theme
       ? filterPoolByProfile(THEME_MOOD_POOLS[profile.theme] ?? [], profile)
       : [];
+    // Strong title theme: never fall back to unrelated category stock.
+    if (profile.theme && themePool.length === 0) {
+      return {
+        url: NEUTRAL_FALLBACK_DATA_URI,
+        imageCategory: "neutral",
+        usedFallback: true,
+        keptAtmosphere: true,
+        profile,
+        why: [
+          ...why,
+          "Neutrale fallback (thema zonder veilig passend sfeerbeeld)",
+        ],
+        imageKind: "neutral_fallback",
+      };
+    }
     const categoryKey =
       required === "neutral" ? ("party" as const) : required;
     const rawPool = moodPoolForAge(categoryKey, ageBand);
@@ -920,7 +980,6 @@ export function resolvePublicEventImage(
       filtered.length > 0
         ? filtered
         : filterPoolByProfile(CATEGORY_MOOD_POOLS[categoryKey] ?? [], profile);
-    // Title theme wins over generic category stock (halloween ≠ club night).
     const pool = themePool.length > 0 ? themePool : categoryPool;
     if (pool.length > 0) {
       const mix = key

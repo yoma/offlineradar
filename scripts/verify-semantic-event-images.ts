@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import {
   buildVisualProfile,
   buildVisualGenerationPrompt,
+  TITLE_THEME_RULES,
 } from "../lib/event-visual-profile";
 import {
   inferRequiredImageCategory,
@@ -183,26 +184,54 @@ const CUSHION_INTERIOR =
   ok("dating context does not override soup activity");
 }
 
-// Halloween title must not get generic club stock
+// Title themes are registry-driven (not one-off image fixes)
 {
-  const ctx = {
+  const halloween = {
     category: "social" as const,
     activities: ["party" as const],
     title: "COCO LOCO x Halloween Rave",
     tags: ["halloween", "party"],
   };
-  const profile = buildVisualProfile(ctx);
+  const profile = buildVisualProfile(halloween);
   assert.equal(profile.theme, "halloween");
   assert.ok(profile.mustInclude.includes("halloween"));
   const genericClub =
     "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80";
-  assert.equal(isImageCompatibleWithEvent(ctx, genericClub), false);
-  const resolved = resolvePublicEventImage(ctx, genericClub, true, "event:halloween");
+  assert.equal(isImageCompatibleWithEvent(halloween, genericClub), false);
+  const resolved = resolvePublicEventImage(
+    halloween,
+    genericClub,
+    true,
+    "event:halloween",
+  );
   assert.ok(
     getMoodAssetMeta(resolved.url)?.subjects.includes("halloween"),
     `expected halloween mood, got ${resolved.url}`,
   );
-  ok("halloween title → halloween mood, rejects generic club");
+
+  const valentine = buildVisualProfile({
+    category: "dating",
+    activities: [],
+    title: "Valentijn singles diner",
+  });
+  assert.equal(valentine.theme, "valentine");
+  const valentineResolved = resolvePublicEventImage(
+    {
+      category: "dating",
+      activities: [],
+      title: "Valentijn singles diner",
+    },
+    null,
+    false,
+    "event:valentine",
+  );
+  assert.ok(
+    getMoodAssetMeta(valentineResolved.url)?.subjects.includes("valentine"),
+  );
+
+  assert.ok(TITLE_THEME_RULES.some((r) => r.id === "carnival"));
+  assert.ok(TITLE_THEME_RULES.some((r) => r.id === "new_year"));
+  ok("title theme registry steers mood for future themes");
 }
 
 const prompt = buildVisualGenerationPrompt(
