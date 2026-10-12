@@ -125,19 +125,25 @@ export default async function InterneAanvoerPage({
   }
 
   const data = await loadAanvoerCockpitData();
+  const onBronnen = initialTab === "bronnen";
 
   return (
     <InterneAdminShell>
-      <InterneAdminNav active="aanvoer" newFeedbackCount={newFeedbackCount} />
+      <InterneAdminNav
+        active={onBronnen ? "bronnen" : "aanvoer"}
+        newFeedbackCount={newFeedbackCount}
+      />
       <header className="mb-6">
         <p className="text-xs font-semibold tracking-[0.14em] text-rose-700/80 uppercase">
           Admin
         </p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">
-          Toevoegen
+          {onBronnen ? "Bronnen" : "Toevoegen"}
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
-          Plak een link of screenshot. AI analyseert. Jij zegt ja of nee. Klaar.
+          {onBronnen
+            ? "Alle bronnen op één lijst. Zoeken, filteren, URL toevoegen."
+            : "Plak een link of screenshot. AI analyseert. Jij zegt ja of nee. Klaar."}
         </p>
       </header>
       <ScheduledRefreshBanner />
