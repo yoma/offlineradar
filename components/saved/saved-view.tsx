@@ -72,9 +72,9 @@ export function SavedView({ events }: { events: Event[] }) {
     });
 
   return (
-    <div className="relative overflow-x-clip">
+    <div className="relative min-h-[60vh] overflow-x-clip">
       <BrandShapes variant="saved" />
-      <div className="relative mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+      <div className="relative z-[1] mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
       <h1 className="font-heading text-2xl tracking-tight text-[var(--brand-bordeaux)] sm:text-3xl">
         Bewaard
       </h1>

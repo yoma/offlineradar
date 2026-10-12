@@ -9,9 +9,9 @@ export const metadata: Metadata = {
 
 export default function AboutPage() {
   return (
-    <div className="relative overflow-x-clip">
+    <div className="relative min-h-[70vh] overflow-x-clip">
       <BrandShapes variant="about" />
-      <div className="relative mx-auto w-full min-w-0 max-w-2xl space-y-10 px-4 py-12 sm:px-6">
+      <div className="relative z-[1] mx-auto w-full min-w-0 max-w-2xl space-y-10 px-4 py-12 sm:px-6">
         <div>
           <h1 className="font-heading text-3xl tracking-tight text-[var(--brand-bordeaux)] sm:text-4xl">
             Wat is DateOfflineHub?
