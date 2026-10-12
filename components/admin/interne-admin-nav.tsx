@@ -1,7 +1,8 @@
 import Link from "next/link";
 
 /**
- * Shared internal admin nav for tips / events / feedback / aanvoer / dashboard.
+ * Shared internal admin nav.
+ * Daily path first: Toevoegen → Wachtrij → Live. Secondary tools after.
  */
 export function InterneAdminNav({
   active,
@@ -17,18 +18,13 @@ export function InterneAdminNav({
   newFeedbackCount?: number;
 }) {
   const items = [
+    { href: "/interne-aanvoer", key: "aanvoer" as const, label: "Toevoegen" },
     {
       href: "/interne-goedkeuren",
       key: "goedkeuren" as const,
-      label: "Goedkeuren",
+      label: "Wachtrij",
     },
-    {
-      href: "/interne-dashboard",
-      key: "dashboard" as const,
-      label: "Dashboard",
-    },
-    { href: "/interne-aanvoer", key: "aanvoer" as const, label: "Aanvoer" },
-    { href: "/interne-events", key: "events" as const, label: "Events" },
+    { href: "/interne-events", key: "events" as const, label: "Live" },
     { href: "/interne-tips", key: "tips" as const, label: "Tips" },
     {
       href: "/interne-feedback",
@@ -38,13 +34,15 @@ export function InterneAdminNav({
           ? `Feedback ${newFeedbackCount}`
           : "Feedback",
     },
+    {
+      href: "/interne-dashboard",
+      key: "dashboard" as const,
+      label: "Cijfers",
+    },
   ];
 
   return (
-    <nav
-      className="mobile-scroll-x mb-6"
-      aria-label="Interne navigatie"
-    >
+    <nav className="mobile-scroll-x mb-6" aria-label="Interne navigatie">
       <div className="inline-flex min-w-full gap-1 rounded-2xl border border-stone-200/80 bg-white/75 p-1 shadow-sm backdrop-blur sm:min-w-0">
         {items.map((item) => {
           const isActive = item.key === active;

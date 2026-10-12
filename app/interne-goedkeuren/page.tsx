@@ -124,11 +124,11 @@ export default async function InterneGoedkeurenPage() {
           Admin
         </p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">
-          Goedkeuren
+          Wachtrij
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
-          Snelle inbox: alles wat jouw oké nodig heeft. Toevoegen = live op de
-          site. Twijfel? Open meer details.
+          Alles wat jouw oké nodig heeft. Goedkeuren = live. Twijfel? Open
+          details.
         </p>
         <p className="mt-2 text-sm font-medium text-stone-800">
           {items.length} openstaand

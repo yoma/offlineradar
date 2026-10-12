@@ -272,20 +272,11 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
           {snapshot.tips.length} tip{snapshot.tips.length === 1 ? "" : "s"} die
           mensen doorgaven.
         </p>
-        <ol className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm leading-6 text-stone-700">
-          <li>
-            <span className="font-semibold">1. Tip is oké</span> — jij vindt de
-            tip goed genoeg (nog niets online).
-          </li>
-          <li>
-            <span className="font-semibold">2. Maak voorlopig event</span> —
-            maakt een concept onder Events. Bezoekers zien het nog niet.
-          </li>
-          <li>
-            <span className="font-semibold">3. Online zetten</span> — doe je
-            daarna onder het tabblad Events.
-          </li>
-        </ol>
+        <p className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm leading-6 text-stone-700">
+          Per tip: <span className="font-semibold">Checken</span>,{" "}
+          <span className="font-semibold">Goedkeuren</span>, concept maken, dan
+          online zetten onder Live. Extra knoppen zitten onder Meer acties.
+        </p>
         <div className="grid grid-cols-3 gap-1.5 pt-1 sm:gap-2">
           {[
             {
@@ -462,100 +453,51 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                   </div>
                 </dl>
 
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="default"
-                    className="h-9 gap-2 rounded-full px-3 text-sm"
-                    disabled={scanning}
-                    aria-busy={scanning || undefined}
-                    onClick={() => startAiScan(tip.id)}
-                  >
-                    <PendingContent pending={scanning} pendingLabel="Bezig…">
-                      {hasAiAdvice ? "Opnieuw AI-controle" : "Start AI-controle"}
-                    </PendingContent>
-                  </Button>
-                  {tip.status === "received" ||
-                  tip.status === "duplicate" ||
-                  tip.status === "needs_info" ? (
-                    <StatusButton
-                      label="In controle"
-                      onClick={() => setStatus(tip.id, "in_review", "")}
-                    pending={isPending}
-                    />
-                  ) : null}
-                  {tip.status !== "rejected" &&
-                  tip.status !== "published" &&
-                  tip.status !== "expired_or_cancelled" ? (
-                    <StatusButton
-                      label="Extra info nodig"
-                      onClick={() =>
-                        setStatus(
-                          tip.id,
-                          "needs_info",
-                          "Officiële bron onvolledig of onbereikbaar.",
-                        )
-                      }
-                    pending={isPending}
-                    />
-                  ) : null}
-                  {tip.status !== "rejected" &&
-                  tip.status !== "published" &&
-                  tip.status !== "expired_or_cancelled" ? (
-                    <StatusButton
-                      label="Niet plaatsen"
-                      onClick={() =>
-                        setStatus(
-                          tip.id,
-                          "rejected",
-                          agendaLike
-                            ? "Tip wees naar een agenda/lijst, geen enkel event om te plaatsen."
-                            : "De activiteit is niet aantoonbaar singlesgericht volgens Route A/B.",
-                        )
-                      }
-                    pending={isPending}
-                    />
-                  ) : null}
-                  {agendaLike ? (
-                    <>
+                <div className="mt-4 flex flex-col gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="default"
+                      className="h-9 gap-2 rounded-full px-3 text-sm"
+                      disabled={scanning}
+                      aria-busy={scanning || undefined}
+                      onClick={() => startAiScan(tip.id)}
+                    >
+                      <PendingContent pending={scanning} pendingLabel="Bezig…">
+                        {hasAiAdvice ? "Opnieuw checken" : "Checken"}
+                      </PendingContent>
+                    </Button>
+
+                    {agendaLike ? (
                       <Link
-                        href="/interne-aanvoer"
+                        href="/interne-aanvoer?tab=nieuw"
                         className="inline-flex h-9 items-center rounded-full bg-stone-900 px-3 text-sm font-semibold text-white hover:bg-stone-800"
                       >
-                        Open Aanvoer (bronnen)
+                        Open in Toevoegen
                       </Link>
-                      {tip.status !== "rejected" &&
-                      tip.status !== "published" &&
-                      tip.status !== "expired_or_cancelled" ? (
-                        <StatusButton
-                          label="Bron later opnieuw checken"
-                          onClick={() => addWatch(tip.id)}
-                          pending={isPending}
-                        />
-                      ) : null}
-                    </>
-                  ) : null}
-                  {!agendaLike &&
-                  tip.status !== "approved_for_publication" &&
-                  tip.status !== "published" &&
-                  tip.status !== "rejected" &&
-                  tip.status !== "expired_or_cancelled" ? (
-                    <StatusButton
-                      label="Tip is oké"
-                      onClick={() =>
-                        setStatus(
-                          tip.id,
-                          "approved_for_publication",
-                          "Route A/B voldoende; voorlopig event volgt apart.",
-                        )
-                      }
-                    pending={isPending}
-                    />
-                  ) : null}
-                  {!agendaLike &&
-                  tip.status === "approved_for_publication" &&
-                  !tip.linkedEventId ? (
-                    <div className="flex w-full flex-col gap-1 sm:w-auto">
+                    ) : null}
+
+                    {!agendaLike &&
+                    tip.status !== "approved_for_publication" &&
+                    tip.status !== "published" &&
+                    tip.status !== "rejected" &&
+                    tip.status !== "expired_or_cancelled" ? (
+                      <StatusButton
+                        label="Goedkeuren"
+                        onClick={() =>
+                          setStatus(
+                            tip.id,
+                            "approved_for_publication",
+                            "Route A/B voldoende; voorlopig event volgt apart.",
+                          )
+                        }
+                        pending={isPending}
+                      />
+                    ) : null}
+
+                    {!agendaLike &&
+                    tip.status === "approved_for_publication" &&
+                    !tip.linkedEventId ? (
                       <Button
                         type="button"
                         className="h-9 rounded-full px-3 text-sm"
@@ -563,87 +505,125 @@ export function TipAdminClient({ initial }: { initial: TipsStoreSnapshot }) {
                         onClick={() => createConcept(tip.id)}
                         aria-busy={isPending || undefined}
                       >
-                        <PendingContent pending={isPending} pendingLabel="Bezig…">
-                          Maak voorlopig event (niet online)
+                        <PendingContent
+                          pending={isPending}
+                          pendingLabel="Bezig…"
+                        >
+                          Maak concept
                         </PendingContent>
                       </Button>
-                      <p className="text-xs text-muted-foreground">
-                        Maakt een concept onder Events. Bezoekers zien het pas
-                        als jij het daar online zet.
-                      </p>
-                    </div>
-                  ) : null}
-                  {tip.linkedEventId ? (
-                    <a
-                      href="/interne-events"
-                      className="inline-flex h-9 items-center rounded-full border border-border px-3 text-sm font-medium hover:bg-muted"
-                    >
-                      Open in Events
-                    </a>
-                  ) : null}
-                  {!agendaLike &&
-                  (tip.status === "approved_for_publication" ||
-                    tip.status === "published" ||
-                    hasAiAdvice) ? (
-                    <StatusButton
-                      label="Bron later opnieuw checken"
-                      onClick={() => addWatch(tip.id)}
-                    pending={isPending}
-                    />
-                  ) : null}
-                  {tip.notifyRequested ? (
-                    <div className="w-full space-y-2 rounded-xl border border-border bg-muted/20 p-3 text-sm">
-                      <p className="font-medium">Notificatie aangevraagd</p>
-                      <p className="text-muted-foreground">
-                        {tip.email
-                          ? "Contactmail bewaard (opt-in)."
-                          : "Contactmail al gewist; tip blijft voor audit."}
-                      </p>
-                      {review?.emailSentForStatuses?.length ? (
-                        <p className="text-muted-foreground">
-                          Laatste statusmail(s):{" "}
-                          {review.emailSentForStatuses
-                            .map((s) => TIP_STATUS_LABEL[s] ?? s)
-                            .join(" · ")}
-                        </p>
-                      ) : (
-                        <p className="text-muted-foreground">
-                          Nog geen statusmail verzonden.
-                        </p>
-                      )}
-                      <div className="flex flex-wrap gap-2">
-                        {tip.email && canSendStatusMail(tip.status) ? (
-                          <StatusButton
-                            label="Verstuur statusmail"
-                            onClick={() =>
-                              previewAndSendMail(tip.id, tip.status)
-                            }
+                    ) : null}
+
+                    {tip.linkedEventId ? (
+                      <a
+                        href="/interne-events"
+                        className="inline-flex h-9 items-center rounded-full border border-border px-3 text-sm font-medium hover:bg-muted"
+                      >
+                        Open in Live
+                      </a>
+                    ) : null}
+
+                    {tip.status !== "rejected" &&
+                    tip.status !== "published" &&
+                    tip.status !== "expired_or_cancelled" ? (
+                      <StatusButton
+                        label="Afwijzen"
+                        onClick={() =>
+                          setStatus(
+                            tip.id,
+                            "rejected",
+                            agendaLike
+                              ? "Tip wees naar een agenda/lijst, geen enkel event om te plaatsen."
+                              : "De activiteit is niet aantoonbaar singlesgericht volgens Route A/B.",
+                          )
+                        }
+                        pending={isPending}
+                      />
+                    ) : null}
+                  </div>
+
+                  <details className="rounded-xl border border-border bg-muted/20 px-3 py-2 text-sm">
+                    <summary className="cursor-pointer font-medium text-muted-foreground">
+                      Meer acties
+                    </summary>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {tip.status === "received" ||
+                      tip.status === "duplicate" ||
+                      tip.status === "needs_info" ? (
+                        <StatusButton
+                          label="In controle"
+                          onClick={() => setStatus(tip.id, "in_review", "")}
                           pending={isPending}
-                          />
-                        ) : null}
-                        {tip.email ? (
-                          <StatusButton
-                            label="Verwijder contactmail"
-                            onClick={() => clearContactEmail(tip.id)}
+                        />
+                      ) : null}
+                      {tip.status !== "rejected" &&
+                      tip.status !== "published" &&
+                      tip.status !== "expired_or_cancelled" ? (
+                        <StatusButton
+                          label="Extra info nodig"
+                          onClick={() =>
+                            setStatus(
+                              tip.id,
+                              "needs_info",
+                              "Officiële bron onvolledig of onbereikbaar.",
+                            )
+                          }
                           pending={isPending}
-                          />
-                        ) : null}
-                      </div>
+                        />
+                      ) : null}
+                      {tip.status !== "rejected" &&
+                      tip.status !== "published" &&
+                      tip.status !== "expired_or_cancelled" ? (
+                        <StatusButton
+                          label="Bron volgen"
+                          onClick={() => addWatch(tip.id)}
+                          pending={isPending}
+                        />
+                      ) : null}
+                      {tip.status === "approved_for_publication" &&
+                      tip.linkedEventId ? (
+                        <StatusButton
+                          label="Markeer tip published"
+                          onClick={() =>
+                            setStatus(
+                              tip.id,
+                              "published",
+                              "Gekoppeld event is published.",
+                            )
+                          }
+                          pending={isPending}
+                        />
+                      ) : null}
+                      {tip.notifyRequested ? (
+                        <div className="w-full space-y-2 rounded-xl border border-border bg-white p-3">
+                          <p className="font-medium">Notificatie aangevraagd</p>
+                          <p className="text-muted-foreground">
+                            {tip.email
+                              ? "Contactmail bewaard (opt-in)."
+                              : "Contactmail al gewist; tip blijft voor audit."}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {tip.email && canSendStatusMail(tip.status) ? (
+                              <StatusButton
+                                label="Verstuur statusmail"
+                                onClick={() =>
+                                  previewAndSendMail(tip.id, tip.status)
+                                }
+                                pending={isPending}
+                              />
+                            ) : null}
+                            {tip.email ? (
+                              <StatusButton
+                                label="Verwijder contactmail"
+                                onClick={() => clearContactEmail(tip.id)}
+                                pending={isPending}
+                              />
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
-                  ) : null}
-                  {tip.status === "approved_for_publication" && tip.linkedEventId ? (
-                    <StatusButton
-                      label="Markeer tip published"
-                      onClick={() =>
-                        setStatus(
-                          tip.id,
-                          "published",
-                          "Gekoppeld event is published.",
-                        )
-                      }
-                    pending={isPending}
-                    />
-                  ) : null}
+                  </details>
                 </div>
               </li>
             );
