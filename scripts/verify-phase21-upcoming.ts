@@ -422,13 +422,13 @@ function main() {
   );
   mustInclude(
     "components/discover/upcoming-strip.tsx",
-    "upcoming-marquee-track",
-    "infinite auto-scroll marquee",
+    "upcoming-ticker-scroller",
+    "compact swipeable ticker scroller",
   );
   mustInclude(
     "components/discover/upcoming-strip.tsx",
-    "overflow-hidden",
-    "marquee hides scrollbar",
+    "Binnenkort te beleven",
+    "ticker heading copy",
   );
   mustInclude(
     "components/discover/upcoming-strip.tsx",
@@ -437,13 +437,13 @@ function main() {
   );
   mustInclude(
     "app/globals.css",
-    "upcoming-marquee",
-    "marquee animation styles",
+    "upcoming-ticker-scroller",
+    "ticker scroller styles",
   );
   mustInclude(
     "components/discover/upcoming-strip.tsx",
     "shrink-0",
-    "sticker items do not collapse",
+    "ticker cards do not collapse",
   );
   mustInclude(
     "components/discover/upcoming-strip.tsx",
