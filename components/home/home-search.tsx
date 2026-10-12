@@ -270,7 +270,7 @@ export function HomeHero({
         sizes="100vw"
         className="object-cover"
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-[color-mix(in_srgb,var(--brand-bordeaux)_55%,black)]/70 via-black/40 to-[color-mix(in_srgb,var(--brand-bordeaux)_45%,black)]/75" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/60" />
 
       <div className="relative mx-auto flex min-h-[100svh] w-full min-w-0 max-w-6xl flex-col justify-center px-4 pt-24 pb-24 sm:px-6 sm:pt-28 sm:pb-16">
         <h1 className="font-heading max-w-[18ch] text-balance text-[1.55rem] leading-[1.2] text-white sm:max-w-2xl sm:text-[2.35rem] sm:leading-[1.15] lg:text-[2.75rem] lg:leading-[1.12]">
