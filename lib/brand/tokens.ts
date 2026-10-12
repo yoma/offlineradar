@@ -21,7 +21,9 @@ export const brandColors = {
 } as const;
 
 export const brandTypography = {
-  heading: "DM Serif Display",
+  heading: "Bricolage Grotesque",
+  headingWeightLarge: 700,
+  headingWeightSection: 600,
   body: "DM Sans",
 } as const;
 

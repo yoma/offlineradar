@@ -92,7 +92,7 @@ function Step({ n, title, text }: { n: string; title: string; text: string }) {
   return (
     <li className="rounded-2xl border border-border/80 bg-white/70 px-5 py-5 shadow-[0_8px_24px_-16px_rgba(47,48,53,0.2)]">
       <p className="text-sm font-semibold tracking-[0.08em] text-primary">{n}</p>
-      <h3 className="font-heading mt-2 text-xl text-[var(--brand-bordeaux)]">
+      <h3 className="font-heading-section mt-2 text-xl text-[var(--brand-bordeaux)]">
         {title}
       </h3>
       <p className="mt-2 text-[15px] leading-6 text-muted-foreground">{text}</p>

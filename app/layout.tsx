@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, DM_Serif_Display } from "next/font/google";
+import { Bricolage_Grotesque, DM_Sans } from "next/font/google";
 import { auth } from "@/auth";
 import { AuthSessionProvider } from "@/components/auth/session-provider";
 import { AnalyticsBeacon } from "@/components/analytics/analytics-beacon";
@@ -24,10 +24,10 @@ const dmSans = DM_Sans({
   variable: "--font-dm-sans",
 });
 
-const dmSerif = DM_Serif_Display({
+const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
-  weight: "400",
-  variable: "--font-dm-serif",
+  weight: ["600", "700"],
+  variable: "--font-bricolage",
 });
 
 const siteDescription =
@@ -63,7 +63,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="nl"
-      className={`${dmSans.variable} ${dmSerif.variable} h-full overflow-x-clip`}
+      className={`${dmSans.variable} ${bricolage.variable} h-full overflow-x-clip`}
     >
       <body className="min-h-full min-w-0 overflow-x-clip bg-background font-sans text-foreground">
         <AuthSessionProvider>
