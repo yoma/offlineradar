@@ -1,9 +1,10 @@
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
  * Organic edge shapes from the DateOfflineHub Instagram look.
- * Full-bleed SVG so shapes hug the sides (not clipped off-screen).
- * Homepage: only use home-lower below the hero photo.
+ * Corner-pinned SVGs (not one stretched portrait viewBox) so shapes stay
+ * visible on wide screens. Homepage: only home-lower below the hero photo.
  */
 export type BrandShapeVariant =
   | "home-lower"
@@ -11,6 +12,10 @@ export type BrandShapeVariant =
   | "detail"
   | "about"
   | "saved";
+
+const ROSE = "#E8B5A6";
+const TERRACOTTA = "#C47A68";
+const BORDEAUX = "#8B3A42";
 
 export function BrandShapes({
   variant,
@@ -27,160 +32,171 @@ export function BrandShapes({
         className,
       )}
     >
-      <svg
-        className="absolute inset-0 h-full w-full"
-        viewBox="0 0 1000 1400"
-        preserveAspectRatio="xMidYMid slice"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        {variant === "home-lower" ? <HomeLowerPaths /> : null}
-        {variant === "discover" ? <DiscoverPaths /> : null}
-        {variant === "detail" ? <DetailPaths /> : null}
-        {variant === "about" ? <AboutPaths /> : null}
-        {variant === "saved" ? <SavedPaths /> : null}
-      </svg>
+      {variant === "home-lower" ? <HomeLowerShapes /> : null}
+      {variant === "discover" ? <DiscoverShapes /> : null}
+      {variant === "detail" ? <DetailShapes /> : null}
+      {variant === "about" ? <AboutShapes /> : null}
+      {variant === "saved" ? <SavedShapes /> : null}
     </div>
   );
 }
 
-/** Instagram-like: top-right stack + bottom-left layers + small right peek. */
-function AboutPaths() {
+function CornerSvg({
+  className,
+  children,
+}: {
+  className: string;
+  children: ReactNode;
+}) {
+  return (
+    <svg
+      className={cn("absolute", className)}
+      viewBox="0 0 320 280"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden
+    >
+      {children}
+    </svg>
+  );
+}
+
+/** Closest to Instagram poster: TR stack, BL layers, mid-right peek. */
+function AboutShapes() {
   return (
     <>
-      {/* Top-right: soft rose behind */}
-      <path
-        fill="var(--brand-shape-rose)"
-        opacity="0.72"
-        d="M680 -40C780 -20 920 40 1000 140V320C940 260 860 220 780 250C700 280 660 360 620 300C580 240 600 120 680 -40Z"
-      />
-      {/* Top-right: terracotta front */}
-      <path
-        fill="var(--brand-shape-terracotta)"
-        opacity="0.78"
-        d="M820 -20C900 10 980 80 1020 180V280C960 220 900 200 850 230C800 260 780 320 750 270C720 220 760 60 820 -20Z"
-      />
-      {/* Bottom-left: soft rose */}
-      <path
-        fill="var(--brand-shape-rose)"
-        opacity="0.7"
-        d="M-40 980C40 920 160 900 260 960C360 1020 400 1140 320 1220C240 1300 80 1340 -20 1280C-80 1240 -100 1080 -40 980Z"
-      />
-      {/* Bottom-left: deeper terracotta */}
-      <path
-        fill="var(--brand-shape-terracotta)"
-        opacity="0.8"
-        d="M-60 1100C20 1060 120 1080 180 1160C240 1240 220 1340 120 1380C20 1420 -80 1360 -100 1260C-110 1200 -100 1140 -60 1100Z"
-      />
-      {/* Bottom-left: bordeaux tip */}
-      <path
-        fill="var(--brand-shape-bordeaux)"
-        opacity="0.7"
-        d="M-40 1220C20 1200 80 1240 100 1300C120 1360 60 1420 -20 1400C-80 1380 -90 1280 -40 1220Z"
-      />
-      {/* Mid-right peek */}
-      <path
-        fill="var(--brand-shape-bordeaux)"
-        opacity="0.68"
-        d="M960 620C1020 660 1040 760 1000 820C960 880 880 860 860 780C840 700 900 600 960 620Z"
-      />
+      <CornerSvg className="top-0 right-0 h-[min(40vw,17rem)] w-[min(48vw,20rem)] sm:h-[19rem] sm:w-[22rem]">
+        <path
+          fill={ROSE}
+          d="M120 0H320V160C280 120 230 100 180 120C130 140 110 190 90 150C70 110 90 40 120 0Z"
+        />
+        <path
+          fill={TERRACOTTA}
+          d="M200 0H320V120C290 90 250 80 220 100C190 120 185 160 170 130C155 100 175 30 200 0Z"
+        />
+      </CornerSvg>
+      <CornerSvg className="bottom-0 left-0 h-[min(38vw,16rem)] w-[min(46vw,19rem)] sm:h-[18rem] sm:w-[21rem]">
+        <path
+          fill={ROSE}
+          d="M0 100C50 70 120 70 170 110C220 150 230 220 180 250C130 280 40 290 0 250V100Z"
+        />
+        <path
+          fill={TERRACOTTA}
+          d="M0 160C45 140 100 155 130 200C160 245 140 280 80 280C20 280 0 240 0 200V160Z"
+        />
+        <path
+          fill={BORDEAUX}
+          d="M0 210C30 200 60 220 70 250C80 280 40 290 0 280V210Z"
+        />
+      </CornerSvg>
+      <CornerSvg className="top-[42%] right-0 h-[min(22vw,9rem)] w-[min(16vw,6.5rem)] sm:h-40 sm:w-28">
+        <path
+          fill={BORDEAUX}
+          d="M140 40C200 20 280 50 300 110C320 170 260 220 190 200C120 180 90 100 140 40Z"
+        />
+      </CornerSvg>
     </>
   );
 }
 
-/** Under hero: left cluster + right accents. */
-function HomeLowerPaths() {
+function HomeLowerShapes() {
   return (
     <>
-      <path
-        fill="var(--brand-shape-rose)"
-        opacity="0.68"
-        d="M-60 80C40 20 180 0 280 80C380 160 360 320 240 380C120 440 -40 400 -80 280C-100 200 -100 140 -60 80Z"
-      />
-      <path
-        fill="var(--brand-shape-terracotta)"
-        opacity="0.72"
-        d="M-40 200C40 160 120 180 160 250C200 320 160 400 60 420C-40 440 -100 360 -80 280C-70 240 -70 220 -40 200Z"
-      />
-      <path
-        fill="var(--brand-shape-terracotta)"
-        opacity="0.7"
-        d="M760 980C860 940 980 980 1040 1080V1280C960 1200 860 1180 780 1240C700 1300 680 1400 620 1320C560 1240 640 1040 760 980Z"
-      />
-      <path
-        fill="var(--brand-shape-bordeaux)"
-        opacity="0.62"
-        d="M940 740C1000 780 1020 880 980 940C940 1000 860 980 840 900C820 820 880 720 940 740Z"
-      />
+      <CornerSvg className="top-8 left-0 h-[min(36vw,15rem)] w-[min(42vw,18rem)] sm:h-[17rem] sm:w-[20rem]">
+        <path
+          fill={ROSE}
+          d="M0 20C60 0 140 10 180 70C220 130 190 200 120 220C50 240 0 190 0 120V20Z"
+        />
+        <path
+          fill={TERRACOTTA}
+          d="M0 90C50 70 100 90 120 140C140 190 100 230 50 230C0 230 0 160 0 130V90Z"
+        />
+      </CornerSvg>
+      <CornerSvg className="right-0 bottom-4 h-[min(34vw,14rem)] w-[min(40vw,17rem)] sm:h-60 sm:w-[19rem]">
+        <path
+          fill={TERRACOTTA}
+          d="M80 60C140 20 240 30 300 90C320 120 320 200 280 240C220 280 120 270 70 210C30 160 40 90 80 60Z"
+        />
+      </CornerSvg>
+      <CornerSvg className="top-[38%] right-0 h-[min(20vw,8rem)] w-[min(14vw,5.5rem)] sm:h-36 sm:w-24">
+        <path
+          fill={BORDEAUX}
+          d="M150 30C210 10 290 40 300 100C310 160 250 200 180 180C110 160 90 80 150 30Z"
+        />
+      </CornerSvg>
     </>
   );
 }
 
-/** Discover: top-right rose + bottom-left bordeaux. */
-function DiscoverPaths() {
+function DiscoverShapes() {
   return (
     <>
-      <path
-        fill="var(--brand-shape-rose)"
-        opacity="0.7"
-        d="M720 -60C840 -40 960 40 1040 160V360C960 280 860 240 780 280C700 320 680 420 620 340C560 260 600 40 720 -60Z"
-      />
-      <path
-        fill="var(--brand-shape-terracotta)"
-        opacity="0.65"
-        d="M880 -20C960 20 1020 100 1040 200V300C980 240 920 220 870 260C820 300 810 360 780 300C750 240 820 40 880 -20Z"
-      />
-      <path
-        fill="var(--brand-shape-bordeaux)"
-        opacity="0.58"
-        d="M-50 900C40 860 160 900 220 1000C280 1100 220 1240 100 1280C-20 1320 -100 1200 -80 1080C-70 1000 -90 940 -50 900Z"
-      />
+      <CornerSvg className="top-0 right-0 h-[min(38vw,16rem)] w-[min(44vw,19rem)] sm:h-[18rem] sm:w-[21rem]">
+        <path
+          fill={ROSE}
+          d="M100 0H320V150C270 110 210 95 160 120C110 145 95 200 70 150C45 100 70 30 100 0Z"
+        />
+        <path
+          fill={TERRACOTTA}
+          d="M190 0H320V110C285 85 245 80 215 100C185 120 180 155 165 125C150 95 170 25 190 0Z"
+        />
+      </CornerSvg>
+      <CornerSvg className="bottom-10 left-0 h-[min(32vw,13rem)] w-[min(38vw,16rem)] sm:h-56 sm:w-[18rem]">
+        <path
+          fill={BORDEAUX}
+          d="M0 80C55 50 130 60 170 120C210 180 170 250 90 260C20 270 0 210 0 150V80Z"
+        />
+      </CornerSvg>
     </>
   );
 }
 
-/** Detail: quieter left + right accents. */
-function DetailPaths() {
+function DetailShapes() {
   return (
     <>
-      <path
-        fill="var(--brand-shape-terracotta)"
-        opacity="0.55"
-        d="M-50 160C40 100 160 120 220 220C280 320 220 440 100 460C-20 480 -100 360 -80 260C-70 210 -90 190 -50 160Z"
-      />
-      <path
-        fill="var(--brand-shape-rose)"
-        opacity="0.62"
-        d="M820 700C920 660 1020 720 1060 840V1040C980 960 880 940 820 1000C760 1060 760 1180 700 1100C640 1020 720 760 820 700Z"
-      />
-      <path
-        fill="var(--brand-shape-bordeaux)"
-        opacity="0.5"
-        d="M960 500C1010 540 1020 620 980 670C940 720 870 700 860 630C850 560 910 480 960 500Z"
-      />
+      <CornerSvg className="top-16 left-0 h-[min(28vw,12rem)] w-[min(32vw,14rem)] sm:h-48 sm:w-56">
+        <path
+          fill={TERRACOTTA}
+          d="M0 40C50 10 120 20 150 80C180 140 140 200 70 210C10 220 0 150 0 100V40Z"
+        />
+      </CornerSvg>
+      <CornerSvg className="right-0 bottom-[18%] h-[min(34vw,14rem)] w-[min(36vw,15rem)] sm:h-60 sm:w-60">
+        <path
+          fill={ROSE}
+          d="M60 40C120 10 220 20 280 80C310 110 300 200 240 230C170 270 80 240 50 170C30 120 20 70 60 40Z"
+        />
+      </CornerSvg>
+      <CornerSvg className="top-[36%] right-0 h-[min(18vw,7rem)] w-[min(12vw,5rem)] sm:h-32 sm:w-20">
+        <path
+          fill={BORDEAUX}
+          d="M160 20C220 5 290 40 295 100C300 160 240 190 175 170C110 150 100 60 160 20Z"
+        />
+      </CornerSvg>
     </>
   );
 }
 
-/** Saved: left rose + right bordeaux. */
-function SavedPaths() {
+function SavedShapes() {
   return (
     <>
-      <path
-        fill="var(--brand-shape-rose)"
-        opacity="0.66"
-        d="M-40 40C60 -20 200 0 260 100C320 200 260 340 140 360C20 380 -80 280 -60 160C-50 100 -80 80 -40 40Z"
-      />
-      <path
-        fill="var(--brand-shape-bordeaux)"
-        opacity="0.58"
-        d="M780 900C880 860 1000 900 1060 1020V1220C980 1140 880 1120 800 1180C720 1240 700 1360 640 1280C580 1200 660 960 780 900Z"
-      />
-      <path
-        fill="var(--brand-shape-terracotta)"
-        opacity="0.55"
-        d="M920 560C980 600 1000 700 960 760C920 820 840 800 820 720C800 640 860 540 920 560Z"
-      />
+      <CornerSvg className="top-6 left-0 h-[min(34vw,14rem)] w-[min(40vw,17rem)] sm:h-56 sm:w-[19rem]">
+        <path
+          fill={ROSE}
+          d="M0 30C55 0 140 15 180 80C220 145 180 220 100 230C30 240 0 180 0 120V30Z"
+        />
+      </CornerSvg>
+      <CornerSvg className="right-0 bottom-6 h-[min(36vw,15rem)] w-[min(40vw,17rem)] sm:h-[17rem] sm:w-[19rem]">
+        <path
+          fill={BORDEAUX}
+          d="M70 50C130 15 230 25 290 90C320 125 310 210 250 245C180 285 90 260 55 185C30 135 25 85 70 50Z"
+        />
+      </CornerSvg>
+      <CornerSvg className="top-[40%] right-0 h-[min(18vw,7.5rem)] w-[min(13vw,5.5rem)] sm:h-36 sm:w-24">
+        <path
+          fill={TERRACOTTA}
+          d="M150 25C210 5 290 40 300 100C310 160 240 195 170 175C100 155 90 70 150 25Z"
+        />
+      </CornerSvg>
     </>
   );
 }
