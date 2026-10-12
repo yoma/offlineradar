@@ -134,11 +134,10 @@ export default async function InterneAanvoerPage({
           Admin
         </p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">
-          Aanvoer
+          Toevoegen
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
-          Screenshot of link aanleveren. AI analyseert. Jij geeft finaal akkoord
-          via Toevoegen aan DateOfflineHub. Geen auto-publicatie.
+          Plak een link of screenshot. AI analyseert. Jij zegt ja of nee. Klaar.
         </p>
       </header>
       <ScheduledRefreshBanner />

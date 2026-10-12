@@ -53,11 +53,11 @@ type TabId =
   | "bronnen";
 
 const TABS: { id: TabId; label: string }[] = [
-  { id: "nieuw", label: "Nieuw event" },
-  { id: "aandacht", label: "Jouw aandacht nodig" },
-  { id: "toegevoegd", label: "Toegevoegd" },
-  { id: "niet_toegevoegd", label: "Niet toegevoegd" },
+  { id: "nieuw", label: "Nieuw" },
+  { id: "aandacht", label: "Wachtrij" },
+  { id: "toegevoegd", label: "Live" },
   { id: "bronnen", label: "Bronnen" },
+  { id: "niet_toegevoegd", label: "Afgewezen" },
 ];
 
 function tabFromParam(
@@ -620,48 +620,23 @@ function SourcesPanel({
 
               <div className="mt-auto flex flex-col gap-2">
                 {s.refreshSupported ? (
-                  <>
-                    <button
-                      type="button"
-                      disabled={pending || scanning}
-                      onClick={() => runScan(s.id)}
-                      className="h-11 w-full rounded-full bg-stone-900 text-sm font-semibold text-white disabled:opacity-60"
-                    >
-                      {scanning ? "Bezig met controleren…" : "Nu controleren"}
-                    </button>
-                    {s.followStatus === "handmatig" ? (
-                      <button
-                        type="button"
-                        disabled={pending}
-                        onClick={() => runFollow(s.id, "enable")}
-                        className="h-11 w-full rounded-full border border-stone-300 text-sm font-semibold text-stone-800 disabled:opacity-60"
-                      >
-                        Automatisch volgen aanzetten
-                      </button>
-                    ) : null}
-                  </>
+                  <button
+                    type="button"
+                    disabled={pending || scanning}
+                    onClick={() => runScan(s.id)}
+                    className="h-11 w-full rounded-full bg-stone-900 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    {scanning ? "Bezig…" : "Controleren"}
+                  </button>
                 ) : (
                   <p className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-600">
-                    Automatische opvolging momenteel niet mogelijk
+                    Alleen handmatig bijhouden
                     <span className="mt-1 block text-stone-500">
-                      Reden:{" "}
                       {s.manualFollowReason ??
-                        "Geen betrouwbare website-, agenda- of websearch-route."}
+                        "Geen betrouwbare website of agenda."}
                     </span>
                   </p>
                 )}
-
-                {s.followStatus === "gevolgd" ||
-                s.followStatus === "aandacht_nodig" ? (
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => runFollow(s.id, "pause")}
-                    className="h-11 w-full rounded-full border border-stone-300 text-sm font-semibold text-stone-800 disabled:opacity-60"
-                  >
-                    Pauzeren
-                  </button>
-                ) : null}
 
                 {s.followStatus === "gepauzeerd" ? (
                   <button
@@ -689,36 +664,42 @@ function SourcesPanel({
                   href={s.officialUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex h-11 w-full items-center justify-center rounded-full border border-stone-300 text-sm font-semibold text-stone-800"
+                  className="text-center text-sm font-medium text-stone-600 underline-offset-4 hover:underline"
                 >
-                  Bekijk bron
+                  Open website
                 </a>
-
-                {s.linkedFutureEvents.length > 0 ? (
-                  <details className="rounded-xl border border-stone-100 bg-stone-50 px-3 py-2 text-sm">
-                    <summary className="cursor-pointer font-semibold text-stone-800">
-                      Bekijk events ({s.linkedFutureEvents.length})
-                    </summary>
-                    <ul className="mt-2 space-y-1 text-stone-600">
-                      {s.linkedFutureEvents.slice(0, 8).map((ev) => (
-                        <li key={ev.id} className="truncate">
-                          {ev.title} · {ev.startsAt.slice(0, 10)}
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                ) : null}
 
                 <button
                   type="button"
                   className="text-left text-xs font-medium text-stone-500 underline-offset-4 hover:underline"
                   onClick={() => setMoreId(moreOpen ? null : s.id)}
                 >
-                  {moreOpen ? "Minder opties" : "Meer opties"}
+                  {moreOpen ? "Minder" : "Meer"}
                 </button>
 
                 {moreOpen ? (
                   <div className="space-y-2 rounded-xl border border-stone-200 bg-stone-50 p-3">
+                    {s.followStatus === "handmatig" && s.refreshSupported ? (
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => runFollow(s.id, "enable")}
+                        className="h-10 w-full rounded-full border border-stone-300 bg-white text-sm font-semibold text-stone-800 disabled:opacity-60"
+                      >
+                        Automatisch volgen
+                      </button>
+                    ) : null}
+                    {s.followStatus === "gevolgd" ||
+                    s.followStatus === "aandacht_nodig" ? (
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => runFollow(s.id, "pause")}
+                        className="h-10 w-full rounded-full border border-stone-300 bg-white text-sm font-semibold text-stone-800 disabled:opacity-60"
+                      >
+                        Pauzeren
+                      </button>
+                    ) : null}
                     {s.followStatus !== "uitgeschakeld" &&
                     s.followStatus !== "gepauzeerd" ? (
                       <button
@@ -730,18 +711,23 @@ function SourcesPanel({
                         Uitschakelen
                       </button>
                     ) : null}
+                    {s.linkedFutureEvents.length > 0 ? (
+                      <ul className="space-y-1 text-xs text-stone-600">
+                        {s.linkedFutureEvents.slice(0, 5).map((ev) => (
+                          <li key={ev.id} className="truncate">
+                            {ev.title} · {ev.startsAt.slice(0, 10)}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
                     <button
                       type="button"
                       disabled={pending}
                       onClick={() => runFollow(s.id, "archive")}
                       className="h-10 w-full rounded-full text-sm font-medium text-red-800 underline-offset-4 hover:underline disabled:opacity-60"
                     >
-                      Bron verwijderen (archiveren)
+                      Archiveren
                     </button>
-                    <p className="text-[11px] text-stone-500">
-                      Hard delete is niet veilig door gekoppelde events/historie.
-                      Archiveren schakelt de bron uit en bewaart alles.
-                    </p>
                   </div>
                 ) : null}
 

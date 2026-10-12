@@ -216,11 +216,10 @@ export default async function InterneEventsPage() {
             Admin
           </p>
           <h1 className="mt-1 text-3xl font-semibold tracking-tight text-stone-900">
-            Events
+            Live
           </h1>
           <p className="mt-2 text-sm leading-6 text-stone-600">
-            Van DateOfflineHub halen: direct niet publiek + AI mag niet opnieuw
-            publiceren. Geen hard delete als standaardactie.
+            Wat online staat. Halen = weer offline. Geen hard delete.
           </p>
         </div>
         <form action={signOutEventsAdmin}>
