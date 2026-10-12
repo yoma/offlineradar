@@ -21,6 +21,7 @@ import {
 import { assertOfflineRadarDbConfig } from "@/lib/events/db";
 import { CatalogSourcesBrowser } from "@/components/admin/catalog-sources-browser";
 import { EventsAdminBrowser } from "@/components/admin/events-admin-browser";
+import { ScheduledRefreshBanner } from "@/components/admin/scheduled-refresh-banner";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { InterneAdminNav } from "@/components/admin/interne-admin-nav";
 import { InterneAdminShell } from "@/components/admin/interne-admin-shell";
@@ -231,6 +232,8 @@ export default async function InterneEventsPage() {
           </ActionSubmitButton>
         </form>
       </div>
+
+      <ScheduledRefreshBanner />
 
       {openRefreshReviews > 0 ? (
         <div className="mb-6 rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm">

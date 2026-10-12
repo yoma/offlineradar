@@ -126,7 +126,21 @@ export async function addCatalogSourceAction(formData: FormData) {
     lastCheckedAt: new Date().toISOString(),
   });
   if (!result) throw new Error("Kon bron niet opslaan");
+
+  const { enableCatalogSourceAutoFollow } = await import(
+    "@/lib/aanvoer/source-follow"
+  );
+  await enableCatalogSourceAutoFollow({
+    catalogSourceId: result.record.id,
+    officialUrl: result.record.officialUrl,
+    name: result.record.name,
+    namePrefix: result.created
+      ? `Bron ${result.record.name} toegevoegd.`
+      : `Bron ${result.record.name} bijgewerkt.`,
+  });
+
   revalidatePath("/interne-events");
+  revalidatePath("/interne-aanvoer");
 }
 
 export async function updateCatalogSourceAction(formData: FormData) {
