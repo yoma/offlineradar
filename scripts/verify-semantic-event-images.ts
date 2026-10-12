@@ -13,7 +13,13 @@ import {
   isImageCompatibleWithEvent,
   resolvePublicEventImage,
   CATEGORY_MOOD_POOLS,
+  THEME_MOOD_POOLS,
+  THEME_SUBJECT_DENYLIST,
+  VERIFIED_THEME_ASSET_LABELS,
+  EXCLUSIVE_THEME_SUBJECTS,
   getMoodAssetMeta,
+  listDeadMoodUrlRewrites,
+  moodAssetKey,
 } from "../lib/image-compatibility";
 
 import type { ActivityId } from "../types/event";
@@ -208,6 +214,34 @@ const CUSHION_INTERIOR =
     getMoodAssetMeta(resolved.url)?.subjects.includes("halloween"),
     `expected halloween mood, got ${resolved.url}`,
   );
+  assert.ok(
+    VERIFIED_THEME_ASSET_LABELS[moodAssetKey(resolved.url)]?.theme ===
+      "halloween",
+    `halloween resolve must use verified pumpkin stock, got ${resolved.url}`,
+  );
+
+  // Real catalog titles that previously showed brunch stock.
+  for (const title of [
+    "Waargebeurde Leuvense griezel- en gruwelverhalen",
+    "Thursday Singles Halloween at De Vuile",
+    "Halloween Kroegentocht – Fear or Flirt?",
+  ]) {
+    const r = resolvePublicEventImage(
+      { category: "social", activities: [], title },
+      null,
+      false,
+      `event:${title}`,
+    );
+    assert.equal(buildVisualProfile({ category: "social", activities: [], title }).theme, "halloween");
+    assert.ok(
+      getMoodAssetMeta(r.url)?.subjects.includes("halloween"),
+      `${title} → ${r.url}`,
+    );
+    assert.ok(
+      !getMoodAssetMeta(r.url)?.subjects.includes("brunch"),
+      `${title} must not resolve brunch`,
+    );
+  }
 
   const valentine = buildVisualProfile({
     category: "dating",
@@ -255,6 +289,69 @@ const CUSHION_INTERIOR =
     );
   }
   ok("title theme registry steers mood for future themes");
+}
+
+// Structural: theme pools, denylist, and dead rewrites stay pixel-honest.
+{
+  for (const [theme, urls] of Object.entries(THEME_MOOD_POOLS)) {
+    for (const url of urls) {
+      const key = moodAssetKey(url);
+      const verified = VERIFIED_THEME_ASSET_LABELS[key];
+      assert.ok(verified, `theme pool ${theme} has unverified asset ${key}`);
+      assert.equal(
+        verified.theme,
+        theme,
+        `${key} verified as ${verified.theme}, pool is ${theme}`,
+      );
+      const meta = getMoodAssetMeta(url);
+      assert.ok(meta?.subjects.includes(theme), `${key} meta missing ${theme}`);
+      assert.ok(
+        !(key in THEME_SUBJECT_DENYLIST),
+        `denylisted ${key} must not be in theme pools`,
+      );
+    }
+  }
+
+  for (const [key, reason] of Object.entries(THEME_SUBJECT_DENYLIST)) {
+    const meta = getMoodAssetMeta(`https://images.unsplash.com/${key}`);
+    const bad = EXCLUSIVE_THEME_SUBJECTS.filter((s) =>
+      meta?.subjects.includes(s),
+    );
+    assert.equal(
+      bad.length,
+      0,
+      `denylist ${key} (${reason}) still has exclusive subjects: ${bad.join(",")}`,
+    );
+  }
+
+  for (const [fromKey, toUrl] of Object.entries(listDeadMoodUrlRewrites())) {
+    const fromMeta = getMoodAssetMeta(`https://images.unsplash.com/${fromKey}`);
+    const toMeta = getMoodAssetMeta(toUrl);
+    const fromThemes = EXCLUSIVE_THEME_SUBJECTS.filter((s) =>
+      fromMeta?.subjects.includes(s),
+    );
+    if (fromThemes.length === 0) continue;
+    assert.ok(
+      fromThemes.some((t) => toMeta?.subjects.includes(t)),
+      `dead rewrite ${fromKey} → ${moodAssetKey(toUrl)} drops exclusive themes [${fromThemes.join(",")}]`,
+    );
+  }
+
+  // Brunch flat-lay must never be chosen for Halloween titles.
+  const brunch =
+    "https://images.unsplash.com/photo-1478144592103-25e218a04891?auto=format&fit=crop&w=1200&q=80";
+  assert.equal(
+    isImageCompatibleWithEvent(
+      {
+        category: "social",
+        activities: ["party"],
+        title: "Halloween party",
+      },
+      brunch,
+    ),
+    false,
+  );
+  ok("theme pool verification + denylist + rewrite theme-safety");
 }
 
 // Title beats description noise; age from title steers people stock.

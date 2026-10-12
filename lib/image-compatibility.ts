@@ -76,16 +76,76 @@ function assetKey(url: string): string {
  * Dead remote mood assets (Unsplash 404s). Rewrite so stored DB rows,
  * pools, and cached URLs still resolve to a live replacement.
  * Add new 404 photo ids here rather than leaving broken cards in production.
+ *
+ * Invariant (enforced in verify-semantic-event-images):
+ * if the dead source carries an exclusive seasonal subject, the replacement
+ * must carry the same theme subject. Never rewrite Halloween → brunch, etc.
  */
 const DEAD_MOOD_URL_REWRITES: Record<string, string> = {
   "photo-1547592160-406d259ca962":
     "https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=1200&q=80",
-  // Seasonal theme stock that Unsplash removed
+  // Seasonal theme stock that Unsplash removed → verified Halloween pumpkins
   "photo-1509557965043-4e929c0c1b9d":
-    "https://images.unsplash.com/photo-1478144592103-25e218a04891?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1667852916327-c0444978d171?auto=format&fit=crop&w=1200&q=80",
   "photo-1605792657660-596af9009ce3":
-    "https://images.unsplash.com/photo-1478144592103-25e218a04891?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1663568399694-fa3ee4fbb972?auto=format&fit=crop&w=1200&q=80",
 };
+
+/**
+ * Photo ids that must NEVER carry exclusive seasonal subjects in meta.
+ * Protects against the brunch-as-Halloween class of bugs.
+ */
+export const THEME_SUBJECT_DENYLIST: Record<string, string> = {
+  "photo-1478144592103-25e218a04891":
+    "Bright brunch/fruit flat-lay — not seasonal",
+};
+
+/**
+ * Human-verified captions for exclusive theme stock.
+ * Every URL in THEME_MOOD_POOLS must appear here with a matching theme.
+ */
+export const VERIFIED_THEME_ASSET_LABELS: Record<
+  string,
+  { theme: string; label: string }
+> = {
+  "photo-1667852916327-c0444978d171": {
+    theme: "halloween",
+    label: "Jack-o-lanterns on a bar counter",
+  },
+  "photo-1663568399694-fa3ee4fbb972": {
+    theme: "halloween",
+    label: "Smoky jack-o-lantern in autumn leaves",
+  },
+  "photo-1698961676332-7ff9b6c5ceed": {
+    theme: "halloween",
+    label: "Adult costume with glowing pumpkin",
+  },
+  "photo-1512389142860-9c449e58a543": {
+    theme: "christmas",
+    label: "Evergreen and berry winter flat-lay",
+  },
+  "photo-1513885535751-8b9238bd345a": {
+    theme: "christmas",
+    label: "Festive wrapped gifts with holly",
+  },
+  "photo-1467810563316-b5476525c0f9": {
+    theme: "new_year",
+    label: "Hands holding sparklers at dusk",
+  },
+  "photo-1518199266791-5375a83190b7": {
+    theme: "valentine",
+    label: "Heart-shaped bokeh lights",
+  },
+  "photo-1516589178581-6cd7833ae3b2": {
+    theme: "valentine",
+    label: "Hands forming a heart in golden light",
+  },
+};
+
+/** Exported for verify scripts — dead rewrite map must stay theme-safe. */
+export function listDeadMoodUrlRewrites(): Record<string, string> {
+  return { ...DEAD_MOOD_URL_REWRITES };
+}
 
 export function rewriteDeadMoodUrl(url: string | null | undefined): string | null {
   if (!url) return null;
@@ -108,15 +168,27 @@ export function liveMoodUrls(urls: readonly string[]): string[] {
   return out;
 }
 
+/**
+ * Rotate only within the top subject-fit tier so diversity never demotes
+ * a stronger match (e.g. soup stock must stay ahead of generic pasta).
+ */
 function orderPoolByDiversity(
   pool: readonly string[],
   mix: string | null,
+  profile?: VisualProfile,
 ): string[] {
   const live = liveMoodUrls(pool);
   if (live.length === 0) return [];
   if (!mix) return live;
-  const start = hashDiversityKey(mix) % live.length;
-  return [...live.slice(start), ...live.slice(0, start)];
+  if (!profile) {
+    const start = hashDiversityKey(mix) % live.length;
+    return [...live.slice(start), ...live.slice(0, start)];
+  }
+  const top = subjectFitScore(profile, live[0]!);
+  const best = live.filter((url) => subjectFitScore(profile, url) === top);
+  const rest = live.filter((url) => subjectFitScore(profile, url) !== top);
+  const start = hashDiversityKey(mix) % best.length;
+  return [...best.slice(start), ...best.slice(0, start), ...rest];
 }
 
 /** Subject tags for known mood / Unsplash assets. */
@@ -280,6 +352,12 @@ export const MOOD_ASSET_META: Record<string, MoodAssetMeta> = {
     subjects: ["food", "table", "dining", "pasta"],
     setting: ["indoor", "restaurant"],
   },
+  // Was wrongly tagged as Halloween; pixels are a brunch fruit flat-lay.
+  "photo-1478144592103-25e218a04891": {
+    subjects: ["food", "table", "brunch", "fruit", "daytime"],
+    setting: ["indoor"],
+    moment: ["daytime", "breakfast"],
+  },
   "photo-1547592166-23ac45744acd": {
     subjects: ["soup", "food", "bowls", "table", "tasting"],
     setting: ["indoor", "restaurant"],
@@ -317,31 +395,54 @@ export const MOOD_ASSET_META: Record<string, MoodAssetMeta> = {
     setting: ["indoor"],
     ageBands: ["young", "mid"],
   },
-  // seasonal themes
+  // Concert crowd — party only, NOT carnival (was mislabelled).
+  "photo-1533174072545-7a4b6ad7a6c3": {
+    subjects: ["nightlife", "party", "stage", "celebration"],
+    setting: ["outdoor"],
+    moment: ["evening", "nightlife"],
+    ageBands: ["young", "mid"],
+  },
+  // Confetti on teal — generic celebration, not Christmas-exclusive.
+  "photo-1513151233558-d860c5398176": {
+    subjects: ["party", "celebration", "confetti"],
+    setting: ["indoor"],
+    moment: ["evening"],
+  },
+  // seasonal themes (human-verified pixels; see VERIFIED_THEME_ASSET_LABELS)
   "photo-1509557965043-4e929c0c1b9d": {
     subjects: ["halloween", "pumpkin", "outdoors", "seasonal"],
     setting: ["outdoor"],
     moment: ["evening"],
-  },
-  "photo-1478144592103-25e218a04891": {
-    subjects: ["halloween", "party", "nightlife", "seasonal", "costume"],
-    setting: ["indoor"],
-    moment: ["evening", "nightlife"],
   },
   "photo-1605792657660-596af9009ce3": {
     subjects: ["halloween", "pumpkin", "seasonal"],
     setting: ["outdoor", "indoor"],
     moment: ["evening"],
   },
+  "photo-1667852916327-c0444978d171": {
+    subjects: ["halloween", "pumpkin", "seasonal", "bar"],
+    setting: ["indoor", "bar"],
+    moment: ["evening"],
+  },
+  "photo-1663568399694-fa3ee4fbb972": {
+    subjects: ["halloween", "pumpkin", "outdoors", "seasonal"],
+    setting: ["outdoor"],
+    moment: ["evening"],
+  },
+  "photo-1698961676332-7ff9b6c5ceed": {
+    subjects: ["halloween", "pumpkin", "costume", "seasonal", "party"],
+    setting: ["indoor"],
+    moment: ["evening"],
+    ageBands: ["young", "mid"],
+  },
   "photo-1512389142860-9c449e58a543": {
     subjects: ["christmas", "seasonal", "decor"],
     setting: ["indoor"],
     moment: ["evening"],
   },
-  "photo-1513151233558-d860c5398176": {
-    subjects: ["christmas", "party", "seasonal", "celebration", "new_year"],
+  "photo-1513885535751-8b9238bd345a": {
+    subjects: ["christmas", "seasonal", "decor", "gifts"],
     setting: ["indoor"],
-    moment: ["evening"],
   },
   "photo-1467810563316-b5476525c0f9": {
     subjects: ["new_year", "celebration", "party", "seasonal"],
@@ -355,11 +456,6 @@ export const MOOD_ASSET_META: Record<string, MoodAssetMeta> = {
   "photo-1516589178581-6cd7833ae3b2": {
     subjects: ["valentine", "social", "seasonal"],
     setting: ["indoor"],
-  },
-  "photo-1533174072545-7a4b6ad7a6c3": {
-    subjects: ["carnival", "costume", "party", "seasonal", "celebration"],
-    setting: ["outdoor"],
-    moment: ["evening", "nightlife"],
   },
   // workshop
   "mood-embodied-dating.png": {
@@ -470,6 +566,7 @@ export const CATEGORY_MOOD_POOLS: Record<
     "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1476224203421-9ac39bcb3327?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1478144592103-25e218a04891?auto=format&fit=crop&w=1200&q=80",
   ],
   party: [
     "/preview-mood/mood-mingle-night.png",
@@ -477,6 +574,8 @@ export const CATEGORY_MOOD_POOLS: Record<
     "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=1200&q=80",
     // Seasonal theme stock lives only in THEME_MOOD_POOLS (never generic party).
   ],
   workshop: [
@@ -504,29 +603,28 @@ export const CATEGORY_MOOD_POOLS: Record<
 
 /**
  * Theme-first mood pools keyed by TITLE_THEME_RULES id.
- * Missing pool ⇒ neutral fallback (never wrong generic category stock).
- * Extend this map when you add a new title theme rule.
+ * Missing/empty pool ⇒ neutral fallback (never wrong generic category stock).
+ * Every URL must be listed in VERIFIED_THEME_ASSET_LABELS with matching theme.
  */
 export const THEME_MOOD_POOLS: Record<string, readonly string[]> = {
   halloween: [
-    // Keep only live Unsplash assets; dead ids are rewritten via DEAD_MOOD_URL_REWRITES.
-    "https://images.unsplash.com/photo-1478144592103-25e218a04891?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1667852916327-c0444978d171?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1663568399694-fa3ee4fbb972?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1698961676332-7ff9b6c5ceed?auto=format&fit=crop&w=1200&q=80",
   ],
   christmas: [
     "https://images.unsplash.com/photo-1512389142860-9c449e58a543?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1513885535751-8b9238bd345a?auto=format&fit=crop&w=1200&q=80",
   ],
   new_year: [
     "https://images.unsplash.com/photo-1467810563316-b5476525c0f9?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=1200&q=80",
   ],
   valentine: [
     "https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&w=1200&q=80",
   ],
-  carnival: [
-    "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?auto=format&fit=crop&w=1200&q=80",
-  ],
+  // No verified carnival stock yet → empty ⇒ neutral (never mislabelled concert).
+  carnival: [],
 };
 
 /** First pool image — backward-compatible single-url map. */
@@ -813,13 +911,18 @@ const COMPATIBLE: Record<ImageCategory, readonly ImageCategory[]> = {
 };
 
 /** Strong seasonal subjects that must only appear when the event has that theme. */
-const EXCLUSIVE_THEME_SUBJECTS = [
+export const EXCLUSIVE_THEME_SUBJECTS = [
   "halloween",
   "christmas",
   "valentine",
   "carnival",
   "new_year",
 ] as const;
+
+/** Asset key helper for verify scripts (photo-… / mood-….png). */
+export function moodAssetKey(url: string): string {
+  return assetKey(url);
+}
 
 function subjectsConflict(
   profile: VisualProfile,
@@ -966,16 +1069,27 @@ function withCandidates(
   };
 }
 
+/** Higher = closer subject match (theme hit or more mustInclude overlap). */
+function subjectFitScore(profile: VisualProfile, imageUrl: string): number {
+  const meta = getMoodAssetMeta(imageUrl);
+  if (!meta) return 0;
+  if (profile.theme && imageMatchesTitleTheme(profile, meta)) return 100;
+  if (profile.mustInclude.length === 0) return 1;
+  return profile.mustInclude.filter((s) => meta.subjects.includes(s)).length;
+}
+
 function filterPoolByProfile(
   pool: readonly string[],
   profile: VisualProfile,
 ): string[] {
-  return pool.filter((url) => {
-    if (subjectsConflict(profile, url)) return false;
-    if (!subjectsMatchEnough(profile, url)) return false;
-    if (!ageCompatible(profile, url)) return false;
-    return true;
-  });
+  return pool
+    .filter((url) => {
+      if (subjectsConflict(profile, url)) return false;
+      if (!subjectsMatchEnough(profile, url)) return false;
+      if (!ageCompatible(profile, url)) return false;
+      return true;
+    })
+    .sort((a, b) => subjectFitScore(profile, b) - subjectFitScore(profile, a));
 }
 
 /**
@@ -1089,7 +1203,7 @@ export function resolvePublicEventImage(
       const mix = key
         ? `${required}|${profile.theme ?? "none"}|${profile.primaryActivity}|${profile.ageBand}|${key}`
         : null;
-      const ordered = orderPoolByDiversity(pool, mix);
+      const ordered = orderPoolByDiversity(pool, mix, profile);
       const url = ordered[0]!;
       return withCandidates(
         {
