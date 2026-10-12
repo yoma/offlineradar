@@ -193,39 +193,14 @@
     touch-action: pan-x pan-y;
   }
 
-  /* Binnenkort: seamless infinite marquee (track is 2 identical halves). */
-  .upcoming-marquee-track {
-    --upcoming-marquee-duration: 40s;
-    animation: upcoming-marquee var(--upcoming-marquee-duration) linear infinite;
-    will-change: transform;
+  /* Binnenkort: compact swipeable ticker (no marquee). */
+  .upcoming-ticker-scroller {
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x pan-y;
   }
-  .upcoming-marquee-viewport {
-    touch-action: pan-y;
-  }
-  .upcoming-marquee-viewport:hover .upcoming-marquee-track,
-  .upcoming-marquee-viewport:focus-within .upcoming-marquee-track {
-    animation-play-state: paused;
-  }
-  @keyframes upcoming-marquee {
-    from {
-      transform: translate3d(0, 0, 0);
-    }
-    to {
-      transform: translate3d(-50%, 0, 0);
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .upcoming-marquee-track {
-      animation: none;
-      transform: none;
-    }
-    .upcoming-marquee-viewport {
-      overflow-x: auto;
-      overscroll-behavior-x: contain;
-      scrollbar-width: none;
-    }
-    .upcoming-marquee-viewport::-webkit-scrollbar {
-      display: none;
-    }
+  .upcoming-ticker-scroller::-webkit-scrollbar {
+    display: none;
   }
 }

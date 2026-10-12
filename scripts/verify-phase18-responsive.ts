@@ -32,13 +32,13 @@ function main() {
   );
   mustInclude(
     "components/discover/upcoming-strip.tsx",
-    "overflow-hidden",
-    "upcoming marquee clips without page scroll",
+    "upcoming-ticker-scroller",
+    "upcoming ticker scrolls without page scroll",
   );
   mustInclude(
     "components/discover/upcoming-strip.tsx",
     "shrink-0",
-    "upcoming sticker items shrink-0",
+    "upcoming ticker cards shrink-0",
   );
   mustInclude(
     "components/discover/discover-view.tsx",
