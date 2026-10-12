@@ -183,6 +183,28 @@ const CUSHION_INTERIOR =
   ok("dating context does not override soup activity");
 }
 
+// Halloween title must not get generic club stock
+{
+  const ctx = {
+    category: "social" as const,
+    activities: ["party" as const],
+    title: "COCO LOCO x Halloween Rave",
+    tags: ["halloween", "party"],
+  };
+  const profile = buildVisualProfile(ctx);
+  assert.equal(profile.theme, "halloween");
+  assert.ok(profile.mustInclude.includes("halloween"));
+  const genericClub =
+    "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1200&q=80";
+  assert.equal(isImageCompatibleWithEvent(ctx, genericClub), false);
+  const resolved = resolvePublicEventImage(ctx, genericClub, true, "event:halloween");
+  assert.ok(
+    getMoodAssetMeta(resolved.url)?.subjects.includes("halloween"),
+    `expected halloween mood, got ${resolved.url}`,
+  );
+  ok("halloween title → halloween mood, rejects generic club");
+}
+
 const prompt = buildVisualGenerationPrompt(
   buildVisualProfile({
     category: "dating",
