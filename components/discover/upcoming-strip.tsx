@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { Event } from "@/types/event";
 import { upcomingUrgencyLabel } from "@/lib/upcoming";
+
+const PX_PER_SECOND = 32;
+const MIN_LOOP_ITEMS = 8;
 
 export function UpcomingStrip({
   events,
@@ -22,98 +24,104 @@ export function UpcomingStrip({
   headingId?: string;
   seeAllHref?: string;
 }) {
-  const scrollerRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
   const isOnDark = variant === "onDark";
+
+  const loopEvents = useMemo(() => {
+    if (events.length === 0) return [];
+    const filled: Event[] = [];
+    while (filled.length < MIN_LOOP_ITEMS) {
+      filled.push(...events);
+    }
+    return filled;
+  }, [events]);
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    function syncDuration() {
+      if (!track) return;
+      const halfWidth = track.scrollWidth / 2;
+      if (halfWidth <= 0) return;
+      const seconds = Math.max(18, halfWidth / PX_PER_SECOND);
+      track.style.setProperty("--upcoming-ticker-duration", `${seconds}s`);
+    }
+
+    syncDuration();
+    const observer = new ResizeObserver(syncDuration);
+    observer.observe(track);
+    return () => observer.disconnect();
+  }, [loopEvents]);
 
   if (events.length === 0) return null;
 
-  function scrollByCard(direction: -1 | 1) {
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-    const card = scroller.querySelector<HTMLElement>("[data-ticker-card]");
-    const step = card ? card.offsetWidth + 8 : Math.max(200, scroller.clientWidth * 0.4);
-    scroller.scrollBy({ left: direction * step, behavior: "smooth" });
+  function renderCards(prefix: string, duplicateHalf: boolean) {
+    return loopEvents.map((event, index) => {
+      const when = upcomingUrgencyLabel(event.startDate, today);
+      const city = (event.city ?? "").trim();
+      const forScreenReader = !duplicateHalf && index < events.length;
+      return (
+        <article
+          key={`${prefix}-${event.id}-${index}`}
+          role={forScreenReader ? "listitem" : undefined}
+          aria-hidden={forScreenReader ? undefined : true}
+          className="flex h-11 w-[13.5rem] shrink-0 items-center rounded-lg border border-border bg-white px-2.5 shadow-[0_4px_12px_-10px_rgba(47,48,53,0.4)] sm:w-[15rem]"
+        >
+          <Link
+            href={`${hrefBase}/${event.slug}`}
+            tabIndex={forScreenReader ? undefined : -1}
+            title={forScreenReader ? `${when} · ${event.title}` : undefined}
+            className="flex min-w-0 flex-1 flex-col justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
+          >
+            <p className="truncate text-[10px] font-semibold tracking-wide text-[var(--brand-gold-ink)] uppercase">
+              {when}
+              {city ? ` · ${city}` : ""}
+            </p>
+            <p className="truncate text-[13px] leading-tight font-semibold text-[var(--brand-bordeaux)]">
+              {event.title}
+            </p>
+          </Link>
+        </article>
+      );
+    });
   }
 
   return (
     <section
       className={`min-w-0 ${
         isOnDark
-          ? "rounded-2xl border border-white/15 bg-[var(--brand-cream)]/95 p-3 shadow-[0_12px_40px_-20px_rgba(0,0,0,0.55)] backdrop-blur-sm sm:p-4"
-          : variant === "hero"
-            ? "mb-5 rounded-2xl border border-border bg-[var(--brand-cream)] p-3 sm:p-4"
-            : "mb-5 rounded-2xl border border-border bg-[var(--brand-cream)] p-3 sm:p-4"
+          ? "rounded-xl border border-white/15 bg-[var(--brand-cream)]/95 px-3 py-2 shadow-[0_12px_40px_-20px_rgba(0,0,0,0.55)] backdrop-blur-sm"
+          : "mb-5 rounded-xl border border-border bg-[var(--brand-cream)] px-3 py-2"
       }`}
       aria-labelledby={headingId}
     >
-      <div className="mb-2 flex items-center justify-between gap-3">
+      <div className="mb-1.5 flex items-center justify-between gap-3">
         <h2
           id={headingId}
-          className="font-heading-section text-sm text-[var(--brand-bordeaux)]"
+          className="font-heading-section text-xs text-[var(--brand-bordeaux)]"
         >
           Binnenkort te beleven
         </h2>
         <Link
           href={seeAllHref}
-          className="shrink-0 text-sm font-medium text-[var(--brand-gold-ink)] transition-colors hover:text-[var(--brand-bordeaux)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
+          className="shrink-0 text-xs font-medium text-[var(--brand-gold-ink)] transition-colors hover:text-[var(--brand-bordeaux)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
         >
           Bekijk alles →
         </Link>
       </div>
 
-      <div className="relative">
-        <button
-          type="button"
-          className="absolute top-1/2 -left-1 z-10 hidden size-8 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-white text-foreground shadow-sm transition-colors hover:bg-[var(--brand-gold-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground md:flex"
-          aria-label="Vorige activiteiten"
-          onClick={() => scrollByCard(-1)}
-        >
-          <ChevronLeft className="size-4" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          className="absolute top-1/2 -right-1 z-10 hidden size-8 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-white text-foreground shadow-sm transition-colors hover:bg-[var(--brand-gold-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground md:flex"
-          aria-label="Volgende activiteiten"
-          onClick={() => scrollByCard(1)}
-        >
-          <ChevronRight className="size-4" aria-hidden="true" />
-        </button>
-
+      <div
+        className="upcoming-ticker-viewport min-w-0 overflow-hidden"
+        role="list"
+        aria-label="Binnenkort te beleven: automatisch scrollende activiteiten"
+      >
         <div
-          ref={scrollerRef}
-          role="list"
-          aria-label="Binnenkort te beleven"
-          className="upcoming-ticker-scroller flex gap-2 overflow-x-auto px-1 pb-1 snap-x snap-mandatory md:snap-none md:px-7"
+          ref={trackRef}
+          className="upcoming-ticker-track flex w-max gap-1.5"
         >
-          {events.map((event) => {
-            const when = upcomingUrgencyLabel(event.startDate, today);
-            const city = (event.city ?? "").trim();
-            return (
-              <article
-                key={event.id}
-                role="listitem"
-                data-ticker-card
-                className="flex min-h-[4.5rem] w-[85%] shrink-0 snap-start flex-col justify-center rounded-xl border border-border bg-white px-3 py-2 shadow-[0_6px_16px_-12px_rgba(47,48,53,0.35)] sm:w-[min(16rem,70%)] md:w-[calc((100%-1rem)/2.4)] md:min-w-[12rem]"
-              >
-                <Link
-                  href={`${hrefBase}/${event.slug}`}
-                  className="flex min-h-[4.5rem] flex-col justify-center rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
-                >
-                  <p className="text-[11px] font-semibold tracking-wide text-[var(--brand-gold-ink)] uppercase">
-                    {when}
-                  </p>
-                  <p className="mt-0.5 line-clamp-2 text-sm leading-snug font-semibold text-[var(--brand-bordeaux)]">
-                    {event.title}
-                  </p>
-                  {city ? (
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                      {city}
-                    </p>
-                  ) : null}
-                </Link>
-              </article>
-            );
-          })}
+          {renderCards("a", false)}
+          {renderCards("b", true)}
         </div>
       </div>
     </section>

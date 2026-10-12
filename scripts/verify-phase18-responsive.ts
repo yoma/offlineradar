@@ -32,7 +32,7 @@ function main() {
   );
   mustInclude(
     "components/discover/upcoming-strip.tsx",
-    "upcoming-ticker-scroller",
+    "upcoming-ticker-track",
     "upcoming ticker scrolls without page scroll",
   );
   mustInclude(

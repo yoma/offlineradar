@@ -422,8 +422,8 @@ function main() {
   );
   mustInclude(
     "components/discover/upcoming-strip.tsx",
-    "upcoming-ticker-scroller",
-    "compact swipeable ticker scroller",
+    "upcoming-ticker-track",
+    "compact auto-scrolling ticker track",
   );
   mustInclude(
     "components/discover/upcoming-strip.tsx",
@@ -437,8 +437,8 @@ function main() {
   );
   mustInclude(
     "app/globals.css",
-    "upcoming-ticker-scroller",
-    "ticker scroller styles",
+    "upcoming-ticker-track",
+    "ticker auto-scroll styles",
   );
   mustInclude(
     "components/discover/upcoming-strip.tsx",
