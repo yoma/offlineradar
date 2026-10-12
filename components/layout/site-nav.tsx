@@ -279,7 +279,7 @@ export function SiteHeader({
       className={cn(
         "sticky top-0 z-40 overflow-visible transition-colors duration-200",
         light
-          ? "border-b border-border bg-white/95 text-foreground backdrop-blur"
+          ? "border-b border-border/80 bg-[color-mix(in_srgb,var(--brand-cream)_88%,white)]/95 text-foreground backdrop-blur"
           : "border-transparent bg-transparent text-white",
       )}
     >
@@ -319,9 +319,10 @@ export function SiteHeader({
                   key={link.href}
                   href={link.href}
                   className={cn(
+                    "transition-colors",
                     light
                       ? active
-                        ? "text-foreground"
+                        ? "text-[var(--brand-bordeaux)]"
                         : "text-muted-foreground hover:text-foreground"
                       : active
                         ? "text-white"
@@ -337,9 +338,10 @@ export function SiteHeader({
                 href="/interne-goedkeuren"
                 aria-current={adminActive ? "page" : undefined}
                 className={cn(
+                  "transition-colors",
                   light
                     ? adminActive
-                      ? "text-foreground"
+                      ? "text-[var(--brand-bordeaux)]"
                       : "text-muted-foreground hover:text-foreground"
                     : adminActive
                       ? "text-white"
@@ -378,7 +380,7 @@ export function MobileNav() {
   return (
     <nav
       aria-label="Snelmenu"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-white/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-[color-mix(in_srgb,var(--brand-cream)_70%,white)]/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur md:hidden"
     >
       <ul className="mx-auto grid max-w-lg grid-cols-4 px-1">
         {mobileLinks.map((link) => {

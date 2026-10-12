@@ -63,8 +63,8 @@ export function UpcomingStrip({
   const linkClass = isOnDark
     ? "inline-flex max-w-[min(70vw,18rem)] items-center truncate rounded-full border border-white/25 bg-white/12 px-3 py-1.5 text-xs text-white/90 backdrop-blur-sm transition-colors hover:border-white/45 hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
     : isHero
-      ? "inline-flex max-w-[min(70vw,18rem)] items-center truncate rounded-full border border-border/70 bg-white/80 px-3 py-1.5 text-xs text-foreground/80 shadow-[0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-sm transition-colors hover:border-foreground/25 hover:bg-white hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
-      : "inline-flex max-w-[min(70vw,18rem)] items-center truncate rounded-full border border-border/80 bg-secondary/40 px-3 py-1.5 text-xs text-foreground/90 transition-colors hover:border-foreground/40 hover:bg-secondary/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground";
+      ? "inline-flex max-w-[min(70vw,18rem)] items-center truncate rounded-full border border-[color-mix(in_srgb,var(--border)_70%,var(--brand-gold)_30%)] bg-white/90 px-3 py-1.5 text-xs text-foreground/85 shadow-[0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-sm transition-colors hover:border-[var(--brand-gold-deep)]/45 hover:bg-white hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
+      : "inline-flex max-w-[min(70vw,18rem)] items-center truncate rounded-full border border-border/80 bg-white px-3 py-1.5 text-xs text-foreground/90 shadow-sm transition-colors hover:border-[var(--brand-gold-deep)]/40 hover:bg-[var(--brand-gold-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground";
 
   function renderStickers(prefix: string, duplicateHalf: boolean) {
     return loopEvents.map((event, index) => {

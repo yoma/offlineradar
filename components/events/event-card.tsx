@@ -57,7 +57,7 @@ export function EventCard({
   }
 
   return (
-    <article className="group min-w-0">
+    <article className="group min-w-0 rounded-2xl border border-border/90 bg-white p-2.5 shadow-[0_10px_28px_-18px_rgba(47,48,53,0.28)] transition duration-200 hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--border)_70%,var(--brand-gold)_30%)] hover:shadow-[0_16px_36px_-18px_rgba(47,48,53,0.32)] sm:p-3">
       <div className="relative min-w-0">
         <Link href={detailHref} className="block min-w-0" onClick={onCardClick}>
           <EventVisual
@@ -74,7 +74,7 @@ export function EventCard({
             imageIsAtmosphere={event.imageIsAtmosphere === true}
             organizerId={event.organizerId}
             eventId={event.id}
-            className="aspect-[4/3] w-full min-w-0 rounded-2xl"
+            className="aspect-[4/3] w-full min-w-0 rounded-xl"
             label={false}
           />
         </Link>
@@ -83,18 +83,18 @@ export function EventCard({
         </div>
       </div>
 
-      <div className="mt-3 min-w-0 space-y-1.5">
+      <div className="mt-3 min-w-0 space-y-1.5 px-0.5 pb-0.5">
         <div className="flex items-start justify-between gap-3">
           <Link
             href={detailHref}
             className="min-w-0 flex-1"
             onClick={onCardClick}
           >
-            <h2 className="line-clamp-2 break-words text-[15px] font-semibold tracking-tight">
+            <h2 className="line-clamp-2 break-words text-[15px] font-semibold tracking-tight text-foreground transition group-hover:text-[var(--brand-bordeaux)]">
               {event.title}
             </h2>
           </Link>
-          <p className="shrink-0 text-[15px] font-semibold tabular-nums">
+          <p className="shrink-0 text-[15px] font-semibold tabular-nums text-[var(--brand-gold-ink)]">
             {priceLabel}
           </p>
         </div>
@@ -105,7 +105,7 @@ export function EventCard({
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <EventLabels event={event} compact />
           {capacityBadge ? (
-            <span className="inline-flex items-center rounded-full border border-border bg-white px-2.5 py-0.5 text-xs font-medium text-foreground">
+            <span className="inline-flex items-center rounded-full border border-border bg-[var(--brand-cream)] px-2.5 py-0.5 text-xs font-medium text-foreground">
               {capacityBadge}
             </span>
           ) : null}

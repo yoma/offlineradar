@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { listSavedIdsAction } from "@/app/account/actions";
+import { BrandShapes } from "@/components/brand/brand-shapes";
 import { EventCard } from "@/components/events/event-card";
 import { withUserDistance } from "@/lib/distance";
 import { isEligibleForEvent } from "@/lib/eligibility";
@@ -71,8 +72,10 @@ export function SavedView({ events }: { events: Event[] }) {
     });
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
-      <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+    <div className="relative overflow-x-clip">
+      <BrandShapes variant="saved" />
+      <div className="relative mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+      <h1 className="font-heading text-2xl tracking-tight text-[var(--brand-bordeaux)] sm:text-3xl">
         Bewaard
       </h1>
       <p className="mt-2 text-sm text-muted-foreground">
@@ -103,6 +106,7 @@ export function SavedView({ events }: { events: Event[] }) {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }

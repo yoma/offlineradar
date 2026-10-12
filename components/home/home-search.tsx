@@ -69,7 +69,7 @@ export function HomeHero({
     const profile = readProfile();
     queueMicrotask(() => {
       setState((current) => {
-        let next = { ...current };
+        const next = { ...current };
         if (profile.placeId) next.placeId = findPlace(profile.placeId).id;
         if (profile.maxDistanceKm) next.maxDistanceKm = profile.maxDistanceKm;
         if (profile.gender) next.gender = profile.gender;
@@ -270,13 +270,13 @@ export function HomeHero({
         sizes="100vw"
         className="object-cover"
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/60" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[color-mix(in_srgb,var(--brand-bordeaux)_55%,black)]/70 via-black/40 to-[color-mix(in_srgb,var(--brand-bordeaux)_45%,black)]/75" />
 
       <div className="relative mx-auto flex min-h-[100svh] w-full min-w-0 max-w-6xl flex-col justify-center px-4 pt-24 pb-24 sm:px-6 sm:pt-28 sm:pb-16">
-        <h1 className="max-w-[18ch] text-balance text-[1.55rem] font-semibold leading-[1.2] tracking-[-0.02em] text-white sm:max-w-2xl sm:text-[2.35rem] sm:leading-[1.15] lg:text-[2.75rem] lg:leading-[1.12]">
+        <h1 className="font-heading max-w-[18ch] text-balance text-[1.55rem] leading-[1.2] text-white sm:max-w-2xl sm:text-[2.35rem] sm:leading-[1.15] lg:text-[2.75rem] lg:leading-[1.12]">
           Date offline. Ervaar opnieuw de kracht van echte connecties.
         </h1>
-        <p className="mt-3.5 max-w-md text-pretty text-[13.5px] leading-6 font-normal text-white/70 sm:mt-4 sm:max-w-lg sm:text-[15px] sm:leading-7">
+        <p className="mt-3.5 max-w-md text-pretty text-[13.5px] leading-6 font-normal text-white/75 sm:mt-4 sm:max-w-lg sm:text-[15px] sm:leading-7">
           Ontdek hier singlesevents en activiteiten waar je andere singles in
           het echt kunt ontmoeten.
         </p>
@@ -536,7 +536,7 @@ export function HomeHero({
                 onClick={go}
                 disabled={searching}
                 aria-busy={searching}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 text-base font-semibold text-primary-foreground shadow-lg shadow-[0_12px_28px_-10px_rgba(156,124,37,0.55)] transition hover:bg-[var(--brand-gold-ink)] disabled:cursor-wait disabled:opacity-80 sm:w-auto sm:min-w-[240px]"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 text-base font-semibold text-primary-foreground shadow-[0_12px_28px_-10px_rgba(156,124,37,0.55)] transition hover:bg-[var(--brand-gold-ink)] disabled:cursor-wait disabled:opacity-80 sm:w-auto sm:min-w-[240px]"
               >
                 <PendingContent pending={searching} pendingLabel="Bezig…">
                   <Search className="size-4" />

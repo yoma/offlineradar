@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { DM_Sans, DM_Serif_Display } from "next/font/google";
 import { auth } from "@/auth";
 import { AuthSessionProvider } from "@/components/auth/session-provider";
 import { AnalyticsBeacon } from "@/components/analytics/analytics-beacon";
@@ -19,9 +19,15 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-const jakarta = Plus_Jakarta_Sans({
+const dmSans = DM_Sans({
   subsets: ["latin"],
-  variable: "--font-jakarta",
+  variable: "--font-dm-sans",
+});
+
+const dmSerif = DM_Serif_Display({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-dm-serif",
 });
 
 const siteDescription =
@@ -55,7 +61,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const showAdminEntry = isAllowlistedAdminEmail(session?.user?.email);
 
   return (
-    <html lang="nl" className={`${jakarta.variable} h-full overflow-x-clip`}>
+    <html
+      lang="nl"
+      className={`${dmSans.variable} ${dmSerif.variable} h-full overflow-x-clip`}
+    >
       <body className="min-h-full min-w-0 overflow-x-clip bg-background font-sans text-foreground">
         <AuthSessionProvider>
           <AnalyticsBeacon />
