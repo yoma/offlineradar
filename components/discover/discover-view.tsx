@@ -301,7 +301,7 @@ export function DiscoverView({
         />
       ) : null}
 
-      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-6">
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[color-mix(in_srgb,var(--border)_65%,var(--brand-bordeaux)_35%)] pb-6">
         <div className="min-w-0">
           <h1 className="font-heading text-2xl tracking-tight text-[var(--brand-bordeaux)] sm:text-3xl">
             {resultHeading}
@@ -425,12 +425,12 @@ export function DiscoverView({
                       ? "Voorkeur – beïnvloedt volgorde, niet zichtbaarheid"
                       : `Verwijder filter ${chip.label}`
                   }
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm hover:border-foreground ${
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition hover:bg-[var(--brand-rose-soft)] ${
                     chip.kind === "preference"
-                      ? "border-dashed border-foreground/35 bg-secondary/50"
+                      ? "border-dashed border-[color-mix(in_srgb,var(--brand-bordeaux)_35%,transparent)] bg-secondary/50"
                       : chip.kind === "date"
-                        ? "border-foreground/25 bg-secondary/40"
-                        : "border-border bg-white"
+                        ? "border-[color-mix(in_srgb,var(--brand-bordeaux)_28%,var(--border))] bg-[var(--brand-bordeaux-soft)] text-[var(--brand-bordeaux)]"
+                        : "border-[color-mix(in_srgb,var(--border)_65%,var(--brand-bordeaux)_35%)] bg-white text-[var(--brand-bordeaux)]"
                   }`}
                 >
                   {chip.label}

@@ -380,7 +380,7 @@ export function MobileNav() {
   return (
     <nav
       aria-label="Snelmenu"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-[color-mix(in_srgb,var(--brand-cream)_70%,white)]/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-[color-mix(in_srgb,var(--border)_70%,var(--brand-bordeaux)_30%)] bg-[color-mix(in_srgb,var(--brand-cream)_70%,white)]/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur md:hidden"
     >
       <ul className="mx-auto grid max-w-lg grid-cols-4 px-1">
         {mobileLinks.map((link) => {
@@ -394,7 +394,7 @@ export function MobileNav() {
                 className={cn(
                   "flex min-h-14 flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-semibold tracking-tight",
                   active
-                    ? "text-[var(--brand-gold-ink)]"
+                    ? "text-[var(--brand-bordeaux)]"
                     : "text-muted-foreground",
                 )}
               >

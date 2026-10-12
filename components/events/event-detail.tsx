@@ -161,16 +161,21 @@ export function EventDetail({
 
       <div className="mx-auto grid w-full min-w-0 max-w-6xl gap-10 px-4 py-8 sm:px-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)]">
         <div className="min-w-0 space-y-10">
-          <header className="space-y-3 border-b border-border pb-8">
+          <header className="space-y-3 border-b border-[color-mix(in_srgb,var(--border)_70%,var(--brand-bordeaux)_30%)] pb-8">
             <div className="flex items-start justify-between gap-3">
-              <p className="min-w-0 text-sm text-muted-foreground">
-                {CATEGORY_LABEL[event.category]} · {event.subCategory}
+              <p className="min-w-0 text-sm font-medium text-[var(--brand-bordeaux)]">
+                {CATEGORY_LABEL[event.category]}
+                <span className="font-normal text-muted-foreground">
+                  {" "}
+                  · {event.subCategory}
+                </span>
               </p>
               <SaveButton eventId={event.id} title={event.title} />
             </div>
-            <h1 className="font-heading break-words text-3xl tracking-tight text-[var(--brand-bordeaux)] sm:text-4xl">
+            <h1 className="font-heading brand-event-title break-words text-3xl tracking-tight sm:text-4xl">
               {event.title}
             </h1>
+            <span className="brand-accent-rule" aria-hidden />
             <EventLabels
               event={event}
               surface={showInternalReview ? "review" : "public"}
@@ -180,7 +185,11 @@ export function EventDetail({
               {event.city} · {placed.distanceKm} km van {place.label}
             </p>
             <p className="text-[15px]">
-              {formatSchedule(event)} · {priceLabel} · {event.organizerName}
+              {formatSchedule(event)} ·{" "}
+              <span className="font-semibold text-[var(--brand-gold-ink)]">
+                {priceLabel}
+              </span>{" "}
+              · {event.organizerName}
             </p>
             {event.organizerId ? (
               <div className="pt-1">

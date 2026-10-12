@@ -9,6 +9,7 @@
 export const brandColors = {
   cream: "#F9F2EA",
   bordeaux: "#67283A",
+  /** Supporting warmth only; soft washes live in globals.css. */
   rose: "#C98188",
   /** Logo mid-gold: keep over muted #C29A58 for brand recognition. */
   gold: "#D4AF37",

@@ -26,8 +26,8 @@ export function EventLabels({
             label.kind === "meet"
               ? "border-foreground/20 bg-foreground text-white"
               : label.kind === "singles_only"
-                ? "border-primary/30 bg-primary/10 text-foreground"
-                : "border-border bg-white text-foreground"
+                ? "border-[color-mix(in_srgb,var(--brand-bordeaux)_28%,var(--brand-gold)_20%)] bg-[var(--brand-bordeaux-soft)] text-[var(--brand-bordeaux)]"
+                : "border-[color-mix(in_srgb,var(--border)_75%,var(--brand-rose)_25%)] bg-white text-foreground"
           }`}
         >
           {label.text}
