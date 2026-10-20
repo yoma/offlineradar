@@ -3,7 +3,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import {
   DEFAULT_ANTHROPIC_MODEL,
   AiScreenerError,
+  type AiUsage,
 } from "@/lib/screening/ai/anthropic-screener";
+
+export type AdminIntakeExtractResult = {
+  proposal: IntakeProposal;
+  usage: AiUsage | null;
+  model: string;
+};
 import {
   blankProposal,
   type FieldStatus,
@@ -246,35 +253,43 @@ function parseProposal(
   };
 }
 
-export async function runAdminIntakeExtract(input: {
+/**
+ * Admin intake extract with optional token usage (Phase 1C metrics).
+ * Never logs the API key.
+ */
+export async function runAdminIntakeExtractDetailed(input: {
   mode: "url" | "text" | "screenshot";
   url?: string | null;
   text?: string | null;
   image?: { mimeType: string; base64: string } | null;
-}): Promise<IntakeProposal> {
+}): Promise<AdminIntakeExtractResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
   const model = process.env.ANTHROPIC_MODEL?.trim() || DEFAULT_ANTHROPIC_MODEL;
   const needsSourceVerificationDefault =
     input.mode === "screenshot" || !input.url?.trim();
 
   if (!apiKey) {
-    return blankProposal({
-      sourceUrl: {
-        value: input.url?.trim() || null,
-        status: input.url?.trim() ? "found" : "unknown",
-        evidence: null,
-      },
-      notes: {
-        value: input.text?.trim()?.slice(0, 2000) || null,
-        status: input.text?.trim() ? "found" : "unknown",
-        evidence: null,
-      },
-      needsSourceVerification: needsSourceVerificationDefault,
-      aiFailed: true,
-      aiError: "AI niet beschikbaar (geen API-key). Vul handmatig in.",
-      routeReason: "AI niet beschikbaar; handmatige intake.",
-      sourceKindHint: input.mode === "screenshot" ? "social_first" : "manual_only",
-    });
+    return {
+      model,
+      usage: null,
+      proposal: blankProposal({
+        sourceUrl: {
+          value: input.url?.trim() || null,
+          status: input.url?.trim() ? "found" : "unknown",
+          evidence: null,
+        },
+        notes: {
+          value: input.text?.trim()?.slice(0, 2000) || null,
+          status: input.text?.trim() ? "found" : "unknown",
+          evidence: null,
+        },
+        needsSourceVerification: needsSourceVerificationDefault,
+        aiFailed: true,
+        aiError: "AI niet beschikbaar (geen API-key). Vul handmatig in.",
+        routeReason: "AI niet beschikbaar; handmatige intake.",
+        sourceKindHint: input.mode === "screenshot" ? "social_first" : "manual_only",
+      }),
+    };
   }
 
   const client = new Anthropic({ apiKey });
@@ -320,6 +335,7 @@ export async function runAdminIntakeExtract(input: {
   content.push({ type: "text", text: textParts });
 
   let proposal: IntakeProposal;
+  let usage: AiUsage | null = null;
   try {
     const message = await client.messages.create({
       model,
@@ -329,6 +345,13 @@ export async function runAdminIntakeExtract(input: {
       tool_choice: { type: "tool", name: TOOL.name },
       messages: [{ role: "user", content }],
     });
+
+    if (message.usage) {
+      usage = {
+        inputTokens: message.usage.input_tokens,
+        outputTokens: message.usage.output_tokens,
+      };
+    }
 
     const toolUse = message.content.find((block) => block.type === "tool_use");
     if (!toolUse || toolUse.type !== "tool_use") {
@@ -398,7 +421,17 @@ export async function runAdminIntakeExtract(input: {
     }
   }
 
-  return proposal;
+  return { proposal, usage, model };
+}
+
+export async function runAdminIntakeExtract(input: {
+  mode: "url" | "text" | "screenshot";
+  url?: string | null;
+  text?: string | null;
+  image?: { mimeType: string; base64: string } | null;
+}): Promise<IntakeProposal> {
+  const result = await runAdminIntakeExtractDetailed(input);
+  return result.proposal;
 }
 
 export function contentHashForText(text: string): string {

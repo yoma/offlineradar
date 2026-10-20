@@ -92,6 +92,7 @@
     "verify:deep-scan": "npx tsx scripts/verify-deep-scan.ts",
     "verify:extraction-corpus": "npx tsx scripts/verify-extraction-corpus.ts",
     "validate:extraction-phase1b": "npx tsx scripts/validate-extraction-phase1b.ts",
+    "validate:extraction-phase1c": "npx tsx scripts/validate-extraction-phase1c.ts",
     "verify:intake-structured": "npx tsx scripts/verify-intake-structured.ts",
     "verify:paste-info": "npx tsx scripts/verify-paste-info.ts",
     "db:migrate:admin-intake": "node --env-file=.env.local --import tsx scripts/migrate-admin-intake.ts",
