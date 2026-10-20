@@ -116,7 +116,9 @@ Geen nieuwe Neon-tabel (bewust; geen schemawijziging zonder motivatie). Evidence
 
 ## 10. Aanbevolen volgende stap (niet in deze PR)
 
+Concrete restitems na Fase 1C GO: zie **`DATEOFFLINEHUB_PHASE1_FOLLOWUPS.md`** (FU-1 HopToDate oembed, FU-2 stadsherkenning, FU-3 admin-UI spotcheck, FU-4 Anthropic secret, FU-5 AI-only vs auto-publish).
+
+Overig:
 - Optionele live allowlist-suite achter env-flag.
 - Microdata/OpenGraph als L1-uitbreiding.
 - Evidence optioneel loggen in admin notes of aparte tabel na akkoord schema.
-- `verify:admin-intake` nav-assert bijwerken naar huidige Bronnen-label.
