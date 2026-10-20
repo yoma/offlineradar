@@ -6,6 +6,12 @@
 import type { StructuredEventFacts } from "@/lib/aanvoer/json-ld-event";
 import { extractJsonLdEventFacts } from "@/lib/aanvoer/json-ld-event";
 import { isIsoYmd } from "@/lib/aanvoer/dates";
+import {
+  collectProposalFieldEvidence,
+  evidenceFromField,
+  mergeFieldEvidence,
+  type FieldEvidence,
+} from "@/lib/aanvoer/field-evidence";
 import type { IntakeField, IntakeProposal } from "@/lib/aanvoer/types";
 import { inferKnownCityLabel } from "@/lib/geo-cities";
 
@@ -50,6 +56,35 @@ function cityFromUrl(url: string | null | undefined): string | null {
   }
 }
 
+function jsonLdEvidenceRows(
+  jsonLd: StructuredEventFacts,
+  pageUrl: string | null | undefined,
+): FieldEvidence[] {
+  const src = jsonLd.sourceUrl ?? pageUrl ?? null;
+  const pairs: Array<[string, string | null]> = [
+    ["title", jsonLd.title],
+    ["startDate", jsonLd.startDate],
+    ["startTime", jsonLd.startTime],
+    ["endTime", jsonLd.endTime],
+    ["city", jsonLd.city],
+    ["venue", jsonLd.venue],
+    ["priceNotes", jsonLd.priceNotes],
+    ["organizer", jsonLd.organizer],
+    ["sourceUrl", jsonLd.sourceUrl ?? pageUrl ?? null],
+    ["ticketUrl", jsonLd.ticketUrl],
+  ];
+  return pairs.map(([field, value]) =>
+    evidenceFromField({
+      field,
+      status: value ? "found" : "unknown",
+      value,
+      method: "json_ld",
+      sourceUrl: src,
+      quote: value ? `JSON-LD ${field}` : null,
+    }),
+  );
+}
+
 /**
  * Apply JSON-LD + city heuristics onto a proposal (in place style: returns new).
  */
@@ -64,6 +99,7 @@ export function enrichProposalFromPage(input: {
     : null;
   let proposal = { ...input.proposal };
   const evidence = "Gestructureerde gegevens (JSON-LD) op de pagina";
+  let layerEvidence: FieldEvidence[] = [];
 
   if (jsonLd) {
     proposal = {
@@ -86,7 +122,17 @@ export function enrichProposalFromPage(input: {
         jsonLd.sourceUrl ?? input.pageUrl ?? null,
         evidence,
       ),
+      ticketUrl: fillEmpty(
+        proposal.ticketUrl ?? {
+          value: null,
+          status: "unknown",
+          evidence: null,
+        },
+        jsonLd.ticketUrl,
+        evidence,
+      ),
     };
+    layerEvidence = jsonLdEvidenceRows(jsonLd, input.pageUrl);
   }
 
   // Infer mappable city from venue / location / URL / page text when still empty.
@@ -106,6 +152,15 @@ export function enrichProposalFromPage(input: {
           evidence: "Plaats herkend uit pagina/locatie",
         },
       };
+      layerEvidence = mergeFieldEvidence(layerEvidence, [
+        evidenceFromField({
+          field: "city",
+          status: "found",
+          value: inferred,
+          method: "html",
+          sourceUrl: input.pageUrl,
+        }),
+      ]);
     }
   } else {
     // Normalize spelling to a known label when possible (Ghent → Gent).
@@ -124,5 +179,23 @@ export function enrichProposalFromPage(input: {
     }
   }
 
-  return proposal;
+  const startClock = proposal.startTime.value?.trim() ?? "";
+  const startTimeUnknown = !(
+    proposal.startTime.status === "found" &&
+    Boolean(startClock) &&
+    /^\d{2}:\d{2}/.test(startClock)
+  );
+
+  const fieldEvidence = mergeFieldEvidence(
+    proposal.fieldEvidence ?? [],
+    layerEvidence.length
+      ? layerEvidence
+      : collectProposalFieldEvidence(proposal, "html", input.pageUrl),
+  );
+
+  return {
+    ...proposal,
+    startTimeUnknown,
+    fieldEvidence,
+  };
 }

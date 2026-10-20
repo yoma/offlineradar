@@ -15,6 +15,8 @@ export type StructuredEventFacts = {
   priceNotes: string | null;
   organizer: string | null;
   sourceUrl: string | null;
+  /** Offer.url or Event.url when it looks like a ticket/registration link. */
+  ticketUrl: string | null;
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -110,6 +112,25 @@ function offerPrice(offers: unknown): string | null {
   return null;
 }
 
+function offerTicketUrl(offers: unknown, eventUrl: string | null): string | null {
+  const list = Array.isArray(offers) ? offers : offers ? [offers] : [];
+  for (const item of list) {
+    const rec = asRecord(item);
+    if (!rec) continue;
+    const url = asString(rec.url);
+    if (url && /^https?:\/\//i.test(url)) return url;
+  }
+  if (
+    eventUrl &&
+    /ticket|billetero|eventbrite|hipsy|partyfinder|billetto|inschrijf|register/i.test(
+      eventUrl,
+    )
+  ) {
+    return eventUrl;
+  }
+  return null;
+}
+
 function organizerName(org: unknown): string | null {
   if (typeof org === "string") return org.trim() || null;
   const rec = asRecord(org);
@@ -120,6 +141,7 @@ function factsFromEvent(node: Record<string, unknown>): StructuredEventFacts {
   const start = parseDateTime(asString(node.startDate));
   const end = parseDateTime(asString(node.endDate));
   const loc = locationParts(node.location);
+  const sourceUrl = asString(node.url);
   return {
     title: asString(node.name),
     startDate: start.date,
@@ -130,7 +152,8 @@ function factsFromEvent(node: Record<string, unknown>): StructuredEventFacts {
     locationText: loc.locationText,
     priceNotes: offerPrice(node.offers),
     organizer: organizerName(node.organizer) || organizerName(node.performer),
-    sourceUrl: asString(node.url),
+    sourceUrl,
+    ticketUrl: offerTicketUrl(node.offers, sourceUrl),
   };
 }
 

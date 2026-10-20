@@ -18,6 +18,7 @@ import type {
 import {
   buildIntakeEndsAt,
   buildIntakeStartsAt,
+  UNKNOWN_START_TIME_NOTE,
 } from "@/lib/aanvoer/dates";
 
 function mapSourceType(hint: IntakeSourceKindHint): CatalogSourceType {
@@ -46,6 +47,7 @@ function boolish(value: "true" | "false" | "unknown"): boolean | null {
 function buildStartsAt(draft: IntakeEditableDraft): {
   startsAt: string;
   dateUnknown: boolean;
+  timeUnknown: boolean;
 } {
   const built = buildIntakeStartsAt({
     startDate: draft.startDate,
@@ -56,6 +58,7 @@ function buildStartsAt(draft: IntakeEditableDraft): {
   return {
     startsAt: "2099-12-31T12:00:00+01:00",
     dateUnknown: true,
+    timeUnknown: true,
   };
 }
 
@@ -186,7 +189,7 @@ export async function saveIntakeAsEventCandidate(input: {
     return { ok: false, error: "Kon organisator niet opslaan." };
   }
 
-  const { startsAt, dateUnknown } = buildStartsAt(draft);
+  const { startsAt, dateUnknown, timeUnknown } = buildStartsAt(draft);
   const endsAt = buildEndsAt(draft);
   const city = draft.city.trim() || "Onbekend";
   const singlesOnly = boolish(draft.singlesOnly);
@@ -206,6 +209,9 @@ export async function saveIntakeAsEventCandidate(input: {
     draft.routeReason,
     needsVerification ? "status=Bronverificatie nodig" : null,
     dateUnknown ? "date_unknown=1 | Startdatum onbekend." : null,
+    timeUnknown
+      ? `time_unknown=1 | ${UNKNOWN_START_TIME_NOTE} (12:00 is technische placeholder, geen bevestigd uur).`
+      : null,
     input.assetId
       ? `intake_asset=${input.assetId} (review evidence, nooit public image)`
       : null,
@@ -251,12 +257,16 @@ export async function saveIntakeAsEventCandidate(input: {
         "admin-intake",
         "discovered_by=user",
         ...(dateUnknown ? ["date_unknown"] : []),
+        ...(timeUnknown && !dateUnknown ? ["time_unknown"] : []),
       ],
       priceNote: draft.priceNotes.trim() || null,
       priceCurrency: draft.currency.trim() || "EUR",
       availabilityNote: draft.availability.trim() || null,
       shortDescription: null,
       internalNotes,
+      // Noon sentinel must not appear as a confirmed wall-clock to consumers.
+      startTimeDisplayNote:
+        timeUnknown && !dateUnknown ? UNKNOWN_START_TIME_NOTE : null,
       publicationStatus: "draft",
       // Explicitly omit sourceCheckedAt / lastCheckedAt — screenshot ≠ freshness.
     });

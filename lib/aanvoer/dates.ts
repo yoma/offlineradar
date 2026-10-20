@@ -113,22 +113,31 @@ export function brusselsOffsetForDate(dateYmd: string): "+01:00" | "+02:00" {
   return brusselsHour - 12 >= 2 ? "+02:00" : "+01:00";
 }
 
-/** Build timestamptz strings from intake date/time fields. */
+/**
+ * Build timestamptz strings from intake date/time fields.
+ * DB requires starts_at NOT NULL: when clock is unknown we still store a
+ * technical noon placeholder but set timeUnknown=true so callers mark
+ * startTimeDisplayNote / tags (never treat noon as a confirmed hour).
+ */
 export function buildIntakeStartsAt(input: {
   startDate: string;
   startTime?: string;
-}): { startsAt: string; dateUnknown: boolean } | null {
+}): { startsAt: string; dateUnknown: boolean; timeUnknown: boolean } | null {
   const date = normalizeIntakeDateToYmd(input.startDate);
   if (!date || !isIsoYmd(date)) return null;
-  const time =
-    input.startTime && /^\d{2}:\d{2}/.test(input.startTime)
-      ? input.startTime.slice(0, 5)
-      : "12:00";
+  const hasTime = Boolean(
+    input.startTime && /^\d{2}:\d{2}/.test(input.startTime.trim()),
+  );
+  const time = hasTime ? input.startTime!.trim().slice(0, 5) : "12:00";
   return {
     startsAt: `${date}T${time}:00${brusselsOffsetForDate(date)}`,
     dateUnknown: false,
+    timeUnknown: !hasTime,
   };
 }
+
+/** Consumer-safe note when wall-clock was never confirmed. */
+export const UNKNOWN_START_TIME_NOTE = "startuur nog te bevestigen";
 
 export function buildIntakeEndsAt(input: {
   startDate: string;
