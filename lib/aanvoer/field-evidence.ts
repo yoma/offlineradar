@@ -141,6 +141,34 @@ export function collectProposalFieldEvidence(
     ["organizer", proposal.organizer],
     ["ageNotes", proposal.ageNotes],
     [
+      "singlesOnly",
+      {
+        value:
+          proposal.singlesOnly.value === "unknown"
+            ? null
+            : proposal.singlesOnly.value,
+        status:
+          proposal.singlesOnly.value === "unknown"
+            ? "unknown"
+            : proposal.singlesOnly.status,
+        evidence: proposal.singlesOnly.evidence,
+      },
+    ],
+    [
+      "singlesOriented",
+      {
+        value:
+          proposal.singlesOriented.value === "unknown"
+            ? null
+            : proposal.singlesOriented.value,
+        status:
+          proposal.singlesOriented.value === "unknown"
+            ? "unknown"
+            : proposal.singlesOriented.status,
+        evidence: proposal.singlesOriented.evidence,
+      },
+    ],
+    [
       "ticketUrl",
       proposal.ticketUrl ?? {
         value: null,

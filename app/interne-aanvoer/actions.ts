@@ -391,11 +391,35 @@ export async function approveIntakeAction(
   const needsSourceVerification =
     String(formData.get("needsSourceVerification") ?? "") === "1";
   const aiFailed = String(formData.get("aiFailed") ?? "") === "1";
+  const startTimeUnknown =
+    String(formData.get("startTimeUnknown") ?? "") === "1";
+  let fieldEvidence = null as
+    | import("@/lib/aanvoer/field-evidence").FieldEvidence[]
+    | null;
+  try {
+    const raw = String(formData.get("fieldEvidence") ?? "");
+    if (raw) {
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) fieldEvidence = parsed as typeof fieldEvidence;
+    }
+  } catch {
+    fieldEvidence = null;
+  }
+  let deepScan = null as import("@/lib/aanvoer/types").IntakeProposal["deepScan"];
+  try {
+    const raw = String(formData.get("deepScan") ?? "");
+    if (raw) deepScan = JSON.parse(raw) as typeof deepScan;
+  } catch {
+    deepScan = null;
+  }
 
   const approval = evaluateIntakeApproval(draft, {
     needsSourceVerification,
     routeAdvice: draft.routeAdvice,
     aiFailed,
+    fieldEvidence,
+    startTimeUnknown,
+    deepScan,
   });
   if (approval.blockers.length > 0) {
     return {
@@ -1062,6 +1086,8 @@ export async function updateAanvoerCandidateStatusAction(
       routeAdvice: draft.routeAdvice,
       aiFailed: proposal.aiFailed,
       deepScan: deep.report,
+      fieldEvidence: proposal.fieldEvidence ?? null,
+      startTimeUnknown: proposal.startTimeUnknown,
     });
 
     const { buildIntakeStartsAt, UNKNOWN_START_TIME_NOTE } = await import(
@@ -1574,6 +1600,8 @@ export async function pasteInfoOntoAandachtCandidateAction(
     routeAdvice: draft.routeAdvice,
     aiFailed: proposal.aiFailed,
     deepScan: proposal.deepScan ?? null,
+    fieldEvidence: proposal.fieldEvidence ?? null,
+    startTimeUnknown: proposal.startTimeUnknown,
   });
 
   const { buildIntakeStartsAt, UNKNOWN_START_TIME_NOTE } = await import(
