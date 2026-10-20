@@ -148,13 +148,51 @@ function parseCard(block: string): RefreshNormalizedCandidate | null {
     minAge,
     maxAge,
     ageRule: minAge != null || maxAge != null ? "guideline" : "unknown",
-    price: null,
+    price: parsePrimaryPrice(block, text),
     availability: parseAvailability(block),
     officialUrl: ticketUrl,
     ticketUrl,
     rawEvidenceSummary: text.slice(0, 280),
     sourceCheckedAt: PARSER_CHECKED(),
   };
+}
+
+/**
+ * Primary ticket price on the card (not the cheaper "with a friend" rate).
+ * Accepts 29.99 / 29,99 with € before or after.
+ */
+export function parsePrimaryPrice(block: string, text: string): number | null {
+  const h3 =
+    /<h3[^>]*>\s*([\d]+[.,]\d{2})\s*€/i.exec(block) ||
+    /<h3[^>]*>\s*€\s*([\d]+[.,]\d{2})/i.exec(block) ||
+    /<h3[^>]*>\s*([\d]+[.,]\d{2})\s*(?:EUR|euro)/i.exec(block);
+  if (h3?.[1]) {
+    const n = Number(h3[1].replace(",", "."));
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+
+  // Prefer first euro amount that is not clearly a duo/"ami(e)" price line.
+  const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  for (const line of lines) {
+    if (/ami\(e\)|vriend|duo|pp\b|par personne/i.test(line)) continue;
+    const m =
+      /([\d]+[.,]\d{2})\s*€/.exec(line) ||
+      /€\s*([\d]+[.,]\d{2})/.exec(line) ||
+      /([\d]+[.,]\d{2})\s*(?:EUR|euro)\b/i.exec(line);
+    if (m?.[1]) {
+      const n = Number(m[1].replace(",", "."));
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+  }
+
+  const fallback =
+    /([\d]+[.,]\d{2})\s*€/.exec(text) ||
+    /€\s*([\d]+[.,]\d{2})/.exec(text);
+  if (fallback?.[1]) {
+    const n = Number(fallback[1].replace(",", "."));
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
 }
 
 export function parseHoptodateHtml(html: string): RefreshParserResult {
