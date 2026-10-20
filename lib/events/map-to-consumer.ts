@@ -188,7 +188,8 @@ export function mapEditionToConsumerEvent(
       : Number.POSITIVE_INFINITY,
     startDate: start.date,
     endDate: end && end.date !== start.date ? end.date : null,
-    startTime: start.time,
+    // Never expose the noon DB sentinel as a confirmed wall-clock.
+    startTime: edition.startTimeDisplayNote ? null : start.time,
     endTime: end?.time ?? null,
     price: edition.priceAmount,
     currency: "EUR",

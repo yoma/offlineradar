@@ -6,9 +6,11 @@
 import { createHash } from "node:crypto";
 import { validateAndNormalizeTipUrl } from "@/lib/tips/url";
 
-const MAX_BYTES = 750_000;
+/** Align with source-refresh HTML ceiling so Wix/large listing pages work. */
+const MAX_BYTES = 1_500_000;
 const TIMEOUT_MS = 12_000;
-const MAX_REDIRECTS = 4;
+/** HopToDate / Tomeeto often exceed 4 hops (CDN → locale → trailing slash). */
+const MAX_REDIRECTS = 8;
 
 /**
  * Browser-like UA: ticket platforms (Billetto, Eventbrite, …) block custom
@@ -58,6 +60,36 @@ function isAllowedContentType(value: string | null): boolean {
   );
 }
 
+/**
+ * SSRF check for fetch hops without stripping trailing slashes.
+ * Some hosts (HopToDate) 301 between `/path` and `/path/` forever if the
+ * client normalizes the slash away — same approach as safe-fetch-html.
+ */
+function validateFetchUrl(
+  raw: string,
+): { ok: true; url: string } | { ok: false; error: string } {
+  const tip = validateAndNormalizeTipUrl(raw);
+  if (!tip.ok) return tip;
+  try {
+    const parsed = new URL(raw.trim());
+    parsed.hash = "";
+    const host = parsed.hostname.toLowerCase();
+    const port =
+      (parsed.protocol === "https:" && parsed.port === "443") ||
+      (parsed.protocol === "http:" && parsed.port === "80")
+        ? ""
+        : parsed.port
+          ? `:${parsed.port}`
+          : "";
+    return {
+      ok: true,
+      url: `${parsed.protocol}//${host}${port}${parsed.pathname}${parsed.search}`,
+    };
+  } catch {
+    return { ok: false, error: "Ongeldige URL." };
+  }
+}
+
 /** Strip scripts/styles roughly and collapse whitespace for model input. */
 export function htmlToPlainishText(html: string): string {
   return html
@@ -73,16 +105,25 @@ export function htmlToPlainishText(html: string): string {
 
 export async function safeFetchTipSource(rawUrl: string): Promise<SafeFetchResult> {
   let current = rawUrl;
+  const seen = new Set<string>();
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    const validated = validateAndNormalizeTipUrl(current);
+    const validated = validateFetchUrl(current);
     if (!validated.ok) {
       return { ok: false, code: "invalid_url", error: validated.error };
     }
+    if (seen.has(validated.url)) {
+      return {
+        ok: false,
+        code: "blocked",
+        error: "Te veel redirects vanaf de tip-URL.",
+      };
+    }
+    seen.add(validated.url);
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
     try {
-      const response = await fetch(validated.normalizedUrl, {
+      const response = await fetch(validated.url, {
         method: "GET",
         redirect: "manual",
         signal: controller.signal,
@@ -103,7 +144,7 @@ export async function safeFetchTipSource(rawUrl: string): Promise<SafeFetchResul
             error: "Bron gaf een redirect zonder bestemming.",
           };
         }
-        current = new URL(location, validated.normalizedUrl).toString();
+        current = new URL(location, validated.url).toString();
         continue;
       }
 
@@ -175,7 +216,7 @@ export async function safeFetchTipSource(rawUrl: string): Promise<SafeFetchResul
       const contentHash = createHash("sha256").update(plain).digest("hex");
       return {
         ok: true,
-        finalUrl: validated.normalizedUrl,
+        finalUrl: validated.url,
         contentType,
         text: plain,
         html: looksHtml ? raw : "",

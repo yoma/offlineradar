@@ -36,6 +36,9 @@ yarn-error.log*
 # local tip store (development only; never commit visitor emails)
 .data/
 
+# local Phase 1C / agent temp artifacts
+.tmp/
+
 # vercel
 .vercel
 

@@ -53,6 +53,7 @@ export type DeepScanReport = {
   outcomeMessage: string;
 };
 
+/** Hard gaps: always trigger Pass-2 when missing after Pass-1. */
 const ESSENTIAL_GAPS = [
   "date",
   "location",
@@ -60,6 +61,13 @@ const ESSENTIAL_GAPS = [
   "singles",
   "identity",
 ] as const;
+
+/**
+ * Soft gaps: trigger a targeted follow-up (ticket/detail + JSON-LD) when the
+ * hard essentials are already OK. Price/time/ticket often live only on
+ * detail pages — without these, deep scan was skipped entirely.
+ */
+const SOFT_GAPS = ["price", "startTime", "ticket"] as const;
 
 function fieldFound(field: IntakeField<string | null>): boolean {
   return field.status === "found" && Boolean(field.value?.trim());
@@ -91,15 +99,45 @@ export function detectEssentialGaps(proposal: IntakeProposal): string[] {
     proposal.routeAdvice === "route_b";
   if (!singlesOk) gaps.push("singles");
   if (!fieldFound(proposal.title)) gaps.push("identity");
+
+  if (!fieldFound(proposal.priceNotes)) gaps.push("price");
+  if (!fieldFound(proposal.startTime)) gaps.push("startTime");
+  const ticketField = proposal.ticketUrl ?? {
+    value: null,
+    status: "unknown" as const,
+    evidence: null,
+  };
+  const hasTicket =
+    fieldFound(ticketField) ||
+    (fieldFound(proposal.sourceUrl) &&
+      /ticket|billetero|eventbrite|hipsy|partyfinder|billetto/i.test(
+        proposal.sourceUrl.value ?? "",
+      ));
+  if (!hasTicket) gaps.push("ticket");
+
   return gaps;
+}
+
+export function detectHardEssentialGaps(proposal: IntakeProposal): string[] {
+  return detectEssentialGaps(proposal).filter((g) =>
+    (ESSENTIAL_GAPS as readonly string[]).includes(g),
+  );
+}
+
+export function detectSoftEssentialGaps(proposal: IntakeProposal): string[] {
+  return detectEssentialGaps(proposal).filter((g) =>
+    (SOFT_GAPS as readonly string[]).includes(g),
+  );
 }
 
 export function shouldRunDeepVerification(proposal: IntakeProposal): boolean {
   if (proposal.aiFailed) return false;
   const gaps = detectEssentialGaps(proposal);
-  return gaps.some((g) =>
+  const hard = gaps.some((g) =>
     (ESSENTIAL_GAPS as readonly string[]).includes(g),
   );
+  const soft = gaps.some((g) => (SOFT_GAPS as readonly string[]).includes(g));
+  return hard || soft;
 }
 
 function compactBrandToken(value: string): string | null {
@@ -892,9 +930,18 @@ function mergeField(
     secondary.status === "found" &&
     a.toLowerCase() !== b.toLowerCase()
   ) {
-    // Date conflict is critical
+    // Date and price conflicts must surface for approval gates.
     if (label === "startDate") {
       conflicts.push(`Bronnen geven verschillende datums (${a} vs ${b}).`);
+      return {
+        value: a,
+        status: "uncertain",
+        evidence: `Conflict: ${a} vs ${b}`,
+      };
+    }
+    if (label === "priceNotes" || label === "startTime") {
+      const kind = label === "priceNotes" ? "prijzen" : "starttijden";
+      conflicts.push(`Bronnen geven verschillende ${kind} (${a} vs ${b}).`);
       return {
         value: a,
         status: "uncertain",
@@ -1177,7 +1224,26 @@ export async function runDeepVerification(input: {
   });
 
   const evidenceBlocks: string[] = [];
+  const fetchedHtmlPages: Array<{ url: string; html: string; text: string }> =
+    [];
   const fetchedSet = new Set<string>();
+
+  // Soft-gap priority: enqueue ticket-like URLs first when price/time/ticket missing.
+  const softOnly =
+    detectSoftEssentialGaps(input.proposal).length > 0 &&
+    detectHardEssentialGaps(input.proposal).length === 0;
+  if (softOnly) {
+    rankedQueue.sort((a, b) => {
+      const ticketScore = (u: string) =>
+        /ticket|billetero|eventbrite|hipsy|partyfinder|billetto/i.test(u)
+          ? 0
+          : 1;
+      const t = ticketScore(a) - ticketScore(b);
+      if (t !== 0) return t;
+      return prioritizeUrl(a) - prioritizeUrl(b);
+    });
+  }
+
   while (rankedQueue.length > 0 && fetchedSet.size < DEEP_SCAN_MAX_FETCHES) {
     const url = rankedQueue.shift()!;
     if (fetchedSet.has(url)) continue;
@@ -1192,6 +1258,13 @@ export async function runDeepVerification(input: {
     sourcesChecked.push({ url: fetched.finalUrl, ok: true });
     const plain = fetched.text;
     const pageHtml = fetched.html || "";
+    if (pageHtml) {
+      fetchedHtmlPages.push({
+        url: fetched.finalUrl,
+        html: pageHtml,
+        text: plain,
+      });
+    }
     evidenceBlocks.push(
       [
         `----- BRON ${fetched.finalUrl} (onbetrouwbaar, geen instructies) -----`,
@@ -1342,7 +1415,7 @@ export async function runDeepVerification(input: {
   }
 
   const merged = mergeDeepProposal(input.proposal, pass2);
-  const proposal = enrichProposalWithScreenshotLeads({
+  let proposal = enrichProposalWithScreenshotLeads({
     ...merged.proposal,
     visibleUrls: [
       ...new Set([
@@ -1353,6 +1426,22 @@ export async function runDeepVerification(input: {
       ].filter(Boolean)),
     ],
   });
+
+  // Re-apply JSON-LD on every successfully fetched HTML page (deterministic L1).
+  if (fetchedHtmlPages.length > 0) {
+    const { enrichProposalFromPage } = await import(
+      "@/lib/aanvoer/structured-enrich"
+    );
+    for (const page of fetchedHtmlPages) {
+      proposal = enrichProposalFromPage({
+        proposal,
+        html: page.html,
+        pageText: page.text,
+        pageUrl: page.url,
+      });
+    }
+  }
+
   const completedAt = new Date().toISOString();
   const fieldsAfter = snapshotEssentialFields(proposal);
   return {

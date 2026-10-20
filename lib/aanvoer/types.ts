@@ -1,4 +1,5 @@
 import { normalizeIntakeDateToYmd } from "@/lib/aanvoer/dates";
+import type { FieldEvidence } from "@/lib/aanvoer/field-evidence";
 import type { IntakePageKind } from "@/lib/aanvoer/page-kind";
 
 export type IntakeMode = "url" | "text" | "screenshot";
@@ -81,6 +82,15 @@ export type IntakeProposal = {
   pageKind?: IntakePageKind | null;
   /** Sample event links found on a source/agenda page. */
   discoveredEventUrls?: string[];
+  /**
+   * Per-field extraction provenance (JSON-LD / parser / ticket / AI / …).
+   * Admin diagnosis only; never invents values.
+   */
+  fieldEvidence?: FieldEvidence[];
+  /** Explicit: start clock not confirmed (DB may still hold noon sentinel). */
+  startTimeUnknown?: boolean;
+  /** Ticket / official event URL when separately found. */
+  ticketUrl?: IntakeField<string | null>;
 };
 
 export type IntakeEditableDraft = {
@@ -149,6 +159,7 @@ export function blankProposal(partial?: Partial<IntakeProposal>): IntakeProposal
     organizerUrl: emptyIntakeField(null),
     availability: emptyIntakeField(null),
     notes: emptyIntakeField(null),
+    ticketUrl: emptyIntakeField(null),
     sourceKindHint: "manual_only",
     routeAdvice: "needs_review",
     routeReason: "Nog niet geanalyseerd.",
@@ -156,6 +167,8 @@ export function blankProposal(partial?: Partial<IntakeProposal>): IntakeProposal
     modelHint: null,
     aiFailed: false,
     aiError: null,
+    fieldEvidence: [],
+    startTimeUnknown: true,
     ...partial,
   };
 }

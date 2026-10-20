@@ -43,37 +43,51 @@ export function cleanSportieveTitle(raw: string): string {
     .trim();
 }
 
-function extractCity(title: string, body: string): string {
-  const hay = `${title} ${body}`;
-  const known = [
-    "La Roche-en-Ardenne",
-    "Heusden-Zolder",
-    "Antwerpen",
-    "Gent",
-    "Brugge",
-    "Kortrijk",
-    "Mechelen",
-    "Oostende",
-    "Leuven",
-    "Hasselt",
-    "Wespelaar",
-    "Koksijde",
-    "Herzele",
-    "Reusel",
-    "Ellezelles",
-    "Viroinval",
-    "Pajottenland",
-    "Gooik",
-    "Oostkamp",
-    "Haacht",
-    "Stekene",
-    "Ronse",
-  ];
-  for (const city of known) {
-    if (new RegExp(city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(hay)) {
+const KNOWN_CITIES = [
+  "La Roche-en-Ardenne",
+  "Heusden-Zolder",
+  "Antwerpen",
+  "Gent",
+  "Brugge",
+  "Kortrijk",
+  "Mechelen",
+  "Oostende",
+  "Leuven",
+  "Hasselt",
+  "Wespelaar",
+  "Koksijde",
+  "Herzele",
+  "Reusel",
+  "Ellezelles",
+  "Viroinval",
+  "Pajottenland",
+  "Gooik",
+  "Oostkamp",
+  "Haacht",
+  "Stekene",
+  "Ronse",
+] as const;
+
+function cityFromHaystack(hay: string): string | null {
+  for (const city of KNOWN_CITIES) {
+    if (
+      new RegExp(city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(hay)
+    ) {
       return city;
     }
   }
+  return null;
+}
+
+/**
+ * Prefer city from the title (same edition). Body is only same-event lines
+ * (callers must not include the next event's title/date).
+ */
+function extractCity(title: string, body: string): string {
+  const fromTitle = cityFromHaystack(title);
+  if (fromTitle) return fromTitle;
+  const fromBody = cityFromHaystack(body);
+  if (fromBody) return fromBody;
   const m = /\b(?:in|te|door)\s+([A-ZÀ-Ü][A-Za-zÀ-ÿ'-]+)/.exec(title);
   return m?.[1] ?? "België";
 }
@@ -124,9 +138,18 @@ export function parseSportieveSinglesHtml(html: string): RefreshParserResult {
     }
     if (!titleRaw) continue;
 
+    // Stay inside this edition: stop before the next date line or next title.
+    const bodyLines: string[] = [];
+    for (let j = i + 1; j < Math.min(lines.length, i + 6); j++) {
+      const line = lines[j]!;
+      if (DATE_LINE.test(line)) break;
+      if (looksLikeEventTitle(line)) break;
+      bodyLines.push(line);
+    }
+    const body = bodyLines.join(" ");
+    // City from raw title (keeps " / Gent" suffix) before cleanSportieveTitle strips it.
+    const city = extractCity(titleRaw, body);
     const title = cleanSportieveTitle(titleRaw);
-    const body = lines.slice(i + 1, i + 4).join(" ");
-    const city = extractCity(title, body);
     const externalKey = `sportieve:${date}:${slugify(title)}`.slice(0, 160);
     if (seen.has(externalKey)) continue;
     seen.add(externalKey);

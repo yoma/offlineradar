@@ -6,8 +6,17 @@
 import type { StructuredEventFacts } from "@/lib/aanvoer/json-ld-event";
 import { extractJsonLdEventFacts } from "@/lib/aanvoer/json-ld-event";
 import { isIsoYmd } from "@/lib/aanvoer/dates";
+import {
+  collectProposalFieldEvidence,
+  evidenceFromField,
+  mergeFieldEvidence,
+  type FieldEvidence,
+} from "@/lib/aanvoer/field-evidence";
 import type { IntakeField, IntakeProposal } from "@/lib/aanvoer/types";
-import { inferKnownCityLabel } from "@/lib/geo-cities";
+import {
+  inferKnownCityLabel,
+  isPlausibleCityCandidate,
+} from "@/lib/geo-cities";
 
 function fillEmpty<T>(
   field: IntakeField<T | null>,
@@ -50,6 +59,35 @@ function cityFromUrl(url: string | null | undefined): string | null {
   }
 }
 
+function jsonLdEvidenceRows(
+  jsonLd: StructuredEventFacts,
+  pageUrl: string | null | undefined,
+): FieldEvidence[] {
+  const src = jsonLd.sourceUrl ?? pageUrl ?? null;
+  const pairs: Array<[string, string | null]> = [
+    ["title", jsonLd.title],
+    ["startDate", jsonLd.startDate],
+    ["startTime", jsonLd.startTime],
+    ["endTime", jsonLd.endTime],
+    ["city", jsonLd.city],
+    ["venue", jsonLd.venue],
+    ["priceNotes", jsonLd.priceNotes],
+    ["organizer", jsonLd.organizer],
+    ["sourceUrl", jsonLd.sourceUrl ?? pageUrl ?? null],
+    ["ticketUrl", jsonLd.ticketUrl],
+  ];
+  return pairs.map(([field, value]) =>
+    evidenceFromField({
+      field,
+      status: value ? "found" : "unknown",
+      value,
+      method: "json_ld",
+      sourceUrl: src,
+      quote: value ? `JSON-LD ${field}` : null,
+    }),
+  );
+}
+
 /**
  * Apply JSON-LD + city heuristics onto a proposal (in place style: returns new).
  */
@@ -64,6 +102,7 @@ export function enrichProposalFromPage(input: {
     : null;
   let proposal = { ...input.proposal };
   const evidence = "Gestructureerde gegevens (JSON-LD) op de pagina";
+  let layerEvidence: FieldEvidence[] = [];
 
   if (jsonLd) {
     proposal = {
@@ -72,7 +111,15 @@ export function enrichProposalFromPage(input: {
       startDate: preferIsoDate(proposal.startDate, jsonLd.startDate, evidence),
       startTime: fillEmpty(proposal.startTime, jsonLd.startTime, evidence),
       endTime: fillEmpty(proposal.endTime, jsonLd.endTime, evidence),
-      city: fillEmpty(proposal.city, jsonLd.city, evidence),
+      city: fillEmpty(
+        proposal.city,
+        jsonLd.city && isPlausibleCityCandidate(jsonLd.city)
+          ? inferKnownCityLabel(jsonLd.city) ?? jsonLd.city
+          : jsonLd.city
+            ? inferKnownCityLabel(jsonLd.city)
+            : null,
+        evidence,
+      ),
       venue: fillEmpty(proposal.venue, jsonLd.venue, evidence),
       location: fillEmpty(
         proposal.location,
@@ -86,17 +133,65 @@ export function enrichProposalFromPage(input: {
         jsonLd.sourceUrl ?? input.pageUrl ?? null,
         evidence,
       ),
+      ticketUrl: fillEmpty(
+        proposal.ticketUrl ?? {
+          value: null,
+          status: "unknown",
+          evidence: null,
+        },
+        jsonLd.ticketUrl &&
+          !/\/wp-json\/|oembed/i.test(jsonLd.ticketUrl)
+          ? jsonLd.ticketUrl
+          : null,
+        evidence,
+      ),
     };
+    layerEvidence = jsonLdEvidenceRows(jsonLd, input.pageUrl);
+  }
+
+  // Drop URL-path / page-dump "cities" so they can be re-inferred cleanly.
+  if (
+    proposal.city.value &&
+    !isPlausibleCityCandidate(proposal.city.value)
+  ) {
+    const rescued = inferKnownCityLabel(proposal.city.value);
+    proposal = {
+      ...proposal,
+      city: rescued
+        ? {
+            value: rescued,
+            status: "found",
+            evidence: "Plaats herkend uit ongeldige kandidaat",
+          }
+        : {
+            value: null,
+            status: "unknown",
+            evidence: "Ongeldige plaatskandidaat genegeerd",
+          },
+    };
+    if (rescued) {
+      layerEvidence = mergeFieldEvidence(layerEvidence, [
+        evidenceFromField({
+          field: "city",
+          status: "found",
+          value: rescued,
+          method: "html",
+          sourceUrl: input.pageUrl,
+        }),
+      ]);
+    }
   }
 
   // Infer mappable city from venue / location / URL / page text when still empty.
   if (!proposal.city.value || proposal.city.status !== "found") {
-    const inferred =
+    const inferredRaw =
       inferKnownCityLabel(proposal.city.value) ||
       inferKnownCityLabel(proposal.venue.value) ||
       inferKnownCityLabel(proposal.location.value) ||
       cityFromUrl(proposal.sourceUrl.value ?? input.pageUrl) ||
       inferKnownCityLabel(input.pageText?.slice(0, 8_000) ?? null);
+    const inferred =
+      inferredRaw && isPlausibleCityCandidate(inferredRaw) ? inferredRaw : null;
     if (inferred) {
       proposal = {
         ...proposal,
@@ -106,11 +201,24 @@ export function enrichProposalFromPage(input: {
           evidence: "Plaats herkend uit pagina/locatie",
         },
       };
+      layerEvidence = mergeFieldEvidence(layerEvidence, [
+        evidenceFromField({
+          field: "city",
+          status: "found",
+          value: inferred,
+          method: "html",
+          sourceUrl: input.pageUrl,
+        }),
+      ]);
     }
   } else {
     // Normalize spelling to a known label when possible (Ghent → Gent).
     const normalized = inferKnownCityLabel(proposal.city.value);
-    if (normalized && normalized !== proposal.city.value) {
+    if (
+      normalized &&
+      isPlausibleCityCandidate(normalized) &&
+      normalized !== proposal.city.value
+    ) {
       proposal = {
         ...proposal,
         city: {
@@ -124,5 +232,23 @@ export function enrichProposalFromPage(input: {
     }
   }
 
-  return proposal;
+  const startClock = proposal.startTime.value?.trim() ?? "";
+  const startTimeUnknown = !(
+    proposal.startTime.status === "found" &&
+    Boolean(startClock) &&
+    /^\d{2}:\d{2}/.test(startClock)
+  );
+
+  const fieldEvidence = mergeFieldEvidence(
+    proposal.fieldEvidence ?? [],
+    layerEvidence.length
+      ? layerEvidence
+      : collectProposalFieldEvidence(proposal, "html", input.pageUrl),
+  );
+
+  return {
+    ...proposal,
+    startTimeUnknown,
+    fieldEvidence,
+  };
 }

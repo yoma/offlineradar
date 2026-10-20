@@ -178,23 +178,69 @@ export async function analyzeIntakeAction(
     };
   }
 
-  let proposal = await runAdminIntakeExtract({
-    mode,
-    url: url || preferredPasteUrl || null,
-    text: sourceText || null,
-    image,
+  // L1: structured data (JSON-LD) BEFORE AI — never invent; fill confirmed facts first.
+  const {
+    applyStructuredLayer,
+    applyTicketFollowLayer,
+    mergeAiGapFill,
+    finalizeExtractionEvidence,
+    buildStructuredEvidenceDump,
+  } = await import("@/lib/aanvoer/extraction-pipeline");
+  const pageUrl = url || preferredPasteUrl || null;
+  const l1 = applyStructuredLayer({
+    html: seedHtml,
+    pageText: sourceText,
+    pageUrl,
   });
+  let proposal = l1.proposal;
+  const extractionLayers = [l1.report];
+  const extractionConflicts: string[] = [];
 
+  // L2: targeted ticket/detail follow for soft gaps (price / startTime / ticket).
   {
-    const { enrichProposalFromPage } = await import(
-      "@/lib/aanvoer/structured-enrich"
-    );
-    proposal = enrichProposalFromPage({
+    const follow = await applyTicketFollowLayer({
       proposal,
       html: seedHtml,
-      pageText: sourceText,
-      pageUrl: url || preferredPasteUrl || null,
+      pageUrl,
+      fetchEnabled: true,
     });
+    proposal = follow.proposal;
+    extractionLayers.push(follow.report);
+    extractionConflicts.push(...follow.conflicts);
+  }
+
+  const structuredDump =
+    l1.dump ||
+    buildStructuredEvidenceDump({
+      html: seedHtml,
+      pageUrl,
+      proposal,
+    });
+  const aiText = [
+    structuredDump
+      ? [
+          "----- DETERMINISTISCHE STRUCTURELE DATA (betrouwbaarder dan plain text) -----",
+          structuredDump,
+          "----- EINDE STRUCTURELE DATA -----",
+          "",
+        ].join("\n")
+      : "",
+    sourceText || "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  // L3: AI only for remaining gaps; merge without overwriting L1/L2 found fields.
+  const aiProposal = await runAdminIntakeExtract({
+    mode,
+    url: pageUrl,
+    text: aiText || null,
+    image,
+  });
+  {
+    const merged = mergeAiGapFill({ base: proposal, ai: aiProposal });
+    proposal = merged.proposal;
+    extractionLayers.push(merged.report);
   }
 
   if (mode === "screenshot") {
@@ -254,7 +300,7 @@ export async function analyzeIntakeAction(
         proposal,
         html: seedHtml,
         pageText: sourceText,
-        pageUrl: url || preferredPasteUrl || null,
+        pageUrl,
       });
     }
     const stamp = formatDeepScanNotes(deep.report);
@@ -265,6 +311,15 @@ export async function analyzeIntakeAction(
         evidence: proposal.notes.evidence,
       };
     }
+  }
+
+  {
+    const finalized = finalizeExtractionEvidence({
+      proposal,
+      conflicts: extractionConflicts,
+      layers: extractionLayers,
+    });
+    proposal = finalized.proposal;
   }
 
   const draft = proposalToDraft(proposal);
@@ -336,11 +391,35 @@ export async function approveIntakeAction(
   const needsSourceVerification =
     String(formData.get("needsSourceVerification") ?? "") === "1";
   const aiFailed = String(formData.get("aiFailed") ?? "") === "1";
+  const startTimeUnknown =
+    String(formData.get("startTimeUnknown") ?? "") === "1";
+  let fieldEvidence = null as
+    | import("@/lib/aanvoer/field-evidence").FieldEvidence[]
+    | null;
+  try {
+    const raw = String(formData.get("fieldEvidence") ?? "");
+    if (raw) {
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) fieldEvidence = parsed as typeof fieldEvidence;
+    }
+  } catch {
+    fieldEvidence = null;
+  }
+  let deepScan = null as import("@/lib/aanvoer/types").IntakeProposal["deepScan"];
+  try {
+    const raw = String(formData.get("deepScan") ?? "");
+    if (raw) deepScan = JSON.parse(raw) as typeof deepScan;
+  } catch {
+    deepScan = null;
+  }
 
   const approval = evaluateIntakeApproval(draft, {
     needsSourceVerification,
     routeAdvice: draft.routeAdvice,
     aiFailed,
+    fieldEvidence,
+    startTimeUnknown,
+    deepScan,
   });
   if (approval.blockers.length > 0) {
     return {
@@ -923,11 +1002,39 @@ export async function updateAanvoerCandidateStatusAction(
       }
     }
 
-    let proposal = await runAdminIntakeExtract({
+    const {
+      applyStructuredLayer,
+      mergeAiGapFill,
+      buildStructuredEvidenceDump,
+    } = await import("@/lib/aanvoer/extraction-pipeline");
+    const l1 = applyStructuredLayer({
+      html: seedHtml,
+      pageText: sourceText,
+      pageUrl: row.source_url,
+    });
+    const structuredDump =
+      l1.dump ||
+      buildStructuredEvidenceDump({
+        html: seedHtml,
+        pageUrl: row.source_url,
+        proposal: l1.proposal,
+      });
+    const aiProposal = await runAdminIntakeExtract({
       mode: row.source_url ? "url" : "text",
       url: row.source_url,
-      text: sourceText,
+      text: [
+        structuredDump
+          ? `----- DETERMINISTISCHE STRUCTURELE DATA -----\n${structuredDump}\n----- EINDE -----\n`
+          : "",
+        sourceText,
+      ]
+        .filter(Boolean)
+        .join("\n"),
     });
+    let proposal = mergeAiGapFill({
+      base: l1.proposal,
+      ai: aiProposal,
+    }).proposal;
     // Prefer known title/org if extract weak
     if (!proposal.title.value) {
       proposal.title = {
@@ -979,25 +1086,49 @@ export async function updateAanvoerCandidateStatusAction(
       routeAdvice: draft.routeAdvice,
       aiFailed: proposal.aiFailed,
       deepScan: deep.report,
+      fieldEvidence: proposal.fieldEvidence ?? null,
+      startTimeUnknown: proposal.startTimeUnknown,
     });
 
+    const { buildIntakeStartsAt, UNKNOWN_START_TIME_NOTE } = await import(
+      "@/lib/aanvoer/dates"
+    );
     const dateKnown =
       /^\d{4}-\d{2}-\d{2}$/.test(draft.startDate) &&
       Number(draft.startDate.slice(0, 4)) < 2090;
-    const startsAt = dateKnown
-      ? `${draft.startDate}T${(draft.startTime || "12:00").slice(0, 5)}:00+02:00`
-      : row.starts_at;
+    const builtStarts = dateKnown
+      ? buildIntakeStartsAt({
+          startDate: draft.startDate,
+          startTime: draft.startTime,
+        })
+      : null;
+    const startsAt = builtStarts?.startsAt ?? row.starts_at;
+    const timeUnknown = Boolean(builtStarts?.timeUnknown);
     const tags = Array.isArray(row.tags)
       ? row.tags.filter((t): t is string => typeof t === "string")
       : [];
-    const nextTags = dateKnown
+    let nextTags = dateKnown
       ? tags.filter((t) => t !== "date_unknown")
       : [...new Set([...tags, "date_unknown"])];
-    const nextNotes = `${row.internal_notes ?? ""}\n${stamp}`.trim();
+    nextTags = timeUnknown
+      ? [...new Set([...nextTags.filter((t) => t !== "time_unknown"), "time_unknown"])]
+      : nextTags.filter((t) => t !== "time_unknown");
+    const nextNotes = [
+      row.internal_notes ?? "",
+      stamp,
+      timeUnknown
+        ? `time_unknown=1 | ${UNKNOWN_START_TIME_NOTE} (12:00 is technische placeholder).`
+        : null,
+    ]
+      .filter(Boolean)
+      .join("\n")
+      .trim();
     const route =
       draft.routeAdvice === "route_a" || draft.routeAdvice === "route_b"
         ? draft.routeAdvice
         : row.eligibility_route;
+    const startTimeDisplayNote =
+      timeUnknown && dateKnown ? UNKNOWN_START_TIME_NOTE : null;
 
     await sql`
       UPDATE event_editions SET
@@ -1005,6 +1136,7 @@ export async function updateAanvoerCandidateStatusAction(
         city = ${draft.city || row.city},
         venue_name = ${draft.venue || row.venue_name},
         starts_at = ${startsAt}::timestamptz,
+        start_time_display_note = ${startTimeDisplayNote},
         eligibility_route = ${route},
         singles_only = ${
           draft.singlesOnly === "true"
@@ -1372,11 +1504,39 @@ export async function pasteInfoOntoAandachtCandidateAction(
     }
   }
 
-  let proposal = await runAdminIntakeExtract({
+  const {
+    applyStructuredLayer,
+    mergeAiGapFill,
+    buildStructuredEvidenceDump,
+  } = await import("@/lib/aanvoer/extraction-pipeline");
+  const l1Paste = applyStructuredLayer({
+    html: seedHtml,
+    pageText: sourceText,
+    pageUrl: preferredPasteUrl || row.source_url,
+  });
+  const pasteDump =
+    l1Paste.dump ||
+    buildStructuredEvidenceDump({
+      html: seedHtml,
+      pageUrl: preferredPasteUrl || row.source_url,
+      proposal: l1Paste.proposal,
+    });
+  const aiPaste = await runAdminIntakeExtract({
     mode: "text",
     url: preferredPasteUrl || row.source_url,
-    text: sourceText,
+    text: [
+      pasteDump
+        ? `----- DETERMINISTISCHE STRUCTURELE DATA -----\n${pasteDump}\n----- EINDE -----\n`
+        : "",
+      sourceText,
+    ]
+      .filter(Boolean)
+      .join("\n"),
   });
+  let proposal = mergeAiGapFill({
+    base: l1Paste.proposal,
+    ai: aiPaste,
+  }).proposal;
   {
     const { enrichProposalFromPage } = await import(
       "@/lib/aanvoer/structured-enrich"
@@ -1440,26 +1600,42 @@ export async function pasteInfoOntoAandachtCandidateAction(
     routeAdvice: draft.routeAdvice,
     aiFailed: proposal.aiFailed,
     deepScan: proposal.deepScan ?? null,
+    fieldEvidence: proposal.fieldEvidence ?? null,
+    startTimeUnknown: proposal.startTimeUnknown,
   });
 
+  const { buildIntakeStartsAt, UNKNOWN_START_TIME_NOTE } = await import(
+    "@/lib/aanvoer/dates"
+  );
   const dateKnown =
     /^\d{4}-\d{2}-\d{2}$/.test(draft.startDate) &&
     Number(draft.startDate.slice(0, 4)) < 2090;
-  const startsAt = dateKnown
-    ? `${draft.startDate}T${(draft.startTime || "12:00").slice(0, 5)}:00+02:00`
-    : row.starts_at;
+  const builtStarts = dateKnown
+    ? buildIntakeStartsAt({
+        startDate: draft.startDate,
+        startTime: draft.startTime,
+      })
+    : null;
+  const startsAt = builtStarts?.startsAt ?? row.starts_at;
+  const timeUnknown = Boolean(builtStarts?.timeUnknown);
   const tags = Array.isArray(row.tags)
     ? row.tags.filter((t): t is string => typeof t === "string")
     : [];
-  const nextTags = dateKnown
+  let nextTags = dateKnown
     ? tags.filter((t) => t !== "date_unknown")
     : [...new Set([...tags, "date_unknown"])];
+  nextTags = timeUnknown
+    ? [...new Set([...nextTags.filter((t) => t !== "time_unknown"), "time_unknown"])]
+    : nextTags.filter((t) => t !== "time_unknown");
 
   const stamp = [
     `paste_info_at=${new Date().toISOString()}`,
     preferredPasteUrl ? `paste_source_url=${preferredPasteUrl}` : null,
     proposal.deepScan ? formatDeepScanNotes(proposal.deepScan) : null,
     "paste_info_note=Admin plakte extra info (evidence, niet automatisch waarheid).",
+    timeUnknown
+      ? `time_unknown=1 | ${UNKNOWN_START_TIME_NOTE} (12:00 is technische placeholder).`
+      : null,
   ]
     .filter(Boolean)
     .join("\n");
@@ -1468,6 +1644,8 @@ export async function pasteInfoOntoAandachtCandidateAction(
     draft.routeAdvice === "route_a" || draft.routeAdvice === "route_b"
       ? draft.routeAdvice
       : row.eligibility_route;
+  const startTimeDisplayNote =
+    timeUnknown && dateKnown ? UNKNOWN_START_TIME_NOTE : null;
 
   await sql`
     UPDATE event_editions SET
@@ -1475,6 +1653,7 @@ export async function pasteInfoOntoAandachtCandidateAction(
       city = ${draft.city || row.city},
       venue_name = ${draft.venue || row.venue_name},
       starts_at = ${startsAt}::timestamptz,
+      start_time_display_note = ${startTimeDisplayNote},
       eligibility_route = ${route},
       singles_only = ${
         draft.singlesOnly === "true"

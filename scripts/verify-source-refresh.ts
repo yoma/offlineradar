@@ -184,6 +184,10 @@ async function main() {
     if (!c.officialUrl.includes("hoptodate.com") || !c.date) {
       fail("hoptodate fields", JSON.stringify(c));
     } else ok("hoptodate normalized fields");
+    const prices = hop.candidates.map((x) => x.price);
+    if (prices[0] !== 29.99 || prices[1] !== 26.99) {
+      fail("hoptodate prices", JSON.stringify(prices));
+    } else ok("hoptodate prices 29.99 / 26.99");
   }
 
   const sportHtml = await readFile(
@@ -198,6 +202,14 @@ async function main() {
     if (!sport.candidates.some((c) => /middelheim/i.test(c.title))) {
       fail("sportieve middelheim", "missing");
     } else ok("sportieve detects Middelheim edition");
+    const kor = sport.candidates.find((c) => /kortrijk/i.test(c.title));
+    if (!kor || kor.city !== "Kortrijk") {
+      fail("sportieve kortrijk city", JSON.stringify(kor));
+    } else ok("sportieve Kortrijk stays Kortrijk (not La Roche)");
+    const gent = sport.candidates.find((c) => /zonder prijs/i.test(c.title));
+    if (!gent || gent.city !== "Gent") {
+      fail("sportieve gent city", JSON.stringify(gent));
+    } else ok("sportieve Gent from title suffix");
   }
 
   // Matching
