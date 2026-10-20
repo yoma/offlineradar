@@ -178,23 +178,69 @@ export async function analyzeIntakeAction(
     };
   }
 
-  let proposal = await runAdminIntakeExtract({
-    mode,
-    url: url || preferredPasteUrl || null,
-    text: sourceText || null,
-    image,
+  // L1: structured data (JSON-LD) BEFORE AI — never invent; fill confirmed facts first.
+  const {
+    applyStructuredLayer,
+    applyTicketFollowLayer,
+    mergeAiGapFill,
+    finalizeExtractionEvidence,
+    buildStructuredEvidenceDump,
+  } = await import("@/lib/aanvoer/extraction-pipeline");
+  const pageUrl = url || preferredPasteUrl || null;
+  const l1 = applyStructuredLayer({
+    html: seedHtml,
+    pageText: sourceText,
+    pageUrl,
   });
+  let proposal = l1.proposal;
+  const extractionLayers = [l1.report];
+  const extractionConflicts: string[] = [];
 
+  // L2: targeted ticket/detail follow for soft gaps (price / startTime / ticket).
   {
-    const { enrichProposalFromPage } = await import(
-      "@/lib/aanvoer/structured-enrich"
-    );
-    proposal = enrichProposalFromPage({
+    const follow = await applyTicketFollowLayer({
       proposal,
       html: seedHtml,
-      pageText: sourceText,
-      pageUrl: url || preferredPasteUrl || null,
+      pageUrl,
+      fetchEnabled: true,
     });
+    proposal = follow.proposal;
+    extractionLayers.push(follow.report);
+    extractionConflicts.push(...follow.conflicts);
+  }
+
+  const structuredDump =
+    l1.dump ||
+    buildStructuredEvidenceDump({
+      html: seedHtml,
+      pageUrl,
+      proposal,
+    });
+  const aiText = [
+    structuredDump
+      ? [
+          "----- DETERMINISTISCHE STRUCTURELE DATA (betrouwbaarder dan plain text) -----",
+          structuredDump,
+          "----- EINDE STRUCTURELE DATA -----",
+          "",
+        ].join("\n")
+      : "",
+    sourceText || "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  // L3: AI only for remaining gaps; merge without overwriting L1/L2 found fields.
+  const aiProposal = await runAdminIntakeExtract({
+    mode,
+    url: pageUrl,
+    text: aiText || null,
+    image,
+  });
+  {
+    const merged = mergeAiGapFill({ base: proposal, ai: aiProposal });
+    proposal = merged.proposal;
+    extractionLayers.push(merged.report);
   }
 
   if (mode === "screenshot") {
@@ -254,7 +300,7 @@ export async function analyzeIntakeAction(
         proposal,
         html: seedHtml,
         pageText: sourceText,
-        pageUrl: url || preferredPasteUrl || null,
+        pageUrl,
       });
     }
     const stamp = formatDeepScanNotes(deep.report);
@@ -265,6 +311,15 @@ export async function analyzeIntakeAction(
         evidence: proposal.notes.evidence,
       };
     }
+  }
+
+  {
+    const finalized = finalizeExtractionEvidence({
+      proposal,
+      conflicts: extractionConflicts,
+      layers: extractionLayers,
+    });
+    proposal = finalized.proposal;
   }
 
   const draft = proposalToDraft(proposal);
@@ -923,11 +978,39 @@ export async function updateAanvoerCandidateStatusAction(
       }
     }
 
-    let proposal = await runAdminIntakeExtract({
+    const {
+      applyStructuredLayer,
+      mergeAiGapFill,
+      buildStructuredEvidenceDump,
+    } = await import("@/lib/aanvoer/extraction-pipeline");
+    const l1 = applyStructuredLayer({
+      html: seedHtml,
+      pageText: sourceText,
+      pageUrl: row.source_url,
+    });
+    const structuredDump =
+      l1.dump ||
+      buildStructuredEvidenceDump({
+        html: seedHtml,
+        pageUrl: row.source_url,
+        proposal: l1.proposal,
+      });
+    const aiProposal = await runAdminIntakeExtract({
       mode: row.source_url ? "url" : "text",
       url: row.source_url,
-      text: sourceText,
+      text: [
+        structuredDump
+          ? `----- DETERMINISTISCHE STRUCTURELE DATA -----\n${structuredDump}\n----- EINDE -----\n`
+          : "",
+        sourceText,
+      ]
+        .filter(Boolean)
+        .join("\n"),
     });
+    let proposal = mergeAiGapFill({
+      base: l1.proposal,
+      ai: aiProposal,
+    }).proposal;
     // Prefer known title/org if extract weak
     if (!proposal.title.value) {
       proposal.title = {
@@ -1372,11 +1455,39 @@ export async function pasteInfoOntoAandachtCandidateAction(
     }
   }
 
-  let proposal = await runAdminIntakeExtract({
+  const {
+    applyStructuredLayer,
+    mergeAiGapFill,
+    buildStructuredEvidenceDump,
+  } = await import("@/lib/aanvoer/extraction-pipeline");
+  const l1Paste = applyStructuredLayer({
+    html: seedHtml,
+    pageText: sourceText,
+    pageUrl: preferredPasteUrl || row.source_url,
+  });
+  const pasteDump =
+    l1Paste.dump ||
+    buildStructuredEvidenceDump({
+      html: seedHtml,
+      pageUrl: preferredPasteUrl || row.source_url,
+      proposal: l1Paste.proposal,
+    });
+  const aiPaste = await runAdminIntakeExtract({
     mode: "text",
     url: preferredPasteUrl || row.source_url,
-    text: sourceText,
+    text: [
+      pasteDump
+        ? `----- DETERMINISTISCHE STRUCTURELE DATA -----\n${pasteDump}\n----- EINDE -----\n`
+        : "",
+      sourceText,
+    ]
+      .filter(Boolean)
+      .join("\n"),
   });
+  let proposal = mergeAiGapFill({
+    base: l1Paste.proposal,
+    ai: aiPaste,
+  }).proposal;
   {
     const { enrichProposalFromPage } = await import(
       "@/lib/aanvoer/structured-enrich"

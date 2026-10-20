@@ -577,7 +577,11 @@ export function AanvoerClient({
           <div className="rounded-2xl border border-stone-200 bg-stone-50 px-4 py-4">
             <p className="text-sm font-medium text-stone-800">
               {formatDateNl(draft.startDate)}
-              {draft.startTime ? ` · ${draft.startTime}` : ""}
+              {draft.startTime && !proposal.startTimeUnknown
+                ? ` · ${draft.startTime}`
+                : proposal.startTimeUnknown || !draft.startTime
+                  ? " · startuur nog te bevestigen"
+                  : ""}
               {draft.endTime ? `–${draft.endTime}` : ""}
             </p>
             <p className="mt-1 text-sm text-stone-700">
@@ -672,6 +676,14 @@ export function AanvoerClient({
               }
             />
             <CheckRow
+              ok={!proposal.startTimeUnknown && Boolean(draft.startTime.trim())}
+              label={
+                !proposal.startTimeUnknown && draft.startTime.trim()
+                  ? `Starttijd: ${draft.startTime.trim()}`
+                  : "Starttijd onbekend (niet als 12:00 behandelen)"
+              }
+            />
+            <CheckRow
               ok={
                 draft.singlesOnly === "true" ||
                 draft.singlesOriented === "true" ||
@@ -696,6 +708,35 @@ export function AanvoerClient({
               }
             />
           </div>
+
+          {proposal.fieldEvidence && proposal.fieldEvidence.length > 0 ? (
+            <details className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700">
+              <summary className="cursor-pointer font-semibold text-stone-800">
+                Extractiebewijs per veld
+              </summary>
+              <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto text-xs text-stone-600">
+                {proposal.fieldEvidence.map((row) => {
+                  const status =
+                    row.status === "found"
+                      ? "bevestigd"
+                      : row.status === "uncertain"
+                        ? "onzeker"
+                        : "onbekend";
+                  return (
+                    <li key={`${row.field}-${row.method}-${row.value ?? ""}`}>
+                      <span className="font-medium text-stone-800">
+                        {row.field}
+                      </span>
+                      {": "}
+                      {row.value ? `“${row.value}”` : "(leeg)"} ({status},{" "}
+                      {row.method}, {row.confidence}
+                      {row.sourceUrl ? ` · ${row.sourceUrl}` : ""})
+                    </li>
+                  );
+                })}
+              </ul>
+            </details>
+          ) : null}
 
           {approval && approval.reviewReasons.length > 0 ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-950">
