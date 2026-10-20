@@ -40,7 +40,18 @@ import { parseSportieveSinglesHtml } from "../lib/source-refresh/parsers/sportie
 import { safeFetchTipSource } from "../lib/tips/safe-fetch";
 import { DEFAULT_ANTHROPIC_MODEL } from "../lib/screening/ai/anthropic-screener";
 
-const ARTIFACT_DIR = "/opt/cursor/artifacts";
+/** Cloud Agent default; locally falls back under the repo (gitignored tmp). */
+function resolveArtifactDir(): string {
+  const preferred = "/opt/cursor/artifacts";
+  try {
+    mkdirSync(preferred, { recursive: true });
+    return preferred;
+  } catch {
+    const local = path.join(process.cwd(), ".tmp", "phase1c-artifacts");
+    mkdirSync(local, { recursive: true });
+    return local;
+  }
+}
 const DELAY_MS = 1_200;
 const offlineOnly = process.argv.includes("--offline-gates");
 
@@ -533,7 +544,8 @@ async function runFullChain(input: {
 }
 
 async function main() {
-  mkdirSync(ARTIFACT_DIR, { recursive: true });
+  const ARTIFACT_DIR = resolveArtifactDir();
+  console.log(`Artifacts → ${ARTIFACT_DIR}`);
   assertIsolatedEnvironment();
   runOfflineGates();
 

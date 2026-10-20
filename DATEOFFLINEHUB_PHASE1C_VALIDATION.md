@@ -129,22 +129,87 @@ De harness `scripts/validate-extraction-phase1c.ts` is voorbereid om dit te doen
 
 ---
 
-## 9. Herhaalprocedure (zodra key beschikbaar)
+## 9. Lokale uitvoering (aanbevolen) of Cloud Agent
+
+### 9.1 Checklist (geen aparte testconfig nodig)
+
+| Vraag | Antwoord |
+| --- | --- |
+| Heeft de Cloud Agent de key? | **Nee** (`ANTHROPIC_PRESENT=no`) |
+| Kan Fase 1C zonder DB? | **Ja** — harness weigert bij `DATABASE_URL`/`POSTGRES_URL` (exit 3); geen Neon-imports |
+| Laadt `npm run validate:extraction-phase1c` `.env.local`? | **Nee** (bewust) — voorkomt per ongeluk DB-URL’s |
+| Aparte testconfig? | **Nee** — alleen Anthropic in de process-env zetten + DB-URL’s unset houden |
+| Artifacts lokaal? | `.tmp/phase1c-artifacts/` als `/opt/cursor/artifacts` niet schrijfbaar is |
+
+### 9.2 Exacte veilige stappen op jouw lokale Cursor-machine
+
+Op branch `cursor/extraction-quality-phase1-4bdb`, in de repo-root:
 
 ```bash
-# DB-URL moet unset blijven
+# A) Presence check — toont NOOIT de key-waarde
+node -e "
+const fs=require('fs');
+const p='.env.local';
+const t=fs.existsSync(p)?fs.readFileSync(p,'utf8'):'';
+const inFile=/(?:^|\\n)\\s*ANTHROPIC_API_KEY\\s*=\\s*\\S+/.test(t);
+const inProc=Boolean(process.env.ANTHROPIC_API_KEY&&process.env.ANTHROPIC_API_KEY.trim());
+const dbFile=/(?:^|\\n)\\s*(DATABASE_URL|POSTGRES_URL)\\s*=/.test(t);
+console.log('ANTHROPIC_PRESENT='+(inFile||inProc?'yes':'no'));
+console.log('ANTHROPIC_SOURCE='+(inProc?'process-env':inFile?'.env.local':'none'));
+console.log('DB_URL_IN_ENV_LOCAL='+(dbFile?'yes':'no'));
+console.log('DATABASE_URL_IN_PROCESS='+(process.env.DATABASE_URL?'yes':'no'));
+console.log('POSTGRES_URL_IN_PROCESS='+(process.env.POSTGRES_URL?'yes':'no'));
+"
+
+# B) Offline gates (geen Anthropic nodig)
 unset DATABASE_URL POSTGRES_URL
+npm run validate:extraction-phase1c -- --offline-gates
 
-# Key via Cloud Agent secrets (nooit echo'en)
-npm run validate:extraction-phase1c
+# C) Alleen Anthropic uit .env.local laden — NIET: node --env-file=.env.local
+#    (dat zou DATABASE_URL meenemen → exit 3)
+unset DATABASE_URL POSTGRES_URL
+node --import tsx -e "
+import { readFileSync, existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+const env = { ...process.env };
+delete env.DATABASE_URL;
+delete env.POSTGRES_URL;
+if (existsSync('.env.local')) {
+  for (const line of readFileSync('.env.local','utf8').split(/\\n/)) {
+    const m = line.match(/^(ANTHROPIC_API_KEY|ANTHROPIC_MODEL)=(.*)$/);
+    if (!m) continue;
+    let v = m[2].trim();
+    if ((v.startsWith('\"') && v.endsWith('\"')) || (v.startsWith(\"'\") && v.endsWith(\"'\"))) v = v.slice(1,-1);
+    env[m[1]] = v;
+  }
+}
+if (!env.ANTHROPIC_API_KEY?.trim()) {
+  console.error('BLOCKED: ANTHROPIC_API_KEY missing in process env and .env.local');
+  process.exit(2);
+}
+console.log('OK loading Anthropic only; DB URLs forced unset');
+const r = spawnSync('npx', ['tsx', 'scripts/validate-extraction-phase1c.ts'], {
+  env, stdio: 'inherit', shell: process.platform === 'win32',
+});
+process.exit(r.status ?? 1);
+"
 
-# Daarna regressies
+# D) Optionele regressies na groene live suite
 npm run verify:extraction-corpus
 npm run verify:deep-scan
 npm run verify:admin-intake
-npx tsc --noEmit
-npm run build
 ```
+
+**Niet doen:** `vercel env pull`, productie-deploy, `gh`/Vercel promote, key in chat/logs plakken, of artifacts committen.
+
+Verwacht: console `OK Anthropic key present (len=…)` (geen secret), artifacts in `.tmp/phase1c-artifacts/phase1c-live-validation.{json,md}`. Exit **0** bij 0 incorrect + 0 noon-leaks → dan dit rapport naar **GO** updaten.
+
+### 9.3 Cloud Agent-alternatief (als lokaal geen key heeft)
+
+1. Cursor → Cloud Agent environment secrets: voeg `ANTHROPIC_API_KEY` toe (optioneel `ANTHROPIC_MODEL`).
+2. **Geen** `DATABASE_URL` / `POSTGRES_URL` in die agent-env zetten voor deze run.
+3. Herstart/herhaal de agent en voer uit: `npm run validate:extraction-phase1c`
+4. Artifacts landen in `/opt/cursor/artifacts/`.
 
 Bij **0 incorrect**, **0 noon-leaks**, en acceptabele inventie-risico’s → update dit rapport naar **GO** voor merge.
 
