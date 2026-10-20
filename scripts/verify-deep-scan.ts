@@ -56,7 +56,8 @@ const flirtPass1 = blankProposal({
   needsSourceVerification: false,
 });
 
-assert.deepEqual(detectEssentialGaps(flirtPass1).sort(), ["date", "location"].sort());
+assert.ok(detectEssentialGaps(flirtPass1).includes("date"));
+assert.ok(detectEssentialGaps(flirtPass1).includes("location"));
 assert.equal(shouldRunDeepVerification(flirtPass1), true);
 ok("1 Flirt & Stride Pass1 gaps trigger deep scan");
 
@@ -186,12 +187,23 @@ const complete = blankProposal({
   title: { value: "Complete Event", status: "found", evidence: "x" },
   organizer: { value: "Org", status: "found", evidence: "x" },
   startDate: { value: "2026-11-01", status: "found", evidence: "x" },
+  startTime: { value: "19:30", status: "found", evidence: "x" },
   city: { value: "Antwerpen", status: "found", evidence: "x" },
   venue: { value: "Zaal", status: "found", evidence: "x" },
+  priceNotes: { value: "€25", status: "found", evidence: "x" },
   singlesOnly: { value: "true", status: "found", evidence: "x" },
   routeAdvice: "route_a",
   routeReason: "ok",
-  sourceUrl: { value: "https://example.com/e", status: "found", evidence: "x" },
+  sourceUrl: {
+    value: "https://example.com/tickets/event-1",
+    status: "found",
+    evidence: "x",
+  },
+  ticketUrl: {
+    value: "https://example.com/tickets/event-1",
+    status: "found",
+    evidence: "x",
+  },
   sourceKindHint: "website_first",
   needsSourceVerification: false,
 });
@@ -202,8 +214,9 @@ const priceUnknown = blankProposal({
   ...complete,
   priceNotes: { value: null, status: "unknown", evidence: null },
 });
-assert.equal(shouldRunDeepVerification(priceUnknown), false);
-ok("7 price unknown does not trigger deep scan");
+assert.equal(shouldRunDeepVerification(priceUnknown), true);
+assert.ok(detectEssentialGaps(priceUnknown).includes("price"));
+ok("7 price unknown triggers soft-gap deep scan");
 
 assert.ok(
   __test.harvestLinksFromHtml(

@@ -6,7 +6,9 @@ import { extractJsonLdEventFacts } from "../lib/aanvoer/json-ld-event";
 import { enrichProposalFromPage } from "../lib/aanvoer/structured-enrich";
 import {
   addCalendarDays,
+  buildIntakeStartsAt,
   normalizeIntakeDateToYmd,
+  UNKNOWN_START_TIME_NOTE,
 } from "../lib/aanvoer/dates";
 import { pickEnrichableEditionMatch } from "../lib/aanvoer/enrich-edition";
 import { blankProposal, proposalToDraft } from "../lib/aanvoer/types";
@@ -86,6 +88,16 @@ assert.ok(safeFetchSrc.includes("looksLikeBotBlockPage"));
 assert.equal(normalizeIntakeDateToYmd("31 Oktober 2026"), "2026-10-31");
 assert.equal(normalizeIntakeDateToYmd("2026-10-31"), "2026-10-31");
 assert.equal(addCalendarDays("2026-10-31", 1), "2026-11-01");
+
+const noon = buildIntakeStartsAt({ startDate: "2026-10-31", startTime: "" });
+assert.ok(noon?.timeUnknown);
+assert.match(noon!.startsAt, /T12:00:00/);
+assert.ok(UNKNOWN_START_TIME_NOTE.includes("startuur"));
+const timed = buildIntakeStartsAt({
+  startDate: "2026-10-31",
+  startTime: "19:30",
+});
+assert.equal(timed?.timeUnknown, false);
 
 // AI free-text date must lose to JSON-LD ISO.
 let dutchAi = blankProposal({
