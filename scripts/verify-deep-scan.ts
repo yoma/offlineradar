@@ -277,4 +277,52 @@ assert.ok(detectEssentialGaps(padel).includes("date"));
 assert.equal(shouldRunDeepVerification(padel), true);
 ok("11 Padeldate missing date triggers deep scan");
 
+// Price conflict must block auto-publish
+{
+  const priceConflictDraft = proposalToDraft(
+    blankProposal({
+      title: { value: "X", status: "found", evidence: "x" },
+      startDate: { value: "2026-11-01", status: "found", evidence: "x" },
+      city: { value: "Gent", status: "found", evidence: "x" },
+      sourceUrl: {
+        value: "https://example.com/e",
+        status: "found",
+        evidence: "x",
+      },
+      notes: {
+        value: "extractie_conflicten=Prijsconflict: €20 vs €25",
+        status: "found",
+        evidence: "x",
+      },
+      singlesOriented: {
+        value: "true",
+        status: "found",
+        evidence: "x",
+      },
+      routeAdvice: "route_a",
+      routeReason: "ok",
+      needsSourceVerification: false,
+    }),
+  );
+  const blocked = evaluateIntakeApproval(priceConflictDraft, {
+    needsSourceVerification: false,
+    routeAdvice: "route_a",
+    aiFailed: false,
+    deepScan: {
+      triggered: true,
+      reason: "soft",
+      queries: [],
+      sourcesChecked: [],
+      fieldsConfirmed: [],
+      conflicts: ["Bronnen geven verschillende prijzen (€20 vs €25)."],
+      timestamp: new Date().toISOString(),
+    },
+  });
+  assert.equal(blocked.canPublish, false);
+  assert.ok(
+    blocked.reviewReasons.some((r) => /conflict|prijs|extractie/i.test(r)),
+  );
+  ok("12 price conflict blocks auto-publish");
+}
+
 console.log("\nAll deep-scan checks passed.");

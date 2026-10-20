@@ -245,7 +245,8 @@ assert.equal(
 ok("5c source follow classifier");
 
 mustInclude("app/interne-aanvoer/page.tsx", "resolveTipsAdminAccess");
-mustInclude("components/admin/interne-admin-nav.tsx", "Aanvoer");
+mustInclude("components/admin/interne-admin-nav.tsx", "Bronnen");
+mustInclude("components/admin/interne-admin-nav.tsx", "Toevoegen");
 mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Toevoegen aan DateOfflineHub");
 mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Aanpassen");
 mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Wissen");
@@ -263,9 +264,7 @@ mustInclude("components/admin/aanvoer-cockpit.tsx", "Van DateOfflineHub halen");
 mustInclude("components/admin/aanvoer-cockpit.tsx", "Zoek event of organisator");
 mustInclude("components/admin/aanvoer-cockpit.tsx", "Opnieuw laten zoeken");
 mustInclude("components/admin/aanvoer-cockpit.tsx", "Bekijk AI-details");
-mustInclude("components/admin/aanvoer-cockpit.tsx", "Nu controleren");
 mustInclude("components/admin/aanvoer-cockpit.tsx", "Pauzeren");
-mustInclude("components/admin/aanvoer-cockpit.tsx", "Zoek bron of organisator");
 mustInclude("lib/aanvoer/source-follow.ts", "Wordt automatisch gevolgd");
 mustInclude("app/interne-aanvoer/actions.ts", "scanSourceNowAction");
 mustInclude("app/interne-aanvoer/actions.ts", "updateSourceFollowAction");

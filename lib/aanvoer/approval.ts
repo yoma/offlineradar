@@ -42,6 +42,16 @@ export function evaluateIntakeApproval(
     );
   }
 
+  // Price / extraction conflicts must never auto-publish unseen.
+  if (
+    deep?.conflicts.some((c) => /prijs|price/i.test(c)) ||
+    /extractie_conflicten=/i.test(draft.notes)
+  ) {
+    reviewReasons.push(
+      "Bronnen geven conflicterende prijs- of extractiegegevens — handmatige controle nodig",
+    );
+  }
+
   if (draft.routeAdvice === "not_suitable") {
     const reason = (
       draft.routeReason.trim() ||

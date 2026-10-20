@@ -930,9 +930,18 @@ function mergeField(
     secondary.status === "found" &&
     a.toLowerCase() !== b.toLowerCase()
   ) {
-    // Date conflict is critical
+    // Date and price conflicts must surface for approval gates.
     if (label === "startDate") {
       conflicts.push(`Bronnen geven verschillende datums (${a} vs ${b}).`);
+      return {
+        value: a,
+        status: "uncertain",
+        evidence: `Conflict: ${a} vs ${b}`,
+      };
+    }
+    if (label === "priceNotes" || label === "startTime") {
+      const kind = label === "priceNotes" ? "prijzen" : "starttijden";
+      conflicts.push(`Bronnen geven verschillende ${kind} (${a} vs ${b}).`);
       return {
         value: a,
         status: "uncertain",

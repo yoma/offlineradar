@@ -1064,23 +1064,45 @@ export async function updateAanvoerCandidateStatusAction(
       deepScan: deep.report,
     });
 
+    const { buildIntakeStartsAt, UNKNOWN_START_TIME_NOTE } = await import(
+      "@/lib/aanvoer/dates"
+    );
     const dateKnown =
       /^\d{4}-\d{2}-\d{2}$/.test(draft.startDate) &&
       Number(draft.startDate.slice(0, 4)) < 2090;
-    const startsAt = dateKnown
-      ? `${draft.startDate}T${(draft.startTime || "12:00").slice(0, 5)}:00+02:00`
-      : row.starts_at;
+    const builtStarts = dateKnown
+      ? buildIntakeStartsAt({
+          startDate: draft.startDate,
+          startTime: draft.startTime,
+        })
+      : null;
+    const startsAt = builtStarts?.startsAt ?? row.starts_at;
+    const timeUnknown = Boolean(builtStarts?.timeUnknown);
     const tags = Array.isArray(row.tags)
       ? row.tags.filter((t): t is string => typeof t === "string")
       : [];
-    const nextTags = dateKnown
+    let nextTags = dateKnown
       ? tags.filter((t) => t !== "date_unknown")
       : [...new Set([...tags, "date_unknown"])];
-    const nextNotes = `${row.internal_notes ?? ""}\n${stamp}`.trim();
+    nextTags = timeUnknown
+      ? [...new Set([...nextTags.filter((t) => t !== "time_unknown"), "time_unknown"])]
+      : nextTags.filter((t) => t !== "time_unknown");
+    const nextNotes = [
+      row.internal_notes ?? "",
+      stamp,
+      timeUnknown
+        ? `time_unknown=1 | ${UNKNOWN_START_TIME_NOTE} (12:00 is technische placeholder).`
+        : null,
+    ]
+      .filter(Boolean)
+      .join("\n")
+      .trim();
     const route =
       draft.routeAdvice === "route_a" || draft.routeAdvice === "route_b"
         ? draft.routeAdvice
         : row.eligibility_route;
+    const startTimeDisplayNote =
+      timeUnknown && dateKnown ? UNKNOWN_START_TIME_NOTE : null;
 
     await sql`
       UPDATE event_editions SET
@@ -1088,6 +1110,7 @@ export async function updateAanvoerCandidateStatusAction(
         city = ${draft.city || row.city},
         venue_name = ${draft.venue || row.venue_name},
         starts_at = ${startsAt}::timestamptz,
+        start_time_display_note = ${startTimeDisplayNote},
         eligibility_route = ${route},
         singles_only = ${
           draft.singlesOnly === "true"
@@ -1553,24 +1576,38 @@ export async function pasteInfoOntoAandachtCandidateAction(
     deepScan: proposal.deepScan ?? null,
   });
 
+  const { buildIntakeStartsAt, UNKNOWN_START_TIME_NOTE } = await import(
+    "@/lib/aanvoer/dates"
+  );
   const dateKnown =
     /^\d{4}-\d{2}-\d{2}$/.test(draft.startDate) &&
     Number(draft.startDate.slice(0, 4)) < 2090;
-  const startsAt = dateKnown
-    ? `${draft.startDate}T${(draft.startTime || "12:00").slice(0, 5)}:00+02:00`
-    : row.starts_at;
+  const builtStarts = dateKnown
+    ? buildIntakeStartsAt({
+        startDate: draft.startDate,
+        startTime: draft.startTime,
+      })
+    : null;
+  const startsAt = builtStarts?.startsAt ?? row.starts_at;
+  const timeUnknown = Boolean(builtStarts?.timeUnknown);
   const tags = Array.isArray(row.tags)
     ? row.tags.filter((t): t is string => typeof t === "string")
     : [];
-  const nextTags = dateKnown
+  let nextTags = dateKnown
     ? tags.filter((t) => t !== "date_unknown")
     : [...new Set([...tags, "date_unknown"])];
+  nextTags = timeUnknown
+    ? [...new Set([...nextTags.filter((t) => t !== "time_unknown"), "time_unknown"])]
+    : nextTags.filter((t) => t !== "time_unknown");
 
   const stamp = [
     `paste_info_at=${new Date().toISOString()}`,
     preferredPasteUrl ? `paste_source_url=${preferredPasteUrl}` : null,
     proposal.deepScan ? formatDeepScanNotes(proposal.deepScan) : null,
     "paste_info_note=Admin plakte extra info (evidence, niet automatisch waarheid).",
+    timeUnknown
+      ? `time_unknown=1 | ${UNKNOWN_START_TIME_NOTE} (12:00 is technische placeholder).`
+      : null,
   ]
     .filter(Boolean)
     .join("\n");
@@ -1579,6 +1616,8 @@ export async function pasteInfoOntoAandachtCandidateAction(
     draft.routeAdvice === "route_a" || draft.routeAdvice === "route_b"
       ? draft.routeAdvice
       : row.eligibility_route;
+  const startTimeDisplayNote =
+    timeUnknown && dateKnown ? UNKNOWN_START_TIME_NOTE : null;
 
   await sql`
     UPDATE event_editions SET
@@ -1586,6 +1625,7 @@ export async function pasteInfoOntoAandachtCandidateAction(
       city = ${draft.city || row.city},
       venue_name = ${draft.venue || row.venue_name},
       starts_at = ${startsAt}::timestamptz,
+      start_time_display_note = ${startTimeDisplayNote},
       eligibility_route = ${route},
       singles_only = ${
         draft.singlesOnly === "true"
