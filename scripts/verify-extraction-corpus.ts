@@ -17,10 +17,17 @@ import {
   detectSoftEssentialGaps,
   shouldRunDeepVerification,
 } from "../lib/aanvoer/deep-verify";
-import { runDeterministicExtraction } from "../lib/aanvoer/extraction-pipeline";
+import {
+  isTechnicalEndpointUrl,
+  runDeterministicExtraction,
+} from "../lib/aanvoer/extraction-pipeline";
 import { extractJsonLdEventFacts } from "../lib/aanvoer/json-ld-event";
 import { enrichProposalFromPage } from "../lib/aanvoer/structured-enrich";
 import { blankProposal } from "../lib/aanvoer/types";
+import {
+  inferKnownCityLabel,
+  isPlausibleCityCandidate,
+} from "../lib/geo-cities";
 import { parseHoptodateHtml } from "../lib/source-refresh/parsers/hoptodate";
 import { parseJuntasHtml } from "../lib/source-refresh/parsers/juntas";
 import { parseSpeeddatenHtml } from "../lib/source-refresh/parsers/speeddaten";
@@ -264,6 +271,66 @@ function readFixture(name: string): string {
   const hop = parseHoptodateHtml(readFixture("hoptodate-sample.html"));
   assert.ok(hop.candidates.every((c) => Boolean(c.ticketUrl)));
   ok("TICKET-FOLLOW", "listing ticket URLs present");
+}
+
+// --- FU-1: reject WordPress oembed / wp-json as ticket URLs ---
+{
+  const oembed =
+    "https://hoptodate.com/fr-be/wp-json/oembed/1.0/embed?url=https%3A%2F%2Fhoptodate.com%2Ffr-be%2Ftickets%2F";
+  const ticket = "https://hoptodate.com/fr-be/tickets/20-10-namur-30-40a-12470/";
+  assert.equal(isTechnicalEndpointUrl(oembed), true);
+  assert.equal(isTechnicalEndpointUrl(ticket), false);
+  ok("FU1-OEMBED", "oembed filtered; /tickets/ kept");
+}
+
+// --- FU-2: city from URL path / page dump → canonical label only ---
+{
+  const fromPath = inferKnownCityLabel(
+    "/nl/21 10 antwerpen hogeropgeleiden 25 35j 12548.htm",
+  );
+  assert.equal(fromPath, "Antwerpen");
+  assert.equal(isPlausibleCityCandidate(fromPath), true);
+  assert.equal(
+    isPlausibleCityCandidate(
+      "/nl/21 10 antwerpen hogeropgeleiden 25 35j 12548.htm",
+    ),
+    false,
+  );
+
+  const pageDump =
+    "Kalender activiteiten singles | België | Sportieve singles vzw top of page Samen Actief Antwerpen Kortrijk Gent";
+  const fromDump = inferKnownCityLabel(pageDump);
+  assert.ok(fromDump);
+  assert.ok(isPlausibleCityCandidate(fromDump));
+  assert.ok((fromDump?.length ?? 0) <= 48);
+  assert.notEqual(fromDump, pageDump);
+
+  const rescued = enrichProposalFromPage({
+    proposal: blankProposal({
+      city: {
+        value: "/nl/22 10 mechelen hogeropgeleiden 40 50j 12511.htm",
+        status: "found",
+        evidence: "bad path",
+      },
+      sourceUrl: {
+        value:
+          "https://www.speeddaten.be/nl/22-10-mechelen-hogeropgeleiden-40-50j-12511.htm",
+        status: "found",
+        evidence: "x",
+      },
+    }),
+    pageUrl:
+      "https://www.speeddaten.be/nl/22-10-mechelen-hogeropgeleiden-40-50j-12511.htm",
+    pageText: "Speeddaten Mechelen Hogeropgeleiden 40-50j",
+  });
+  assert.equal(rescued.city.value, "Mechelen");
+  assert.equal(isPlausibleCityCandidate(rescued.city.value), true);
+
+  const sport = parseSportieveSinglesHtml(
+    readFixture("sportieve-singles-sample.html"),
+  );
+  assert.ok(sport.candidates.every((c) => isPlausibleCityCandidate(c.city)));
+  ok("FU2-CITY", "path/page-dump → validated city labels");
 }
 
 // --- 22 DEFAULT-NOON: timeUnknown explicit ---

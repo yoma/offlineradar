@@ -219,6 +219,11 @@ function runOfflineGates(): void {
   if (!clientSrc.includes("fieldEvidence")) {
     throw new Error("admin fieldEvidence wiring missing");
   }
+  for (const label of ["Waarde:", "Methode:", "Betrouwbaarheid:", "Bron:", "Conflicten"]) {
+    if (!clientSrc.includes(label)) {
+      throw new Error(`admin field evidence UI missing label: ${label}`);
+    }
+  }
   console.log("OK  admin UI contains Extractiebewijs per veld");
 
   const saveSrc = readFileSync(

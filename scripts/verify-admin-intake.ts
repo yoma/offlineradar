@@ -84,6 +84,128 @@ const gate = evaluateIntakeApproval(
 assert.equal(gate.canPublish, true);
 ok("4 approval gate allows clear Route A event");
 
+{
+  const aiOnlyDraft = {
+    ...draft,
+    title: "Singles Karaoke",
+    startDate: "2026-10-15",
+    startTime: "19:30",
+    city: "Gent",
+    priceNotes: "€25",
+    sourceUrl: "https://example.com/event",
+    routeAdvice: "route_a" as const,
+    singlesOriented: "true" as const,
+  };
+  const aiBlocked = evaluateIntakeApproval(aiOnlyDraft, {
+    needsSourceVerification: false,
+    routeAdvice: "route_a",
+    aiFailed: false,
+    startTimeUnknown: false,
+    fieldEvidence: [
+      {
+        field: "startDate",
+        value: "2026-10-15",
+        status: "found",
+        confidence: "low",
+        method: "ai",
+        sourceUrl: "https://example.com/event",
+        quote: null,
+      },
+      {
+        field: "startTime",
+        value: "19:30",
+        status: "found",
+        confidence: "low",
+        method: "ai",
+        sourceUrl: "https://example.com/event",
+        quote: null,
+      },
+      {
+        field: "city",
+        value: "Gent",
+        status: "found",
+        confidence: "low",
+        method: "ai",
+        sourceUrl: "https://example.com/event",
+        quote: null,
+      },
+      {
+        field: "priceNotes",
+        value: "€25",
+        status: "found",
+        confidence: "low",
+        method: "ai",
+        sourceUrl: "https://example.com/event",
+        quote: null,
+      },
+      {
+        field: "singlesOriented",
+        value: "true",
+        status: "found",
+        confidence: "low",
+        method: "ai",
+        sourceUrl: "https://example.com/event",
+        quote: null,
+      },
+    ],
+  });
+  assert.equal(aiBlocked.canPublish, false);
+  assert.ok(
+    aiBlocked.reviewReasons.some((r) => /AI-extractie zonder onafhankelijk/i.test(r)),
+  );
+  ok("4c AI-only critical fields block auto-publish");
+
+  const humanEdited = evaluateIntakeApproval(
+    { ...aiOnlyDraft, city: "Antwerpen", priceNotes: "" },
+    {
+      needsSourceVerification: false,
+      routeAdvice: "route_a",
+      aiFailed: false,
+      startTimeUnknown: false,
+      fieldEvidence: [
+        {
+          field: "startDate",
+          value: "2026-10-15",
+          status: "found",
+          confidence: "high",
+          method: "json_ld",
+          sourceUrl: "https://example.com/event",
+          quote: null,
+        },
+        {
+          field: "startTime",
+          value: "19:30",
+          status: "found",
+          confidence: "high",
+          method: "json_ld",
+          sourceUrl: "https://example.com/event",
+          quote: null,
+        },
+        {
+          field: "city",
+          value: "Gent",
+          status: "found",
+          confidence: "low",
+          method: "ai",
+          sourceUrl: "https://example.com/event",
+          quote: null,
+        },
+        {
+          field: "singlesOriented",
+          value: "true",
+          status: "found",
+          confidence: "medium",
+          method: "html",
+          sourceUrl: "https://example.com/event",
+          quote: null,
+        },
+      ],
+    },
+  );
+  assert.equal(humanEdited.canPublish, true);
+  ok("4d admin-edited / independent evidence can publish");
+}
+
 const noPlace = evaluateIntakeApproval(
   {
     ...draft,
@@ -250,6 +372,12 @@ mustInclude("components/admin/interne-admin-nav.tsx", "Toevoegen");
 mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Toevoegen aan DateOfflineHub");
 mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Aanpassen");
 mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Wissen");
+mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Extractiebewijs per veld");
+mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Waarde:");
+mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Methode:");
+mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Betrouwbaarheid:");
+mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Bron:");
+mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Conflicten");
 mustInclude("components/admin/aanvoer-cockpit.tsx", "Wissen");
 mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Analyseer event");
 mustInclude("app/interne-aanvoer/aanvoer-client.tsx", "Info plakken");

@@ -8,6 +8,10 @@ import {
   saveIntakeSourceAction,
 } from "@/app/interne-aanvoer/actions";
 import { evaluateIntakeApproval } from "@/lib/aanvoer/approval";
+import {
+  FIELD_CONFIDENCE_LABELS,
+  FIELD_EVIDENCE_LABELS,
+} from "@/lib/aanvoer/field-evidence";
 import type {
   FieldStatus,
   IntakeEditableDraft,
@@ -201,6 +205,8 @@ export function AanvoerClient({
           routeAdvice: result.draft.routeAdvice,
           aiFailed: result.proposal.aiFailed,
           deepScan: result.proposal.deepScan ?? null,
+          fieldEvidence: result.proposal.fieldEvidence ?? null,
+          startTimeUnknown: result.proposal.startTimeUnknown,
         });
         const hasDup = result.matches.some(
           (m) => m.kind === "catalog_source" || m.kind === "event_edition",
@@ -210,6 +216,21 @@ export function AanvoerClient({
           const formDataApprove = new FormData();
           formDataApprove.set("draft", JSON.stringify(result.draft));
           if (result.assetId) formDataApprove.set("assetId", result.assetId);
+          if (result.proposal.fieldEvidence?.length) {
+            formDataApprove.set(
+              "fieldEvidence",
+              JSON.stringify(result.proposal.fieldEvidence),
+            );
+          }
+          if (result.proposal.startTimeUnknown) {
+            formDataApprove.set("startTimeUnknown", "1");
+          }
+          if (result.proposal.deepScan) {
+            formDataApprove.set(
+              "deepScan",
+              JSON.stringify(result.proposal.deepScan),
+            );
+          }
           const approved = await approveIntakeAction(formDataApprove);
           setAnalyzeStep(null);
           if (approved.ok) {
@@ -265,6 +286,13 @@ export function AanvoerClient({
       formData.set("needsSourceVerification", "1");
     }
     if (proposal.aiFailed) formData.set("aiFailed", "1");
+    if (proposal.fieldEvidence?.length) {
+      formData.set("fieldEvidence", JSON.stringify(proposal.fieldEvidence));
+    }
+    if (proposal.startTimeUnknown) formData.set("startTimeUnknown", "1");
+    if (proposal.deepScan) {
+      formData.set("deepScan", JSON.stringify(proposal.deepScan));
+    }
 
     startTransition(async () => {
       const result = await approveIntakeAction(formData);
@@ -320,8 +348,18 @@ export function AanvoerClient({
           routeAdvice: draft.routeAdvice,
           aiFailed: proposal.aiFailed,
           deepScan: proposal.deepScan ?? null,
+          fieldEvidence: proposal.fieldEvidence ?? null,
+          startTimeUnknown: proposal.startTimeUnknown,
         })
       : null;
+
+  const extractionConflicts = [
+    ...(proposal?.deepScan?.conflicts ?? []),
+    ...((proposal?.notes.value ?? "").match(/extractie_conflicten=(.+)/)?.[1]
+      ?.split(" | ")
+      .map((s) => s.trim())
+      .filter(Boolean) ?? []),
+  ];
 
   const showResult = Boolean(draft && proposal);
 
@@ -714,7 +752,7 @@ export function AanvoerClient({
               <summary className="cursor-pointer font-semibold text-stone-800">
                 Extractiebewijs per veld
               </summary>
-              <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto text-xs text-stone-600">
+              <ul className="mt-2 max-h-64 space-y-2 overflow-y-auto text-xs text-stone-600">
                 {proposal.fieldEvidence.map((row) => {
                   const status =
                     row.status === "found"
@@ -722,19 +760,49 @@ export function AanvoerClient({
                       : row.status === "uncertain"
                         ? "onzeker"
                         : "onbekend";
+                  const methodLabel =
+                    FIELD_EVIDENCE_LABELS[row.method] ?? row.method;
+                  const confLabel =
+                    FIELD_CONFIDENCE_LABELS[row.confidence] ?? row.confidence;
                   return (
-                    <li key={`${row.field}-${row.method}-${row.value ?? ""}`}>
-                      <span className="font-medium text-stone-800">
-                        {row.field}
-                      </span>
-                      {": "}
-                      {row.value ? `“${row.value}”` : "(leeg)"} ({status},{" "}
-                      {row.method}, {row.confidence}
-                      {row.sourceUrl ? ` · ${row.sourceUrl}` : ""})
+                    <li
+                      key={`${row.field}-${row.method}-${row.value ?? ""}`}
+                      className="rounded-lg border border-stone-100 bg-stone-50 px-2 py-1.5"
+                    >
+                      <p className="font-semibold text-stone-800">{row.field}</p>
+                      <p>
+                        <span className="text-stone-500">Waarde:</span>{" "}
+                        {row.value ? `“${row.value}”` : "(leeg)"}
+                      </p>
+                      <p>
+                        <span className="text-stone-500">Status:</span> {status}
+                      </p>
+                      <p>
+                        <span className="text-stone-500">Methode:</span>{" "}
+                        {methodLabel}
+                      </p>
+                      <p>
+                        <span className="text-stone-500">Betrouwbaarheid:</span>{" "}
+                        {confLabel}
+                      </p>
+                      <p>
+                        <span className="text-stone-500">Bron:</span>{" "}
+                        {row.sourceUrl ?? "—"}
+                      </p>
                     </li>
                   );
                 })}
               </ul>
+              {extractionConflicts.length > 0 ? (
+                <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-950">
+                  <p className="font-semibold">Conflicten</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                    {extractionConflicts.map((c) => (
+                      <li key={c}>{c}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </details>
           ) : null}
 
