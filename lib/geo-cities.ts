@@ -157,8 +157,23 @@ export function coordsForCity(city: string | null | undefined): {
 }
 
 /**
+ * True when a string is a short, mappable place label — not a URL path or page dump.
+ */
+export function isPlausibleCityCandidate(
+  value: string | null | undefined,
+): boolean {
+  if (!value?.trim()) return false;
+  const t = value.trim();
+  if (t.length > 48) return false;
+  if (/[\/\\?#]/.test(t)) return false;
+  if ((t.match(/\s/g) ?? []).length > 5) return false;
+  return Boolean(inferKnownCityLabel(t));
+}
+
+/**
  * Find a known (mappable) city label inside free text / venue / URL path.
  * Prefers longer matches so “Louvain-la-Neuve” wins over “Louvain”.
+ * Never returns raw URL paths or full page text.
  */
 export function inferKnownCityLabel(
   text: string | null | undefined,
@@ -167,15 +182,11 @@ export function inferKnownCityLabel(
   const hay = normalizeCityKey(text);
   if (!hay) return null;
 
-  if (coordsForCity(text)) {
-    const key = normalizeCityKey(text);
-    const compact = compactCityKey(text);
-    return (
-      CITY_LABEL_BY_KEY[key] ||
-      CITY_LABEL_BY_KEY[compact] ||
-      text.trim().replace(/\s+/g, " ")
-    );
-  }
+  // Exact / compact key hit first.
+  const exactKey = normalizeCityKey(text);
+  const exactCompact = compactCityKey(text);
+  if (CITY_LABEL_BY_KEY[exactKey]) return CITY_LABEL_BY_KEY[exactKey]!;
+  if (CITY_LABEL_BY_KEY[exactCompact]) return CITY_LABEL_BY_KEY[exactCompact]!;
 
   const keys = Object.keys(CITY_COORDS).sort((a, b) => b.length - a.length);
   for (const key of keys) {

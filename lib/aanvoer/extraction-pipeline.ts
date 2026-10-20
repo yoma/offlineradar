@@ -144,6 +144,29 @@ function looksLikeTicketUrl(url: string): boolean {
   );
 }
 
+/** WordPress oembed / wp-json / feeds — never treat as ticket pages. */
+export function isTechnicalEndpointUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    const path = `${u.pathname}${u.search}`;
+    return /\/wp-json\/|oembed|\/graphql|\/feed\/|\.xml($|\?)|\/api\/v\d+\//i.test(
+      path,
+    );
+  } catch {
+    return /\/wp-json\/|oembed|\/graphql|\/feed\//i.test(url);
+  }
+}
+
+function ticketUrlPriority(url: string): number {
+  if (isTechnicalEndpointUrl(url)) return -1;
+  let score = 0;
+  if (/\/tickets?\//i.test(url)) score += 4;
+  if (/eventbrite|hipsy|billetto|partyfinder/i.test(url)) score += 3;
+  if (looksLikeTicketUrl(url)) score += 2;
+  if (/booking|inschrijf|register/i.test(url)) score += 1;
+  return score;
+}
+
 function candidateFollowUrls(input: {
   proposal: IntakeProposal;
   html?: string | null;
@@ -153,7 +176,9 @@ function candidateFollowUrls(input: {
   const push = (raw: string | null | undefined) => {
     if (!raw) return;
     const v = validateAndNormalizeTipUrl(raw);
-    if (v.ok) out.push(v.normalizedUrl);
+    if (!v.ok) return;
+    if (isTechnicalEndpointUrl(v.normalizedUrl)) return;
+    out.push(v.normalizedUrl);
   };
 
   push(input.proposal.ticketUrl?.value);
@@ -171,7 +196,10 @@ function candidateFollowUrls(input: {
     }
   }
 
-  return [...new Set(out)].slice(0, EXTRACTION_MAX_FOLLOW_FETCHES);
+  return [...new Set(out)]
+    .filter((u) => ticketUrlPriority(u) >= 0)
+    .sort((a, b) => ticketUrlPriority(b) - ticketUrlPriority(a))
+    .slice(0, EXTRACTION_MAX_FOLLOW_FETCHES);
 }
 
 /**
@@ -271,7 +299,10 @@ export async function applyTicketFollowLayer(input: {
         }),
       );
     }
-    if (!fieldFound(proposal.ticketUrl)) {
+    if (
+      !fieldFound(proposal.ticketUrl) &&
+      !isTechnicalEndpointUrl(fetched.finalUrl)
+    ) {
       proposal = {
         ...proposal,
         ticketUrl: {

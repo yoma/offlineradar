@@ -13,7 +13,10 @@ import {
   type FieldEvidence,
 } from "@/lib/aanvoer/field-evidence";
 import type { IntakeField, IntakeProposal } from "@/lib/aanvoer/types";
-import { inferKnownCityLabel } from "@/lib/geo-cities";
+import {
+  inferKnownCityLabel,
+  isPlausibleCityCandidate,
+} from "@/lib/geo-cities";
 
 function fillEmpty<T>(
   field: IntakeField<T | null>,
@@ -108,7 +111,15 @@ export function enrichProposalFromPage(input: {
       startDate: preferIsoDate(proposal.startDate, jsonLd.startDate, evidence),
       startTime: fillEmpty(proposal.startTime, jsonLd.startTime, evidence),
       endTime: fillEmpty(proposal.endTime, jsonLd.endTime, evidence),
-      city: fillEmpty(proposal.city, jsonLd.city, evidence),
+      city: fillEmpty(
+        proposal.city,
+        jsonLd.city && isPlausibleCityCandidate(jsonLd.city)
+          ? inferKnownCityLabel(jsonLd.city) ?? jsonLd.city
+          : jsonLd.city
+            ? inferKnownCityLabel(jsonLd.city)
+            : null,
+        evidence,
+      ),
       venue: fillEmpty(proposal.venue, jsonLd.venue, evidence),
       location: fillEmpty(
         proposal.location,
@@ -128,21 +139,59 @@ export function enrichProposalFromPage(input: {
           status: "unknown",
           evidence: null,
         },
-        jsonLd.ticketUrl,
+        jsonLd.ticketUrl &&
+          !/\/wp-json\/|oembed/i.test(jsonLd.ticketUrl)
+          ? jsonLd.ticketUrl
+          : null,
         evidence,
       ),
     };
     layerEvidence = jsonLdEvidenceRows(jsonLd, input.pageUrl);
   }
 
+  // Drop URL-path / page-dump "cities" so they can be re-inferred cleanly.
+  if (
+    proposal.city.value &&
+    !isPlausibleCityCandidate(proposal.city.value)
+  ) {
+    const rescued = inferKnownCityLabel(proposal.city.value);
+    proposal = {
+      ...proposal,
+      city: rescued
+        ? {
+            value: rescued,
+            status: "found",
+            evidence: "Plaats herkend uit ongeldige kandidaat",
+          }
+        : {
+            value: null,
+            status: "unknown",
+            evidence: "Ongeldige plaatskandidaat genegeerd",
+          },
+    };
+    if (rescued) {
+      layerEvidence = mergeFieldEvidence(layerEvidence, [
+        evidenceFromField({
+          field: "city",
+          status: "found",
+          value: rescued,
+          method: "html",
+          sourceUrl: input.pageUrl,
+        }),
+      ]);
+    }
+  }
+
   // Infer mappable city from venue / location / URL / page text when still empty.
   if (!proposal.city.value || proposal.city.status !== "found") {
-    const inferred =
+    const inferredRaw =
       inferKnownCityLabel(proposal.city.value) ||
       inferKnownCityLabel(proposal.venue.value) ||
       inferKnownCityLabel(proposal.location.value) ||
       cityFromUrl(proposal.sourceUrl.value ?? input.pageUrl) ||
       inferKnownCityLabel(input.pageText?.slice(0, 8_000) ?? null);
+    const inferred =
+      inferredRaw && isPlausibleCityCandidate(inferredRaw) ? inferredRaw : null;
     if (inferred) {
       proposal = {
         ...proposal,
@@ -165,7 +214,11 @@ export function enrichProposalFromPage(input: {
   } else {
     // Normalize spelling to a known label when possible (Ghent → Gent).
     const normalized = inferKnownCityLabel(proposal.city.value);
-    if (normalized && normalized !== proposal.city.value) {
+    if (
+      normalized &&
+      isPlausibleCityCandidate(normalized) &&
+      normalized !== proposal.city.value
+    ) {
       proposal = {
         ...proposal,
         city: {
