@@ -188,7 +188,8 @@ const caption = buildInstagramCaption(
   binnenkort.periodLabel,
 );
 assert.ok(caption.text.includes(INSTAGRAM_WEBSITE));
-assert.ok(caption.text.includes("Binnenkort"));
+assert.ok(caption.text.includes("Binnenkort te beleven"));
+assert.ok(!/Binnenkort op DateOfflineHub/i.test(caption.text));
 assert.ok(!/plaatsen beschikbaar|nog tickets/i.test(caption.text));
 assert.ok(caption.text.includes(INSTAGRAM_SLOGAN));
 ok("5. caption facts + website, no invent availability");

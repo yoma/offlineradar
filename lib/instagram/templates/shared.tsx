@@ -1,5 +1,5 @@
 /**
- * Shared Instagram chrome — reference redesign (premium / warm).
+ * Shared Instagram chrome — cream-first like the website.
  * Official logo + website on every slide. Satori-safe CSS only.
  */
 
@@ -20,14 +20,16 @@ export const slideStyle = {
   color: igColors.anthracite,
   position: "relative" as const,
   overflow: "hidden" as const,
+  background: igColors.cream,
 };
 
-/** Top brand row: official logo + slogan (reference layout). */
+/** Top brand row: official logo + slogan. */
 export function BrandHeader({
   logoSrc,
-  light = true,
+  light = false,
 }: {
   logoSrc: string;
+  /** true = on photo; false = on cream (website default). */
   light?: boolean;
 }) {
   return (
@@ -62,7 +64,7 @@ export function BrandHeader({
             display: "flex",
             fontSize: 17,
             lineHeight: 1.35,
-            color: light ? "rgba(249,242,234,0.92)" : igColors.bordeaux,
+            color: light ? "rgba(249,242,234,0.95)" : igColors.bordeaux,
             fontFamily: "DM Sans",
             fontWeight: 500,
           }}
@@ -75,7 +77,7 @@ export function BrandHeader({
 }
 
 /** Bottom bar: website + handle (every slide). */
-export function BrandFooter() {
+export function BrandFooter({ light = false }: { light?: boolean }) {
   return (
     <div
       style={{
@@ -87,7 +89,9 @@ export function BrandFooter() {
         marginTop: "auto",
         paddingTop: 18,
         paddingBottom: 8,
-        borderTop: `1px solid ${igColors.lineGold}`,
+        borderTop: `1px solid ${
+          light ? igColors.lineGold : "rgba(103,40,58,0.18)"
+        }`,
       }}
     >
       <div
@@ -95,7 +99,7 @@ export function BrandFooter() {
           display: "flex",
           fontSize: 24,
           fontWeight: 600,
-          color: igColors.gold,
+          color: light ? igColors.gold : igColors.goldDeep,
           fontFamily: "DM Sans",
           letterSpacing: 0.4,
         }}
@@ -107,7 +111,7 @@ export function BrandFooter() {
           display: "flex",
           fontSize: 22,
           fontWeight: 600,
-          color: "rgba(249,242,234,0.9)",
+          color: light ? "rgba(249,242,234,0.9)" : igColors.bordeaux,
           fontFamily: "DM Sans",
         }}
       >
@@ -192,8 +196,9 @@ export function CategoryIconRow() {
             justifyContent: "center",
             padding: "10px 4px",
             borderRadius: 999,
-            border: `1px solid ${igColors.lineGold}`,
-            color: igColors.goldLight,
+            border: `1px solid rgba(156,124,37,0.35)`,
+            background: igColors.white,
+            color: igColors.goldInk,
             fontSize: 14,
             fontWeight: 600,
             fontFamily: "DM Sans",
@@ -204,5 +209,22 @@ export function CategoryIconRow() {
         </div>
       ))}
     </div>
+  );
+}
+
+/** Soft photo → cream fade (no heavy bordeaux wash). */
+export function PhotoCreamFade({ height = 360 }: { height?: number }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: 0,
+        bottom: 0,
+        width: 1080,
+        height: Math.round(height * 0.55),
+        background: `linear-gradient(180deg, rgba(249,242,234,0) 0%, ${igColors.cream} 100%)`,
+        display: "flex",
+      }}
+    />
   );
 }

@@ -1,13 +1,12 @@
 /**
- * Instagram 4:5 templates — premium reference redesign.
- * Official logo, cream event cards, lifestyle atmosphere photos.
- * Atmosphere images are never claimed as edition-specific photos.
+ * Instagram 4:5 templates — cream + lifestyle combo.
+ * Petal date badges inspired by the upcoming-events reference,
+ * without the heavy dark poster wash. Website-like cream canvas.
  */
 
-import { formatAgeRange } from "@/lib/format";
+import { formatAgeRange, ACTIVITY_LABEL } from "@/lib/format";
 import { formatDayMonth, formatLongDate, weekdayIndex } from "@/lib/dates";
 import type { ActivityId, Event } from "@/types/event";
-import { ACTIVITY_LABEL } from "@/lib/format";
 import { igColors } from "@/lib/instagram/constants";
 import {
   BrandFooter,
@@ -15,17 +14,37 @@ import {
   CategoryIconRow,
   GoldCta,
   GoldPill,
+  PhotoCreamFade,
   slideStyle,
 } from "@/lib/instagram/templates/shared";
 
 const WEEKDAY_SHORT = ["zo", "ma", "di", "wo", "do", "vr", "za"] as const;
+const MONTHS_SHORT = [
+  "jan",
+  "feb",
+  "mrt",
+  "apr",
+  "mei",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "okt",
+  "nov",
+  "dec",
+] as const;
 
-function dateBadge(startDate: string): string {
-  const day = WEEKDAY_SHORT[weekdayIndex(startDate)].toUpperCase();
-  const parts = formatDayMonth(startDate).split(" ");
-  const num = parts[0];
-  const mon = (parts[1] ?? "").toUpperCase();
-  return `${day} ${num} ${mon}`;
+function dayNumber(startDate: string): string {
+  return String(Number(startDate.slice(8, 10)));
+}
+
+function monthShort(startDate: string): string {
+  const m = Number(startDate.slice(5, 7));
+  return MONTHS_SHORT[m - 1] ?? "";
+}
+
+function weekdayShort(startDate: string): string {
+  return WEEKDAY_SHORT[weekdayIndex(startDate)];
 }
 
 function locationLine(event: Pick<Event, "city" | "region">): string {
@@ -59,6 +78,11 @@ function whenDetail(event: Event): string {
   return `${base} · startuur te bevestigen`;
 }
 
+function timeOnly(event: Event): string {
+  if (event.startTime) return event.startTime;
+  return "uur tbd";
+}
+
 function shortBlurb(event: Event): string {
   const raw = (event.shortDescription || "").trim();
   if (!raw) {
@@ -72,15 +96,110 @@ function shortBlurb(event: Event): string {
   return raw.length > 140 ? `${raw.slice(0, 137)}…` : raw;
 }
 
-type EventRowProps = {
+/** SVG petal (opposite corners rounded) — Satori-friendly via data URL. */
+function petalShapeDataUrl(fill: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="86" height="86" viewBox="0 0 86 86"><path fill="${fill}" d="M8 0h46c17.673 0 32 14.327 32 32v46c0 4.418-3.582 8-8 8H32C14.327 86 0 71.673 0 54V8C0 3.582 3.582 0 8 0z"/></svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+}
+
+/**
+ * Petal / leaf date badge (reference icon style).
+ * Light cream canvas — no heavy dark poster wash.
+ */
+function PetalDateBadge({
+  startDate,
+  tone = "bordeaux",
+}: {
+  startDate: string;
+  tone?: "bordeaux" | "gold";
+}) {
+  const bg = tone === "gold" ? igColors.gold : igColors.bordeaux;
+  const fg = tone === "gold" ? igColors.bordeaux : igColors.cream;
+  return (
+    <div
+      style={{
+        display: "flex",
+        position: "relative",
+        width: 86,
+        height: 86,
+        flexShrink: 0,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={petalShapeDataUrl(bg)}
+        width={86}
+        height={86}
+        style={{ position: "absolute", top: 0, left: 0 }}
+        alt=""
+      />
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+          color: fg,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            fontSize: 13,
+            fontWeight: 600,
+            fontFamily: "DM Sans",
+            letterSpacing: 0.6,
+            textTransform: "uppercase" as const,
+            opacity: 0.92,
+          }}
+        >
+          {weekdayShort(startDate)}
+        </div>
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "Bricolage Grotesque",
+            fontSize: 34,
+            fontWeight: 700,
+            lineHeight: 1,
+            marginTop: 1,
+          }}
+        >
+          {dayNumber(startDate)}
+        </div>
+        <div
+          style={{
+            display: "flex",
+            fontSize: 13,
+            fontWeight: 600,
+            fontFamily: "DM Sans",
+            textTransform: "uppercase" as const,
+            marginTop: 2,
+          }}
+        >
+          {monthShort(startDate)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EventRow({
+  event,
+  thumbSrc,
+  compact,
+}: {
   event: Event;
   thumbSrc: string;
   compact?: boolean;
-};
-
-function EventRow({ event, thumbSrc, compact }: EventRowProps) {
+}) {
   const age = ageShort(event);
   const city = locationLine(event);
+  const act = activityText(event);
+
   return (
     <div
       style={{
@@ -90,43 +209,24 @@ function EventRow({ event, thumbSrc, compact }: EventRowProps) {
         gap: 16,
         width: "100%",
         padding: compact ? "12px 14px" : "14px 16px",
-        borderRadius: 18,
-        background: igColors.cream,
+        borderRadius: 20,
+        background: igColors.white,
+        border: "1px solid rgba(228,213,203,0.95)",
       }}
     >
+      <PetalDateBadge startDate={event.startDate} />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={thumbSrc}
-        width={compact ? 64 : 72}
-        height={compact ? 64 : 72}
+        width={compact ? 58 : 64}
+        height={compact ? 58 : 64}
         style={{
           objectFit: "cover",
-          borderRadius: 14,
+          borderRadius: "18px 6px 18px 6px",
           flexShrink: 0,
         }}
         alt=""
       />
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          width: compact ? 88 : 100,
-          flexShrink: 0,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            fontSize: compact ? 18 : 20,
-            fontWeight: 700,
-            color: igColors.anthracite,
-            fontFamily: "DM Sans",
-            lineHeight: 1.2,
-          }}
-        >
-          {dateBadge(event.startDate)}
-        </div>
-      </div>
       <div
         style={{
           display: "flex",
@@ -139,54 +239,63 @@ function EventRow({ event, thumbSrc, compact }: EventRowProps) {
         <div
           style={{
             display: "flex",
-            fontFamily: "Bricolage Grotesque",
-            fontSize: compact ? 22 : 24,
-            fontWeight: 700,
-            color: igColors.bordeaux,
-            lineHeight: 1.2,
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 10,
+            width: "100%",
           }}
         >
-          {event.title.length > (compact ? 42 : 48)
-            ? `${event.title.slice(0, compact ? 39 : 45)}…`
-            : event.title}
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "Bricolage Grotesque",
+              fontSize: compact ? 22 : 24,
+              fontWeight: 700,
+              color: igColors.bordeaux,
+              lineHeight: 1.2,
+              flex: 1,
+            }}
+          >
+            {event.title.length > (compact ? 40 : 46)
+              ? `${event.title.slice(0, compact ? 37 : 43)}…`
+              : event.title}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: 18,
+              fontWeight: 600,
+              color: igColors.goldDeep,
+              fontFamily: "DM Sans",
+              flexShrink: 0,
+            }}
+          >
+            {timeOnly(event)}
+          </div>
         </div>
         <div
           style={{
             display: "flex",
             flexDirection: "row",
-            gap: 14,
+            flexWrap: "wrap" as const,
+            gap: 12,
             fontSize: 16,
             color: igColors.anthracite,
             fontFamily: "DM Sans",
-            opacity: 0.82,
+            opacity: 0.78,
           }}
         >
-          <div style={{ display: "flex" }}>📍 {city}</div>
-          {age ? <div style={{ display: "flex" }}>👥 {age}</div> : null}
+          <div style={{ display: "flex" }}>{city}</div>
+          {act ? <div style={{ display: "flex" }}>· {act}</div> : null}
+          {age ? <div style={{ display: "flex" }}>· {age}</div> : null}
         </div>
-      </div>
-      <div
-        style={{
-          display: "flex",
-          width: 36,
-          height: 36,
-          borderRadius: 999,
-          background: igColors.gold,
-          alignItems: "center",
-          justifyContent: "center",
-          color: igColors.bordeaux,
-          fontSize: 20,
-          fontWeight: 700,
-          flexShrink: 0,
-        }}
-      >
-        →
       </div>
     </div>
   );
 }
 
-/** Format A — sfeervolle cover met eventoverzicht */
+/** Format A — cream canvas + soft photo header + petal rows */
 export function BinnenkortCoverSlide({
   logoSrc,
   heroSrc,
@@ -203,110 +312,90 @@ export function BinnenkortCoverSlide({
   const shown = events.slice(0, 5);
   return (
     <div style={slideStyle}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={heroSrc}
-        width={1080}
-        height={1350}
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: 1080,
-          height: 1350,
-          objectFit: "cover",
-        }}
-        alt=""
-      />
       <div
         style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: 1080,
-          height: 1350,
-          background:
-            "linear-gradient(180deg, rgba(103,40,58,0.72) 0%, rgba(74,28,42,0.88) 42%, rgba(55,20,32,0.96) 100%)",
           display: "flex",
+          position: "relative",
+          width: 1080,
+          height: 320,
+          flexShrink: 0,
+          overflow: "hidden",
         }}
-      />
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={heroSrc}
+          width={1080}
+          height={320}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: 1080,
+            height: 320,
+            objectFit: "cover",
+          }}
+          alt=""
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: 1080,
+            height: 320,
+            background:
+              "linear-gradient(180deg, rgba(249,242,234,0.15) 0%, rgba(249,242,234,0.35) 55%, rgba(249,242,234,0.92) 100%)",
+            display: "flex",
+          }}
+        />
+        <PhotoCreamFade height={320} />
+      </div>
+
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          position: "relative",
-          width: "100%",
-          height: "100%",
-          padding: "44px 48px 36px",
+          flexGrow: 1,
+          padding: "8px 48px 36px",
+          marginTop: -36,
         }}
       >
-        <BrandHeader logoSrc={logoSrc} />
+        <BrandHeader logoSrc={logoSrc} light={false} />
 
         <div
           style={{
             display: "flex",
             flexDirection: "column",
-            marginTop: 28,
-            gap: 10,
+            marginTop: 18,
+            gap: 8,
           }}
         >
           <div
             style={{
               display: "flex",
               fontFamily: "Bricolage Grotesque",
-              fontSize: 52,
+              fontSize: 48,
               fontWeight: 700,
-              color: igColors.gold,
+              color: igColors.bordeaux,
               lineHeight: 1.12,
-              letterSpacing: -0.5,
+              letterSpacing: -0.4,
             }}
           >
-            Binnenkort op DateOfflineHub
+            Binnenkort te beleven
           </div>
           <div
             style={{
               display: "flex",
-              flexDirection: "column",
-              gap: 6,
-              marginTop: 4,
+              fontSize: 22,
+              fontWeight: 500,
+              color: igColors.anthracite,
+              fontFamily: "DM Sans",
+              opacity: 0.78,
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                fontSize: 18,
-                fontWeight: 600,
-                letterSpacing: 2,
-                color: "rgba(249,242,234,0.9)",
-                fontFamily: "DM Sans",
-                textTransform: "uppercase" as const,
-              }}
-            >
-              Singles events in Vlaanderen
-            </div>
-            <div
-              style={{
-                display: "flex",
-                width: 160,
-                height: 2,
-                background: igColors.gold,
-                marginTop: 4,
-                marginBottom: 4,
-              }}
-            />
-            <div
-              style={{
-                display: "flex",
-                fontSize: 18,
-                fontWeight: 600,
-                letterSpacing: 2,
-                color: "rgba(249,242,234,0.85)",
-                fontFamily: "DM Sans",
-                textTransform: "uppercase" as const,
-              }}
-            >
-              {periodLabel || "Komende dagen"}
-            </div>
+            Singlesactiviteiten via DateOfflineHub
+            {periodLabel ? ` · ${periodLabel}` : ""}
           </div>
         </div>
 
@@ -315,7 +404,7 @@ export function BinnenkortCoverSlide({
             display: "flex",
             flexDirection: "column",
             gap: 10,
-            marginTop: 22,
+            marginTop: 20,
             flexGrow: 1,
           }}
         >
@@ -333,13 +422,13 @@ export function BinnenkortCoverSlide({
           <GoldCta>Ontdek alle events →</GoldCta>
         </div>
         <CategoryIconRow />
-        <BrandFooter />
+        <BrandFooter light={false} />
       </div>
     </div>
   );
 }
 
-/** Individuele eventslide */
+/** Individuele eventslide — photo top, cream content */
 export function EventSlide({
   logoSrc,
   heroSrc,
@@ -361,64 +450,132 @@ export function EventSlide({
 
   return (
     <div style={slideStyle}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={heroSrc}
-        width={1080}
-        height={1350}
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: 1080,
-          height: 1350,
-          objectFit: "cover",
-        }}
-        alt=""
-      />
       <div
         style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: 1080,
-          height: 1350,
-          background:
-            "linear-gradient(180deg, rgba(55,20,32,0.55) 0%, rgba(74,28,42,0.45) 35%, rgba(55,20,32,0.92) 72%, rgba(40,14,24,0.97) 100%)",
           display: "flex",
+          position: "relative",
+          width: 1080,
+          height: 560,
+          flexShrink: 0,
+          overflow: "hidden",
         }}
-      />
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={heroSrc}
+          width={1080}
+          height={560}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: 1080,
+            height: 560,
+            objectFit: "cover",
+          }}
+          alt=""
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: 1080,
+            height: 560,
+            background:
+              "linear-gradient(180deg, rgba(249,242,234,0.2) 0%, rgba(249,242,234,0.08) 40%, rgba(249,242,234,0.95) 100%)",
+            display: "flex",
+          }}
+        />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            position: "relative",
+            width: "100%",
+            height: "100%",
+            padding: "40px 48px 24px",
+          }}
+        >
+          <BrandHeader logoSrc={logoSrc} light={false} />
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              marginTop: 20,
+              alignItems: "center",
+            }}
+          >
+            <GoldPill>{(act || eyebrow).toUpperCase()}</GoldPill>
+            <div
+              style={{
+                display: "flex",
+                fontSize: 18,
+                color: igColors.bordeaux,
+                fontFamily: "DM Sans",
+                fontWeight: 600,
+                background: "rgba(249,242,234,0.88)",
+                padding: "8px 14px",
+                borderRadius: 999,
+              }}
+            >
+              {index}/{total} · sfeerbeeld
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          position: "relative",
-          width: "100%",
-          height: "100%",
-          padding: "44px 48px 36px",
+          flexGrow: 1,
+          padding: "8px 48px 36px",
+          marginTop: -28,
+          gap: 16,
         }}
       >
-        <BrandHeader logoSrc={logoSrc} />
-
         <div
           style={{
             display: "flex",
-            justifyContent: "space-between",
-            marginTop: 22,
-            alignItems: "center",
+            flexDirection: "row",
+            gap: 18,
+            alignItems: "flex-start",
           }}
         >
-          <GoldPill>{(act || eyebrow).toUpperCase()}</GoldPill>
+          <PetalDateBadge startDate={event.startDate} tone="gold" />
           <div
             style={{
               display: "flex",
-              fontSize: 18,
-              color: "rgba(249,242,234,0.7)",
-              fontFamily: "DM Sans",
-              fontWeight: 600,
+              flexDirection: "column",
+              flex: 1,
+              gap: 10,
             }}
           >
-            {index}/{total} · sfeerbeeld
+            <div
+              style={{
+                display: "flex",
+                fontFamily: "Bricolage Grotesque",
+                fontSize: event.title.length > 48 ? 40 : 46,
+                fontWeight: 700,
+                color: igColors.bordeaux,
+                lineHeight: 1.12,
+              }}
+            >
+              {event.title}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                fontSize: 22,
+                color: igColors.anthracite,
+                fontFamily: "DM Sans",
+                lineHeight: 1.4,
+                opacity: 0.85,
+              }}
+            >
+              {shortBlurb(event)}
+            </div>
           </div>
         </div>
 
@@ -426,93 +583,48 @@ export function EventSlide({
           style={{
             display: "flex",
             flexDirection: "column",
-            marginTop: "auto",
-            gap: 18,
-            paddingBottom: 8,
+            gap: 10,
+            padding: "18px 20px",
+            borderRadius: 18,
+            background: igColors.white,
+            border: "1px solid rgba(228,213,203,0.95)",
           }}
         >
           <div
             style={{
               display: "flex",
-              fontFamily: "Bricolage Grotesque",
-              fontSize: event.title.length > 48 ? 46 : 54,
-              fontWeight: 700,
-              color: igColors.cream,
-              lineHeight: 1.12,
-              letterSpacing: -0.4,
-            }}
-          >
-            {event.title}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              fontSize: 24,
-              color: "rgba(249,242,234,0.9)",
+              fontSize: 22,
+              color: igColors.bordeaux,
               fontFamily: "DM Sans",
-              lineHeight: 1.4,
-              maxWidth: 920,
+              fontWeight: 600,
             }}
           >
-            {shortBlurb(event)}
+            {whenDetail(event)}
           </div>
-
           <div
             style={{
               display: "flex",
-              flexDirection: "column",
-              gap: 12,
-              marginTop: 6,
+              fontSize: 22,
+              color: igColors.anthracite,
+              fontFamily: "DM Sans",
+              fontWeight: 500,
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                fontSize: 24,
-                color: igColors.goldLight,
-                fontFamily: "DM Sans",
-                fontWeight: 600,
-              }}
-            >
-              📅  {whenDetail(event)}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                fontSize: 24,
-                color: igColors.goldLight,
-                fontFamily: "DM Sans",
-                fontWeight: 600,
-              }}
-            >
-              📍  {city}
-            </div>
-            {age ? (
-              <div
-                style={{
-                  display: "flex",
-                  fontSize: 24,
-                  color: igColors.goldLight,
-                  fontFamily: "DM Sans",
-                  fontWeight: 600,
-                }}
-              >
-                👥  {age}
-              </div>
-            ) : null}
+            {city}
+            {age ? ` · ${age}` : ""}
           </div>
-
-          <div style={{ display: "flex", marginTop: 10 }}>
-            <GoldCta>Bekijk dit event →</GoldCta>
-          </div>
-          <BrandFooter />
         </div>
+
+        <div style={{ display: "flex", marginTop: 4 }}>
+          <GoldCta>Bekijk dit event →</GoldCta>
+        </div>
+        <BrandFooter light={false} />
       </div>
     </div>
   );
 }
 
-/** Format B — compact week overzicht */
+/** Format B — compact week overview, cream + petal rows */
 export function DezeWeekOverviewSlide({
   logoSrc,
   heroSrc,
@@ -529,51 +641,63 @@ export function DezeWeekOverviewSlide({
   const shown = events.slice(0, 4);
   return (
     <div style={slideStyle}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={heroSrc}
-        width={1080}
-        height={1350}
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: 1080,
-          height: 1350,
-          objectFit: "cover",
-        }}
-        alt=""
-      />
       <div
         style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: 1080,
-          height: 1350,
-          background:
-            "linear-gradient(180deg, rgba(74,28,42,0.62) 0%, rgba(55,20,32,0.78) 40%, rgba(40,14,24,0.96) 100%)",
           display: "flex",
+          position: "relative",
+          width: 1080,
+          height: 300,
+          flexShrink: 0,
+          overflow: "hidden",
         }}
-      />
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={heroSrc}
+          width={1080}
+          height={300}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: 1080,
+            height: 300,
+            objectFit: "cover",
+          }}
+          alt=""
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: 1080,
+            height: 300,
+            background:
+              "linear-gradient(180deg, rgba(249,242,234,0.2) 0%, rgba(249,242,234,0.9) 100%)",
+            display: "flex",
+          }}
+        />
+        <PhotoCreamFade height={300} />
+      </div>
+
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          position: "relative",
-          width: "100%",
-          height: "100%",
-          padding: "44px 48px 36px",
+          flexGrow: 1,
+          padding: "4px 48px 36px",
+          marginTop: -28,
         }}
       >
-        <BrandHeader logoSrc={logoSrc} />
+        <BrandHeader logoSrc={logoSrc} light={false} />
 
         <div
           style={{
             display: "flex",
             flexDirection: "column",
-            marginTop: 28,
-            gap: 14,
+            marginTop: 18,
+            gap: 12,
           }}
         >
           <GoldPill>Deze week</GoldPill>
@@ -581,9 +705,9 @@ export function DezeWeekOverviewSlide({
             style={{
               display: "flex",
               fontFamily: "Bricolage Grotesque",
-              fontSize: 56,
+              fontSize: 48,
               fontWeight: 700,
-              color: igColors.cream,
+              color: igColors.bordeaux,
               lineHeight: 1.1,
             }}
           >
@@ -592,13 +716,14 @@ export function DezeWeekOverviewSlide({
           <div
             style={{
               display: "flex",
-              fontSize: 24,
-              color: "rgba(249,242,234,0.88)",
+              fontSize: 22,
+              color: igColors.anthracite,
               fontFamily: "DM Sans",
+              opacity: 0.8,
             }}
           >
-            Ontdek deze singlesactiviteiten de komende dagen
-            {periodLabel ? ` · ${periodLabel}` : ""}.
+            Singlesactiviteiten de komende dagen
+            {periodLabel ? ` · ${periodLabel}` : ""}
           </div>
         </div>
 
@@ -607,7 +732,7 @@ export function DezeWeekOverviewSlide({
             display: "flex",
             flexDirection: "column",
             gap: 12,
-            marginTop: 28,
+            marginTop: 22,
             flexGrow: 1,
           }}
         >
@@ -620,16 +745,16 @@ export function DezeWeekOverviewSlide({
           ))}
         </div>
 
-        <div style={{ display: "flex", marginTop: 18 }}>
+        <div style={{ display: "flex", marginTop: 16 }}>
           <GoldCta>Bekijk alle events →</GoldCta>
         </div>
-        <BrandFooter />
+        <BrandFooter light={false} />
       </div>
     </div>
   );
 }
 
-/** Format C cover — zelfde premium taal */
+/** Format C cover */
 export function NieuwCoverSlide({
   logoSrc,
   heroSrc,
@@ -641,79 +766,83 @@ export function NieuwCoverSlide({
 }) {
   return (
     <div style={slideStyle}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={heroSrc}
-        width={1080}
-        height={1350}
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: 1080,
-          height: 1350,
-          objectFit: "cover",
-        }}
-        alt=""
-      />
       <div
         style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: 1080,
-          height: 1350,
-          background:
-            "linear-gradient(180deg, rgba(74,28,42,0.7) 0%, rgba(55,20,32,0.92) 100%)",
           display: "flex",
+          position: "relative",
+          width: 1080,
+          height: 420,
+          flexShrink: 0,
+          overflow: "hidden",
         }}
-      />
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={heroSrc}
+          width={1080}
+          height={420}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: 1080,
+            height: 420,
+            objectFit: "cover",
+          }}
+          alt=""
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: 1080,
+            height: 420,
+            background:
+              "linear-gradient(180deg, rgba(249,242,234,0.25) 0%, rgba(249,242,234,0.95) 100%)",
+            display: "flex",
+          }}
+        />
+      </div>
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          position: "relative",
-          width: "100%",
-          height: "100%",
-          padding: "44px 48px 36px",
+          flexGrow: 1,
+          padding: "8px 48px 36px",
+          marginTop: -40,
+          gap: 18,
         }}
       >
-        <BrandHeader logoSrc={logoSrc} />
+        <BrandHeader logoSrc={logoSrc} light={false} />
+        <GoldPill>Nieuw</GoldPill>
         <div
           style={{
             display: "flex",
-            flexDirection: "column",
-            flexGrow: 1,
-            justifyContent: "center",
-            gap: 20,
+            fontFamily: "Bricolage Grotesque",
+            fontSize: 52,
+            fontWeight: 700,
+            color: igColors.bordeaux,
+            lineHeight: 1.12,
           }}
         >
-          <GoldPill>Nieuw</GoldPill>
-          <div
-            style={{
-              display: "flex",
-              fontFamily: "Bricolage Grotesque",
-              fontSize: 58,
-              fontWeight: 700,
-              color: igColors.gold,
-              lineHeight: 1.12,
-            }}
-          >
-            Nieuw op DateOfflineHub
-          </div>
-          <div
-            style={{
-              display: "flex",
-              fontSize: 28,
-              color: "rgba(249,242,234,0.9)",
-              fontFamily: "DM Sans",
-            }}
-          >
-            {periodLabel || "Verse singlesactiviteiten"}
-          </div>
+          Nieuw op DateOfflineHub
         </div>
-        <GoldCta>Ontdek alle events →</GoldCta>
-        <BrandFooter />
+        <div
+          style={{
+            display: "flex",
+            fontSize: 26,
+            color: igColors.anthracite,
+            fontFamily: "DM Sans",
+            opacity: 0.8,
+          }}
+        >
+          {periodLabel || "Verse singlesactiviteiten"}
+        </div>
+        <div style={{ display: "flex", marginTop: "auto" }}>
+          <GoldCta>Ontdek alle events →</GoldCta>
+        </div>
+        <BrandFooter light={false} />
       </div>
     </div>
   );

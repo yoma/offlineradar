@@ -168,12 +168,12 @@ export function buildInstagramCaption(
     };
   }
 
-  // Format A — Binnenkort
+  // Format A — binnenkort te beleven (al op de site, binnenkort te doen)
   const text = [
-    "Binnenkort op DateOfflineHub",
+    "Binnenkort te beleven",
     periodLabel ? `Periode: ${periodLabel}` : null,
     "",
-    "Singlesactiviteiten in Vlaanderen en Brussel — offline, in het echt.",
+    "Singlesactiviteiten in Vlaanderen en Brussel — offline, in het echt. Al te vinden via DateOfflineHub.",
     "",
     bullets,
     "",
@@ -189,6 +189,6 @@ export function buildInstagramCaption(
   return {
     format,
     text,
-    altHint: `Binnenkort op DateOfflineHub — ${events.length} evenementen`,
+    altHint: `Binnenkort te beleven — ${events.length} evenementen`,
   };
 }

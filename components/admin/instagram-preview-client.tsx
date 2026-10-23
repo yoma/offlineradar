@@ -14,7 +14,7 @@ import {
 } from "@/lib/instagram/constants";
 
 const FORMAT_TITLE: Record<InstagramFormatId, string> = {
-  binnenkort: "Format A — Binnenkort op DateOfflineHub",
+  binnenkort: "Format A — Binnenkort te beleven",
   deze_week: "Format B — Deze week nog iets gepland?",
   nieuw: "Format C — Nieuw op DateOfflineHub",
 };
