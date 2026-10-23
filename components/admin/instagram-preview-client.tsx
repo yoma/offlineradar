@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { approveInstagramConceptAction } from "@/app/interne-instagram/actions";
 import {
   imageUrlFromQuery,
@@ -24,8 +24,13 @@ function DraftCard({ draft }: { draft: InstagramDraft }) {
   const [copied, setCopied] = useState(false);
   const [pending, startTransition] = useTransition();
   const [approved, setApproved] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const slide = draft.slides[slideIndex] ?? draft.slides[0];
   const src = slide ? imageUrlFromQuery(slide.query) : "";
+
+  useEffect(() => {
+    setImageLoaded(false);
+  }, [src]);
 
   return (
     <section className="overflow-hidden rounded-2xl border border-stone-200/90 bg-white shadow-sm">
@@ -42,7 +47,15 @@ function DraftCard({ draft }: { draft: InstagramDraft }) {
 
       <div className="grid gap-5 p-4 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] sm:p-5">
         <div className="mx-auto w-full max-w-[420px]">
-          <div className="overflow-hidden rounded-xl border border-[color-mix(in_srgb,var(--brand-gold)_35%,var(--border))] bg-[var(--brand-cream)] shadow-[0_16px_40px_-28px_rgba(47,48,53,0.45)]">
+          <div className="relative overflow-hidden rounded-xl border border-[color-mix(in_srgb,var(--brand-gold)_35%,var(--border))] bg-[var(--brand-cream)] shadow-[0_16px_40px_-28px_rgba(47,48,53,0.45)]">
+            {!imageLoaded ? (
+              <div
+                className="absolute inset-0 z-10 flex items-center justify-center bg-[var(--brand-cream)]/80 text-sm font-semibold text-[var(--brand-bordeaux)]"
+                aria-live="polite"
+              >
+                Slide wordt gerenderd…
+              </div>
+            ) : null}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               key={src}
@@ -50,16 +63,34 @@ function DraftCard({ draft }: { draft: InstagramDraft }) {
               alt={slide?.label ?? draft.altHint}
               width={1080}
               height={1350}
-              className="h-auto w-full"
+              className={`h-auto w-full transition-opacity ${imageLoaded ? "opacity-100" : "opacity-40"}`}
+              onLoad={() => setImageLoaded(true)}
+              onError={() => setImageLoaded(true)}
             />
           </div>
           {draft.slides.length > 1 ? (
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            <div
+              className="mt-3 flex flex-wrap items-center justify-center gap-2"
+              role="tablist"
+              aria-label="Carrouselslides"
+            >
               {draft.slides.map((s, i) => (
                 <button
                   key={`${s.kind}-${i}`}
                   type="button"
-                  onClick={() => setSlideIndex(i)}
+                  role="tab"
+                  aria-selected={i === slideIndex}
+                  onClick={() => {
+                    if (i === slideIndex) return;
+                    setImageLoaded(false);
+                    setSlideIndex(i);
+                    // Prefetch neighbour slides so the next click feels instant.
+                    const next = draft.slides[i + 1];
+                    if (next && typeof window !== "undefined") {
+                      const img = new window.Image();
+                      img.src = imageUrlFromQuery(next.query);
+                    }
+                  }}
                   className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                     i === slideIndex
                       ? "bg-[var(--brand-bordeaux)] text-white"
@@ -73,6 +104,7 @@ function DraftCard({ draft }: { draft: InstagramDraft }) {
           ) : null}
           <p className="mt-2 text-center text-xs text-stone-500">
             1080 × 1350 · {slide?.label}
+            {!imageLoaded ? " · laden…" : ""}
           </p>
         </div>
 
