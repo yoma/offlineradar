@@ -555,6 +555,10 @@ async function syncObservedSourceUrl(input: {
 }
 
 async function urlAlreadyInCatalog(officialUrl: string): Promise<boolean> {
+  // Shared agenda/listing URLs are not event identity (e.g. Sportieve Singles
+  // kalender). Matching them blocks every thorough draft as "duplicate".
+  if (isListingOrIndexUrl(officialUrl)) return false;
+
   const { getEventsSql } = await import("@/lib/events/db");
   const sql = getEventsSql();
   if (!sql) return false;
