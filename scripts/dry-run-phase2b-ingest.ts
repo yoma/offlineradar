@@ -16,7 +16,8 @@ async function main() {
     "auto-draft kill switch must stay OFF",
   );
 
-  const pilots = REFRESH_PILOTS.slice(0, 3);
+  // All dedicated parsers (Phase 2C expansion readiness).
+  const pilots = REFRESH_PILOTS;
   const report: Record<string, unknown> = {
     killSwitches: {
       scheduledRefresh: isScheduledRefreshGloballyEnabled(),

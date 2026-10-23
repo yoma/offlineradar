@@ -56,6 +56,8 @@ export type ScheduledSourceOutcome = {
   changedCount?: number;
   removedCount?: number;
   unchangedCount?: number;
+  /** Thorough auto-draft creations (never publish). */
+  draftedCount?: number;
 };
 
 export type ScheduledRefreshSummary = {
@@ -413,6 +415,7 @@ export async function runScheduledSourceRefresh(
         changedCount: result.run.changedCount,
         removedCount: result.run.removedCount,
         unchangedCount: result.run.unchangedCount,
+        draftedCount: result.run.draftedCount ?? 0,
       };
     },
   );

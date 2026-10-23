@@ -38,6 +38,7 @@ export async function GET(request: Request) {
         changedCount: o.changedCount ?? null,
         removedCount: o.removedCount ?? null,
         unchangedCount: o.unchangedCount ?? null,
+        draftedCount: o.draftedCount ?? null,
       })),
     });
   } catch (error) {
