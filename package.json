@@ -86,6 +86,7 @@
     "verify:scheduled-source-refresh": "npx tsx scripts/verify-scheduled-source-refresh.ts",
     "verify:phase2b-publish": "npx tsx scripts/verify-phase2b-publish.ts",
     "verify:auto-draft-guards": "npx tsx scripts/verify-auto-draft-guards.ts",
+    "verify:phase2c-readiness": "npx tsx scripts/verify-phase2c-readiness.ts",
     "dry-run:phase2b-ingest": "npx tsx scripts/dry-run-phase2b-ingest.ts",
     "refresh:scheduled-pilot": "node --env-file=.env.local --import tsx scripts/run-scheduled-refresh-pilot.ts",
     "verify:image-compatibility": "npx tsx scripts/verify-image-compatibility.ts",
