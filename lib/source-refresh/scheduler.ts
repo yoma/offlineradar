@@ -348,10 +348,18 @@ export async function runScheduledSourceRefresh(
     batch,
     SCHEDULED_REFRESH_CONCURRENCY,
     async (item): Promise<ScheduledSourceOutcome> => {
+      const { isRefreshAutoDraftGloballyEnabled } = await import(
+        "@/lib/source-refresh/auto-draft-config"
+      );
+      // Phase 2B: optional thorough mode drafts new editions (never publishes).
+      const mode = isRefreshAutoDraftGloballyEnabled()
+        ? ("thorough" as const)
+        : ("standard" as const);
       const result = await startSourceRefresh({
         catalogSourceId: item.catalogSourceId,
         triggeredBy: "cron:scheduled",
         triggerType: "scheduled",
+        mode,
       });
 
       if (!result.ok) {

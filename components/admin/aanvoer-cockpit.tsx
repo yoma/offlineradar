@@ -15,6 +15,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AanvoerClient } from "@/app/interne-aanvoer/aanvoer-client";
 import {
   addSourceByUrlAction,
+  bulkPublishAanvoerCandidatesAction,
+  patchAanvoerCandidateFieldsAction,
   updateAanvoerCandidateStatusAction,
   pasteInfoOntoAandachtCandidateAction,
   scanSourceNowAction,
@@ -58,8 +60,8 @@ type TabId =
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "nieuw", label: "Nieuw" },
-  { id: "aandacht", label: "Wachtrij" },
-  { id: "toegevoegd", label: "Live" },
+  { id: "aandacht", label: "Te doen" },
+  { id: "toegevoegd", label: "Gepubliceerd" },
   { id: "bronnen", label: "Bronnen" },
   { id: "niet_toegevoegd", label: "Afgewezen" },
 ];
@@ -213,9 +215,9 @@ export function AanvoerCockpit({
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
-          { label: "Jouw aandacht nodig", value: data.counts.aandacht },
-          { label: "Toegevoegd", value: data.counts.added },
-          { label: "Niet toegevoegd", value: data.counts.dismissed },
+          { label: "Klaar voor publicatie", value: data.counts.klaar },
+          { label: "Nakijken", value: data.counts.controle },
+          { label: "Gepubliceerd", value: data.counts.added },
           { label: "Bronnen", value: data.counts.sources },
         ].map((item) => (
           <div
@@ -397,12 +399,13 @@ function SourcesPanel({
     });
   }
 
-  function runScan(sourceId: string) {
+  function runScan(sourceId: string, thorough = false) {
     setActionErr(null);
     setActionMsg(null);
     setScanningId(sourceId);
     const fd = new FormData();
     fd.set("sourceId", sourceId);
+    if (thorough) fd.set("thorough", "1");
     startTransition(async () => {
       try {
         const result = await scanSourceNowAction(fd);
@@ -586,14 +589,25 @@ function SourcesPanel({
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
                     {s.refreshSupported ? (
-                      <button
-                        type="button"
-                        disabled={pending || scanning}
-                        onClick={() => runScan(s.id)}
-                        className="rounded-full bg-stone-900 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
-                      >
-                        {scanning ? "…" : "Controleren"}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          disabled={pending || scanning}
+                          onClick={() => runScan(s.id, false)}
+                          className="rounded-full bg-stone-900 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+                        >
+                          {scanning ? "…" : "Controleren"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending || scanning}
+                          onClick={() => runScan(s.id, true)}
+                          title="Maakt concepten van nieuwe events (publiceert niet)"
+                          className="rounded-full border border-stone-300 px-3 py-1.5 text-xs font-semibold text-stone-800 disabled:opacity-60"
+                        >
+                          {scanning ? "…" : "Ophalen als concept"}
+                        </button>
+                      </>
                     ) : null}
                     <button
                       type="button"
@@ -718,6 +732,11 @@ function EventsPanel({
   const router = useRouter();
   const [q, setQ] = useState("");
   const [origin, setOrigin] = useState("all");
+  /** Phase 2B: within Te doen → all | klaar | nakijken */
+  const [queueFilter, setQueueFilter] = useState<"all" | "klaar" | "nakijken">(
+    "all",
+  );
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [pending, startTransition] = useTransition();
   const [actionError, setActionError] = useState<string | null>(null);
   const [removeId, setRemoveId] = useState<string | null>(null);
@@ -770,6 +789,16 @@ function EventsPanel({
       if (bucket === "niet_toegevoegd" && c.adminStatus !== "niet_toegevoegd") {
         return false;
       }
+      if (bucket === "aandacht" && queueFilter === "klaar" && !c.readyToPublish) {
+        return false;
+      }
+      if (
+        bucket === "aandacht" &&
+        queueFilter === "nakijken" &&
+        c.readyToPublish
+      ) {
+        return false;
+      }
       if (origin !== "all" && c.origin !== origin) return false;
       if (!needle) return true;
       const hay = [
@@ -779,19 +808,62 @@ function EventsPanel({
         c.venueName ?? "",
         c.sourceUrl ?? "",
         c.blockReason ?? "",
+        c.readinessSummary ?? "",
       ]
         .join(" ")
         .toLowerCase();
       return hay.includes(needle);
     });
-  }, [candidatesWithLocal, q, bucket, origin]);
+  }, [candidatesWithLocal, q, bucket, origin, queueFilter]);
+
+  const klaarIds = useMemo(
+    () => filtered.filter((c) => c.readyToPublish).map((c) => c.id),
+    [filtered],
+  );
 
   const emptyLabel =
     bucket === "toegevoegd"
-      ? "Nog geen live events via deze aanvoer."
+      ? "Nog geen gepubliceerde events via deze aanvoer."
       : bucket === "niet_toegevoegd"
         ? "Nog geen weggehaalde of afgewezen events."
-        : "Geen events die jouw aandacht nodig hebben.";
+        : queueFilter === "klaar"
+          ? "Geen events klaar voor publicatie."
+          : queueFilter === "nakijken"
+            ? "Geen events die nog nakijken nodig hebben."
+            : "Geen events in de wachtrij.";
+
+  function runBulkPublish() {
+    const ids = klaarIds.filter((id) => selected[id] !== false);
+    const chosen =
+      Object.keys(selected).filter((id) => selected[id]).length > 0
+        ? klaarIds.filter((id) => selected[id])
+        : klaarIds;
+    if (chosen.length === 0) {
+      setActionError("Selecteer minstens één klaar event.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `${chosen.length} event${chosen.length === 1 ? "" : "s"} publiceren?`,
+      )
+    ) {
+      return;
+    }
+    setActionError(null);
+    setActionMessage(null);
+    const formData = new FormData();
+    for (const id of chosen) formData.append("editionId", id);
+    startTransition(async () => {
+      const result = await bulkPublishAanvoerCandidatesAction(formData);
+      if (!result.ok) {
+        setActionError(result.error);
+        return;
+      }
+      setActionMessage(result.message);
+      setSelected({});
+      router.refresh();
+    });
+  }
 
   function runIntent(editionId: string, intent: string) {
     setActionError(null);
@@ -1002,17 +1074,45 @@ function EventsPanel({
           <option value="parser">Parser</option>
           <option value="ai_scan">AI scan</option>
         </select>
+        {bucket === "aandacht" ? (
+          <select
+            value={queueFilter}
+            onChange={(e) =>
+              setQueueFilter(e.target.value as "all" | "klaar" | "nakijken")
+            }
+            className="h-11 rounded-xl border border-stone-200 bg-white px-3 text-base md:text-sm"
+            aria-label="Filter klaar of nakijken"
+          >
+            <option value="all">Alles in wachtrij</option>
+            <option value="klaar">Klaar voor publicatie</option>
+            <option value="nakijken">Nakijken</option>
+          </select>
+        ) : null}
       </div>
 
-      <div className="flex items-baseline justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-bold tracking-wide text-stone-700 uppercase">
           {bucket === "aandacht"
-            ? "Jouw aandacht nodig"
+            ? queueFilter === "klaar"
+              ? "Klaar voor publicatie"
+              : queueFilter === "nakijken"
+                ? "Nakijken"
+                : "Te doen"
             : bucket === "toegevoegd"
-              ? "Toegevoegd"
-              : "Niet toegevoegd"}{" "}
+              ? "Gepubliceerd"
+              : "Afgewezen"}{" "}
           — {filtered.length}
         </h2>
+        {bucket === "aandacht" && klaarIds.length > 0 ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={runBulkPublish}
+            className="h-10 rounded-full bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
+          >
+            Publiciseer klaar ({klaarIds.length})
+          </button>
+        ) : null}
       </div>
 
       {actionError ? (
@@ -1046,6 +1146,10 @@ function EventsPanel({
             editOpen={editId === c.id}
             pasteOpen={pasteId === c.id}
             removeOpen={removeId === c.id}
+            selected={Boolean(selected[c.id])}
+            onToggleSelect={() =>
+              setSelected((prev) => ({ ...prev, [c.id]: !prev[c.id] }))
+            }
             onToggleAi={() => setAiOpen(aiOpen === c.id ? null : c.id)}
             onToggleEdit={() => setEditId(editId === c.id ? null : c.id)}
             onTogglePaste={() => {
@@ -1056,6 +1160,15 @@ function EventsPanel({
             onIntent={runIntent}
             onPasteInfo={runPasteInfo}
             onRemove={removeFromHub}
+            onPatched={(editionId, patch) => {
+              setLocalPatches((prev) => ({
+                ...prev,
+                [editionId]: { ...prev[editionId], ...patch },
+              }));
+              setEditId(null);
+              router.refresh();
+            }}
+            onPatchError={(msg) => setActionError(msg)}
           />
         ))}
       </div>
@@ -1074,6 +1187,8 @@ function AdminEventCard({
   editOpen,
   pasteOpen,
   removeOpen,
+  selected,
+  onToggleSelect,
   onToggleAi,
   onToggleEdit,
   onTogglePaste,
@@ -1081,6 +1196,8 @@ function AdminEventCard({
   onIntent,
   onPasteInfo,
   onRemove,
+  onPatched,
+  onPatchError,
 }: {
   candidate: CockpitCandidateRow;
   bucket: "aandacht" | "toegevoegd" | "niet_toegevoegd";
@@ -1095,6 +1212,8 @@ function AdminEventCard({
   editOpen: boolean;
   pasteOpen: boolean;
   removeOpen: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
   onToggleAi: () => void;
   onToggleEdit: () => void;
   onTogglePaste: () => void;
@@ -1102,8 +1221,21 @@ function AdminEventCard({
   onIntent: (editionId: string, intent: string) => void;
   onPasteInfo: (editionId: string, text: string) => void;
   onRemove: (editionId: string, reason: string) => void;
+  onPatched: (editionId: string, patch: Partial<CockpitCandidateRow>) => void;
+  onPatchError: (message: string) => void;
 }) {
   const [pasteText, setPasteText] = useState("");
+  const [editPending, startEditTransition] = useTransition();
+  const [editTitle, setEditTitle] = useState(c.title);
+  const [editCity, setEditCity] = useState(c.city);
+  const [editVenue, setEditVenue] = useState(c.venueName ?? "");
+  const [editDate, setEditDate] = useState(c.displayDate ?? "");
+  const [editTime, setEditTime] = useState(
+    c.startTime && c.startTime !== "12:00" ? c.startTime : "",
+  );
+  const [editPrice, setEditPrice] = useState(
+    c.priceAmount != null ? String(c.priceAmount) : "",
+  );
   const age = formatAge(c.minAge, c.maxAge);
   const when = [
     formatDateNl(c.displayDate),
@@ -1156,13 +1288,19 @@ function AdminEventCard({
           </p>
         </div>
 
-        <StatusBadge status={c.adminStatus} />
-
-        {bucket === "aandacht" && c.blockReason ? (
-          <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950">
-            {c.blockReason}
+        {bucket === "aandacht" ? (
+          <p
+            className={`rounded-xl px-3 py-2 text-sm font-medium ${
+              c.readyToPublish
+                ? "border border-emerald-200 bg-emerald-50 text-emerald-950"
+                : "border border-amber-200 bg-amber-50 text-amber-950"
+            }`}
+          >
+            {c.readinessSummary}
           </p>
-        ) : null}
+        ) : (
+          <StatusBadge status={c.adminStatus} />
+        )}
 
         {bucket === "aandacht" ? (
           <ul className="space-y-0.5 text-xs text-stone-600">
@@ -1173,7 +1311,7 @@ function AdminEventCard({
             <li>
               {c.priceAmount != null || c.priceNote
                 ? `✓ ${formatPrice(c)}`
-                : "? Prijs onbekend"}
+                : "? Prijs niet bekend"}
             </li>
           </ul>
         ) : null}
@@ -1228,6 +1366,17 @@ function AdminEventCard({
         <div className="mt-auto flex flex-col gap-2">
           {bucket === "aandacht" ? (
             <>
+              {c.readyToPublish ? (
+                <label className="flex items-center gap-2 text-xs text-stone-600">
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={onToggleSelect}
+                    className="h-4 w-4 rounded border-stone-300"
+                  />
+                  Meenemen in bulkpublicatie
+                </label>
+              ) : null}
               {searchFeedback ? (
                 <p
                   className={`rounded-xl px-3 py-2 text-sm font-medium ${
@@ -1243,6 +1392,24 @@ function AdminEventCard({
                   {searchFeedback.text}
                 </p>
               ) : null}
+              {c.readyToPublish ? (
+                <button
+                  type="button"
+                  disabled={pending}
+                  className="h-11 w-full rounded-full bg-emerald-700 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
+                  onClick={() => onIntent(c.id, "toevoegen")}
+                >
+                  Publiceren
+                </button>
+              ) : null}
+              <button
+                type="button"
+                disabled={pending}
+                className="h-11 w-full rounded-full border border-stone-300 text-sm font-semibold text-stone-800 disabled:opacity-60"
+                onClick={onToggleEdit}
+              >
+                Aanpassen
+              </button>
               <button
                 type="button"
                 disabled={pending}
@@ -1258,14 +1425,6 @@ function AdminEventCard({
                 onClick={() => onIntent(c.id, "opnieuw_controleren")}
               >
                 {searching ? "Zoeken op het web…" : "Opnieuw laten zoeken"}
-              </button>
-              <button
-                type="button"
-                disabled={pending}
-                className="h-11 w-full rounded-full border border-stone-300 text-sm font-semibold text-stone-800 disabled:opacity-60"
-                onClick={onToggleEdit}
-              >
-                Aanpassen
               </button>
               <button
                 type="button"
@@ -1352,18 +1511,115 @@ function AdminEventCard({
         ) : null}
 
         {editOpen ? (
-          <div className="space-y-2 rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm">
-            <p className="text-stone-700">
-              Pas het event aan via de eventsbeheerpagina. Na opslaan wordt de
-              gate opnieuw uitgevoerd.
+          <form
+            className="space-y-2 rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData();
+              formData.set("editionId", c.id);
+              formData.set("title", editTitle);
+              formData.set("city", editCity);
+              formData.set("venueName", editVenue);
+              formData.set("startDate", editDate);
+              formData.set("startTime", editTime);
+              if (editPrice.trim()) formData.set("priceAmount", editPrice);
+              startEditTransition(async () => {
+                const result = await patchAanvoerCandidateFieldsAction(formData);
+                if (!result.ok) {
+                  onPatchError(result.error);
+                  return;
+                }
+                onPatched(c.id, {
+                  title: editTitle,
+                  city: editCity,
+                  venueName: editVenue || null,
+                  displayDate: editDate || c.displayDate,
+                  startTime: editTime || c.startTime,
+                  readyToPublish: result.readyToPublish,
+                  readinessSummary: result.readinessSummary,
+                  blockReason: result.readyToPublish
+                    ? null
+                    : result.readinessSummary,
+                });
+              });
+            }}
+          >
+            <p className="font-semibold text-stone-900">Gegevens aanpassen</p>
+            <p className="text-xs text-stone-600">
+              Na opslaan controleren we automatisch opnieuw of publicatie mag.
             </p>
-            <Link
-              href="/interne-events"
-              className="inline-flex h-10 items-center rounded-full bg-stone-900 px-4 text-sm font-semibold text-white"
-            >
-              Open aanpassen
-            </Link>
-          </div>
+            <label className="block text-xs font-medium text-stone-600">
+              Titel
+              <input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="mt-1 h-10 w-full rounded-lg border border-stone-200 bg-white px-2 text-sm"
+              />
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block text-xs font-medium text-stone-600">
+                Datum
+                <input
+                  type="date"
+                  value={editDate}
+                  onChange={(e) => setEditDate(e.target.value)}
+                  className="mt-1 h-10 w-full rounded-lg border border-stone-200 bg-white px-2 text-sm"
+                />
+              </label>
+              <label className="block text-xs font-medium text-stone-600">
+                Tijd
+                <input
+                  type="time"
+                  value={editTime}
+                  onChange={(e) => setEditTime(e.target.value)}
+                  className="mt-1 h-10 w-full rounded-lg border border-stone-200 bg-white px-2 text-sm"
+                />
+              </label>
+            </div>
+            <label className="block text-xs font-medium text-stone-600">
+              Stad
+              <input
+                value={editCity}
+                onChange={(e) => setEditCity(e.target.value)}
+                className="mt-1 h-10 w-full rounded-lg border border-stone-200 bg-white px-2 text-sm"
+              />
+            </label>
+            <label className="block text-xs font-medium text-stone-600">
+              Locatie
+              <input
+                value={editVenue}
+                onChange={(e) => setEditVenue(e.target.value)}
+                className="mt-1 h-10 w-full rounded-lg border border-stone-200 bg-white px-2 text-sm"
+              />
+            </label>
+            <label className="block text-xs font-medium text-stone-600">
+              Prijs (€, leeg = ongewijzigd)
+              <input
+                value={editPrice}
+                onChange={(e) => setEditPrice(e.target.value)}
+                placeholder="Prijs niet bekend → laat leeg"
+                className="mt-1 h-10 w-full rounded-lg border border-stone-200 bg-white px-2 text-sm"
+              />
+            </label>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button
+                type="submit"
+                disabled={editPending || pending}
+                className="h-10 rounded-full bg-stone-900 px-4 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                <PendingContent pending={editPending} pendingLabel="Bezig…">
+                  Opslaan
+                </PendingContent>
+              </button>
+              <button
+                type="button"
+                className="text-xs text-stone-500 underline-offset-4 hover:underline"
+                onClick={onToggleEdit}
+              >
+                Annuleren
+              </button>
+            </div>
+          </form>
         ) : null}
 
         {removeOpen ? (

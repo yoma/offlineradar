@@ -733,6 +733,104 @@ export async function getEditionById(
   return loadBundle(id);
 }
 
+/**
+ * Admin inline field patch (Phase 2B). Marks manual_edit in notes.
+ * Does not publish. Caller re-runs publication gate after patch.
+ */
+export async function patchEditionAdminFields(input: {
+  id: string;
+  title?: string | null;
+  city?: string | null;
+  venueName?: string | null;
+  /** YYYY-MM-DD — keeps existing time when possible. */
+  startDate?: string | null;
+  /** HH:MM Europe/Brussels wall time. */
+  startTime?: string | null;
+  priceAmount?: number | null;
+  priceNote?: string | null;
+  clearPrice?: boolean;
+}): Promise<EventEditionRecord | null> {
+  const sql = getEventsSql();
+  if (!sql) return null;
+  const current = (await sql`
+    SELECT * FROM event_editions WHERE id = ${input.id} LIMIT 1
+  `) as EditionRow[];
+  const row = current[0];
+  if (!row) return null;
+
+  const title = input.title?.trim() || row.title;
+  const city = input.city !== undefined ? (input.city?.trim() || row.city) : row.city;
+  const venueName =
+    input.venueName !== undefined
+      ? input.venueName?.trim() || null
+      : row.venue_name;
+
+  let startsAt = row.starts_at;
+  const dateYmd = input.startDate?.trim();
+  const timeHm = input.startTime?.trim();
+  if (dateYmd && /^\d{4}-\d{2}-\d{2}$/.test(dateYmd)) {
+    const prevTime =
+      timeHm && /^\d{2}:\d{2}$/.test(timeHm)
+        ? timeHm
+        : String(row.starts_at).slice(11, 16) || "00:00";
+    // Store as Brussels wall-clock ISO (+01/+02 not computed; keep +01 for gate).
+    startsAt = `${dateYmd}T${prevTime}:00+01:00`;
+  } else if (timeHm && /^\d{2}:\d{2}$/.test(timeHm)) {
+    const day = String(row.starts_at).slice(0, 10);
+    startsAt = `${day}T${timeHm}:00+01:00`;
+  }
+
+  let priceAmount = row.price_amount;
+  let priceNote = row.price_note;
+  if (input.clearPrice) {
+    priceAmount = null;
+    priceNote = "Prijs niet bekend";
+  } else {
+    if (input.priceAmount !== undefined) priceAmount = input.priceAmount;
+    if (input.priceNote !== undefined) {
+      priceNote = input.priceNote?.trim() || null;
+    }
+  }
+
+  const geo = resolveCoordsForWrite({
+    city,
+    latitude: row.latitude,
+    longitude: row.longitude,
+  });
+
+  const stamp = `manual_edit=${new Date().toISOString()}`;
+  const prevNotes = row.internal_notes ?? "";
+  const notes = prevNotes.includes("manual_edit=")
+    ? prevNotes.replace(/manual_edit=\S+/g, stamp)
+    : [prevNotes.trim(), stamp].filter(Boolean).join("\n");
+
+  // Drop date_unknown tag when a real date is set.
+  let tags = Array.isArray(row.tags)
+    ? row.tags.filter((t): t is string => typeof t === "string")
+    : [];
+  if (dateYmd && !dateYmd.startsWith("2099")) {
+    tags = tags.filter((t) => t !== "date_unknown");
+  }
+
+  const rows = (await sql`
+    UPDATE event_editions SET
+      title = ${title},
+      city = ${city},
+      venue_name = ${venueName},
+      starts_at = ${startsAt},
+      price_amount = ${priceAmount},
+      price_note = ${priceNote},
+      latitude = COALESCE(${geo.latitude}, latitude),
+      longitude = COALESCE(${geo.longitude}, longitude),
+      tags = ${tags},
+      internal_notes = ${notes},
+      updated_at = now()
+    WHERE id = ${input.id}
+    RETURNING *
+  `) as EditionRow[];
+  return rows[0] ? mapEdition(rows[0]) : null;
+}
+
 export async function getEditionBySlug(
   slug: string,
 ): Promise<EventEditionBundle | null> {
