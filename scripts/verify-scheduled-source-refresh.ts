@@ -9,6 +9,7 @@ import { isCronRequestAuthorized } from "../lib/source-refresh/cron-auth";
 import { REFRESH_PILOTS } from "../lib/source-refresh/registry";
 import {
   DEFAULT_REFRESH_INTERVAL_HOURS,
+  getScheduledRefreshSourceAllowlist,
   isScheduledRefreshGloballyEnabled,
   SCHEDULED_REFRESH_BATCH_SIZE,
   SCHEDULED_REFRESH_CONCURRENCY,
@@ -60,6 +61,19 @@ function main() {
   assert.ok(SCHEDULED_REFRESH_BATCH_SIZE <= 3);
   assert.ok(SCHEDULED_REFRESH_CONCURRENCY <= 2);
   ok("bounded batch/concurrency");
+
+  const allowPrev = process.env.OFFLINERADAR_SCHEDULED_REFRESH_SOURCE_IDS;
+  delete process.env.OFFLINERADAR_SCHEDULED_REFRESH_SOURCE_IDS;
+  assert.equal(getScheduledRefreshSourceAllowlist().length, 0);
+  process.env.OFFLINERADAR_SCHEDULED_REFRESH_SOURCE_IDS =
+    "975fc9d7-2639-4e03-9139-a588af62b869";
+  assert.equal(getScheduledRefreshSourceAllowlist().length, 1);
+  if (allowPrev === undefined) {
+    delete process.env.OFFLINERADAR_SCHEDULED_REFRESH_SOURCE_IDS;
+  } else {
+    process.env.OFFLINERADAR_SCHEDULED_REFRESH_SOURCE_IDS = allowPrev;
+  }
+  ok("optional scheduled source allowlist");
 
   // Global kill switch default OFF
   const prev = process.env.OFFLINERADAR_SCHEDULED_REFRESH;

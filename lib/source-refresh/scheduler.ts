@@ -8,6 +8,7 @@ import {
   DEFAULT_REFRESH_INTERVAL_HOURS,
   SCHEDULED_REFRESH_BATCH_SIZE,
   SCHEDULED_REFRESH_CONCURRENCY,
+  getScheduledRefreshSourceAllowlist,
   isScheduledRefreshGloballyEnabled,
 } from "@/lib/source-refresh/schedule-config";
 import {
@@ -210,20 +211,24 @@ export async function runScheduledSourceRefresh(
   const allSources = await listCatalogSources();
   const byId = new Map(allSources.map((s) => [s.id, s]));
 
-  const enabledIds = options.onlySourceIds?.length
-    ? options.onlySourceIds
-    : await listAutoFollowEnabledSourceIds();
-
-  // Always consider dedicated pilots + any other enabled auto-follow source.
-  const candidateIds = new Set<string>([
-    ...REFRESH_PILOTS.map((p) => p.catalogSourceId),
-    ...enabledIds,
-  ]);
+  // Narrowing order: explicit option → env allowlist → all refresh_enabled.
+  // Env allowlist is for controlled autopilot (1–2 sources) without mass DB edits.
+  const scheduleAllowlist = getScheduledRefreshSourceAllowlist();
+  let seedIds: string[];
   if (options.onlySourceIds?.length) {
-    for (const id of [...candidateIds]) {
-      if (!options.onlySourceIds.includes(id)) candidateIds.delete(id);
-    }
+    seedIds = options.onlySourceIds;
+  } else if (scheduleAllowlist.length > 0) {
+    seedIds = scheduleAllowlist;
+  } else {
+    const enabledIds = await listAutoFollowEnabledSourceIds();
+    seedIds = [
+      ...REFRESH_PILOTS.map((p) => p.catalogSourceId),
+      ...enabledIds,
+    ];
   }
+  const candidateIds = new Set(
+    seedIds.map((id) => id.trim()).filter(Boolean),
+  );
 
   const schedules = await getSourceScheduleStates([...candidateIds]);
   const dueCandidates: ScheduleCandidate[] = [];
@@ -348,11 +353,11 @@ export async function runScheduledSourceRefresh(
     batch,
     SCHEDULED_REFRESH_CONCURRENCY,
     async (item): Promise<ScheduledSourceOutcome> => {
-      const { isRefreshAutoDraftGloballyEnabled } = await import(
+      const { isRefreshAutoDraftAllowedForSource } = await import(
         "@/lib/source-refresh/auto-draft-config"
       );
-      // Phase 2B: optional thorough mode drafts new editions (never publishes).
-      const mode = isRefreshAutoDraftGloballyEnabled()
+      // Phase 2B: thorough drafts only for allowlisted sources (never publishes).
+      const mode = isRefreshAutoDraftAllowedForSource(item.catalogSourceId)
         ? ("thorough" as const)
         : ("standard" as const);
       const result = await startSourceRefresh({

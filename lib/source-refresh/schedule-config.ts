@@ -33,3 +33,17 @@ export const DEFAULT_REFRESH_INTERVAL_HOURS: Record<RefreshParserKey, number> = 
 export function isScheduledRefreshGloballyEnabled(): boolean {
   return process.env.OFFLINERADAR_SCHEDULED_REFRESH === "1";
 }
+
+/**
+ * Optional cron source allowlist (catalog_sources.id).
+ * When non-empty, scheduled refresh only considers these IDs
+ * (still requires refresh_enabled=true and due interval).
+ * When empty/unset → previous behaviour (all refresh_enabled).
+ */
+export function getScheduledRefreshSourceAllowlist(): string[] {
+  const raw = process.env.OFFLINERADAR_SCHEDULED_REFRESH_SOURCE_IDS ?? "";
+  return raw
+    .split(/[,\s]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => /^[0-9a-f-]{36}$/.test(s));
+}
