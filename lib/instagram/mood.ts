@@ -7,6 +7,7 @@
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import sharp from "sharp";
 import type { Event } from "@/types/event";
 import {
   NEUTRAL_FALLBACK_DATA_URI,
@@ -125,46 +126,94 @@ function mimeFromBuffer(buf: Buffer, fallback = "image/jpeg"): string {
   return fallback;
 }
 
+async function loadImageBuffer(src: string): Promise<{ buf: Buffer; hint: string }> {
+  if (src.startsWith("/")) {
+    const abs = path.join(process.cwd(), "public", src.replace(/^\//, ""));
+    const buf = await readFile(abs);
+    let hint = "image/jpeg";
+    if (src.endsWith(".png")) hint = "image/png";
+    else if (src.endsWith(".webp")) hint = "image/webp";
+    return { buf, hint };
+  }
+  const res = await fetch(src);
+  if (!res.ok) {
+    throw new Error(`Image fetch failed: ${src} (${res.status})`);
+  }
+  const ct = res.headers.get("content-type") || "";
+  let hint = "image/jpeg";
+  if (ct.includes("png")) hint = "image/png";
+  else if (ct.includes("webp")) hint = "image/webp";
+  else if (ct.includes("jpeg") || ct.includes("jpg")) hint = "image/jpeg";
+  return { buf: Buffer.from(await res.arrayBuffer()), hint };
+}
+
+/**
+ * Lift dark night/mood stock for tiny Instagram row thumbs.
+ * Same source image — only exposure for readability at ~70px.
+ */
+async function liftThumbBuffer(buf: Buffer): Promise<Buffer> {
+  // Night/mood stock reads as black blobs at ~80px — lift adaptively for IG rows only.
+  const stats = await sharp(buf).stats();
+  const mean =
+    ((stats.channels[0]?.mean ?? 0) +
+      (stats.channels[1]?.mean ?? 0) +
+      (stats.channels[2]?.mean ?? 0)) /
+    3;
+  const brightness = mean < 35 ? 1.85 : mean < 60 ? 1.6 : mean < 100 ? 1.38 : 1.18;
+  const offset = mean < 35 ? 40 : mean < 60 ? 30 : mean < 100 ? 20 : 10;
+  const linear = mean < 60 ? 1.28 : 1.15;
+
+  return sharp(buf)
+    .rotate()
+    .resize(180, 180, { fit: "cover", position: "centre" })
+    .modulate({ brightness, saturation: 1.06 })
+    .gamma(1.12)
+    .linear(linear, offset)
+    .jpeg({ quality: 84, mozjpeg: true })
+    .toBuffer();
+}
+
 /**
  * Resolve any public path, https URL, or data URI to a data URL for Satori.
  * On failure returns the brand-neutral fallback (never empty thumbs).
  */
-export async function toImageDataUrl(src: string): Promise<string> {
-  const hit = dataUrlCache.get(src);
+export async function toImageDataUrl(
+  src: string,
+  options?: { liftForThumb?: boolean },
+): Promise<string> {
+  const cacheKey = options?.liftForThumb ? `thumb:${src}` : src;
+  const hit = dataUrlCache.get(cacheKey);
   if (hit) return hit;
 
-  if (src.startsWith("data:")) {
-    dataUrlCache.set(src, src);
+  if (src.startsWith("data:") && !options?.liftForThumb) {
+    dataUrlCache.set(cacheKey, src);
     return src;
   }
 
   try {
-    let buf: Buffer;
-    let hint = "image/jpeg";
+    if (src.startsWith("data:") && options?.liftForThumb) {
+      const base64 = src.split(",")[1];
+      if (!base64) throw new Error("invalid data url");
+      const lifted = await liftThumbBuffer(Buffer.from(base64, "base64"));
+      const dataUrl = `data:image/jpeg;base64,${lifted.toString("base64")}`;
+      dataUrlCache.set(cacheKey, dataUrl);
+      return dataUrl;
+    }
 
-    if (src.startsWith("/")) {
-      const abs = path.join(process.cwd(), "public", src.replace(/^\//, ""));
-      buf = await readFile(abs);
-      if (src.endsWith(".png")) hint = "image/png";
-      else if (src.endsWith(".webp")) hint = "image/webp";
-    } else {
-      const res = await fetch(src);
-      if (!res.ok) {
-        throw new Error(`Image fetch failed: ${src} (${res.status})`);
-      }
-      const ct = res.headers.get("content-type") || "";
-      if (ct.includes("png")) hint = "image/png";
-      else if (ct.includes("webp")) hint = "image/webp";
-      else if (ct.includes("jpeg") || ct.includes("jpg")) hint = "image/jpeg";
-      buf = Buffer.from(await res.arrayBuffer());
+    const { buf, hint } = await loadImageBuffer(src);
+    if (options?.liftForThumb) {
+      const lifted = await liftThumbBuffer(buf);
+      const dataUrl = `data:image/jpeg;base64,${lifted.toString("base64")}`;
+      dataUrlCache.set(cacheKey, dataUrl);
+      return dataUrl;
     }
 
     const mime = mimeFromBuffer(buf, hint);
     const dataUrl = `data:${mime};base64,${buf.toString("base64")}`;
-    dataUrlCache.set(src, dataUrl);
+    dataUrlCache.set(cacheKey, dataUrl);
     return dataUrl;
   } catch {
-    dataUrlCache.set(src, IG_NEUTRAL_FALLBACK_DATA_URI);
+    dataUrlCache.set(cacheKey, IG_NEUTRAL_FALLBACK_DATA_URI);
     return IG_NEUTRAL_FALLBACK_DATA_URI;
   }
 }
@@ -176,7 +225,7 @@ export async function resolveMoodBundle(input: {
   const thumbs = input.thumbs ?? [];
   const [hero, ...thumbUrls] = await Promise.all([
     toImageDataUrl(input.heroSrc),
-    ...thumbs.map((t) => toImageDataUrl(t)),
+    ...thumbs.map((t) => toImageDataUrl(t, { liftForThumb: true })),
   ]);
   return { hero, thumbs: thumbUrls };
 }

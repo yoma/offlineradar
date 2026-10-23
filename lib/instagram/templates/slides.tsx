@@ -219,18 +219,45 @@ function EventRow({
       }}
     >
       <PetalDateBadge startDate={event.startDate} />
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={thumbSrc}
-        width={compact ? 58 : 64}
-        height={compact ? 58 : 64}
+      {/* Light frame + lifted thumb so dark mood stock stays readable at small size */}
+      <div
         style={{
-          objectFit: "cover",
-          borderRadius: "18px 6px 18px 6px",
+          display: "flex",
+          position: "relative",
+          width: compact ? 72 : 80,
+          height: compact ? 72 : 80,
           flexShrink: 0,
+          borderRadius: "18px 8px 18px 8px",
+          overflow: "hidden",
+          background: igColors.creamDeep,
+          border: "1px solid rgba(228,213,203,0.95)",
         }}
-        alt=""
-      />
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={thumbSrc}
+          width={compact ? 72 : 80}
+          height={compact ? 72 : 80}
+          style={{
+            objectFit: "cover",
+            width: compact ? 72 : 80,
+            height: compact ? 72 : 80,
+          }}
+          alt=""
+        />
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: compact ? 72 : 80,
+            height: compact ? 72 : 80,
+            background:
+              "linear-gradient(180deg, rgba(249,242,234,0.32) 0%, rgba(249,242,234,0.16) 100%)",
+            display: "flex",
+          }}
+        />
+      </div>
       <div
         style={{
           display: "flex",

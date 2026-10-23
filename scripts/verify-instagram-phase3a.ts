@@ -348,7 +348,11 @@ async function assertSatoriLoads() {
     halloweenData.length > 5_000,
     "website-visible halloween mood must load for Satori",
   );
-  ok("11. Satori can load website-visible images (local + remote)");
+
+  const lifted = await toImageDataUrl(halloween.url, { liftForThumb: true });
+  assert.ok(lifted.startsWith("data:image/jpeg;base64,"));
+  assert.notEqual(lifted, halloweenData, "thumb lift must rewrite bytes");
+  ok("11. Satori can load website-visible images (local + remote + lifted thumbs)");
 }
 
 assertSatoriLoads()
