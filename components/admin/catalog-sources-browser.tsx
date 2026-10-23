@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
+import { isAgentDiscoveredNotes } from "@/lib/discovery/agent-provenance";
 import { isUserSuppliedNotes } from "@/lib/discovery/user-supplied";
 import {
   SourceRefreshControls,
@@ -73,7 +74,13 @@ export function CatalogSourcesBrowser({
       if (region !== "all" && !s.regions.includes(region)) return false;
       if (format !== "all" && !s.formats.includes(format)) return false;
       if (origin === "user" && !isUserSuppliedNotes(s.notes)) return false;
-      if (origin === "other" && isUserSuppliedNotes(s.notes)) return false;
+      if (origin === "agent" && !isAgentDiscoveredNotes(s.notes)) return false;
+      if (
+        origin === "other" &&
+        (isUserSuppliedNotes(s.notes) || isAgentDiscoveredNotes(s.notes))
+      ) {
+        return false;
+      }
       if (!needle) return true;
       const hay = [
         s.name,
@@ -119,6 +126,7 @@ export function CatalogSourcesBrowser({
         >
           <option value="all">Alle herkomsten</option>
           <option value="user">User supplied</option>
+          <option value="agent">Autopilot (agent)</option>
           <option value="other">Overige</option>
         </select>
         <select
@@ -151,6 +159,7 @@ export function CatalogSourcesBrowser({
       <p className="text-xs text-muted-foreground">
         {filtered.length} van {sources.length} bronnen
         {origin === "user" ? " · Door Youri aangebracht" : null}
+        {origin === "agent" ? " · Autopilot discovery" : null}
       </p>
       <ul className="space-y-3">
         {filtered.map((source) => {
@@ -169,11 +178,13 @@ export function CatalogSourcesBrowser({
               <div className="space-y-2">
                 <p className="font-semibold">
                   {source.name}
-                  {source.notes &&
-                  (source.notes.includes("discovered_by=user") ||
-                    /door youri aangebracht/i.test(source.notes)) ? (
+                  {source.notes && isUserSuppliedNotes(source.notes) ? (
                     <span className="ml-2 text-xs font-normal text-muted-foreground">
                       · Door Youri aangebracht
+                    </span>
+                  ) : source.notes && isAgentDiscoveredNotes(source.notes) ? (
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+                      · Autopilot
                     </span>
                   ) : null}
                 </p>

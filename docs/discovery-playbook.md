@@ -63,6 +63,22 @@ Bronnen met `discovered_by=user` zijn **permanente discovery-input**:
 
 Geen `discovered_by=user` verzinnen: alleen zetten bij bewezen handmatige productvondst of admin intake.
 
+### Autopilot agent discovery (Phase 2A)
+
+Bounded discovery-sweep mag nieuwe organisatoren voorstellen als:
+
+```
+discovered_by=agent
+```
+
+Invarianten:
+
+- status start als `promising`; `refresh_enabled=false` tot een mens follow aanzet in Bronnen
+- geen AI auto-approval en geen auto-publish
+- nooit `discovered_by=user` overschrijven of verzinnen
+- Instagram/Facebook = signaal only (geen primary catalog URL)
+- kill switch: `OFFLINERADAR_DISCOVERY_SWEEP=1` (default OFF); cron `/api/cron/discovery-sweep`
+
 ## Best-performing queries (fase 14)
 
 ### NL
