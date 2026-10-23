@@ -142,10 +142,15 @@ function main() {
     join(process.cwd(), "lib/source-refresh/scheduler.ts"),
     "utf8",
   );
-  assert.ok(scheduler.includes("isRefreshAutoDraftGloballyEnabled"));
+  assert.ok(scheduler.includes("isRefreshAutoDraftAllowedForSource"));
   assert.ok(scheduler.includes("thorough"));
-  assert.ok(scheduler.includes("auto-draft") || scheduler.includes("autoDraft") || scheduler.includes("REFRESH_AUTO_DRAFT") || scheduler.includes("isRefreshAutoDraftGloballyEnabled"));
-  ok("10. scheduler thorough only when auto-draft ON");
+  assert.ok(
+    scheduler.includes("auto-draft") ||
+      scheduler.includes("autoDraft") ||
+      scheduler.includes("REFRESH_AUTO_DRAFT") ||
+      scheduler.includes("isRefreshAutoDraftAllowedForSource"),
+  );
+  ok("10. scheduler thorough only for allowlisted auto-draft sources");
 
   const cockpit = readFileSync(
     join(process.cwd(), "components/admin/aanvoer-cockpit.tsx"),

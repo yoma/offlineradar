@@ -53,7 +53,8 @@ export type RefreshSkipReason =
   | "not_singles_dating"
   | "duplicate_in_listing"
   | "out_of_scope"
-  | "save_failed";
+  | "save_failed"
+  | "draft_cap";
 
 /** Deterministic normalized candidate from a source-specific parser. */
 export type RefreshNormalizedCandidate = {

@@ -630,12 +630,24 @@ async function applyThoroughPostProcess(input: {
   applied: number;
   skipped: SourceRefreshReport["skipped"];
 }> {
+  const { getRefreshAutoDraftMaxPerSource } = await import(
+    "@/lib/source-refresh/auto-draft-config"
+  );
+  const maxDrafts = getRefreshAutoDraftMaxPerSource();
   let drafted = 0;
   let applied = 0;
   const skipped: SourceRefreshReport["skipped"] = [];
 
   for (const row of input.items) {
     if (row.detectionType === "new" && row.candidate) {
+      if (drafted >= maxDrafts) {
+        skipped.push({
+          reason: "draft_cap",
+          detail: `Limiet ${maxDrafts} nieuwe concepten per bron bereikt`,
+          evidence: row.candidate.title,
+        });
+        continue;
+      }
       if (await urlAlreadyInCatalog(row.candidate.officialUrl)) {
         await updateRefreshItemStatus({
           id: row.id,
