@@ -183,15 +183,17 @@ Aangepast:
 - CTA: elegante gouden tekst i.p.v. dikke knop
 - Selectie: zelfde-dag startuur + geannuleerd-tags
 
-### Beelden = websitecatalogus
+### Beelden =zelfde zichtbare URL als de website
 
-Instagram gebruikt **dezelfde** `event.imageUrl` als de publieke feed (Neon primary image).
+**Oorzaak ontbrekende thumbs:** Instagram las alleen `event.imageUrl`. De publieke
+`EventVisual` gebruikt `resolvePublicEventImage` (centrale DOH-logica), die bij
+lege `imageUrl` wél een mood/bibliotheekbeeld toont. Instagram viel dan terug op
+cream-neutral → mismatch.
 
-1. Opgeslagen eventafbeelding  
-2. Of DOH-bibliotheekpad al op het event (`/preview-mood/…`)  
-3. Anders neutrale cream-huisstijl-fallback  
-
-Geen Unsplash-moodhunt, geen AI, geen aparte Instagram-beeldbibliotheek. Ontbrekende beelden → neutrale fallback (geen lege gaten).
+**Fix:** gedeelde `resolveWebsiteVisibleEventImage` in `lib/images.ts` — exact het
+zelfde pad als de eventkaart. Instagram en website tonen dezelfde URL. Neutrale
+fallback alleen als de website zelf neutraal is, of als Satori-fetch faalt.
+MIME-sniffing blijft voor mislabeled `/preview-mood/*.png` (JPEG op schijf).
 
 ## 11. Open voor jouw GO
 

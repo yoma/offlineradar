@@ -1,7 +1,10 @@
-import type { ActivityId, EventCategory } from "@/types/event";
+import type { ActivityId, Event, EventCategory } from "@/types/event";
 import {
+  eventImageDiversityKey,
+  inferRequiredImageCategory,
   resolvePublicEventImage,
   type EventImageContext,
+  type ResolvedEventImage,
 } from "@/lib/image-compatibility";
 
 const HERO =
@@ -40,6 +43,56 @@ export function eventImageUrl(input: {
     input.imageUrl,
     input.imageIsAtmosphere === true,
   ).url;
+}
+
+/**
+ * Exact same resolution path as the public EventVisual card.
+ * Instagram and website must share this so visible photos stay in sync.
+ */
+export function resolveWebsiteVisibleEventImage(
+  event: Pick<
+    Event,
+    | "id"
+    | "category"
+    | "activities"
+    | "tags"
+    | "title"
+    | "subCategory"
+    | "imageUrl"
+    | "imageIsAtmosphere"
+    | "organizerId"
+    | "organizerSlug"
+    | "eligibilityAgeMin"
+    | "eligibilityAgeMax"
+    | "description"
+    | "shortDescription"
+    | "organizerName"
+  >,
+): ResolvedEventImage {
+  const ctx: EventImageContext = {
+    category: event.category,
+    activities: event.activities,
+    tags: event.tags,
+    title: event.title,
+    subCategory: event.subCategory,
+    description: event.description,
+    shortDescription: event.shortDescription,
+    organizerName: event.organizerName,
+    minAge: event.eligibilityAgeMin,
+    maxAge: event.eligibilityAgeMax,
+  };
+  const required = inferRequiredImageCategory(ctx);
+  const diversityKey = eventImageDiversityKey({
+    organizerId: event.organizerId ?? event.organizerSlug ?? null,
+    eventId: event.id,
+    imageCategory: required,
+  });
+  return resolvePublicEventImage(
+    ctx,
+    event.imageUrl,
+    event.imageIsAtmosphere === true,
+    diversityKey,
+  );
 }
 
 export {

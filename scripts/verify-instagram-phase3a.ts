@@ -21,13 +21,34 @@ import {
   isInstagramBaseEligible,
   selectInstagramEvents,
 } from "@/lib/instagram/selection";
+import { NEUTRAL_FALLBACK_DATA_URI } from "@/lib/image-compatibility";
 import {
   IG_NEUTRAL_FALLBACK_DATA_URI,
   imageForEvent,
-  resolveInstagramCatalogImage,
+  toImageDataUrl,
 } from "@/lib/instagram/mood";
 import { shortenTitle } from "@/lib/instagram/title";
+import { resolveWebsiteVisibleEventImage } from "@/lib/images";
 import type { Event } from "@/types/event";
+
+/** Instagram must show the same URL the public EventVisual would show. */
+function assertWebsiteInstagramParity(event: Event, label: string) {
+  const website = resolveWebsiteVisibleEventImage(event);
+  const ig = imageForEvent(event);
+  if (
+    website.imageKind === "neutral_fallback" ||
+    website.url === NEUTRAL_FALLBACK_DATA_URI
+  ) {
+    assert.equal(ig.url, IG_NEUTRAL_FALLBACK_DATA_URI, label);
+    assert.equal(ig.kind, "neutral_fallback", label);
+  } else {
+    assert.equal(ig.url, website.url, `${label}: url mismatch`);
+    assert.ok(
+      !ig.url.startsWith("data:image/svg"),
+      `${label}: Instagram used cream while website has ${website.url}`,
+    );
+  }
+}
 
 function ok(label: string) {
   console.log(`OK: ${label}`);
@@ -200,49 +221,54 @@ assert.ok(!/\w…\w/.test(shortened), "no mid-word ellipsis");
 assert.ok(shortened.length <= 59);
 ok("2c. smart title shorten");
 
-const withStored = sampleEvent({
-  id: "hw",
+// Website ↔ Instagram parity (same central resolver)
+const noStored = sampleEvent({
+  id: "noimg-walk",
   title: "Halloween stadswandeling Leuven",
   startDate: "2026-10-28",
   city: "Leuven",
   region: "Vlaams-Brabant",
   activities: ["wandelen"],
-  imageUrl: "/preview-mood/mood-singles-night-out.png",
-  imageIsAtmosphere: true,
-});
-const storedImg = imageForEvent(withStored);
-assert.equal(storedImg.url, "/preview-mood/mood-singles-night-out.png");
-assert.equal(storedImg.isAtmosphere, true);
-
-const noImage = sampleEvent({
-  id: "noimg",
-  title: "Wandeling zonder beeld",
-  startDate: "2026-10-28",
-  city: "Leuven",
-  activities: ["wandelen"],
   imageUrl: null,
 });
-const neutral = imageForEvent(noImage);
-assert.equal(neutral.url, IG_NEUTRAL_FALLBACK_DATA_URI);
-assert.equal(neutral.kind, "neutral_fallback");
-
-const catalogOnly = resolveInstagramCatalogImage(
-  "https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=1200&q=80",
-  true,
-);
-assert.ok(catalogOnly.url.includes("photo-1528605248644"));
+assertWebsiteInstagramParity(noStored, "null imageUrl halloween walk");
 assert.ok(
-  !imageForEvent(noImage).url.includes("unsplash.com"),
-  "missing catalog image must not hunt Unsplash",
+  !imageForEvent(noStored).url.startsWith("data:image/svg"),
+  "website shows a mood photo for this walk — Instagram must too",
 );
-ok("2d. catalog image reuse + neutral fallback (no mood hunt)");
+ok("2d. website↔Instagram parity when imageUrl is null");
+
+const withStored = sampleEvent({
+  id: "bowling-stored",
+  title: "Singles Bowling Antwerpen",
+  startDate: "2026-10-28",
+  city: "Antwerpen",
+  activities: ["sport"],
+  subCategory: "bowling",
+  imageUrl: "/preview-mood/mood-singles-bowling.png",
+  imageIsAtmosphere: true,
+});
+assertWebsiteInstagramParity(withStored, "stored bowling mood");
+ok("2e. website↔Instagram parity with stored mood path");
+
+const speedNull = sampleEvent({
+  id: "speed-null",
+  title: "Speeddate Lochristi, 30–40 jaar",
+  startDate: "2026-10-28",
+  city: "Lochristi",
+  region: "Oost-Vlaanderen",
+  activities: ["speeddate"],
+  imageUrl: null,
+});
+assertWebsiteInstagramParity(speedNull, "null imageUrl speeddate");
+ok("2f. website↔Instagram parity for speeddate without stored image");
 
 const bowlingBytes = readFileSync(
   path.join(process.cwd(), "public/preview-mood/mood-singles-bowling.png"),
 );
 assert.equal(bowlingBytes[0], 0xff);
 assert.equal(bowlingBytes[1], 0xd8);
-ok("2e. preview-mood bowling asset is JPEG bytes (mime must be sniffed)");
+ok("2g. preview-mood bowling asset is JPEG bytes (mime must be sniffed)");
 
 const binnenkort = selectInstagramEvents(catalog, {
   format: "binnenkort",
@@ -308,4 +334,28 @@ assert.ok(page.includes("InstagramPreviewClient"));
 assert.ok(!page.includes("publishToInstagram"));
 ok("10. admin preview route, no publish");
 
-console.log("\nOK: Instagram Phase 3A verify.");
+async function assertSatoriLoads() {
+  const bowlingData = await toImageDataUrl(
+    "/preview-mood/mood-singles-bowling.png",
+  );
+  assert.ok(bowlingData.startsWith("data:image/jpeg;base64,"));
+  assert.ok(bowlingData.length > 10_000);
+
+  const halloween = imageForEvent(noStored);
+  const halloweenData = await toImageDataUrl(halloween.url);
+  assert.ok(halloweenData.startsWith("data:image/"));
+  assert.ok(
+    halloweenData.length > 5_000,
+    "website-visible halloween mood must load for Satori",
+  );
+  ok("11. Satori can load website-visible images (local + remote)");
+}
+
+assertSatoriLoads()
+  .then(() => {
+    console.log("\nOK: Instagram Phase 3A verify.");
+  })
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });

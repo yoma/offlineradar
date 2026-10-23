@@ -1,10 +1,6 @@
 import { EventVisualImage } from "@/components/events/event-visual-image";
-import {
-  eventImageDiversityKey,
-  inferRequiredImageCategory,
-  publicImageKindLabel,
-  resolvePublicEventImage,
-} from "@/lib/image-compatibility";
+import { publicImageKindLabel } from "@/lib/image-compatibility";
+import { resolveWebsiteVisibleEventImage } from "@/lib/images";
 import type { ActivityId, EventCategory } from "@/types/event";
 import { cn } from "@/lib/utils";
 
@@ -46,27 +42,22 @@ export function EventVisual({
   /** Admin: show image kind + why chosen. */
   showImageMeta?: boolean;
 }) {
-  const ctx = {
+  const resolved = resolveWebsiteVisibleEventImage({
+    id: eventId ?? "event-visual",
     category,
     activities,
     tags,
     title,
     subCategory,
-    minAge,
-    maxAge,
-  };
-  const required = inferRequiredImageCategory(ctx);
-  const diversityKey = eventImageDiversityKey({
-    organizerId,
-    eventId,
-    imageCategory: required,
-  });
-  const resolved = resolvePublicEventImage(
-    ctx,
-    imageUrl,
+    imageUrl: imageUrl ?? null,
     imageIsAtmosphere,
-    diversityKey,
-  );
+    organizerId,
+    eligibilityAgeMin: minAge,
+    eligibilityAgeMax: maxAge,
+    description: null,
+    shortDescription: "",
+    organizerName: "",
+  });
   const src = resolved.url;
   const showAtmosphere = resolved.keptAtmosphere;
   const kindLabel = publicImageKindLabel(resolved.imageKind);

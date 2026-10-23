@@ -1,31 +1,26 @@
 /**
- * Instagram event imagery — same catalog source as the public website.
+ * Instagram event imagery — same visible URL as the public EventVisual card.
  *
- * Priority:
- * 1. Stored `event.imageUrl` (Neon primary image → consumer map)
- * 2. That URL may already be a DateOfflineHub library asset (`/preview-mood/…`)
- * 3. Brand-neutral cream fallback — never hunt Unsplash / AI / new libraries
- *
- * Does not re-run mood-pool substitution (unlike EventVisual’s resolvePublicEventImage).
- * If the site already stores a less-ideal image, Instagram keeps that same source.
+ * Uses `resolveWebsiteVisibleEventImage` (central DateOfflineHub image logic).
+ * Never invents a separate Instagram image source.
  */
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { Event } from "@/types/event";
 import {
-  isKnownMoodAssetUrl,
+  NEUTRAL_FALLBACK_DATA_URI,
   publicImageKindLabel,
-  rewriteDeadMoodUrl,
   type PublicImageKind,
 } from "@/lib/image-compatibility";
+import { resolveWebsiteVisibleEventImage } from "@/lib/images";
 import { igColors } from "@/lib/instagram/constants";
 
 const dataUrlCache = new Map<string, string>();
 
 /**
- * Cream + soft gold/bordeaux — DateOfflineHub house style for missing images.
- * Always a valid data URL so cards never show empty gaps.
+ * Cream brand surface — only when the website itself has no usable image
+ * (resolvePublicEventImage → neutral) or a remote fetch fails for Satori.
  */
 export const IG_NEUTRAL_FALLBACK_DATA_URI =
   "data:image/svg+xml;charset=utf-8," +
@@ -55,53 +50,44 @@ export type InstagramEventImage = {
 };
 
 /**
- * Central Instagram image resolver — mirrors the website catalog field
- * (`event.imageUrl` from Neon primary image), without external mood hunting.
+ * Instagram image for one event = exact website-visible URL.
  */
-export function resolveInstagramCatalogImage(
-  imageUrl: string | null | undefined,
-  imageIsAtmosphere?: boolean | null,
-): InstagramEventImage {
-  const stored = rewriteDeadMoodUrl(imageUrl?.trim() || null);
-
-  if (stored) {
-    const library = isKnownMoodAssetUrl(stored) || stored.startsWith("/preview-mood/");
-    const atmosphere = imageIsAtmosphere === true || library;
-    const kind: PublicImageKind = library
-      ? "mood"
-      : atmosphere
-        ? "mood"
-        : "official";
-    return {
-      url: stored,
-      isAtmosphere: atmosphere,
-      kind,
-      label: publicImageKindLabel(kind),
-    };
-  }
+export function imageForEvent(event: Event): InstagramEventImage {
+  const resolved = resolveWebsiteVisibleEventImage(event);
+  const kind: PublicImageKind = resolved.imageKind ?? "mood";
+  const url =
+    kind === "neutral_fallback" || resolved.url === NEUTRAL_FALLBACK_DATA_URI
+      ? IG_NEUTRAL_FALLBACK_DATA_URI
+      : resolved.url;
 
   return {
-    url: IG_NEUTRAL_FALLBACK_DATA_URI,
-    isAtmosphere: true,
-    kind: "neutral_fallback",
-    label: publicImageKindLabel("neutral_fallback"),
+    url,
+    isAtmosphere:
+      resolved.keptAtmosphere === true ||
+      kind === "mood" ||
+      kind === "neutral_fallback" ||
+      kind === "generated",
+    kind: url === IG_NEUTRAL_FALLBACK_DATA_URI ? "neutral_fallback" : kind,
+    label: publicImageKindLabel(
+      url === IG_NEUTRAL_FALLBACK_DATA_URI ? "neutral_fallback" : kind,
+    ),
   };
 }
 
-/** Resolve the Instagram image for one catalog event. */
-export function imageForEvent(event: Event): InstagramEventImage {
-  return resolveInstagramCatalogImage(event.imageUrl, event.imageIsAtmosphere);
-}
-
-/** Cover / overview hero: first event with a stored image, else brand neutral. */
+/** Cover / overview hero: first event’s website-visible image. */
 export function heroForEvents(events: Event[]): InstagramEventImage {
-  for (const event of events) {
-    if (event.imageUrl?.trim()) return imageForEvent(event);
+  if (events.length === 0) {
+    return {
+      url: IG_NEUTRAL_FALLBACK_DATA_URI,
+      isAtmosphere: true,
+      kind: "neutral_fallback",
+      label: publicImageKindLabel("neutral_fallback"),
+    };
   }
-  return resolveInstagramCatalogImage(null);
+  return imageForEvent(events[0]!);
 }
 
-/** Thumbnail for a list row — same catalog source per event. */
+/** Thumbnail for a list row — same website-visible source per event. */
 export function thumbForEvent(event: Event): InstagramEventImage {
   return imageForEvent(event);
 }
@@ -109,7 +95,6 @@ export function thumbForEvent(event: Event): InstagramEventImage {
 /** Sniff real image bytes — some `/preview-mood/*.png` files are JPEG on disk. */
 function mimeFromBuffer(buf: Buffer, fallback = "image/jpeg"): string {
   if (buf.length >= 8) {
-    // PNG
     if (
       buf[0] === 0x89 &&
       buf[1] === 0x50 &&
@@ -118,15 +103,12 @@ function mimeFromBuffer(buf: Buffer, fallback = "image/jpeg"): string {
     ) {
       return "image/png";
     }
-    // JPEG
     if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
       return "image/jpeg";
     }
-    // GIF
     if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) {
       return "image/gif";
     }
-    // WEBP (RIFF....WEBP)
     if (
       buf[0] === 0x52 &&
       buf[1] === 0x49 &&
@@ -145,7 +127,7 @@ function mimeFromBuffer(buf: Buffer, fallback = "image/jpeg"): string {
 
 /**
  * Resolve any public path, https URL, or data URI to a data URL for Satori.
- * On failure returns the brand-neutral fallback (never throws empty thumbs).
+ * On failure returns the brand-neutral fallback (never empty thumbs).
  */
 export async function toImageDataUrl(src: string): Promise<string> {
   const hit = dataUrlCache.get(src);
