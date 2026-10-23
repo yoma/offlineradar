@@ -9,11 +9,10 @@ import type { Event } from "@/types/event";
 import { IG_FEED, type InstagramFormatId } from "@/lib/instagram/constants";
 import { getLogoDataUrl, loadInstagramFonts } from "@/lib/instagram/assets";
 import {
-  heroForActivities,
   heroForEvents,
+  imageForEvent,
   resolveMoodBundle,
   thumbForEvent,
-  IG_HERO,
 } from "@/lib/instagram/mood";
 import {
   BinnenkortCoverSlide,
@@ -72,9 +71,11 @@ export async function renderInstagramImage(
 
   if (input.kind === "binnenkort_cover") {
     const events = input.events ?? [];
+    const hero = heroForEvents(events);
+    const thumbs = events.slice(0, 5).map(thumbForEvent);
     const mood = await resolveMoodBundle({
-      heroSrc: events.length ? heroForEvents(events) : IG_HERO.social,
-      thumbs: events.slice(0, 5).map(thumbForEvent),
+      heroSrc: hero.url,
+      thumbs: thumbs.map((t) => t.url),
     });
     element = (
       <BinnenkortCoverSlide
@@ -87,9 +88,11 @@ export async function renderInstagramImage(
     );
   } else if (input.kind === "deze_week") {
     const events = input.events ?? [];
+    const hero = heroForEvents(events);
+    const thumbs = events.slice(0, 4).map(thumbForEvent);
     const mood = await resolveMoodBundle({
-      heroSrc: heroForEvents(events),
-      thumbs: events.slice(0, 4).map(thumbForEvent),
+      heroSrc: hero.url,
+      thumbs: thumbs.map((t) => t.url),
     });
     element = (
       <DezeWeekOverviewSlide
@@ -101,7 +104,8 @@ export async function renderInstagramImage(
       />
     );
   } else if (input.kind === "nieuw_cover") {
-    const mood = await resolveMoodBundle({ heroSrc: IG_HERO.social });
+    const hero = heroForEvents([]);
+    const mood = await resolveMoodBundle({ heroSrc: hero.url });
     element = (
       <NieuwCoverSlide
         logoSrc={logoSrc}
@@ -119,8 +123,9 @@ export async function renderInstagramImage(
         : input.format === "deze_week"
           ? "Deze week"
           : "Binnenkort";
+    const image = imageForEvent(input.event);
     const mood = await resolveMoodBundle({
-      heroSrc: heroForActivities(input.event.activities),
+      heroSrc: image.url,
     });
     element = (
       <EventSlide
@@ -130,6 +135,7 @@ export async function renderInstagramImage(
         index={input.index ?? 1}
         total={input.total ?? 1}
         eyebrow={eyebrow}
+        showAtmosphereLabel={image.isAtmosphere}
       />
     );
   }

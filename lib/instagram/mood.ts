@@ -1,61 +1,106 @@
 /**
  * Atmosphere / mood imagery for Instagram templates.
- * Never presented as photos of a specific edition — only generic sfeerbeelden.
+ * Prefer a compatible official event image; otherwise a matching sfeerbeeld.
+ * Never present mood stock as a photo of that specific edition.
  */
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import type { ActivityId, Event } from "@/types/event";
+import type { Event } from "@/types/event";
+import {
+  eventImageDiversityKey,
+  isKnownMoodAssetUrl,
+  publicImageKindLabel,
+  resolvePublicEventImage,
+  type PublicImageKind,
+} from "@/lib/image-compatibility";
 
 const dataUrlCache = new Map<string, string>();
 
-/** Warm lifestyle heroes (Unsplash) — connection / social atmosphere only. */
-export const IG_HERO = {
-  social:
-    "https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&w=1600&q=80",
-  drinks:
-    "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=1600&q=80",
-  dinner:
-    "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1600&q=80",
-  walk:
-    "https://images.unsplash.com/photo-1551632811-561732d1e306?auto=format&fit=crop&w=1600&q=80",
-  party:
-    "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=1600&q=80",
-  sport:
-    "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=1600&q=80",
-} as const;
+export type InstagramEventImage = {
+  url: string;
+  /** True when this is mood / fallback stock, not an official edition photo. */
+  isAtmosphere: boolean;
+  kind: PublicImageKind;
+  label: string;
+};
 
-export function heroForActivities(activities: ActivityId[]): string {
-  if (activities.includes("wandelen") || activities.includes("outdoor")) {
-    return IG_HERO.walk;
-  }
-  if (activities.includes("party") || activities.includes("dans")) {
-    return IG_HERO.party;
-  }
-  if (activities.includes("eten")) return IG_HERO.dinner;
-  if (activities.includes("drinken")) return IG_HERO.drinks;
-  if (
-    activities.includes("sport") ||
-    activities.includes("padel") ||
-    activities.includes("lopen")
-  ) {
-    return IG_HERO.sport;
-  }
-  return IG_HERO.social;
-}
-
-export function heroForEvents(events: Event[]): string {
-  const acts = events.flatMap((e) => e.activities);
-  return heroForActivities(acts);
+function eventImageContext(event: Event) {
+  return {
+    category: event.category,
+    activities: event.activities,
+    tags: event.tags,
+    title: event.title,
+    subCategory: event.subCategory,
+    description: event.description,
+    shortDescription: event.shortDescription,
+    organizerName: event.organizerName,
+    minAge: event.eligibilityAgeMin,
+    maxAge: event.eligibilityAgeMax,
+  };
 }
 
 /**
- * Thumbnail for a list row. Prefer activity hero (reliable Unsplash sfeerbeeld)
- * so every card has a visible photo. Event-specific images are never implied.
+ * Resolve the best Instagram image for one event.
+ * Uses the shared semantic image pipeline (theme, city vs nature, sport, …).
  */
-export function thumbForEvent(event: Event): string {
-  // Stable, activity-matched atmosphere — avoids blank/broken catalog thumbs in OG.
-  return heroForActivities(event.activities);
+export function imageForEvent(event: Event): InstagramEventImage {
+  const resolved = resolvePublicEventImage(
+    eventImageContext(event),
+    event.imageUrl,
+    event.imageIsAtmosphere === true,
+    eventImageDiversityKey({
+      eventId: event.id,
+      organizerId: event.organizerId ?? event.organizerSlug ?? null,
+    }),
+  );
+
+  const kind: PublicImageKind =
+    resolved.imageKind ??
+    (resolved.keptAtmosphere || isKnownMoodAssetUrl(resolved.url)
+      ? "mood"
+      : "official");
+
+  const isAtmosphere =
+    kind === "mood" ||
+    kind === "neutral_fallback" ||
+    kind === "generated" ||
+    resolved.keptAtmosphere === true;
+
+  return {
+    url: resolved.url,
+    isAtmosphere,
+    kind,
+    label: publicImageKindLabel(kind),
+  };
+}
+
+/** Cover / overview hero: prefer first event’s match, else social mood. */
+export function heroForEvents(events: Event[]): InstagramEventImage {
+  if (events.length === 0) {
+    const fallback = resolvePublicEventImage(
+      {
+        category: "dating",
+        activities: ["speeddate"],
+        title: "Singles ontmoeten",
+      },
+      null,
+      true,
+      "ig-cover-fallback",
+    );
+    return {
+      url: fallback.url,
+      isAtmosphere: true,
+      kind: fallback.imageKind ?? "mood",
+      label: publicImageKindLabel(fallback.imageKind ?? "mood"),
+    };
+  }
+  return imageForEvent(events[0]!);
+}
+
+/** Thumbnail for a list row — per-event semantic match (avoids one photo for all). */
+export function thumbForEvent(event: Event): InstagramEventImage {
+  return imageForEvent(event);
 }
 
 /**

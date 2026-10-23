@@ -17,9 +17,12 @@ import {
 } from "@/lib/instagram/drafts";
 import {
   hasEnoughEventsForFormat,
+  hasInstagramEventStarted,
   isInstagramBaseEligible,
   selectInstagramEvents,
 } from "@/lib/instagram/selection";
+import { imageForEvent } from "@/lib/instagram/mood";
+import { shortenTitle } from "@/lib/instagram/title";
 import type { Event } from "@/types/event";
 
 function ok(label: string) {
@@ -158,10 +161,57 @@ assert.equal(igColors.bordeaux.toLowerCase(), "#67283a");
 assert.equal(igColors.gold.toLowerCase(), "#d4af37");
 ok("1. feed size + brand colors");
 
-assert.equal(isInstagramBaseEligible(catalog[5], "2026-10-23"), false);
-assert.equal(isInstagramBaseEligible(catalog[6], "2026-10-23"), false);
-assert.equal(isInstagramBaseEligible(catalog[0], "2026-10-23"), true);
+assert.equal(isInstagramBaseEligible(catalog[5], "2026-10-23", NOW), false);
+assert.equal(isInstagramBaseEligible(catalog[6], "2026-10-23", NOW), false);
+assert.equal(isInstagramBaseEligible(catalog[0], "2026-10-23", NOW), true);
 ok("2. sold_out + Wallonia excluded");
+
+const startedSameDay = sampleEvent({
+  id: "started",
+  title: "Al begonnen",
+  startDate: "2026-10-23",
+  city: "Gent",
+  startTime: "10:00",
+});
+assert.equal(hasInstagramEventStarted(startedSameDay, NOW), true);
+assert.equal(
+  isInstagramBaseEligible(startedSameDay, "2026-10-23", NOW),
+  false,
+);
+const eveningSameDay = sampleEvent({
+  id: "evening",
+  title: "Vanavond",
+  startDate: "2026-10-23",
+  city: "Gent",
+  startTime: "20:00",
+});
+assert.equal(hasInstagramEventStarted(eveningSameDay, NOW), false);
+ok("2b. same-day start time gate");
+
+const longTitle =
+  "Waargebeurde Leuvense griezel- en gruwelsagen Halloween stadswandeling";
+const shortened = shortenTitle(longTitle, 58);
+assert.ok(shortened.endsWith("…"));
+assert.ok(!/\w…\w/.test(shortened), "no mid-word ellipsis");
+assert.ok(shortened.length <= 59);
+ok("2c. smart title shorten");
+
+const halloweenWalk = sampleEvent({
+  id: "hw",
+  title: "Halloween stadswandeling Leuven",
+  startDate: "2026-10-28",
+  city: "Leuven",
+  region: "Vlaams-Brabant",
+  activities: ["wandelen"],
+});
+const halloweenImg = imageForEvent(halloweenWalk);
+assert.ok(
+  !/1551632811-561732d1e306|1501555088652-021faa106b9b|1464822759023|1506905925346/.test(
+    halloweenImg.url,
+  ),
+  "city/halloween walk must not use mountain hiking stock",
+);
+ok("2d. city walk mood matching");
 
 const binnenkort = selectInstagramEvents(catalog, {
   format: "binnenkort",

@@ -171,9 +171,22 @@ Publicatievoorstel (niet geautomatiseerd):
 
 ---
 
-## 10. Open voor jouw GO
+## 10. Visuele finetuning (na beoordeling)
 
-- Visuele fine-tuning (petal-vorm, foto’s, spacing)  
+Behouden: cream canvas, petal-datums, witte kaarten, huisstijl.
+
+Aangepast:
+
+- Fotografie via `resolvePublicEventImage` (officieel indien oké, anders matching sfeerbeeld; stad vs natuur; Halloween-thema)
+- Groter logo + zichtbare merknaam
+- Slimme titelverkorting (max ~2 regels, geen mid-woord cut)
+- Eventslide: grotere foto, info-kaart onderaan zonder lege void
+- CTA: elegante gouden tekst i.p.v. dikke knop
+- Selectie: zelfde-dag startuur + geannuleerd-tags
+
+## 11. Open voor jouw GO
+
+- Eventuele laatste pixel-tweaks  
 - Daarna pas: Meta-koppeling / automatische publicatie  
 - Optioneel: Neon-tabel i.p.v. lokale conceptgeschiedenis  
 

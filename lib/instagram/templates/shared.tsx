@@ -23,7 +23,10 @@ export const slideStyle = {
   background: igColors.cream,
 };
 
-/** Top brand row: official logo + slogan. */
+/**
+ * Top brand row: official logo (square asset → display large) + wordmark + slogan.
+ * Logo file is ~1:1; size by height so it stays readable on phone.
+ */
 export function BrandHeader({
   logoSrc,
   light = false,
@@ -45,8 +48,8 @@ export function BrandHeader({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={logoSrc}
-        width={300}
-        height={96}
+        width={168}
+        height={168}
         style={{ objectFit: "contain", flexShrink: 0 }}
         alt="DateOfflineHub"
       />
@@ -56,17 +59,32 @@ export function BrandHeader({
           flexDirection: "column",
           flex: 1,
           minWidth: 0,
-          paddingLeft: 4,
+          gap: 6,
+          paddingLeft: 2,
         }}
       >
         <div
           style={{
             display: "flex",
-            fontSize: 17,
+            fontFamily: "Bricolage Grotesque",
+            fontSize: 36,
+            fontWeight: 700,
+            color: light ? igColors.cream : igColors.bordeaux,
+            lineHeight: 1.05,
+            letterSpacing: -0.4,
+          }}
+        >
+          DateOfflineHub
+        </div>
+        <div
+          style={{
+            display: "flex",
+            fontSize: 18,
             lineHeight: 1.35,
             color: light ? "rgba(249,242,234,0.95)" : igColors.bordeaux,
             fontFamily: "DM Sans",
             fontWeight: 500,
+            opacity: 0.92,
           }}
         >
           {INSTAGRAM_SLOGAN}
@@ -77,7 +95,14 @@ export function BrandHeader({
 }
 
 /** Bottom bar: website + handle (every slide). */
-export function BrandFooter({ light = false }: { light?: boolean }) {
+export function BrandFooter({
+  light = false,
+  /** When false, footer sits tight under content (no flex push). */
+  pushDown = true,
+}: {
+  light?: boolean;
+  pushDown?: boolean;
+}) {
   return (
     <div
       style={{
@@ -86,9 +111,9 @@ export function BrandFooter({ light = false }: { light?: boolean }) {
         alignItems: "center",
         justifyContent: "space-between",
         width: "100%",
-        marginTop: "auto",
-        paddingTop: 18,
-        paddingBottom: 8,
+        marginTop: pushDown ? "auto" : 8,
+        paddingTop: 16,
+        paddingBottom: 6,
         borderTop: `1px solid ${
           light ? igColors.lineGold : "rgba(103,40,58,0.18)"
         }`,
@@ -143,29 +168,53 @@ export function GoldPill({ children }: { children: string }) {
   );
 }
 
+/**
+ * Elegant gold accent line — not a large clickable-looking button.
+ * Instagram images are not interactive.
+ */
 export function GoldCta({ children }: { children: string }) {
   return (
     <div
       style={{
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         width: "100%",
-        padding: "22px 28px",
-        borderRadius: 999,
-        background: igColors.gold,
-        color: igColors.bordeaux,
-        fontSize: 26,
-        fontWeight: 700,
-        fontFamily: "DM Sans",
-        letterSpacing: 0.3,
+        gap: 10,
+        paddingTop: 4,
+        paddingBottom: 2,
       }}
     >
-      {children}
+      <div
+        style={{
+          display: "flex",
+          width: 120,
+          height: 2,
+          background: igColors.gold,
+          borderRadius: 2,
+        }}
+      />
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: igColors.goldDeep,
+          fontSize: 20,
+          fontWeight: 600,
+          fontFamily: "DM Sans",
+          letterSpacing: 0.2,
+          textAlign: "center",
+        }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
 
+/** Category labels as quiet text — not pill buttons. */
 export function CategoryIconRow() {
   const items = [
     "Drinks",
@@ -180,32 +229,47 @@ export function CategoryIconRow() {
       style={{
         display: "flex",
         flexDirection: "row",
-        justifyContent: "space-between",
+        justifyContent: "center",
+        alignItems: "center",
         width: "100%",
-        gap: 10,
-        marginTop: 16,
+        gap: 14,
+        marginTop: 14,
+        flexWrap: "wrap" as const,
       }}
     >
-      {items.map((label) => (
+      {items.map((label, i) => (
         <div
           key={label}
           style={{
             display: "flex",
-            flex: 1,
+            flexDirection: "row",
             alignItems: "center",
-            justifyContent: "center",
-            padding: "10px 4px",
-            borderRadius: 999,
-            border: `1px solid rgba(156,124,37,0.35)`,
-            background: igColors.white,
-            color: igColors.goldInk,
-            fontSize: 14,
-            fontWeight: 600,
-            fontFamily: "DM Sans",
-            textAlign: "center",
+            gap: 14,
           }}
         >
-          {label}
+          {i > 0 ? (
+            <div
+              style={{
+                display: "flex",
+                width: 4,
+                height: 4,
+                borderRadius: 4,
+                background: "rgba(156,124,37,0.55)",
+              }}
+            />
+          ) : null}
+          <div
+            style={{
+              display: "flex",
+              color: igColors.goldInk,
+              fontSize: 15,
+              fontWeight: 600,
+              fontFamily: "DM Sans",
+              letterSpacing: 0.3,
+            }}
+          >
+            {label}
+          </div>
         </div>
       ))}
     </div>

@@ -30,6 +30,16 @@ import {
   type InstagramFormatId,
 } from "@/lib/instagram/constants";
 
+/** Brussels wall-clock HH:MM for same-day start checks. */
+function brusselsHm(now: Date): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Brussels",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(now);
+}
+
 export type InstagramPriorityBand = "near" | "mid" | "later";
 
 export type InstagramSelectionOptions = {
@@ -63,6 +73,35 @@ export function isInstagramEligibleCapacity(event: Event): boolean {
   return true;
 }
 
+/** Cancelled / expired signals from tags or title — never invent availability. */
+export function isInstagramCancelled(event: Event): boolean {
+  const tags = (event.tags ?? []).map((t) => t.toLowerCase());
+  if (
+    tags.some((t) =>
+      /cancel|geannuleerd|afgelast|expired|verlopen/.test(t),
+    )
+  ) {
+    return true;
+  }
+  const title = (event.title ?? "").toLowerCase();
+  return /\b(geannuleerd|afgelast|cancelled)\b/.test(title);
+}
+
+/**
+ * True when the event has already started relative to `now` (Brussels).
+ * Same-day events without a start time stay eligible until end of day.
+ */
+export function hasInstagramEventStarted(event: Event, now: Date): boolean {
+  const today = brusselsToday(now);
+  if (!event.startDate) return true;
+  if (event.startDate < today) return true;
+  if (event.startDate > today) return false;
+  if (!event.startTime) return false;
+  const hm = event.startTime.trim().slice(0, 5);
+  if (!/^\d{2}:\d{2}$/.test(hm)) return false;
+  return hm <= brusselsHm(now);
+}
+
 /** Extra Wallonia / Ardennen place names beyond the website ticker helper. */
 const EXTRA_WALLONIA =
   /la\s*roche|rochefort|dinant|bastogne|viroinval|vielsalm|herve|spa|stavelot|malmedy|ardenne/i;
@@ -76,14 +115,18 @@ function isInstagramWallonia(event: Pick<Event, "region" | "city" | "title">): b
 /**
  * Hard gates shared by all Instagram formats.
  * Only published consumer-feed events should be passed in (listEvents).
+ * Pass `now` so same-day start times are checked against publish moment.
  */
 export function isInstagramBaseEligible(
   event: Event,
   today: string,
+  now?: Date,
 ): boolean {
   if (!event.startDate) return false;
   if (event.startDate < today) return false;
   if (!isInstagramEligibleCapacity(event)) return false;
+  if (isInstagramCancelled(event)) return false;
+  if (now && hasInstagramEventStarted(event, now)) return false;
   // Vlaanderen + Brussel focus (no Wallonië / Ardennen promo).
   if (isInstagramWallonia(event)) return false;
   return true;
@@ -201,7 +244,7 @@ export function selectInstagramEvents(
   const skippedReasons: { id: string; reason: string }[] = [];
 
   const base = catalog.filter((event) => {
-    if (!isInstagramBaseEligible(event, today)) {
+    if (!isInstagramBaseEligible(event, today, now)) {
       skippedReasons.push({ id: event.id, reason: "base_ineligible" });
       return false;
     }

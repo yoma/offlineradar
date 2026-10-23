@@ -9,6 +9,10 @@ import { formatDayMonth, formatLongDate, weekdayIndex } from "@/lib/dates";
 import type { ActivityId, Event } from "@/types/event";
 import { igColors } from "@/lib/instagram/constants";
 import {
+  titleForEventRow,
+  titleForEventSlide,
+} from "@/lib/instagram/title";
+import {
   BrandFooter,
   BrandHeader,
   CategoryIconRow,
@@ -250,16 +254,16 @@ function EventRow({
             style={{
               display: "flex",
               fontFamily: "Bricolage Grotesque",
-              fontSize: compact ? 22 : 24,
+              fontSize: compact ? 21 : 23,
               fontWeight: 700,
               color: igColors.bordeaux,
-              lineHeight: 1.2,
+              lineHeight: 1.22,
               flex: 1,
+              maxHeight: compact ? 52 : 58,
+              overflow: "hidden",
             }}
           >
-            {event.title.length > (compact ? 40 : 46)
-              ? `${event.title.slice(0, compact ? 37 : 43)}…`
-              : event.title}
+            {titleForEventRow(event.title, compact)}
           </div>
           <div
             style={{
@@ -418,8 +422,8 @@ export function BinnenkortCoverSlide({
           ))}
         </div>
 
-        <div style={{ display: "flex", marginTop: 16 }}>
-          <GoldCta>Ontdek alle events →</GoldCta>
+        <div style={{ display: "flex", marginTop: 14 }}>
+          <GoldCta>Meer info via dateofflinehub.be</GoldCta>
         </div>
         <CategoryIconRow />
         <BrandFooter light={false} />
@@ -428,7 +432,7 @@ export function BinnenkortCoverSlide({
   );
 }
 
-/** Individuele eventslide — photo top, cream content */
+/** Individuele eventslide — fuller canvas, balanced photo + info */
 export function EventSlide({
   logoSrc,
   heroSrc,
@@ -436,6 +440,7 @@ export function EventSlide({
   index,
   total,
   eyebrow = "Binnenkort",
+  showAtmosphereLabel = true,
 }: {
   logoSrc: string;
   heroSrc: string;
@@ -443,20 +448,25 @@ export function EventSlide({
   index: number;
   total: number;
   eyebrow?: string;
+  showAtmosphereLabel?: boolean;
 }) {
   const act = activityText(event);
   const age = ageShort(event);
   const city = locationLine(event);
+  const displayTitle = titleForEventSlide(event.title);
+  const titleSize = displayTitle.length > 55 ? 36 : displayTitle.length > 40 ? 40 : 44;
 
   return (
     <div style={slideStyle}>
+      {/* Photo grows to fill; info block stays compact at the bottom */}
       <div
         style={{
           display: "flex",
           position: "relative",
           width: 1080,
-          height: 560,
-          flexShrink: 0,
+          flexGrow: 1,
+          flexShrink: 1,
+          minHeight: 560,
           overflow: "hidden",
         }}
       >
@@ -464,13 +474,14 @@ export function EventSlide({
         <img
           src={heroSrc}
           width={1080}
-          height={560}
+          height={1100}
           style={{
             position: "absolute",
             top: 0,
             left: 0,
+            right: 0,
+            bottom: 0,
             width: 1080,
-            height: 560,
             objectFit: "cover",
           }}
           alt=""
@@ -480,10 +491,11 @@ export function EventSlide({
             position: "absolute",
             top: 0,
             left: 0,
+            right: 0,
+            bottom: 0,
             width: 1080,
-            height: 560,
             background:
-              "linear-gradient(180deg, rgba(249,242,234,0.2) 0%, rgba(249,242,234,0.08) 40%, rgba(249,242,234,0.95) 100%)",
+              "linear-gradient(180deg, rgba(249,242,234,0.3) 0%, rgba(249,242,234,0.04) 48%, rgba(249,242,234,0.98) 100%)",
             display: "flex",
           }}
         />
@@ -494,7 +506,7 @@ export function EventSlide({
             position: "relative",
             width: "100%",
             height: "100%",
-            padding: "40px 48px 24px",
+            padding: "28px 48px 16px",
           }}
         >
           <BrandHeader logoSrc={logoSrc} light={false} />
@@ -502,7 +514,7 @@ export function EventSlide({
             style={{
               display: "flex",
               justifyContent: "space-between",
-              marginTop: 20,
+              marginTop: 14,
               alignItems: "center",
             }}
           >
@@ -510,7 +522,7 @@ export function EventSlide({
             <div
               style={{
                 display: "flex",
-                fontSize: 18,
+                fontSize: 17,
                 color: igColors.bordeaux,
                 fontFamily: "DM Sans",
                 fontWeight: 600,
@@ -519,7 +531,8 @@ export function EventSlide({
                 borderRadius: 999,
               }}
             >
-              {index}/{total} · sfeerbeeld
+              {index}/{total}
+              {showAtmosphereLabel ? " · Sfeerbeeld" : ""}
             </div>
           </div>
         </div>
@@ -529,63 +542,19 @@ export function EventSlide({
         style={{
           display: "flex",
           flexDirection: "column",
-          flexGrow: 1,
-          padding: "8px 48px 36px",
-          marginTop: -28,
-          gap: 16,
+          flexShrink: 0,
+          padding: "0 48px 30px",
+          marginTop: -52,
+          gap: 12,
         }}
       >
         <div
           style={{
             display: "flex",
-            flexDirection: "row",
-            gap: 18,
-            alignItems: "flex-start",
-          }}
-        >
-          <PetalDateBadge startDate={event.startDate} tone="gold" />
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              flex: 1,
-              gap: 10,
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                fontFamily: "Bricolage Grotesque",
-                fontSize: event.title.length > 48 ? 40 : 46,
-                fontWeight: 700,
-                color: igColors.bordeaux,
-                lineHeight: 1.12,
-              }}
-            >
-              {event.title}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                fontSize: 22,
-                color: igColors.anthracite,
-                fontFamily: "DM Sans",
-                lineHeight: 1.4,
-                opacity: 0.85,
-              }}
-            >
-              {shortBlurb(event)}
-            </div>
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
             flexDirection: "column",
-            gap: 10,
-            padding: "18px 20px",
-            borderRadius: 18,
+            gap: 14,
+            padding: "22px 24px 24px",
+            borderRadius: 22,
             background: igColors.white,
             border: "1px solid rgba(228,213,203,0.95)",
           }}
@@ -593,32 +562,97 @@ export function EventSlide({
           <div
             style={{
               display: "flex",
-              fontSize: 22,
-              color: igColors.bordeaux,
-              fontFamily: "DM Sans",
-              fontWeight: 600,
+              flexDirection: "row",
+              gap: 16,
+              alignItems: "flex-start",
             }}
           >
-            {whenDetail(event)}
+            <PetalDateBadge startDate={event.startDate} tone="gold" />
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                flex: 1,
+                gap: 8,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  fontFamily: "Bricolage Grotesque",
+                  fontSize: titleSize,
+                  fontWeight: 700,
+                  color: igColors.bordeaux,
+                  lineHeight: 1.15,
+                  maxHeight: 104,
+                  overflow: "hidden",
+                }}
+              >
+                {displayTitle}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  fontSize: 20,
+                  color: igColors.anthracite,
+                  fontFamily: "DM Sans",
+                  lineHeight: 1.4,
+                  opacity: 0.85,
+                }}
+              >
+                {shortBlurb(event)}
+              </div>
+            </div>
           </div>
+
           <div
             style={{
               display: "flex",
-              fontSize: 22,
-              color: igColors.anthracite,
-              fontFamily: "DM Sans",
-              fontWeight: 500,
+              width: "100%",
+              height: 1,
+              background: "rgba(103,40,58,0.12)",
+            }}
+          />
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
             }}
           >
-            {city}
-            {age ? ` · ${age}` : ""}
+            <div
+              style={{
+                display: "flex",
+                fontSize: 22,
+                color: igColors.bordeaux,
+                fontFamily: "DM Sans",
+                fontWeight: 600,
+              }}
+            >
+              {whenDetail(event)}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                fontSize: 21,
+                color: igColors.anthracite,
+                fontFamily: "DM Sans",
+                fontWeight: 500,
+              }}
+            >
+              {city}
+              {age ? ` · ${age}` : ""}
+              {act ? ` · ${act}` : ""}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", marginTop: 4 }}>
+            <GoldCta>Alle details via link in bio</GoldCta>
           </div>
         </div>
 
-        <div style={{ display: "flex", marginTop: 4 }}>
-          <GoldCta>Bekijk dit event →</GoldCta>
-        </div>
-        <BrandFooter light={false} />
+        <BrandFooter light={false} pushDown={false} />
       </div>
     </div>
   );
@@ -745,8 +779,8 @@ export function DezeWeekOverviewSlide({
           ))}
         </div>
 
-        <div style={{ display: "flex", marginTop: 16 }}>
-          <GoldCta>Bekijk alle events →</GoldCta>
+        <div style={{ display: "flex", marginTop: 14 }}>
+          <GoldCta>Ontdek alle activiteiten</GoldCta>
         </div>
         <BrandFooter light={false} />
       </div>
@@ -840,7 +874,7 @@ export function NieuwCoverSlide({
           {periodLabel || "Verse singlesactiviteiten"}
         </div>
         <div style={{ display: "flex", marginTop: "auto" }}>
-          <GoldCta>Ontdek alle events →</GoldCta>
+          <GoldCta>Meer info via dateofflinehub.be</GoldCta>
         </div>
         <BrandFooter light={false} />
       </div>
