@@ -141,6 +141,26 @@ async function main() {
     fail("isListingOrIndexUrl", "calendar/agenda");
   } else ok("isListingOrIndexUrl detects agenda pages");
 
+  if (!isListingOrIndexUrl("https://www.sportievesingles.be/kalender")) {
+    fail("isListingOrIndexUrl sportieve kalender", "expected listing");
+  } else ok("sportieve kalender is listing URL");
+
+  // Thorough draft guard: listing URLs must not count as catalog duplicates.
+  const engineSrc = await readFile(
+    path.join(process.cwd(), "lib/source-refresh/engine.ts"),
+    "utf8",
+  );
+  const listingGuard =
+    /async function urlAlreadyInCatalog[\s\S]*?if \(isListingOrIndexUrl\(officialUrl\)\) return false;/.test(
+      engineSrc,
+    );
+  if (!listingGuard) {
+    fail(
+      "urlAlreadyInCatalog listing guard",
+      "expected isListingOrIndexUrl early-return before event_sources lookup",
+    );
+  } else ok("urlAlreadyInCatalog skips listing/agenda URLs");
+
   if (
     !titlesLooselyEqual(
       "14/10 Antwerpen, 53-65j",
