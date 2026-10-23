@@ -4,10 +4,6 @@ import { revalidatePath } from "next/cache";
 import { signIn, signOut } from "@/auth";
 import { resolveTipsAdminAccess } from "@/lib/tips/admin-auth";
 import {
-  getEditionById,
-  updateEditionPublication,
-} from "@/lib/events/neon-store";
-import {
   upsertCatalogSourceByUrl,
   updateCatalogSourceFields,
   type CatalogSourceStatus,
@@ -17,8 +13,6 @@ import {
   updateOpenReportsForEdition,
   type EventReportStatus,
 } from "@/lib/events/reports";
-import { neonListTipIdsForEdition } from "@/lib/tips/neon-store";
-import { updateTipStatus } from "@/lib/tips/service";
 
 export async function startEventsAdminSignIn() {
   await signIn("google", { redirectTo: "/interne-events" });
@@ -47,56 +41,51 @@ export async function takeEventOfflineAction(formData: FormData) {
   revalidatePath(`/event/${updated.slug}`);
 }
 
-/** Explicit human publish: draft/approved/under_review → published. Syncs linked tips. */
+/** Explicit human publish: gated one-click (Phase 2B). Syncs linked tips. */
 export async function publishEventAction(formData: FormData) {
   const access = await resolveTipsAdminAccess();
   if (!access.ok) throw new Error("Niet geautoriseerd");
   const id = String(formData.get("editionId") ?? "").trim();
   if (!id) throw new Error("editionId ontbreekt");
-  const { editionIsManuallySuppressed } = await import("@/lib/events/neon-store");
-  if (await editionIsManuallySuppressed(id)) {
-    throw new Error(
-      "Dit event is handmatig weggehaald. AI mag het niet opnieuw publiceren.",
-    );
-  }
-  const bundle = await getEditionById(id);
-  if (!bundle) throw new Error("Event niet gevonden");
-  const status = bundle.edition.publicationStatus;
-  if (status === "published") throw new Error("Event is al published");
-  if (status === "rejected" || status === "cancelled" || status === "expired") {
-    throw new Error("Deze status kan niet gepubliceerd worden");
-  }
-  const now = new Date().toISOString();
-  let updated;
-  try {
-    updated = await updateEditionPublication({
-      id,
-      publicationStatus: "published",
-      publishedAt: now,
-      approvedAt: now,
-    });
-  } catch (error) {
-    throw new Error(
-      error instanceof Error ? error.message : "Publiceren mislukt",
-    );
-  }
-  if (!updated) throw new Error("Publiceren mislukt");
-
-  const tipIds = await neonListTipIdsForEdition(id);
-  for (const tipId of tipIds) {
-    await updateTipStatus({
-      tipId,
-      status: "published",
-      decisionReason: "Gekoppeld event gepubliceerd via /interne-events.",
-      publishedEventPath: `/event/${updated.slug}`,
-    });
-  }
+  const { publishEditionIfAllowed } = await import(
+    "@/lib/aanvoer/publish-edition"
+  );
+  const result = await publishEditionIfAllowed(id, {
+    decisionReason: "Gepubliceerd via /interne-events (fase 2B gate).",
+  });
+  if (!result.ok) throw new Error(result.error);
 
   revalidatePath("/interne-events");
   revalidatePath("/interne-tips");
   revalidatePath("/interne-goedkeuren");
+  revalidatePath("/interne-aanvoer");
   revalidatePath("/ontdek");
-  revalidatePath(`/event/${updated.slug}`);
+  revalidatePath(`/event/${result.slug}`);
+}
+
+/** Bulk publish with per-edition server-side gate. */
+export async function bulkPublishEventsAction(formData: FormData) {
+  const access = await resolveTipsAdminAccess();
+  if (!access.ok) throw new Error("Niet geautoriseerd");
+  const ids = formData
+    .getAll("editionId")
+    .map((v) => String(v).trim())
+    .filter(Boolean);
+  if (ids.length === 0) throw new Error("Geen events geselecteerd");
+  const { bulkPublishEditionsIfAllowed } = await import(
+    "@/lib/aanvoer/publish-edition"
+  );
+  const result = await bulkPublishEditionsIfAllowed(ids);
+  revalidatePath("/interne-events");
+  revalidatePath("/interne-aanvoer");
+  revalidatePath("/interne-goedkeuren");
+  revalidatePath("/ontdek");
+  if (result.published === 0 && result.failed.length > 0) {
+    throw new Error(
+      result.failed[0]?.error ?? "Geen events konden worden gepubliceerd.",
+    );
+  }
+  return result;
 }
 
 export async function addCatalogSourceAction(formData: FormData) {

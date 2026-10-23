@@ -83,6 +83,8 @@
     "verify:source-refresh": "npx tsx scripts/verify-source-refresh.ts",
     "verify:source-refresh:neon": "node --env-file=.env.local --import tsx scripts/verify-source-refresh.ts",
     "verify:scheduled-source-refresh": "npx tsx scripts/verify-scheduled-source-refresh.ts",
+    "verify:phase2b-publish": "npx tsx scripts/verify-phase2b-publish.ts",
+    "dry-run:phase2b-ingest": "npx tsx scripts/dry-run-phase2b-ingest.ts",
     "refresh:scheduled-pilot": "node --env-file=.env.local --import tsx scripts/run-scheduled-refresh-pilot.ts",
     "verify:image-compatibility": "npx tsx scripts/verify-image-compatibility.ts",
     "verify:semantic-event-images": "npx tsx scripts/verify-semantic-event-images.ts",

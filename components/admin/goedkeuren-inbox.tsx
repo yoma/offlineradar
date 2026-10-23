@@ -75,11 +75,6 @@ export function GoedkeurenInbox({ items: initial }: Props) {
         <ul className="space-y-4">
           {items.map((item) => {
             const busy = busyId === item.id;
-            const checksOk =
-              item.checks.singles &&
-              item.checks.date &&
-              item.checks.location &&
-              item.checks.source;
             return (
               <li
                 key={item.id}
@@ -89,7 +84,9 @@ export function GoedkeurenInbox({ items: initial }: Props) {
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold tracking-wide text-stone-500 uppercase">
                       {ORIGIN_LABEL[item.origin]}
-                      {checksOk ? " · lijkt compleet" : " · nog twijfel"}
+                      {item.readyToPublish
+                        ? " · klaar voor publicatie"
+                        : " · nakijken"}
                     </p>
                     <h2 className="mt-1 text-lg font-semibold tracking-tight text-stone-900">
                       {item.title}
@@ -99,11 +96,15 @@ export function GoedkeurenInbox({ items: initial }: Props) {
                         .filter(Boolean)
                         .join(" · ")}
                     </p>
-                    {item.blockReason ? (
-                      <p className="mt-2 text-sm text-amber-900">
-                        {item.blockReason}
-                      </p>
-                    ) : null}
+                    <p
+                      className={`mt-2 text-sm ${
+                        item.readyToPublish
+                          ? "text-emerald-900"
+                          : "text-amber-900"
+                      }`}
+                    >
+                      {item.readinessSummary}
+                    </p>
                     {item.sourceUrl ? (
                       <a
                         href={item.sourceUrl}
@@ -125,7 +126,7 @@ export function GoedkeurenInbox({ items: initial }: Props) {
                     className="inline-flex min-h-11 items-center justify-center rounded-full bg-emerald-700 px-5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:opacity-60"
                   >
                     <PendingContent pending={busy} pendingLabel="Bezig…">
-                      Toevoegen aan site
+                      {item.readyToPublish ? "Publiceren" : "Toch publiceren"}
                     </PendingContent>
                   </button>
                   <button

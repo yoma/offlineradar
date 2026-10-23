@@ -1310,68 +1310,20 @@ export async function updateAanvoerCandidateStatusAction(
   }
 
   if (status === "published") {
-    const { editionIsManuallySuppressed } = await import(
-      "@/lib/events/neon-store"
+    const { publishEditionIfAllowed } = await import(
+      "@/lib/aanvoer/publish-edition"
     );
-    if (await editionIsManuallySuppressed(id)) {
-      return {
-        ok: false,
-        error:
-          "Dit event is handmatig weggehaald. AI mag het niet opnieuw publiceren.",
-      };
+    const published = await publishEditionIfAllowed(id, {
+      decisionReason: "Toegevoegd via /interne-aanvoer (fase 2B gate).",
+    });
+    if (!published.ok) {
+      return { ok: false, error: published.error };
     }
-    const sql = getEventsSql();
-    if (sql) {
-      const rows = (await sql`
-        SELECT starts_at::text AS starts_at, tags, internal_notes, title
-        FROM event_editions WHERE id = ${id}::uuid LIMIT 1
-      `) as {
-        starts_at: string;
-        tags: unknown;
-        internal_notes: string | null;
-        title: string;
-      }[];
-      const row = rows[0];
-      if (!row) return { ok: false, error: "Event niet gevonden." };
-      const tags = Array.isArray(row.tags)
-        ? row.tags.filter((t): t is string => typeof t === "string")
-        : [];
-      if (
-        isPlaceholderStartsAt(row.starts_at) ||
-        tags.includes("date_unknown") ||
-        /date_unknown=1|Startdatum onbekend/i.test(row.internal_notes ?? "")
-      ) {
-        return {
-          ok: false,
-          error: "Datum kon niet worden bevestigd. Pas de datum eerst aan.",
-        };
-      }
-    }
-
-    const now = new Date().toISOString();
-    let updated;
-    try {
-      updated = await updateEditionPublication({
-        id,
-        publicationStatus: "published",
-        publishedAt: now,
-        approvedAt: now,
-      });
-    } catch (error) {
-      return {
-        ok: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Kon event niet toevoegen.",
-      };
-    }
-    if (!updated) return { ok: false, error: "Kon event niet toevoegen." };
     revalidatePath("/interne-aanvoer");
     revalidatePath("/interne-goedkeuren");
     revalidatePath("/interne-events");
     revalidatePath("/ontdek");
-    revalidatePath(`/event/${updated.slug}`);
+    revalidatePath(`/event/${published.slug}`);
     return { ok: true, message: "✓ Toegevoegd aan DateOfflineHub" };
   }
 
@@ -1406,6 +1358,144 @@ export async function updateAanvoerCandidateStatusAction(
   revalidatePath("/interne-goedkeuren");
   revalidatePath("/interne-events");
   return { ok: true };
+}
+
+/**
+ * Phase 2B: inline field correction + automatic re-gate (no full rescan).
+ */
+export async function patchAanvoerCandidateFieldsAction(
+  formData: FormData,
+): Promise<
+  | {
+      ok: true;
+      message: string;
+      readyToPublish: boolean;
+      readinessSummary: string;
+    }
+  | { ok: false; error: string }
+> {
+  const gate = await requireAdmin();
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  const id = String(formData.get("editionId") ?? "").trim();
+  if (!id) return { ok: false, error: "Event ontbreekt." };
+
+  const priceRaw = String(formData.get("priceAmount") ?? "").trim();
+  let priceAmount: number | null | undefined = undefined;
+  if (priceRaw === "") {
+    // leave undefined
+  } else if (/^(onbekend|n\/a|\?)$/i.test(priceRaw)) {
+    priceAmount = null;
+  } else {
+    const n = Number(priceRaw.replace(",", "."));
+    if (!Number.isFinite(n)) {
+      return { ok: false, error: "Prijs is ongeldig." };
+    }
+    priceAmount = n;
+  }
+
+  const { patchEditionAdminFields, getEditionById } = await import(
+    "@/lib/events/neon-store"
+  );
+  const updated = await patchEditionAdminFields({
+    id,
+    title: String(formData.get("title") ?? "") || null,
+    city: String(formData.get("city") ?? "") || null,
+    venueName: String(formData.get("venueName") ?? "") || null,
+    startDate: String(formData.get("startDate") ?? "") || null,
+    startTime: String(formData.get("startTime") ?? "") || null,
+    priceAmount,
+    priceNote: String(formData.get("priceNote") ?? "") || null,
+    clearPrice: String(formData.get("clearPrice") ?? "") === "1",
+  });
+  if (!updated) return { ok: false, error: "Kon wijziging niet opslaan." };
+
+  const bundle = await getEditionById(id);
+  const { evaluateEventForPublication } = await import(
+    "@/lib/aanvoer/publication-gate"
+  );
+  const { describePublicationReadiness } = await import(
+    "@/lib/aanvoer/readiness-copy"
+  );
+  const sourceUrl =
+    bundle?.sources.find((s) => s.isPrimary)?.url ??
+    bundle?.sources[0]?.url ??
+    null;
+  const decision = evaluateEventForPublication({
+    publicationStatus: updated.publicationStatus,
+    startsAt: updated.startsAt,
+    sourceUrl,
+    eligibilityRoute: updated.eligibilityRoute,
+    singlesOnly: updated.singlesOnly,
+    singlesOriented: updated.singlesOriented,
+    internalNotes: updated.internalNotes,
+    tags: updated.tags,
+    city: updated.city,
+    venueName: updated.venueName,
+    latitude: updated.latitude,
+    longitude: updated.longitude,
+  });
+  const readyToPublish = decision.decision === "publish";
+  const readinessSummary = describePublicationReadiness({
+    checks: decision.classified.checks,
+    priceKnown:
+      updated.priceAmount != null || Boolean(updated.priceNote?.trim()),
+    startTime: updated.startsAt?.slice(11, 16) ?? null,
+    blockReason: decision.reason,
+    readyToPublish,
+  });
+
+  revalidatePath("/interne-aanvoer");
+  revalidatePath("/interne-goedkeuren");
+  revalidatePath("/interne-events");
+  return {
+    ok: true,
+    message: readyToPublish
+      ? "Opgeslagen. Klaar voor publicatie."
+      : "Opgeslagen. Controleer nog de ontbrekende gegevens.",
+    readyToPublish,
+    readinessSummary,
+  };
+}
+
+/** Phase 2B bulk publish from Wachtrij / Klaar. */
+export async function bulkPublishAanvoerCandidatesAction(
+  formData: FormData,
+): Promise<
+  | { ok: true; message: string; published: number; failed: number }
+  | { ok: false; error: string }
+> {
+  const gate = await requireAdmin();
+  if (!gate.ok) return { ok: false, error: gate.error };
+  const ids = formData
+    .getAll("editionId")
+    .map((v) => String(v).trim())
+    .filter(Boolean);
+  if (ids.length === 0) return { ok: false, error: "Geen events geselecteerd." };
+  const { bulkPublishEditionsIfAllowed } = await import(
+    "@/lib/aanvoer/publish-edition"
+  );
+  const result = await bulkPublishEditionsIfAllowed(ids);
+  revalidatePath("/interne-aanvoer");
+  revalidatePath("/interne-goedkeuren");
+  revalidatePath("/interne-events");
+  revalidatePath("/ontdek");
+  if (result.published === 0) {
+    return {
+      ok: false,
+      error:
+        result.failed[0]?.error ??
+        "Geen events konden worden gepubliceerd (gate geweigerd).",
+    };
+  }
+  return {
+    ok: true,
+    message: `${result.published} gepubliceerd${
+      result.failed.length ? `, ${result.failed.length} overgeslagen` : ""
+    }.`,
+    published: result.published,
+    failed: result.failed.length,
+  };
 }
 
 /**

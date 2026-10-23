@@ -114,6 +114,10 @@ export type CockpitCandidateRow = {
   createdAt: string;
   tags: string[];
   manuallySuppressed: boolean;
+  /** Phase 2B: gate passed — one-click publish allowed. */
+  readyToPublish: boolean;
+  /** Plain-Dutch readiness line for the card. */
+  readinessSummary: string;
 };
 
 export type AanvoerCockpitData = {
@@ -671,15 +675,25 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       longitude: row.longitude,
     });
 
-    // Never auto-publish on GET (page load). Ready items stay in aandacht
-    // for an explicit admin action — avoids N+1 writes and matches UI copy.
+    // Never auto-publish on GET (page load). Ready items stay for explicit admin click.
     pending.push({ row, tags, notes, classified });
   }
+
+  const { describePublicationReadiness } = await import(
+    "@/lib/aanvoer/readiness-copy"
+  );
 
   const candidates: CockpitCandidateRow[] = pending.map(
     ({ row, tags, notes, classified }) => {
       const startsAt = toIsoString(row.starts_at);
       const sourceUrl = row.source_url;
+      const startTime = classified.displayDate
+        ? extractStartTime(startsAt)
+        : null;
+      const priceKnown =
+        row.price_amount != null || Boolean(row.price_note?.trim());
+      const readyToPublish =
+        classified.status === "aandacht_nodig" && classified.readyToPublish;
       return {
         id: row.id,
         slug: row.slug,
@@ -689,7 +703,7 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
         venueName: row.venue_name,
         startsAt,
         displayDate: classified.displayDate,
-        startTime: classified.displayDate ? extractStartTime(startsAt) : null,
+        startTime,
         category: row.category,
         imageUrl: row.image_url,
         publicationStatus: row.publication_status,
@@ -718,12 +732,24 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
         createdAt: toIsoString(row.created_at),
         tags,
         manuallySuppressed: isManuallySuppressed(tags, notes),
+        readyToPublish,
+        readinessSummary: describePublicationReadiness({
+          checks: classified.checks,
+          priceKnown,
+          startTime,
+          blockReason: classified.reason,
+          readyToPublish,
+        }),
       };
     },
   );
 
   const aandacht = candidates.filter(
     (c) => c.adminStatus === "aandacht_nodig",
+  ).length;
+  const klaar = candidates.filter((c) => c.readyToPublish).length;
+  const controle = candidates.filter(
+    (c) => c.adminStatus === "aandacht_nodig" && !c.readyToPublish,
   ).length;
   const added = candidates.filter((c) => c.adminStatus === "toegevoegd").length;
   const dismissed = candidates.filter(
@@ -737,8 +763,8 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       sources: cockpitSources.length,
       userSupplied: cockpitSources.filter((s) => s.userSupplied).length,
       aandacht,
-      klaar: 0,
-      controle: aandacht,
+      klaar,
+      controle,
       added,
       dismissed,
       gevolgd: cockpitSources.filter((s) => s.followStatus === "gevolgd").length,
@@ -752,7 +778,7 @@ export async function loadAanvoerCockpitData(): Promise<AanvoerCockpitData> {
       bronAandacht: cockpitSources.filter(
         (s) => s.followStatus === "aandacht_nodig",
       ).length,
-      reviewNeeded: aandacht,
+      reviewNeeded: controle,
       candidates: aandacht,
     },
     autoPublishedIds,
