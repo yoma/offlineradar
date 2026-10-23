@@ -79,6 +79,7 @@ function DraftCard({ draft }: { draft: InstagramDraft }) {
                   key={`${s.kind}-${i}`}
                   type="button"
                   role="tab"
+                  data-testid={`ig-slide-tab-${draft.format}-${i}`}
                   aria-selected={i === slideIndex}
                   onClick={() => {
                     if (i === slideIndex) return;
