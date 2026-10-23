@@ -6,10 +6,10 @@
 import type { DiscoveryChannel } from "@/data/discovery/query-matrix";
 
 const TICKET_HOST_RE =
-  /eventbrite|hipsy|partyfinder|eventgoose|ikwileenticket|billetweb|billetto|ticketmaster|atleta\.cc/i;
+  /eventbrite|hipsy|partyfinder|eventgoose|ikwileenticket|billetweb|billetto|ticketmaster|atleta\.cc|hoptodate|speeddaten|p4s\.be/i;
 
 const AGGREGATOR_HOST_RE =
-  /meetup\.com|alleevents|uitinvlaanderen|stayhappening|facebook\.com\/events|eventful/i;
+  /meetup\.com|allevents\.|allevents\.in|uitinvlaanderen|stayhappening|facebook\.com\/events|eventful|eventbrite\.com\/d\//i;
 
 const SOCIAL_HOST_RE =
   /instagram\.com|facebook\.com|tiktok\.com|x\.com|twitter\.com|linkedin\.com/i;

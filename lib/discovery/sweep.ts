@@ -23,6 +23,10 @@ import {
   isSignalOnlyChannel,
 } from "@/lib/discovery/channel";
 import {
+  catalogUrlForDiscoveryChannel,
+  discoveryDedupeKey,
+} from "@/lib/discovery/canonical-url";
+import {
   evaluateDiscoveryHeuristics,
   extractHtmlTitle,
   guessOrganizerName,
@@ -95,6 +99,13 @@ export type RunDiscoverySweepOptions = {
   fetchHtml?: (url: string) => Promise<{ ok: boolean; html: string; finalUrl: string }>;
   /** Injected search for tests. */
   search?: typeof discoverUrlsForQueries;
+  /**
+   * Injected existing-source lookup (tests / offline validation).
+   * When omitted, uses Neon catalog_sources (exact URL + organizer host).
+   */
+  lookupExisting?: (
+    catalogUrl: string,
+  ) => Promise<{ id: string; notes: string | null; status: string } | null>;
   now?: Date;
 };
 
@@ -162,12 +173,42 @@ async function findExistingByUrl(
   const sql = getEventsSql();
   if (!sql) return null;
   const normalized = normalizeCatalogSourceUrl(officialUrl);
-  const rows = (await sql`
+  const exact = (await sql`
     SELECT id, notes, status FROM catalog_sources
     WHERE normalized_url = ${normalized}
     LIMIT 1
   `) as { id: string; notes: string | null; status: string }[];
-  return rows[0] ?? null;
+  if (exact[0]) return exact[0];
+
+  // Organizer origin may already exist as /kalender or another path on same host.
+  let host = "";
+  try {
+    host = new URL(officialUrl).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return null;
+  }
+  if (!host) return null;
+  const root = `https://${host}`;
+  const rootWww = `https://www.${host}`;
+  const pathPrefix = `${root}/%`;
+  const pathPrefixWww = `${rootWww}/%`;
+  const byHost = (await sql`
+    SELECT id, notes, status FROM catalog_sources
+    WHERE
+      normalized_url = ${root}
+      OR normalized_url = ${rootWww}
+      OR normalized_url LIKE ${pathPrefix}
+      OR normalized_url LIKE ${pathPrefixWww}
+    ORDER BY
+      CASE status
+        WHEN 'active' THEN 0
+        WHEN 'promising' THEN 1
+        ELSE 2
+      END,
+      updated_at DESC
+    LIMIT 1
+  `) as { id: string; notes: string | null; status: string }[];
+  return byHost[0] ?? null;
 }
 
 type EvalResult =
@@ -198,6 +239,7 @@ export async function runDiscoverySweep(
   const now = options.now ?? new Date();
   const fetchHtml = options.fetchHtml ?? defaultFetchHtml;
   const search = options.search ?? discoverUrlsForQueries;
+  const lookupExisting = options.lookupExisting ?? findExistingByUrl;
 
   const rejected: DiscoveryReject[] = [];
   const accepted: DiscoveryAccepted[] = [];
@@ -270,13 +312,16 @@ export async function runDiscoverySweep(
       });
       continue;
     }
-    let key = hit.url.toLowerCase();
-    try {
-      const u = new URL(hit.url);
-      key = `${u.hostname}${u.pathname}`.toLowerCase();
-    } catch {
-      // keep url key
+    // Phase 2A = new organizers only; ticket platforms are discovery signal, not org rows.
+    if (channel === "ticket_platform") {
+      rejected.push({
+        url: hit.url,
+        reason: "ticket_not_primary_org",
+        query: hit.query,
+      });
+      continue;
     }
+    const key = discoveryDedupeKey(hit.url, channel);
     if (seenHostPath.has(key)) continue;
     seenHostPath.add(key);
     const qMeta = queryByText.get(hit.query);
@@ -333,14 +378,17 @@ export async function runDiscoverySweep(
       } catch {
         // ignore
       }
+      const finalUrl = page.finalUrl || cand.url;
+      const channel = classifyDiscoveryChannel(finalUrl);
+      const catalogUrl = catalogUrlForDiscoveryChannel(finalUrl, channel);
       return {
         kind: "accept",
-        url: page.finalUrl || cand.url,
+        url: catalogUrl,
         name: guessOrganizerName(title, hostname),
         route: verdict.route,
         reason: verdict.reason,
         query: cand.query,
-        channel: classifyDiscoveryChannel(page.finalUrl || cand.url),
+        channel,
         regions: [cand.region],
         formats: [cand.format],
       };
@@ -364,6 +412,17 @@ export async function runDiscoverySweep(
       });
       continue;
     }
+    if (ev.channel === "ticket_platform" || ev.channel === "aggregator") {
+      rejected.push({
+        url: ev.url,
+        reason:
+          ev.channel === "ticket_platform"
+            ? "ticket_not_primary_org"
+            : "aggregator_low_priority",
+        query: ev.query,
+      });
+      continue;
+    }
     if (inserts >= maxInserts) {
       rejected.push({
         url: ev.url,
@@ -373,8 +432,8 @@ export async function runDiscoverySweep(
       continue;
     }
 
-    // Without DB, findExisting returns null — treat as new (dry-run friendly).
-    const existing = await findExistingByUrl(ev.url);
+    // Without DB / lookup, existing is null — treat as new (dry-run friendly).
+    const existing = await lookupExisting(ev.url);
 
     if (existing) {
       skippedExisting += 1;
@@ -424,9 +483,8 @@ export async function runDiscoverySweep(
     const result = await upsertCatalogSourceByUrl({
       name: ev.name,
       officialUrl: ev.url,
-      sourceKind:
-        ev.channel === "ticket_platform" ? "discovery_platform" : "organizer_source",
-      sourceType: sourceTypeForChannel(ev.channel),
+      sourceKind: "organizer_source",
+      sourceType: "organizer",
       regions: ev.regions,
       formats: ev.formats,
       status: "promising",

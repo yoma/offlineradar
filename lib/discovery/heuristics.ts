@@ -61,7 +61,14 @@ export function evaluateDiscoveryHeuristics(input: {
   }
 
   const routeA = ROUTE_A_RE.test(hay);
-  const geo = BELGIUM_RE.test(hay) || BELGIUM_RE.test(input.url);
+  let host = "";
+  try {
+    host = new URL(input.url).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    host = "";
+  }
+  const beHost = host.endsWith(".be");
+  const geo = BELGIUM_RE.test(hay) || BELGIUM_RE.test(input.url) || beHost;
   let singlesScore = 0;
   if (routeA) singlesScore += 3;
   if (geo) singlesScore += 1;
@@ -79,8 +86,8 @@ export function evaluateDiscoveryHeuristics(input: {
     };
   }
 
-  // Belgium/geo preferred; allow strong Route A without geo (national orgs).
-  if (!geo && singlesScore < 4) {
+  // DateOfflineHub scope = België. Require BE host or BE/regio text signal.
+  if (!geo) {
     return {
       accept: false,
       route: null,
@@ -93,9 +100,9 @@ export function evaluateDiscoveryHeuristics(input: {
   return {
     accept: true,
     route: "A",
-    reason: geo
-      ? "Route A: expliciete singlesfocus + BE/regio-signaal"
-      : "Route A: sterke singlesfocus (nationale organizer)",
+    reason: beHost
+      ? "Route A: expliciete singlesfocus + .be organizer"
+      : "Route A: expliciete singlesfocus + BE/regio-signaal",
     singlesScore,
     antiPattern: null,
   };

@@ -21,6 +21,10 @@ import {
   withUserSuppliedProvenance,
 } from "../lib/discovery/user-supplied";
 import {
+  catalogUrlForDiscoveryChannel,
+  discoveryDedupeKey,
+} from "../lib/discovery/canonical-url";
+import {
   classifyDiscoveryChannel,
   isSignalOnlyChannel,
 } from "../lib/discovery/channel";
@@ -103,11 +107,30 @@ async function main() {
     "ticket_platform",
   );
   assert.equal(
+    classifyDiscoveryChannel("https://allevents.in/ghent/speed-dating"),
+    "aggregator",
+  );
+  assert.equal(
+    classifyDiscoveryChannel("https://hoptodate.com/single-cafe"),
+    "ticket_platform",
+  );
+  assert.equal(
     classifyDiscoveryChannel("https://www.instagram.com/someorg/"),
     "social_signal",
   );
   assert.ok(isSignalOnlyChannel("social_signal"));
-  ok("8. channel ranking organizer-first / social signal-only");
+  assert.equal(
+    catalogUrlForDiscoveryChannel(
+      "https://fullcircle.eu/event-6289772",
+      "organizer",
+    ),
+    "https://fullcircle.eu",
+  );
+  assert.equal(
+    discoveryDedupeKey("https://www.sportievesingles.be/kalender", "organizer"),
+    discoveryDedupeKey("https://sportievesingles.be/", "organizer"),
+  );
+  ok("8. channel ranking + organizer origin canonicalization");
 
   const accept = evaluateDiscoveryHeuristics({
     title: "Singles diner Gent",
@@ -178,12 +201,22 @@ async function main() {
           query: "singles party Gent",
           provider: "bing",
         },
+        {
+          url: "https://www.eventbrite.be/e/singles-tickets-1",
+          query: "singles party Gent",
+          provider: "bing",
+        },
+        {
+          url: "https://known-org.be/event-999",
+          query: "singles party Gent",
+          provider: "bing",
+        },
       ],
       providersUsed: ["bing"],
-      searchResultCount: 3,
+      searchResultCount: 5,
     }),
     fetchHtml: async (url) => {
-      if (url.includes("singles-demo-org")) {
+      if (url.includes("singles-demo-org") || url.includes("known-org.be")) {
         return {
           ok: true,
           finalUrl: url,
@@ -194,14 +227,33 @@ async function main() {
       }
       return { ok: true, finalUrl: url, html: "<html><title>Other</title><body>hello</body></html>" };
     },
+    lookupExisting: async (catalogUrl) => {
+      if (catalogUrl.includes("known-org.be")) {
+        return {
+          id: "existing-1",
+          notes: "seeded organizer",
+          status: "active",
+        };
+      }
+      return null;
+    },
   });
 
   assert.equal(summary.dryRun, true);
   assert.equal(summary.wrote, false);
-  assert.ok(summary.accepted.some((a) => a.url.includes("singles-demo-org")));
+  assert.ok(
+    summary.accepted.some((a) => a.url === "https://singles-demo-org.example"),
+  );
   assert.ok(summary.rejected.some((r) => r.reason === "social_signal_only"));
   assert.ok(summary.rejected.some((r) => r.reason === "aggregator_low_priority"));
-  ok("12. sweep dry-run accepts organizer, rejects social/aggregator");
+  assert.ok(summary.rejected.some((r) => r.reason === "ticket_not_primary_org"));
+  assert.ok(summary.skippedExisting >= 1);
+  assert.ok(
+    summary.accepted.some(
+      (a) => a.url === "https://known-org.be" && a.created === false,
+    ),
+  );
+  ok("12. sweep dry-run: organizer origin, reject social/agg/ticket, skip existing");
 
   const killSummary = await runDiscoverySweep({
     dryRun: false,
