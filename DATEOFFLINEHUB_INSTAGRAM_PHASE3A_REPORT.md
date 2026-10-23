@@ -177,12 +177,21 @@ Behouden: cream canvas, petal-datums, witte kaarten, huisstijl.
 
 Aangepast:
 
-- Fotografie via `resolvePublicEventImage` (officieel indien oké, anders matching sfeerbeeld; stad vs natuur; Halloween-thema)
 - Groter logo + zichtbare merknaam
 - Slimme titelverkorting (max ~2 regels, geen mid-woord cut)
 - Eventslide: grotere foto, info-kaart onderaan zonder lege void
 - CTA: elegante gouden tekst i.p.v. dikke knop
 - Selectie: zelfde-dag startuur + geannuleerd-tags
+
+### Beelden = websitecatalogus
+
+Instagram gebruikt **dezelfde** `event.imageUrl` als de publieke feed (Neon primary image).
+
+1. Opgeslagen eventafbeelding  
+2. Of DOH-bibliotheekpad al op het event (`/preview-mood/…`)  
+3. Anders neutrale cream-huisstijl-fallback  
+
+Geen Unsplash-moodhunt, geen AI, geen aparte Instagram-beeldbibliotheek. Ontbrekende beelden → neutrale fallback (geen lege gaten).
 
 ## 11. Open voor jouw GO
 

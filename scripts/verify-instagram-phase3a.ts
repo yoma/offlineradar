@@ -21,7 +21,11 @@ import {
   isInstagramBaseEligible,
   selectInstagramEvents,
 } from "@/lib/instagram/selection";
-import { imageForEvent } from "@/lib/instagram/mood";
+import {
+  IG_NEUTRAL_FALLBACK_DATA_URI,
+  imageForEvent,
+  resolveInstagramCatalogImage,
+} from "@/lib/instagram/mood";
 import { shortenTitle } from "@/lib/instagram/title";
 import type { Event } from "@/types/event";
 
@@ -196,22 +200,49 @@ assert.ok(!/\w…\w/.test(shortened), "no mid-word ellipsis");
 assert.ok(shortened.length <= 59);
 ok("2c. smart title shorten");
 
-const halloweenWalk = sampleEvent({
+const withStored = sampleEvent({
   id: "hw",
   title: "Halloween stadswandeling Leuven",
   startDate: "2026-10-28",
   city: "Leuven",
   region: "Vlaams-Brabant",
   activities: ["wandelen"],
+  imageUrl: "/preview-mood/mood-singles-night-out.png",
+  imageIsAtmosphere: true,
 });
-const halloweenImg = imageForEvent(halloweenWalk);
-assert.ok(
-  !/1551632811-561732d1e306|1501555088652-021faa106b9b|1464822759023|1506905925346/.test(
-    halloweenImg.url,
-  ),
-  "city/halloween walk must not use mountain hiking stock",
+const storedImg = imageForEvent(withStored);
+assert.equal(storedImg.url, "/preview-mood/mood-singles-night-out.png");
+assert.equal(storedImg.isAtmosphere, true);
+
+const noImage = sampleEvent({
+  id: "noimg",
+  title: "Wandeling zonder beeld",
+  startDate: "2026-10-28",
+  city: "Leuven",
+  activities: ["wandelen"],
+  imageUrl: null,
+});
+const neutral = imageForEvent(noImage);
+assert.equal(neutral.url, IG_NEUTRAL_FALLBACK_DATA_URI);
+assert.equal(neutral.kind, "neutral_fallback");
+
+const catalogOnly = resolveInstagramCatalogImage(
+  "https://images.unsplash.com/photo-1528605248644-14dd04022da1?auto=format&fit=crop&w=1200&q=80",
+  true,
 );
-ok("2d. city walk mood matching");
+assert.ok(catalogOnly.url.includes("photo-1528605248644"));
+assert.ok(
+  !imageForEvent(noImage).url.includes("unsplash.com"),
+  "missing catalog image must not hunt Unsplash",
+);
+ok("2d. catalog image reuse + neutral fallback (no mood hunt)");
+
+const bowlingBytes = readFileSync(
+  path.join(process.cwd(), "public/preview-mood/mood-singles-bowling.png"),
+);
+assert.equal(bowlingBytes[0], 0xff);
+assert.equal(bowlingBytes[1], 0xd8);
+ok("2e. preview-mood bowling asset is JPEG bytes (mime must be sniffed)");
 
 const binnenkort = selectInstagramEvents(catalog, {
   format: "binnenkort",

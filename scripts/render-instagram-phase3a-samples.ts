@@ -2,7 +2,8 @@
  * Render three definitive Phase 3A PNG samples (1080×1350) for visual review.
  * Uses published catalog when available; otherwise demo events.
  *
- * Usage: npx tsx scripts/render-instagram-phase3a-samples.ts [outDir]
+ * Usage (Neon catalog):
+ *   node --env-file=.env.local --import tsx scripts/render-instagram-phase3a-samples.ts [outDir]
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -169,6 +170,24 @@ async function main() {
     throw new Error("No binnenkort draft — cannot render samples");
   }
 
+  const eventForSlide =
+    binnenkort.events.find((e) => Boolean(e.imageUrl?.trim())) ??
+    binnenkort.events[0]!;
+  console.log(
+    "event slide:",
+    eventForSlide.title,
+    "imageUrl=",
+    eventForSlide.imageUrl ?? "null",
+  );
+  for (const e of binnenkort.events) {
+    console.log(
+      "  cover row:",
+      e.title.slice(0, 48),
+      "|",
+      e.imageUrl ?? "null",
+    );
+  }
+
   const cover = await renderInstagramImage({
     kind: "binnenkort_cover",
     periodLabel: binnenkort.periodLabel,
@@ -176,8 +195,11 @@ async function main() {
   });
   const eventSlide = await renderInstagramImage({
     kind: "event",
-    event: binnenkort.events[0],
-    index: 1,
+    event: eventForSlide,
+    index: Math.max(
+      1,
+      binnenkort.events.findIndex((e) => e.id === eventForSlide.id) + 1,
+    ),
     total: binnenkort.events.length,
     format: "binnenkort",
   });
