@@ -107,7 +107,8 @@
     "db:migrate:analytics": "node --env-file=.env.local --import tsx scripts/migrate-analytics.ts",
     "verify:analytics-dashboard": "npx tsx scripts/verify-analytics-dashboard.ts",
     "audit:geo": "node --env-file=.env.local --import tsx scripts/audit-edition-geo.ts",
-    "backfill:coords": "node --env-file=.env.local --import tsx scripts/backfill-edition-coords.ts"
+    "backfill:coords": "node --env-file=.env.local --import tsx scripts/backfill-edition-coords.ts",
+    "verify:instagram-phase3a": "npx tsx scripts/verify-instagram-phase3a.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
