@@ -199,6 +199,7 @@ const slides = buildDraftSlides(
   binnenkort.periodLabel,
 );
 assert.equal(slides[0].kind, "binnenkort_cover");
+assert.ok(slides[0].query.ids, "cover must carry event ids for overview");
 assert.ok(slides.length === binnenkort.events.length + 1);
 ok("6. carousel cover + event slides");
 

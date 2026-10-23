@@ -2,6 +2,13 @@
 
 Visuele voorbeelden + eenvoudige preview. Geen Meta-publicatie.
 
+## Visuele richting (herontwerp)
+
+Posterstijl is verlaten. Templates volgen de aangeleverde premium-referentie:
+sfeerfoto’s (generiek, nooit als editiefoto gepresenteerd), cream eventkaarten,
+bordeaux overlay, gouden CTA’s, logo + slogan bovenaan, website + `@dateofflinehub`
+in de footer. Typografie blijft Bricolage Grotesque + DM Sans.
+
 ## Preview
 
 - Afgeschermde adminpagina: `/interne-instagram`
@@ -15,6 +22,7 @@ Visuele voorbeelden + eenvoudige preview. Geen Meta-publicatie.
 - Typografie: Bricolage Grotesque + DM Sans (zelfde als website)
 - Op elke slide: logo + `dateofflinehub.be`; slogan waar passend
 - Handle: `@dateofflinehub`
+- Sfeerbeelden: `lib/instagram/mood.ts` (Unsplash lifestyle, activity-matched)
 
 ## Objectieve selectie
 

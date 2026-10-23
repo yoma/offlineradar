@@ -52,15 +52,6 @@ export async function GET(request: Request) {
 
   try {
     const period = url.searchParams.get("period") ?? "";
-    const count = Number(url.searchParams.get("count") ?? "0") || 0;
-
-    if (kind === "binnenkort_cover") {
-      return await renderInstagramImage({
-        kind,
-        periodLabel: period,
-        eventCount: count,
-      });
-    }
 
     if (kind === "nieuw_cover") {
       return await renderInstagramImage({
@@ -70,6 +61,16 @@ export async function GET(request: Request) {
     }
 
     const catalog = await listEvents();
+
+    if (kind === "binnenkort_cover") {
+      const events = byIds(catalog, url.searchParams.get("ids"));
+      return await renderInstagramImage({
+        kind,
+        periodLabel: period,
+        events,
+        eventCount: events.length,
+      });
+    }
 
     if (kind === "deze_week") {
       const events = byIds(catalog, url.searchParams.get("ids"));

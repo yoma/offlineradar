@@ -1,43 +1,31 @@
 /**
- * Instagram 4:5 slide templates (1080×1350).
- * Brand: bordeaux + gold + cream, real logo, website on every slide.
+ * Instagram 4:5 templates — premium reference redesign.
+ * Official logo, cream event cards, lifestyle atmosphere photos.
+ * Atmosphere images are never claimed as edition-specific photos.
  */
 
-import {
-  ACTIVITY_LABEL,
-  formatAgeRange,
-  formatPrice,
-  formatPriceFrom,
-} from "@/lib/format";
-import { formatDayMonth, weekdayIndex } from "@/lib/dates";
+import { formatAgeRange } from "@/lib/format";
+import { formatDayMonth, formatLongDate, weekdayIndex } from "@/lib/dates";
 import type { ActivityId, Event } from "@/types/event";
+import { ACTIVITY_LABEL } from "@/lib/format";
+import { igColors } from "@/lib/instagram/constants";
 import {
-  INSTAGRAM_SLOGAN,
-  igColors,
-} from "@/lib/instagram/constants";
-import {
-  GoldRule,
-  LogoHeader,
-  MetaChip,
-  SlideFooter,
+  BrandFooter,
+  BrandHeader,
+  CategoryIconRow,
+  GoldCta,
+  GoldPill,
   slideStyle,
 } from "@/lib/instagram/templates/shared";
 
 const WEEKDAY_SHORT = ["zo", "ma", "di", "wo", "do", "vr", "za"] as const;
 
-/** Compact when-line for Instagram (never dump internal review notes). */
-function igFormatWhen(
-  event: Pick<Event, "startDate" | "startTime"> & {
-    startTimeDisplayNote?: string | null;
-  },
-): string {
-  const day = WEEKDAY_SHORT[weekdayIndex(event.startDate)];
-  const datePart = `${day} ${formatDayMonth(event.startDate)}`;
-  if (event.startTime) return `${datePart} · ${event.startTime}`;
-  if (event.startTimeDisplayNote) {
-    return `${datePart} · startuur te bevestigen`;
-  }
-  return `${datePart} · startuur te bevestigen`;
+function dateBadge(startDate: string): string {
+  const day = WEEKDAY_SHORT[weekdayIndex(startDate)].toUpperCase();
+  const parts = formatDayMonth(startDate).split(" ");
+  const num = parts[0];
+  const mon = (parts[1] ?? "").toUpperCase();
+  return `${day} ${num} ${mon}`;
 }
 
 function locationLine(event: Pick<Event, "city" | "region">): string {
@@ -45,495 +33,687 @@ function locationLine(event: Pick<Event, "city" | "region">): string {
   const region = (event.region ?? "").trim();
   if (!region) return city;
   if (region.toLowerCase() === city.toLowerCase()) return city;
-  // "Brussel · Brussel" / city already names the region
-  if (
-    /brussel|bruxelles/i.test(city) &&
-    /brussel|bruxelles/i.test(region)
-  ) {
+  if (/brussel|bruxelles/i.test(city) && /brussel|bruxelles/i.test(region)) {
     return city;
   }
-  return `${city} · ${region}`;
+  return city;
 }
 
 function activityText(event: Event): string | null {
   const id = event.activities[0] as ActivityId | undefined;
   if (id && ACTIVITY_LABEL[id]) return ACTIVITY_LABEL[id];
-  const sub = event.subCategory?.trim() || "";
-  // Skip internal / intake junk as public activity labels.
-  if (!sub) return null;
-  if (/e-commerce|winkel|incidenteel|needs_review|internal|\//i.test(sub)) {
-    return null;
-  }
-  if (sub.length > 40) return null;
-  return sub;
+  return null;
 }
 
-function ageText(event: Event): string | null {
+function ageShort(event: Event): string | null {
+  if (event.eligibilityAgeRule === "unknown") return null;
   if (event.eligibilityAgeMin == null && event.eligibilityAgeMax == null) {
     return null;
   }
-  if (event.eligibilityAgeRule === "unknown") return null;
-  const range = formatAgeRange(
-    event.eligibilityAgeMin,
-    event.eligibilityAgeMax,
-  );
-  if (!range) return null;
-  if (event.eligibilityAgeRule === "guideline") return `Richtleeftijd ${range}`;
-  return range;
+  return formatAgeRange(event.eligibilityAgeMin, event.eligibilityAgeMax);
 }
 
-function priceText(event: Event): string | null {
-  if (event.price == null) return null;
-  return event.priceIsFrom
-    ? formatPriceFrom(event.price, event.currency)
-    : formatPrice(event.price, event.currency);
+function whenDetail(event: Event): string {
+  const base = formatLongDate(event.startDate);
+  if (event.startTime) return `${base}, ${event.startTime}`;
+  return `${base} · startuur te bevestigen`;
 }
 
-/** Format A — cover slide */
-export function BinnenkortCoverSlide({
-  logoSrc,
-  periodLabel,
-  eventCount,
-}: {
-  logoSrc: string;
-  periodLabel: string;
-  eventCount: number;
-}) {
+function shortBlurb(event: Event): string {
+  const raw = (event.shortDescription || "").trim();
+  if (!raw) {
+    const act = activityText(event);
+    const city = locationLine(event);
+    if (act && city) {
+      return `Ontmoet andere singles tijdens deze ${act.toLowerCase()} in ${city}.`;
+    }
+    return "Ontdek dit singles-event via DateOfflineHub.";
+  }
+  return raw.length > 140 ? `${raw.slice(0, 137)}…` : raw;
+}
+
+type EventRowProps = {
+  event: Event;
+  thumbSrc: string;
+  compact?: boolean;
+};
+
+function EventRow({ event, thumbSrc, compact }: EventRowProps) {
+  const age = ageShort(event);
+  const city = locationLine(event);
   return (
     <div
       style={{
-        ...slideStyle,
-        background: `linear-gradient(165deg, ${igColors.bordeaux} 0%, ${igColors.bordeauxSoft} 55%, #4A1C2A 100%)`,
-        padding: "72px 64px 56px",
+        display: "flex",
+        flexDirection: "row",
         alignItems: "center",
-        justifyContent: "space-between",
+        gap: 16,
+        width: "100%",
+        padding: compact ? "12px 14px" : "14px 16px",
+        borderRadius: 18,
+        background: igColors.cream,
       }}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={thumbSrc}
+        width={compact ? 64 : 72}
+        height={compact ? 64 : 72}
+        style={{
+          objectFit: "cover",
+          borderRadius: 14,
+          flexShrink: 0,
+        }}
+        alt=""
+      />
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
-          width: "100%",
+          width: compact ? 88 : 100,
+          flexShrink: 0,
         }}
       >
-        <LogoHeader logoSrc={logoSrc} />
-        <GoldRule width={220} />
         <div
           style={{
             display: "flex",
-            marginTop: 48,
-            fontFamily: "Bricolage Grotesque",
-            fontSize: 64,
+            fontSize: compact ? 18 : 20,
             fontWeight: 700,
-            color: igColors.cream,
-            textAlign: "center",
-            lineHeight: 1.15,
-            letterSpacing: -0.5,
-          }}
-        >
-          Binnenkort op DateOfflineHub
-        </div>
-        <div
-          style={{
-            display: "flex",
-            marginTop: 28,
-            fontSize: 30,
-            color: igColors.goldLight,
+            color: igColors.anthracite,
             fontFamily: "DM Sans",
-            fontWeight: 600,
-            textAlign: "center",
+            lineHeight: 1.2,
           }}
         >
-          {periodLabel}
-        </div>
-        <div
-          style={{
-            display: "flex",
-            marginTop: 16,
-            fontSize: 24,
-            color: "rgba(249,242,234,0.78)",
-            fontFamily: "DM Sans",
-          }}
-        >
-          {eventCount} singlesactiviteiten
+          {dateBadge(event.startDate)}
         </div>
       </div>
-
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
-          gap: 14,
-          width: "100%",
+          flex: 1,
+          minWidth: 0,
+          gap: 4,
         }}
       >
         <div
           style={{
             display: "flex",
-            fontSize: 26,
-            color: igColors.gold,
-            fontFamily: "DM Sans",
-            fontWeight: 600,
-            textAlign: "center",
-            maxWidth: 780,
+            fontFamily: "Bricolage Grotesque",
+            fontSize: compact ? 22 : 24,
+            fontWeight: 700,
+            color: igColors.bordeaux,
+            lineHeight: 1.2,
           }}
         >
-          {INSTAGRAM_SLOGAN}
+          {event.title.length > (compact ? 42 : 48)
+            ? `${event.title.slice(0, compact ? 39 : 45)}…`
+            : event.title}
         </div>
-        <SlideFooter />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            gap: 14,
+            fontSize: 16,
+            color: igColors.anthracite,
+            fontFamily: "DM Sans",
+            opacity: 0.82,
+          }}
+        >
+          <div style={{ display: "flex" }}>📍 {city}</div>
+          {age ? <div style={{ display: "flex" }}>👥 {age}</div> : null}
+        </div>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          width: 36,
+          height: 36,
+          borderRadius: 999,
+          background: igColors.gold,
+          alignItems: "center",
+          justifyContent: "center",
+          color: igColors.bordeaux,
+          fontSize: 20,
+          fontWeight: 700,
+          flexShrink: 0,
+        }}
+      >
+        →
       </div>
     </div>
   );
 }
 
-/** Individual event slide (carousel body / Format B detail) */
-export function EventSlide({
+/** Format A — sfeervolle cover met eventoverzicht */
+export function BinnenkortCoverSlide({
   logoSrc,
-  event,
-  index,
-  total,
-  eyebrow = "Binnenkort",
+  heroSrc,
+  periodLabel,
+  events,
+  thumbSrcs,
 }: {
   logoSrc: string;
-  event: Event;
-  index: number;
-  total: number;
-  eyebrow?: string;
+  heroSrc: string;
+  periodLabel: string;
+  events: Event[];
+  thumbSrcs: string[];
 }) {
-  const activity = activityText(event);
-  const age = ageText(event);
-  const price = priceText(event);
-  const chips = [activity, age, price].filter(Boolean) as string[];
-
+  const shown = events.slice(0, 5);
   return (
-    <div
-      style={{
-        ...slideStyle,
-        background: igColors.cream,
-        padding: "56px 56px 48px",
-      }}
-    >
-      <LogoHeader logoSrc={logoSrc} compact />
+    <div style={slideStyle}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={heroSrc}
+        width={1080}
+        height={1350}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: 1080,
+          height: 1350,
+          objectFit: "cover",
+        }}
+        alt=""
+      />
       <div
         style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: 1080,
+          height: 1350,
+          background:
+            "linear-gradient(180deg, rgba(103,40,58,0.72) 0%, rgba(74,28,42,0.88) 42%, rgba(55,20,32,0.96) 100%)",
           display: "flex",
-          justifyContent: "space-between",
-          width: "100%",
-          marginBottom: 20,
         }}
-      >
-        <div
-          style={{
-            display: "flex",
-            fontSize: 22,
-            color: igColors.goldDeep,
-            fontWeight: 600,
-            letterSpacing: 1.2,
-            textTransform: "uppercase" as const,
-          }}
-        >
-          {eyebrow}
-        </div>
-        <div
-          style={{
-            display: "flex",
-            fontSize: 22,
-            color: igColors.bordeaux,
-            fontWeight: 600,
-          }}
-        >
-          {index}/{total}
-        </div>
-      </div>
-      <GoldRule />
-
+      />
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          flexGrow: 1,
-          justifyContent: "center",
-          gap: 28,
-          paddingTop: 36,
-          paddingBottom: 24,
+          position: "relative",
+          width: "100%",
+          height: "100%",
+          padding: "44px 48px 36px",
         }}
       >
+        <BrandHeader logoSrc={logoSrc} />
+
         <div
           style={{
             display: "flex",
-            fontFamily: "Bricolage Grotesque",
-            fontSize: event.title.length > 55 ? 44 : 52,
-            fontWeight: 700,
-            color: igColors.bordeaux,
-            lineHeight: 1.18,
-            letterSpacing: -0.4,
+            flexDirection: "column",
+            marginTop: 28,
+            gap: 10,
           }}
         >
-          {event.title}
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "Bricolage Grotesque",
+              fontSize: 52,
+              fontWeight: 700,
+              color: igColors.gold,
+              lineHeight: 1.12,
+              letterSpacing: -0.5,
+            }}
+          >
+            Binnenkort op DateOfflineHub
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              marginTop: 4,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                fontSize: 18,
+                fontWeight: 600,
+                letterSpacing: 2,
+                color: "rgba(249,242,234,0.9)",
+                fontFamily: "DM Sans",
+                textTransform: "uppercase" as const,
+              }}
+            >
+              Singles events in Vlaanderen
+            </div>
+            <div
+              style={{
+                display: "flex",
+                width: 160,
+                height: 2,
+                background: igColors.gold,
+                marginTop: 4,
+                marginBottom: 4,
+              }}
+            />
+            <div
+              style={{
+                display: "flex",
+                fontSize: 18,
+                fontWeight: 600,
+                letterSpacing: 2,
+                color: "rgba(249,242,234,0.85)",
+                fontFamily: "DM Sans",
+                textTransform: "uppercase" as const,
+              }}
+            >
+              {periodLabel || "Komende dagen"}
+            </div>
+          </div>
         </div>
 
         <div
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: 16,
+            gap: 10,
+            marginTop: 22,
+            flexGrow: 1,
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              fontSize: 32,
-              color: igColors.anthracite,
-              fontWeight: 600,
-            }}
-          >
-            {igFormatWhen(event)}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              fontSize: 30,
-              color: igColors.bordeaux,
-              fontWeight: 600,
-            }}
-          >
-            {locationLine(event)}
-          </div>
+          {shown.map((event, i) => (
+            <EventRow
+              key={event.id}
+              event={event}
+              thumbSrc={thumbSrcs[i] ?? thumbSrcs[0]}
+              compact={shown.length > 4}
+            />
+          ))}
         </div>
 
-        {chips.length > 0 ? (
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap" as const,
-              gap: 12,
-            }}
-          >
-            {chips.map((chip) => (
-              <MetaChip key={chip}>{chip}</MetaChip>
-            ))}
-          </div>
-        ) : null}
+        <div style={{ display: "flex", marginTop: 16 }}>
+          <GoldCta>Ontdek alle events →</GoldCta>
+        </div>
+        <CategoryIconRow />
+        <BrandFooter />
       </div>
-
-      <SlideFooter showSlogan />
     </div>
   );
 }
 
-/** Format B — single overview image "Deze week nog iets gepland?" */
-export function DezeWeekOverviewSlide({
+/** Individuele eventslide */
+export function EventSlide({
   logoSrc,
-  periodLabel,
-  events,
+  heroSrc,
+  event,
+  index,
+  total,
+  eyebrow = "Binnenkort",
 }: {
   logoSrc: string;
-  periodLabel: string;
-  events: Event[];
+  heroSrc: string;
+  event: Event;
+  index: number;
+  total: number;
+  eyebrow?: string;
 }) {
-  return (
-    <div
-      style={{
-        ...slideStyle,
-        background: igColors.cream,
-        padding: "52px 52px 44px",
-      }}
-    >
-      <LogoHeader logoSrc={logoSrc} compact />
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-          marginBottom: 22,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            fontFamily: "Bricolage Grotesque",
-            fontSize: 48,
-            fontWeight: 700,
-            color: igColors.bordeaux,
-            lineHeight: 1.15,
-          }}
-        >
-          Deze week nog iets gepland?
-        </div>
-        <div
-          style={{
-            display: "flex",
-            fontSize: 24,
-            color: igColors.goldDeep,
-            fontWeight: 600,
-          }}
-        >
-          {periodLabel}
-        </div>
-      </div>
-      <GoldRule />
+  const act = activityText(event);
+  const age = ageShort(event);
+  const city = locationLine(event);
 
+  return (
+    <div style={slideStyle}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={heroSrc}
+        width={1080}
+        height={1350}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: 1080,
+          height: 1350,
+          objectFit: "cover",
+        }}
+        alt=""
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: 1080,
+          height: 1350,
+          background:
+            "linear-gradient(180deg, rgba(55,20,32,0.55) 0%, rgba(74,28,42,0.45) 35%, rgba(55,20,32,0.92) 72%, rgba(40,14,24,0.97) 100%)",
+          display: "flex",
+        }}
+      />
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: 18,
-          marginTop: 28,
-          flexGrow: 1,
+          position: "relative",
+          width: "100%",
+          height: "100%",
+          padding: "44px 48px 36px",
         }}
       >
-        {events.slice(0, 5).map((event) => {
-          const activity = activityText(event);
-          return (
+        <BrandHeader logoSrc={logoSrc} />
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginTop: 22,
+            alignItems: "center",
+          }}
+        >
+          <GoldPill>{(act || eyebrow).toUpperCase()}</GoldPill>
+          <div
+            style={{
+              display: "flex",
+              fontSize: 18,
+              color: "rgba(249,242,234,0.7)",
+              fontFamily: "DM Sans",
+              fontWeight: 600,
+            }}
+          >
+            {index}/{total} · sfeerbeeld
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            marginTop: "auto",
+            gap: 18,
+            paddingBottom: 8,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "Bricolage Grotesque",
+              fontSize: event.title.length > 48 ? 46 : 54,
+              fontWeight: 700,
+              color: igColors.cream,
+              lineHeight: 1.12,
+              letterSpacing: -0.4,
+            }}
+          >
+            {event.title}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: 24,
+              color: "rgba(249,242,234,0.9)",
+              fontFamily: "DM Sans",
+              lineHeight: 1.4,
+              maxWidth: 920,
+            }}
+          >
+            {shortBlurb(event)}
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              marginTop: 6,
+            }}
+          >
             <div
-              key={event.id}
               style={{
                 display: "flex",
-                flexDirection: "column",
-                gap: 6,
-                padding: "18px 22px",
-                borderRadius: 16,
-                background: igColors.white,
-                border: `1px solid ${igColors.lineGold}`,
+                fontSize: 24,
+                color: igColors.goldLight,
+                fontFamily: "DM Sans",
+                fontWeight: 600,
               }}
             >
+              📅  {whenDetail(event)}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                fontSize: 24,
+                color: igColors.goldLight,
+                fontFamily: "DM Sans",
+                fontWeight: 600,
+              }}
+            >
+              📍  {city}
+            </div>
+            {age ? (
               <div
                 style={{
                   display: "flex",
-                  fontSize: 20,
-                  color: igColors.goldDeep,
+                  fontSize: 24,
+                  color: igColors.goldLight,
+                  fontFamily: "DM Sans",
                   fontWeight: 600,
                 }}
               >
-                {igFormatWhen(event)}
-                {activity ? ` · ${activity}` : ""}
+                👥  {age}
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  fontFamily: "Bricolage Grotesque",
-                  fontSize: 28,
-                  fontWeight: 700,
-                  color: igColors.bordeaux,
-                  lineHeight: 1.2,
-                }}
-              >
-                {event.title.length > 60
-                  ? `${event.title.slice(0, 57)}…`
-                  : event.title}
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  fontSize: 22,
-                  color: igColors.anthracite,
-                }}
-              >
-                {event.city}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            ) : null}
+          </div>
 
-      <SlideFooter showSlogan />
+          <div style={{ display: "flex", marginTop: 10 }}>
+            <GoldCta>Bekijk dit event →</GoldCta>
+          </div>
+          <BrandFooter />
+        </div>
+      </div>
     </div>
   );
 }
 
-/** Format C — cover for newly published events */
+/** Format B — compact week overzicht */
+export function DezeWeekOverviewSlide({
+  logoSrc,
+  heroSrc,
+  periodLabel,
+  events,
+  thumbSrcs,
+}: {
+  logoSrc: string;
+  heroSrc: string;
+  periodLabel: string;
+  events: Event[];
+  thumbSrcs: string[];
+}) {
+  const shown = events.slice(0, 4);
+  return (
+    <div style={slideStyle}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={heroSrc}
+        width={1080}
+        height={1350}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: 1080,
+          height: 1350,
+          objectFit: "cover",
+        }}
+        alt=""
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: 1080,
+          height: 1350,
+          background:
+            "linear-gradient(180deg, rgba(74,28,42,0.62) 0%, rgba(55,20,32,0.78) 40%, rgba(40,14,24,0.96) 100%)",
+          display: "flex",
+        }}
+      />
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          position: "relative",
+          width: "100%",
+          height: "100%",
+          padding: "44px 48px 36px",
+        }}
+      >
+        <BrandHeader logoSrc={logoSrc} />
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            marginTop: 28,
+            gap: 14,
+          }}
+        >
+          <GoldPill>Deze week</GoldPill>
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "Bricolage Grotesque",
+              fontSize: 56,
+              fontWeight: 700,
+              color: igColors.cream,
+              lineHeight: 1.1,
+            }}
+          >
+            Nog iets gepland?
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: 24,
+              color: "rgba(249,242,234,0.88)",
+              fontFamily: "DM Sans",
+            }}
+          >
+            Ontdek deze singlesactiviteiten de komende dagen
+            {periodLabel ? ` · ${periodLabel}` : ""}.
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+            marginTop: 28,
+            flexGrow: 1,
+          }}
+        >
+          {shown.map((event, i) => (
+            <EventRow
+              key={event.id}
+              event={event}
+              thumbSrc={thumbSrcs[i] ?? thumbSrcs[0]}
+            />
+          ))}
+        </div>
+
+        <div style={{ display: "flex", marginTop: 18 }}>
+          <GoldCta>Bekijk alle events →</GoldCta>
+        </div>
+        <BrandFooter />
+      </div>
+    </div>
+  );
+}
+
+/** Format C cover — zelfde premium taal */
 export function NieuwCoverSlide({
   logoSrc,
+  heroSrc,
   periodLabel,
 }: {
   logoSrc: string;
+  heroSrc: string;
   periodLabel: string;
 }) {
   return (
-    <div
-      style={{
-        ...slideStyle,
-        background: `linear-gradient(180deg, ${igColors.cream} 0%, ${igColors.goldSoft} 100%)`,
-        padding: "72px 64px 56px",
-        alignItems: "center",
-        justifyContent: "space-between",
-      }}
-    >
+    <div style={slideStyle}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={heroSrc}
+        width={1080}
+        height={1350}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: 1080,
+          height: 1350,
+          objectFit: "cover",
+        }}
+        alt=""
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: 1080,
+          height: 1350,
+          background:
+            "linear-gradient(180deg, rgba(74,28,42,0.7) 0%, rgba(55,20,32,0.92) 100%)",
+          display: "flex",
+        }}
+      />
       <div
         style={{
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
+          position: "relative",
           width: "100%",
+          height: "100%",
+          padding: "44px 48px 36px",
         }}
       >
-        <LogoHeader logoSrc={logoSrc} />
+        <BrandHeader logoSrc={logoSrc} />
         <div
           style={{
             display: "flex",
-            marginTop: 12,
-            padding: "10px 20px",
-            borderRadius: 999,
-            background: igColors.bordeaux,
-            color: igColors.cream,
-            fontSize: 20,
-            fontWeight: 600,
-            letterSpacing: 1.4,
-            textTransform: "uppercase" as const,
+            flexDirection: "column",
+            flexGrow: 1,
+            justifyContent: "center",
+            gap: 20,
           }}
         >
-          Nieuw
+          <GoldPill>Nieuw</GoldPill>
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "Bricolage Grotesque",
+              fontSize: 58,
+              fontWeight: 700,
+              color: igColors.gold,
+              lineHeight: 1.12,
+            }}
+          >
+            Nieuw op DateOfflineHub
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: 28,
+              color: "rgba(249,242,234,0.9)",
+              fontFamily: "DM Sans",
+            }}
+          >
+            {periodLabel || "Verse singlesactiviteiten"}
+          </div>
         </div>
-        <div
-          style={{
-            display: "flex",
-            marginTop: 36,
-            fontFamily: "Bricolage Grotesque",
-            fontSize: 58,
-            fontWeight: 700,
-            color: igColors.bordeaux,
-            textAlign: "center",
-            lineHeight: 1.15,
-          }}
-        >
-          Nieuw op DateOfflineHub
-        </div>
-        <div
-          style={{
-            display: "flex",
-            marginTop: 24,
-            fontSize: 28,
-            color: igColors.goldInk,
-            fontWeight: 600,
-            textAlign: "center",
-          }}
-        >
-          {periodLabel}
-        </div>
-      </div>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 14,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            fontSize: 24,
-            color: igColors.bordeaux,
-            fontWeight: 600,
-            textAlign: "center",
-            maxWidth: 720,
-          }}
-        >
-          {INSTAGRAM_SLOGAN}
-        </div>
-        <SlideFooter />
+        <GoldCta>Ontdek alle events →</GoldCta>
+        <BrandFooter />
       </div>
     </div>
   );

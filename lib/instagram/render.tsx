@@ -9,6 +9,13 @@ import type { Event } from "@/types/event";
 import { IG_FEED, type InstagramFormatId } from "@/lib/instagram/constants";
 import { getLogoDataUrl, loadInstagramFonts } from "@/lib/instagram/assets";
 import {
+  heroForActivities,
+  heroForEvents,
+  resolveMoodBundle,
+  thumbForEvent,
+  IG_HERO,
+} from "@/lib/instagram/mood";
+import {
   BinnenkortCoverSlide,
   DezeWeekOverviewSlide,
   EventSlide,
@@ -64,25 +71,41 @@ export async function renderInstagramImage(
   let element: ReactElement;
 
   if (input.kind === "binnenkort_cover") {
+    const events = input.events ?? [];
+    const mood = await resolveMoodBundle({
+      heroSrc: events.length ? heroForEvents(events) : IG_HERO.social,
+      thumbs: events.slice(0, 5).map(thumbForEvent),
+    });
     element = (
       <BinnenkortCoverSlide
         logoSrc={logoSrc}
+        heroSrc={mood.hero}
         periodLabel={input.periodLabel ?? ""}
-        eventCount={input.eventCount ?? 0}
+        events={events}
+        thumbSrcs={mood.thumbs}
       />
     );
   } else if (input.kind === "deze_week") {
+    const events = input.events ?? [];
+    const mood = await resolveMoodBundle({
+      heroSrc: heroForEvents(events),
+      thumbs: events.slice(0, 4).map(thumbForEvent),
+    });
     element = (
       <DezeWeekOverviewSlide
         logoSrc={logoSrc}
+        heroSrc={mood.hero}
         periodLabel={input.periodLabel ?? ""}
-        events={input.events ?? []}
+        events={events}
+        thumbSrcs={mood.thumbs}
       />
     );
   } else if (input.kind === "nieuw_cover") {
+    const mood = await resolveMoodBundle({ heroSrc: IG_HERO.social });
     element = (
       <NieuwCoverSlide
         logoSrc={logoSrc}
+        heroSrc={mood.hero}
         periodLabel={input.periodLabel ?? ""}
       />
     );
@@ -96,9 +119,13 @@ export async function renderInstagramImage(
         : input.format === "deze_week"
           ? "Deze week"
           : "Binnenkort";
+    const mood = await resolveMoodBundle({
+      heroSrc: heroForActivities(input.event.activities),
+    });
     element = (
       <EventSlide
         logoSrc={logoSrc}
+        heroSrc={mood.hero}
         event={input.event}
         index={input.index ?? 1}
         total={input.total ?? 1}

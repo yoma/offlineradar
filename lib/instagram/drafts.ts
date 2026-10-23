@@ -82,7 +82,7 @@ export function buildDraftSlides(
     return slides;
   }
 
-  // Format A carousel: cover + event slides
+  // Format A carousel: overview cover + event slides
   const slides: InstagramSlidePlan[] = [
     {
       kind: "binnenkort_cover",
@@ -90,6 +90,7 @@ export function buildDraftSlides(
       query: slideQuery("binnenkort_cover", {
         period: periodLabel,
         count: String(events.length),
+        ids: events.map((e) => e.id).join(","),
       }),
     },
   ];
