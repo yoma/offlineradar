@@ -49,6 +49,7 @@
     "verify:phase17-travel-parsers": "npx tsx scripts/verify-phase17-travel-parsers.ts",
     "verify:phase18-responsive": "npx tsx scripts/verify-phase18-responsive.ts",
     "verify:phase19-sportieve": "npx tsx scripts/verify-phase19-sportieve.ts",
+    "verify:sportieve-location": "npx tsx scripts/verify-sportieve-location.ts",
     "seed:phase20-discovery": "node --env-file=.env.local --import tsx scripts/seed-phase20-discovery.ts",
     "import:phase20-drafts": "node --env-file=.env.local --import tsx scripts/import-phase20-drafts.ts",
     "verify:phase20-discovery": "npx tsx scripts/verify-phase20-discovery.ts",

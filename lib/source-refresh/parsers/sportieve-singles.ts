@@ -5,6 +5,9 @@
  * Listing is a shared calendar URL for all editions → identity is
  * date + normalized title (never calendar index / shared URL alone).
  * Coverage is partial (paginated Wix) → engine must not emit removals.
+ *
+ * Location: postcode + place name are independent evidence (see
+ * sportieve-location.ts). Generic "België" is never treated as confirmed.
  */
 import {
   brusselsIso,
@@ -13,6 +16,11 @@ import {
   slugify,
   stripTags,
 } from "@/lib/source-refresh/normalize";
+import {
+  isWeakSportieveCity,
+  matchSportieveEventUrl,
+  resolveSportieveLocation,
+} from "@/lib/source-refresh/parsers/sportieve-location";
 import type {
   RefreshNormalizedCandidate,
   RefreshParserResult,
@@ -38,58 +46,20 @@ function looksLikeEventTitle(line: string): boolean {
 export function cleanSportieveTitle(raw: string): string {
   return raw
     .replace(/\u00a0/g, " ")
-    .replace(/\s*\/\s*[A-Za-zÀ-ÿ.' -]{2,40}\s*$/u, "")
+    .replace(/\s*\/\s*[A-Za-zÀ-ÿ.' -]{2,60}\s*$/u, "")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-const KNOWN_CITIES = [
-  "La Roche-en-Ardenne",
-  "Heusden-Zolder",
-  "Antwerpen",
-  "Gent",
-  "Brugge",
-  "Kortrijk",
-  "Mechelen",
-  "Oostende",
-  "Leuven",
-  "Hasselt",
-  "Wespelaar",
-  "Koksijde",
-  "Herzele",
-  "Reusel",
-  "Ellezelles",
-  "Viroinval",
-  "Pajottenland",
-  "Gooik",
-  "Oostkamp",
-  "Haacht",
-  "Stekene",
-  "Ronse",
-] as const;
-
-function cityFromHaystack(hay: string): string | null {
-  for (const city of KNOWN_CITIES) {
-    if (
-      new RegExp(city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(hay)
-    ) {
-      return city;
-    }
-  }
-  return null;
 }
 
 /**
  * Prefer city from the title (same edition). Body is only same-event lines
  * (callers must not include the next event's title/date).
+ * Returns "België" only as an explicit weak placeholder (not geo-confirmed).
  */
-function extractCity(title: string, body: string): string {
-  const fromTitle = cityFromHaystack(title);
-  if (fromTitle) return fromTitle;
-  const fromBody = cityFromHaystack(body);
-  if (fromBody) return fromBody;
-  const m = /\b(?:in|te|door)\s+([A-ZÀ-Ü][A-Za-zÀ-ÿ'-]+)/.exec(title);
-  return m?.[1] ?? "België";
+export function extractCity(title: string, body: string): string {
+  const loc = resolveSportieveLocation(title, body);
+  if (loc.confirmed && loc.city) return loc.city;
+  return "België";
 }
 
 function inferWeekendEndDate(title: string, startDate: string): string | null {
@@ -139,16 +109,17 @@ export function parseSportieveSinglesHtml(html: string): RefreshParserResult {
     if (!titleRaw) continue;
 
     // Stay inside this edition: stop before the next date line or next title.
+    // Allow a few more lines so postcode/place rows after the date are kept.
     const bodyLines: string[] = [];
-    for (let j = i + 1; j < Math.min(lines.length, i + 6); j++) {
+    for (let j = i + 1; j < Math.min(lines.length, i + 10); j++) {
       const line = lines[j]!;
       if (DATE_LINE.test(line)) break;
       if (looksLikeEventTitle(line)) break;
       bodyLines.push(line);
     }
     const body = bodyLines.join(" ");
-    // City from raw title (keeps " / Gent" suffix) before cleanSportieveTitle strips it.
-    const city = extractCity(titleRaw, body);
+    const loc = resolveSportieveLocation(titleRaw, body);
+    const city = loc.confirmed && loc.city ? loc.city : "België";
     const title = cleanSportieveTitle(titleRaw);
     const externalKey = `sportieve:${date}:${slugify(title)}`.slice(0, 160);
     if (seen.has(externalKey)) continue;
@@ -163,6 +134,14 @@ export function parseSportieveSinglesHtml(html: string): RefreshParserResult {
       ? brusselsIso(weekendEnd, endTime)
       : brusselsIso(date, endTime);
 
+    const detailUrl = matchSportieveEventUrl(titleRaw, html);
+    const evidenceNote =
+      loc.confirmed && loc.evidence.length > 0
+        ? ` locatie:[${loc.evidence.join("; ")}]`
+        : loc.weakReason
+          ? ` locatie-zwak:[${loc.weakReason}]`
+          : "";
+
     candidates.push({
       externalKey,
       title,
@@ -172,17 +151,26 @@ export function parseSportieveSinglesHtml(html: string): RefreshParserResult {
       endsAt,
       venue: null,
       city,
-      address: null,
+      address: loc.postalCode
+        ? `${loc.postalCode} ${loc.placeName ?? city}`.trim()
+        : null,
       minAge: null,
       maxAge: null,
       ageRule: "unknown",
       price: Number.isFinite(price) ? price : null,
       availability: null,
-      officialUrl: OFFICIAL,
-      ticketUrl: null,
-      rawEvidenceSummary: `${title} | ${lines[i]} | ${body}`.slice(0, 280),
+      officialUrl: detailUrl ?? OFFICIAL,
+      ticketUrl: detailUrl,
+      rawEvidenceSummary: `${title} | ${lines[i]} | ${body}${evidenceNote}`.slice(
+        0,
+        280,
+      ),
       sourceCheckedAt: PARSER_CHECKED(),
     });
+
+    if (isWeakSportieveCity(city)) {
+      warnings.push(`Zwakke locatie voor “${title.slice(0, 48)}”: ${loc.weakReason ?? "onbekend"}`);
+    }
   }
 
   if (candidates.length === 0) {
@@ -201,3 +189,8 @@ export function parseSportieveSinglesHtml(html: string): RefreshParserResult {
     listingCoverage: "partial",
   };
 }
+
+export {
+  isWeakSportieveCity,
+  resolveSportieveLocation,
+} from "@/lib/source-refresh/parsers/sportieve-location";
