@@ -243,7 +243,35 @@ export async function startSourceRefresh(input: {
       };
     }
 
-    const parsed = runRefreshParser(pilot.parserKey, fetched.html);
+    let parsed = runRefreshParser(pilot.parserKey, fetched.html);
+    if (pilot.parserKey === "sportieve-singles") {
+      const { enrichSportieveCandidatesFromDetailPages } = await import(
+        "@/lib/source-refresh/sportieve-enrich-location"
+      );
+      const enriched = await enrichSportieveCandidatesFromDetailPages(
+        parsed.candidates,
+      );
+      for (const p of enriched.pages) {
+        pagesVisited.push({
+          url: p.url,
+          ok: p.ok,
+          httpStatus: p.ok ? 200 : null,
+          error: p.error ?? null,
+        });
+      }
+      if (enriched.improved > 0) {
+        parsed = {
+          ...parsed,
+          candidates: enriched.candidates,
+          warnings: [
+            ...parsed.warnings,
+            `Detail-locatie verbeterd voor ${enriched.improved}/${enriched.fetched} zwakke kandidaten.`,
+          ],
+        };
+      } else {
+        parsed = { ...parsed, candidates: enriched.candidates };
+      }
+    }
     const future = await listFutureEditionsForOrganizerSlug(pilot.organizerSlug);
     const matchable = liteToMatchable(future);
     const coverage = parsed.listingCoverage ?? "unknown";
