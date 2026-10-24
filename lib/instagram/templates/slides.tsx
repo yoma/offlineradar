@@ -87,17 +87,42 @@ function timeOnly(event: Event): string {
   return "uur tbd";
 }
 
-function shortBlurb(event: Event): string {
-  const raw = (event.shortDescription || "").trim();
-  if (!raw) {
-    const act = activityText(event);
-    const city = locationLine(event);
-    if (act && city) {
-      return `Ontmoet andere singles tijdens deze ${act.toLowerCase()} in ${city}.`;
-    }
-    return "Ontdek dit singles-event via DateOfflineHub.";
+/**
+ * Satori treats newlines poorly in flex text (stacked/overlapping glyphs).
+ * Scraped page dumps often ship multiline "Adres / Datum" blocks — reject those.
+ */
+export function sanitizeInstagramBlurb(raw: string): string | null {
+  const original = String(raw ?? "");
+  const newlineCount = (original.match(/\r\n|\r|\n/g) ?? []).length;
+  const collapsed = original
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/\n+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!collapsed) return null;
+  // Multi-field scrape dumps (address/agenda blocks) are not usable blurbs.
+  if (newlineCount >= 4) return null;
+  if (/\bAdres\b/i.test(collapsed)) return null;
+  if (/\bDatum\s*&\s*tijd\b/i.test(collapsed)) return null;
+  // Catalog metadata lines (city | date | url) — not consumer copy.
+  if (/\|\s*available\s*\|/i.test(collapsed) && /https?:\/\//i.test(collapsed)) {
+    return null;
   }
-  return raw.length > 140 ? `${raw.slice(0, 137)}…` : raw;
+  return collapsed.length > 140 ? `${collapsed.slice(0, 137)}…` : collapsed;
+}
+
+function fallbackBlurb(event: Event): string {
+  const act = activityText(event);
+  const city = locationLine(event);
+  if (act && city) {
+    return `Ontmoet andere singles tijdens deze ${act.toLowerCase()} in ${city}.`;
+  }
+  return "Ontdek dit singles-event via DateOfflineHub.";
+}
+
+function shortBlurb(event: Event): string {
+  return sanitizeInstagramBlurb(event.shortDescription || "") ?? fallbackBlurb(event);
 }
 
 /** SVG petal (opposite corners rounded) — Satori-friendly via data URL. */
