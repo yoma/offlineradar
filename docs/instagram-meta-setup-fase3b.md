@@ -40,10 +40,14 @@ Bron: [Meta Content Publishing](https://developers.facebook.com/docs/instagram-p
 ```bash
 npm run db:migrate:instagram-publishes
 npm run db:migrate:instagram-approvals
+npm run db:migrate:instagram-approvals-content-v2
+npm run verify:instagram-phase3b-offline
 npm run verify:instagram-phase3b
 ```
 
 Publieke JPEG-tickets (`/api/instagram/public-media`) zijn **6 uur** geldig — voldoende voor Meta om alle carrousel-slides op te halen.
+
+Goedkeuring bindt **caption + slidevolgorde + event-ids**. Gewijzigde inhoud vereist opnieuw goedkeuren. Ambigue Meta-antwoorden na `media_publish` houden het slot op `uncertain` (geen automatische retry/dubbele post).
 
 ## Hoe publiceren werkt in de app
 

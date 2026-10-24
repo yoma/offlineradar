@@ -4,6 +4,10 @@
  * No cron. Caller gates live calls behind feature flags.
  */
 
+import {
+  META_HTTP_TIMEOUT_MS,
+} from "@/lib/instagram/publish-policy";
+
 export type MetaGraphError = {
   code: string;
   message: string;
@@ -33,8 +37,6 @@ export type MetaClient = {
     MetaClientResult<{
       status_code?: string;
       status?: string;
-      // Present on some Graph responses after publish.
-      id?: string;
     }>
   >;
 };
@@ -45,6 +47,7 @@ export type MetaClientOptions = {
   graphApiVersion: string;
   graphHost: string;
   fetchImpl?: typeof fetch;
+  timeoutMs?: number;
   sleep?: (ms: number) => Promise<void>;
 };
 
@@ -60,6 +63,7 @@ function mapMetaError(payload: unknown, httpStatus: number): MetaGraphError {
   const msgLower = message.toLowerCase();
   let code = "meta_graph_error";
   if (httpStatus === 401 || metaCode === 190) code = "meta_auth";
+  else if (httpStatus >= 500) code = "meta_network";
   else if (metaCode === 4 || metaCode === 17 || metaCode === 32)
     code = "meta_rate_limit";
   else if (metaCode === 36003 || metaSubcode === 2207003)
@@ -78,6 +82,7 @@ function mapMetaError(payload: unknown, httpStatus: number): MetaGraphError {
 
 export function createMetaClient(options: MetaClientOptions): MetaClient {
   const fetchImpl = options.fetchImpl ?? fetch;
+  const timeoutMs = options.timeoutMs ?? META_HTTP_TIMEOUT_MS;
   const base = `https://${options.graphHost}/${options.graphApiVersion}`;
 
   async function graphPost(
@@ -96,13 +101,26 @@ export function createMetaClient(options: MetaClientOptions): MetaClient {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: form.toString(),
+        signal: AbortSignal.timeout(timeoutMs),
       });
-      const json = (await res.json().catch(() => null)) as unknown;
+      let json: unknown = null;
+      try {
+        json = await res.json();
+      } catch {
+        return {
+          ok: false,
+          error: {
+            code: "meta_network",
+            message: "Meta-antwoord was onleesbaar.",
+            httpStatus: res.status,
+          },
+        };
+      }
       if (!res.ok) {
         return { ok: false, error: mapMetaError(json, res.status) };
       }
       const id = (json as { id?: string } | null)?.id;
-      if (!id) {
+      if (!id || typeof id !== "string") {
         return {
           ok: false,
           error: {
@@ -114,14 +132,19 @@ export function createMetaClient(options: MetaClientOptions): MetaClient {
       }
       return { ok: true, data: { id } };
     } catch (error) {
+      const name = error instanceof Error ? error.name : "";
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Netwerkfout bij Meta Graph API.";
       return {
         ok: false,
         error: {
-          code: "meta_network",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Netwerkfout bij Meta Graph API.",
+          code:
+            name === "TimeoutError" || name === "AbortError"
+              ? "meta_network"
+              : "meta_network",
+          message,
         },
       };
     }
@@ -139,8 +162,21 @@ export function createMetaClient(options: MetaClientOptions): MetaClient {
         headers: {
           Authorization: `Bearer ${options.accessToken}`,
         },
+        signal: AbortSignal.timeout(timeoutMs),
       });
-      const json = (await res.json().catch(() => null)) as unknown;
+      let json: unknown = null;
+      try {
+        json = await res.json();
+      } catch {
+        return {
+          ok: false,
+          error: {
+            code: "meta_network",
+            message: "Meta-antwoord was onleesbaar.",
+            httpStatus: res.status,
+          },
+        };
+      }
       if (!res.ok) {
         return { ok: false, error: mapMetaError(json, res.status) };
       }
@@ -177,7 +213,8 @@ export function createMetaClient(options: MetaClientOptions): MetaClient {
         creation_id: creationId,
       }),
     getContainerStatus: async (containerId) => {
-      const res = await graphGet(`/${containerId}`, "status_code,status,id");
+      // Do not treat container `id` as an IG media id.
+      const res = await graphGet(`/${containerId}`, "status_code,status");
       if (!res.ok) return res;
       return {
         ok: true,
@@ -188,7 +225,6 @@ export function createMetaClient(options: MetaClientOptions): MetaClient {
               : undefined,
           status:
             typeof res.data.status === "string" ? res.data.status : undefined,
-          id: typeof res.data.id === "string" ? res.data.id : undefined,
         },
       };
     },
@@ -245,11 +281,19 @@ export function humanMetaPublishError(code: string, detail?: string): string {
     unauthorized: "Je bent niet ingelogd als beheerder.",
     not_approved:
       "Dit concept is nog niet goedgekeurd. Klik eerst op Goedkeuren.",
+    content_mismatch:
+      "Inhoud wijkt af van de goedgekeurde versie. Keur opnieuw goed.",
     missing_credentials: "Meta-credentials ontbreken in de serveromgeving.",
     missing_signing_secret: "Signing-secret voor publieke media-URL ontbreekt.",
     already_published: "Dit concept is al gepubliceerd naar Instagram.",
     publish_in_progress: "Er loopt al een publicatie voor dit concept.",
+    publish_uncertain:
+      "Publicatie-uitkomst onzeker (Meta mogelijk al geaccepteerd). Slot blijft geblokkeerd — geen retry tot reconciliatie.",
+    container_persist_failed:
+      "Container-id kon niet in Neon worden opgeslagen; publicatie gestopt vóór Meta publish.",
     neon_unavailable: "Neon-database niet bereikbaar voor publicatielog.",
+    durable_log_failed:
+      "Meta lijkt te zijn gepubliceerd, maar Neon-log kon niet worden bevestigd. Controleer Instagram; geen automatische retry.",
     no_slides: "Concept heeft geen slides om te publiceren.",
     carousel_too_small: "Een carrousel heeft minstens 2 afbeeldingen nodig.",
     meta_auth: "Meta-token ongeldig of verlopen. Vernieuw META_PAGE_ACCESS_TOKEN.",
@@ -262,8 +306,11 @@ export function humanMetaPublishError(code: string, detail?: string): string {
     meta_container_timeout: "Meta media-container werd niet op tijd klaar.",
     meta_already_published:
       "Meta meldt dat deze container al gepubliceerd is (geen dubbele post).",
-    meta_network: "Netwerkfout bij contact met Meta.",
+    meta_network: "Netwerkfout of timeout bij contact met Meta.",
     meta_graph_error: "Meta Graph API gaf een fout.",
+    dry_run_blocked_by_live:
+      "Er loopt nog een live publicatiepoging voor dit concept. Dry-run mag die niet vrijgeven.",
+    recovery_in_progress: "Herstel van een eerdere publicatie loopt al.",
   };
   const msg = base[code] ?? "Publicatie mislukt.";
   if (detail && detail !== msg) return `${msg} ${detail}`;

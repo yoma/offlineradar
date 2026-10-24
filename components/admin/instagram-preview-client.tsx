@@ -188,6 +188,12 @@ function DraftCard({
                 name="eventIds"
                 value={draft.eventIds.join(",")}
               />
+              <input type="hidden" name="caption" value={draft.caption} />
+              <input
+                type="hidden"
+                name="slides"
+                value={JSON.stringify(draft.slides)}
+              />
               <button
                 type="submit"
                 disabled={approvePending || approved}

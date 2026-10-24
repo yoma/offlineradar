@@ -1,46 +1,37 @@
 /**
- * Phase 3B: Meta publish wiring — focused review checks.
- * Never places a real Instagram post (uses mocks / dry-run).
+ * Phase 3B release check: offline regressions (required) + optional Neon checks.
+ * Skipped required DB checks → exit 2 (INCOMPLETE), never silent OK.
  */
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { buildInstagramConceptKey } from "@/lib/instagram/concept-key";
-import {
-  createMetaClient,
-  humanMetaPublishError,
-  waitForContainerFinished,
-  type MetaClient,
-} from "@/lib/instagram/meta-client";
+import { recordConceptApproval } from "@/lib/instagram/approvals";
 import { readInstagramMetaConfig } from "@/lib/instagram/meta-config";
-import {
-  publishInstagramConcept,
-  publishLiveToMeta,
-} from "@/lib/instagram/publish";
-import {
-  INSTAGRAM_MEDIA_TICKET_TTL_SEC,
-  createInstagramMediaTicket,
-  verifyInstagramMediaTicket,
-} from "@/lib/instagram/signed-media";
-import { isPublishPendingStale } from "@/lib/instagram/publish-store";
+import { publishInstagramConcept } from "@/lib/instagram/publish";
+import type { MetaClient } from "@/lib/instagram/meta-client";
+
+const skippedRequired: string[] = [];
 
 function ok(label: string) {
   console.log(`OK: ${label}`);
 }
 
-function withEnv(vars: Record<string, string | undefined>, fn: () => void) {
-  const prev: Record<string, string | undefined> = {};
-  for (const [k, v] of Object.entries(vars)) {
-    prev[k] = process.env[k];
-    if (v === undefined) delete process.env[k];
-    else process.env[k] = v;
+function skipRequired(label: string, reason: string) {
+  skippedRequired.push(`${label}: ${reason}`);
+  console.log(`SKIP (required): ${label} — ${reason}`);
+}
+
+function runOffline(): void {
+  const result = spawnSync(
+    process.execPath,
+    ["--import", "tsx", "scripts/verify-instagram-phase3b-offline.ts"],
+    { stdio: "inherit", env: process.env },
+  );
+  if (result.status !== 0) {
+    console.error("FAIL: offline Phase 3B regressions");
+    process.exit(result.status ?? 1);
   }
-  try {
-    fn();
-  } finally {
-    for (const [k, v] of Object.entries(prev)) {
-      if (v === undefined) delete process.env[k];
-      else process.env[k] = v;
-    }
-  }
+  ok("offline regressions suite");
 }
 
 async function withEnvAsync(
@@ -63,250 +54,115 @@ async function withEnvAsync(
   }
 }
 
-function testConceptKey() {
-  const a = buildInstagramConceptKey("binnenkort", ["b", "a"]);
-  const b = buildInstagramConceptKey("binnenkort", ["a", "b", "a"]);
-  const c = buildInstagramConceptKey("nieuw", ["a", "b"]);
-  assert.equal(a, b);
-  assert.notEqual(a, c);
-  ok("1. concept key stable + unique per format");
-}
-
-function testFlags() {
-  withEnv(
-    {
-      INSTAGRAM_META_PUBLISH_ENABLED: undefined,
-      INSTAGRAM_META_DRY_RUN: undefined,
-    },
-    () => assert.equal(readInstagramMetaConfig().mode, "disabled"),
-  );
-  withEnv(
-    {
-      INSTAGRAM_META_PUBLISH_ENABLED: "1",
-      INSTAGRAM_META_DRY_RUN: "1",
-    },
-    () => assert.equal(readInstagramMetaConfig().mode, "dry_run"),
-  );
-  ok("2. feature flags default off; dry-run overrides live");
-}
-
-function testSignedMediaTtl() {
-  assert.ok(
-    INSTAGRAM_MEDIA_TICKET_TTL_SEC >= 6 * 60 * 60,
-    "TTL must be ≥ 6h for Meta carousel fetches",
-  );
-  withEnv({ INSTAGRAM_IMAGE_SIGNING_SECRET: "phase3b-test-secret" }, () => {
-    const now = Date.now();
-    const created = createInstagramMediaTicket(
-      "deze_week",
-      { ids: "e1,e2", period: "Deze week" },
-      now,
-    );
-    assert.ok("token" in created);
-    const token = (created as { token: string }).token;
-    const verified = verifyInstagramMediaTicket(token, now);
-    assert.equal(verified.ok, true);
-    if (verified.ok) {
-      assert.ok(
-        verified.ticket.exp >= Math.floor(now / 1000) + 6 * 60 * 60 - 5,
-      );
+async function neonReady(): Promise<
+  | { ok: true; sql: NonNullable<ReturnType<typeof import("@/lib/events/db").getEventsSql>> }
+  | { ok: false; reason: string }
+> {
+  const { getEventsSql } = await import("@/lib/events/db");
+  const sql = getEventsSql();
+  if (!sql) return { ok: false, reason: "SQL unavailable" };
+  try {
+    const tables = await sql`
+      SELECT table_name FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_name IN ('instagram_publishes', 'instagram_concept_approvals')
+    `;
+    if (tables.length < 2) {
+      return {
+        ok: false,
+        reason: "run db:migrate:instagram-publishes + approvals (+ content-v2)",
+      };
     }
-    // Still valid after 5 hours
-    const mid = verifyInstagramMediaTicket(token, now + 5 * 60 * 60 * 1000);
-    assert.equal(mid.ok, true);
-    // Expired after 7 hours
-    const late = verifyInstagramMediaTicket(token, now + 7 * 60 * 60 * 1000);
-    assert.equal(late.ok, false);
-    if (!late.ok) assert.equal(late.error, "expired");
-    assert.equal(verifyInstagramMediaTicket("tampered.sig").ok, false);
-  });
-  ok("3. signed JPEG tickets: 6h TTL, reject expired/tampered");
-}
-
-async function testMetaClientNoTokenInUrl() {
-  const urls: string[] = [];
-  const bodies: string[] = [];
-  const headers: string[] = [];
-  const fetchImpl: typeof fetch = async (input, init) => {
-    const url = String(input);
-    urls.push(url);
-    bodies.push(String(init?.body ?? ""));
-    const h = init?.headers as Record<string, string> | undefined;
-    headers.push(h?.Authorization ?? "");
-    if (url.includes("media_publish") || url.endsWith("/media")) {
-      return new Response(JSON.stringify({ id: "container_1" }), {
-        status: 200,
-      });
+    const cols = await sql`
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'instagram_concept_approvals'
+        AND column_name = 'content_fingerprint'
+    `;
+    if (cols.length === 0) {
+      return {
+        ok: false,
+        reason: "run db:migrate:instagram-approvals-content-v2",
+      };
     }
-    return new Response(JSON.stringify({ status_code: "FINISHED", id: "c1" }), {
-      status: 200,
-    });
-  };
-
-  const client = createMetaClient({
-    igUserId: "ig1",
-    accessToken: "super-secret-token",
-    graphApiVersion: "v22.0",
-    graphHost: "graph.facebook.com",
-    fetchImpl,
-  });
-
-  await client.createImageContainer({
-    imageUrl: "https://example.com/a.jpg",
-    caption: "hi",
-  });
-  await client.getContainerStatus("container_1");
-  await client.publishContainer("container_1");
-
-  assert.ok(urls.every((u) => !u.includes("super-secret-token")));
-  assert.ok(urls.every((u) => !u.includes("access_token=")));
-  assert.ok(bodies.some((b) => b.includes("access_token=super-secret-token")));
-  assert.ok(headers.some((h) => h.includes("Bearer super-secret-token")));
-  ok("4. Meta tokens never appear in request URLs");
-}
-
-async function testCarouselMultiImage() {
-  const calls: string[] = [];
-  const client: MetaClient = {
-    createImageContainer: async ({ isCarouselItem }) => {
-      calls.push(isCarouselItem ? "child" : "single");
-      return { ok: true, data: { id: `child_${calls.length}` } };
-    },
-    createCarouselContainer: async ({ children, caption }) => {
-      calls.push(`carousel:${children.length}:${caption}`);
-      assert.equal(children.length, 3);
-      return { ok: true, data: { id: "carousel_1" } };
-    },
-    publishContainer: async (id) => {
-      calls.push(`publish:${id}`);
-      return { ok: true, data: { id: "media_carousel" } };
-    },
-    getContainerStatus: async () => ({
-      ok: true,
-      data: { status_code: "FINISHED" },
-    }),
-  };
-
-  const res = await publishLiveToMeta({
-    client,
-    caption: "Carrousel caption",
-    imageUrls: [
-      "https://example.com/1.jpg",
-      "https://example.com/2.jpg",
-      "https://example.com/3.jpg",
-    ],
-  });
-  assert.equal(res.ok, true);
-  if (res.ok) {
-    assert.equal(res.containerId, "carousel_1");
-    assert.equal(res.mediaId, "media_carousel");
+    return { ok: true, sql };
+  } catch (error) {
+    return {
+      ok: false,
+      reason: error instanceof Error ? error.message : String(error),
+    };
   }
-  assert.deepEqual(
-    calls.filter((c) => c === "child"),
-    ["child", "child", "child"],
-  );
-  assert.ok(calls.includes("carousel:3:Carrousel caption"));
-  assert.ok(calls.includes("publish:carousel_1"));
-  ok("5. carousel: 3 children → CAROUSEL parent → publish");
 }
 
-async function testDryRunNoMetaHttp() {
-  let fetchCalls = 0;
-  const fetchImpl: typeof fetch = async () => {
-    fetchCalls += 1;
-    return new Response("{}", { status: 500 });
-  };
-  // Even if someone wired a client, dry-run path must not use it.
-  const metaClient = createMetaClient({
-    igUserId: "ig1",
-    accessToken: "tok",
-    graphApiVersion: "v22.0",
-    graphHost: "graph.facebook.com",
-    fetchImpl,
+async function testApprovalContentOnNeon() {
+  const db = await neonReady();
+  if (!db.ok) {
+    skipRequired("neon approval content gate", db.reason);
+    return;
+  }
+  const { sql } = db;
+  const eventId = `ig3b-appr-${Date.now()}`;
+  const slides = [
+    {
+      kind: "deze_week" as const,
+      label: "Overview",
+      query: { kind: "deze_week", ids: eventId, period: "Deze week" },
+    },
+  ];
+  const caption = "Goedgekeurde caption";
+  const recorded = await recordConceptApproval({
+    format: "deze_week",
+    eventIds: [eventId],
+    caption,
+    slides,
+    approvedBy: "verify@test",
   });
+  assert.equal(recorded.ok, true);
 
   await withEnvAsync(
     {
       INSTAGRAM_META_DRY_RUN: "1",
-      INSTAGRAM_META_PUBLISH_ENABLED: undefined,
       INSTAGRAM_IMAGE_SIGNING_SECRET: "phase3b-test-secret",
       OFFLINERADAR_PUBLIC_BASE_URL: "https://dateofflinehub.be",
     },
     async () => {
-      const { getEventsSql } = await import("@/lib/events/db");
-      const sql = getEventsSql();
-      if (!sql) {
-        console.log("SKIP: 6. dry-run (SQL unavailable)");
-        return;
-      }
-      const eventId = `dry-${Date.now()}`;
-      const res = await publishInstagramConcept({
+      const bad = await publishInstagramConcept({
         draft: {
           format: "deze_week",
           eventIds: [eventId],
-          caption: "dry",
-          slides: [
-            {
-              kind: "deze_week",
-              label: "x",
-              query: { kind: "deze_week", ids: eventId },
-            },
-          ],
+          caption: "Gewijzigd na goedkeuring",
+          slides,
         },
-        metaClient,
-        skipApprovalCheck: true,
-        publicBaseUrl: "https://dateofflinehub.be",
       });
-      assert.equal(res.ok, true, res.ok ? "" : res.message);
-      if (res.ok) assert.equal(res.mode, "dry_run");
-      assert.equal(fetchCalls, 0, "dry-run must not call Meta HTTP");
-      await sql`DELETE FROM instagram_publishes WHERE event_ids::text LIKE ${"%" + eventId + "%"}`;
-    },
-  );
-  ok("6. dry-run: zero Meta HTTP calls");
-}
+      assert.equal(bad.ok, false);
+      if (!bad.ok) assert.equal(bad.code, "content_mismatch");
 
-async function testApprovalGate() {
-  await withEnvAsync(
-    {
-      INSTAGRAM_META_DRY_RUN: "1",
-      INSTAGRAM_IMAGE_SIGNING_SECRET: "phase3b-test-secret",
-    },
-    async () => {
-      const res = await publishInstagramConcept({
+      const good = await publishInstagramConcept({
         draft: {
           format: "deze_week",
-          eventIds: [`unapproved-${Date.now()}`],
-          caption: "x",
-          slides: [
-            {
-              kind: "deze_week",
-              label: "x",
-              query: { kind: "deze_week", ids: "x" },
-            },
-          ],
+          eventIds: [eventId],
+          caption,
+          slides,
         },
-        // intentionally NO skipApprovalCheck
       });
-      assert.equal(res.ok, false);
-      if (!res.ok) {
-        assert.equal(res.code, "not_approved");
-        assert.match(res.message, /goedkeur/i);
-      }
+      assert.equal(good.ok, true, good.ok ? "" : good.message);
+      if (good.ok) assert.equal(good.mode, "dry_run");
     },
   );
-  ok("7. publish blocked without concept approval");
+
+  const conceptKey = buildInstagramConceptKey("deze_week", [eventId]);
+  await sql`DELETE FROM instagram_publishes WHERE concept_key = ${conceptKey}`;
+  await sql`DELETE FROM instagram_concept_approvals WHERE concept_key = ${conceptKey}`;
+  ok("neon approval rejects caption drift; accepts exact content");
 }
 
-async function testIdempotencyAndLostAck() {
-  const { getEventsSql } = await import("@/lib/events/db");
-  const sql = getEventsSql();
-  if (!sql) {
-    console.log("SKIP: 8. idempotency (SQL unavailable)");
+async function testNeonIdempotency() {
+  const db = await neonReady();
+  if (!db.ok) {
+    skipRequired("neon idempotency", db.reason);
     return;
   }
-
-  const eventId = `ig3b-ack-${Date.now()}`;
+  const { sql } = db;
+  const eventId = `ig3b-idemp-${Date.now()}`;
   let publishCalls = 0;
   const metaClient: MetaClient = {
     createImageContainer: async () => {
@@ -327,6 +183,21 @@ async function testIdempotencyAndLostAck() {
     }),
   };
 
+  const slides = [
+    {
+      kind: "deze_week" as const,
+      label: "Overview",
+      query: { kind: "deze_week", ids: eventId, period: "Deze week" },
+    },
+  ];
+  const caption = "Verify caption";
+  await recordConceptApproval({
+    format: "deze_week",
+    eventIds: [eventId],
+    caption,
+    slides,
+  });
+
   await withEnvAsync(
     {
       INSTAGRAM_META_PUBLISH_ENABLED: "1",
@@ -340,240 +211,63 @@ async function testIdempotencyAndLostAck() {
       const draft = {
         format: "deze_week" as const,
         eventIds: [eventId],
-        caption: "Verify caption",
-        slides: [
-          {
-            kind: "deze_week" as const,
-            label: "Overview",
-            query: { kind: "deze_week", ids: eventId, period: "Deze week" },
-          },
-        ],
+        caption,
+        slides,
       };
-
       const first = await publishInstagramConcept({
         draft,
         metaClient,
-        skipApprovalCheck: true,
         publicBaseUrl: "https://dateofflinehub.be",
       });
       assert.equal(first.ok, true, first.ok ? "" : first.message);
-
       const second = await publishInstagramConcept({
         draft,
         metaClient,
-        skipApprovalCheck: true,
         publicBaseUrl: "https://dateofflinehub.be",
       });
       assert.equal(second.ok, false);
       if (!second.ok) assert.equal(second.code, "already_published");
       assert.equal(publishCalls, 1);
-
-      // Simulate lost-ack: pending row with container id, no media id, stale.
-      const eventId2 = `ig3b-stale-${Date.now()}`;
-      const conceptKey = buildInstagramConceptKey("deze_week", [eventId2]);
-      const staleId = crypto.randomUUID();
-      const staleAt = new Date(Date.now() - 20 * 60 * 1000).toISOString();
-      await sql`
-        INSERT INTO instagram_publishes (
-          id, concept_key, format, event_ids, caption, slide_count,
-          status, dry_run, meta_container_id, created_at, updated_at
-        ) VALUES (
-          ${staleId},
-          ${conceptKey},
-          'deze_week',
-          ${JSON.stringify([eventId2])},
-          'stale',
-          1,
-          'pending',
-          false,
-          'container_stale',
-          ${staleAt}::timestamptz,
-          ${staleAt}::timestamptz
-        )
-      `;
-
-      assert.equal(
-        isPublishPendingStale({
-          id: staleId,
-          conceptKey,
-          format: "deze_week",
-          eventIds: [eventId2],
-          caption: "stale",
-          slideCount: 1,
-          status: "pending",
-          dryRun: false,
-          metaContainerId: "container_stale",
-          metaMediaId: null,
-          errorCode: null,
-          errorMessage: null,
-          requestedBy: null,
-          createdAt: staleAt,
-          updatedAt: staleAt,
-          finishedAt: null,
-        }),
-        true,
-      );
-
-      let resumePublishes = 0;
-      const resumeClient: MetaClient = {
-        createImageContainer: async () => ({
-          ok: true,
-          data: { id: "should-not-create" },
-        }),
-        createCarouselContainer: async () => ({
-          ok: true,
-          data: { id: "should-not" },
-        }),
-        publishContainer: async (id) => {
-          resumePublishes += 1;
-          assert.equal(id, "container_stale");
-          return { ok: true, data: { id: "media_recovered" } };
-        },
-        getContainerStatus: async () => ({
-          ok: true,
-          data: { status_code: "FINISHED" },
-        }),
-      };
-
-      const recovered = await publishInstagramConcept({
-        draft: {
-          format: "deze_week",
-          eventIds: [eventId2],
-          caption: "stale",
-          slides: [
-            {
-              kind: "deze_week",
-              label: "x",
-              query: { kind: "deze_week", ids: eventId2 },
-            },
-          ],
-        },
-        metaClient: resumeClient,
-        skipApprovalCheck: true,
-        publicBaseUrl: "https://dateofflinehub.be",
-      });
-      assert.equal(recovered.ok, true, recovered.ok ? "" : recovered.message);
-      if (recovered.ok) {
-        assert.equal(recovered.publish.metaMediaId, "media_recovered");
-      }
-      assert.equal(resumePublishes, 1, "resume only media_publish once");
     },
   );
 
-  await sql`DELETE FROM instagram_publishes WHERE event_ids::text LIKE ${"%ig3b-ack-%"} OR event_ids::text LIKE ${"%ig3b-stale-%"}`;
-  ok("8. idempotency + stale pending resume (no duplicate create)");
+  const conceptKey = buildInstagramConceptKey("deze_week", [eventId]);
+  await sql`DELETE FROM instagram_publishes WHERE concept_key = ${conceptKey}`;
+  await sql`DELETE FROM instagram_concept_approvals WHERE concept_key = ${conceptKey}`;
+  ok("neon idempotency blocks duplicate Meta publish");
 }
 
-async function testFailedFreesSlot() {
-  const { getEventsSql } = await import("@/lib/events/db");
-  const sql = getEventsSql();
-  if (!sql) {
-    console.log("SKIP: 9. failed frees slot");
-    return;
-  }
-
-  const eventId = `ig3b-fail-${Date.now()}`;
-  let attempts = 0;
-  const metaClient: MetaClient = {
-    createImageContainer: async () => {
-      attempts += 1;
-      if (attempts === 1) {
-        return {
-          ok: false,
-          error: { code: "meta_media_url", message: "bad url" },
-        };
-      }
-      return { ok: true, data: { id: "c_ok" } };
-    },
-    createCarouselContainer: async () => ({ ok: true, data: { id: "x" } }),
-    publishContainer: async () => ({ ok: true, data: { id: "m_ok" } }),
-    getContainerStatus: async () => ({
-      ok: true,
-      data: { status_code: "FINISHED" },
-    }),
-  };
-
-  await withEnvAsync(
-    {
-      INSTAGRAM_META_PUBLISH_ENABLED: "1",
-      INSTAGRAM_META_DRY_RUN: undefined,
-      META_IG_USER_ID: "ig",
-      META_PAGE_ACCESS_TOKEN: "tok",
-      INSTAGRAM_IMAGE_SIGNING_SECRET: "phase3b-test-secret",
-      OFFLINERADAR_PUBLIC_BASE_URL: "https://dateofflinehub.be",
-    },
-    async () => {
-      const draft = {
-        format: "deze_week" as const,
-        eventIds: [eventId],
-        caption: "fail then ok",
-        slides: [
-          {
-            kind: "deze_week" as const,
-            label: "x",
-            query: { kind: "deze_week", ids: eventId },
-          },
-        ],
-      };
-      const first = await publishInstagramConcept({
-        draft,
-        metaClient,
-        skipApprovalCheck: true,
-        publicBaseUrl: "https://dateofflinehub.be",
-      });
-      assert.equal(first.ok, false);
-      const second = await publishInstagramConcept({
-        draft,
-        metaClient,
-        skipApprovalCheck: true,
-        publicBaseUrl: "https://dateofflinehub.be",
-      });
-      assert.equal(second.ok, true, second.ok ? "" : second.message);
-    },
-  );
-  await sql`DELETE FROM instagram_publishes WHERE event_ids::text LIKE ${"%" + eventId + "%"}`;
-  ok("9. failed publish frees slot for retry");
-}
-
-function testHumanErrors() {
-  assert.match(humanMetaPublishError("not_approved"), /goedkeur/i);
-  assert.match(humanMetaPublishError("already_published"), /al gepubliceerd/i);
-  ok("10. Dutch error messages");
-}
-
-async function testWaitFinished() {
-  const client = createMetaClient({
-    igUserId: "ig",
-    accessToken: "t",
-    graphApiVersion: "v22.0",
-    graphHost: "graph.facebook.com",
-    fetchImpl: async () =>
-      new Response(JSON.stringify({ status_code: "FINISHED" }), {
-        status: 200,
-      }),
-  });
-  const ready = await waitForContainerFinished(client, "c1", {
-    attempts: 2,
-    delayMs: 1,
-    sleep: async () => {},
-  });
-  assert.equal(ready.ok, true);
-  ok("11. container wait accepts FINISHED");
+function testFlags() {
+  const prevEn = process.env.INSTAGRAM_META_PUBLISH_ENABLED;
+  const prevDry = process.env.INSTAGRAM_META_DRY_RUN;
+  delete process.env.INSTAGRAM_META_PUBLISH_ENABLED;
+  delete process.env.INSTAGRAM_META_DRY_RUN;
+  assert.equal(readInstagramMetaConfig().mode, "disabled");
+  process.env.INSTAGRAM_META_DRY_RUN = "1";
+  assert.equal(readInstagramMetaConfig().mode, "dry_run");
+  if (prevEn === undefined) delete process.env.INSTAGRAM_META_PUBLISH_ENABLED;
+  else process.env.INSTAGRAM_META_PUBLISH_ENABLED = prevEn;
+  if (prevDry === undefined) delete process.env.INSTAGRAM_META_DRY_RUN;
+  else process.env.INSTAGRAM_META_DRY_RUN = prevDry;
+  ok("feature flags default off");
 }
 
 async function main() {
-  testConceptKey();
+  runOffline();
   testFlags();
-  testSignedMediaTtl();
-  await testMetaClientNoTokenInUrl();
-  await testCarouselMultiImage();
-  await testDryRunNoMetaHttp();
-  await testApprovalGate();
-  await testIdempotencyAndLostAck();
-  await testFailedFreesSlot();
-  testHumanErrors();
-  await testWaitFinished();
-  console.log("\nOK: Instagram Phase 3B verify.");
+  await testApprovalContentOnNeon();
+  await testNeonIdempotency();
+
+  if (skippedRequired.length > 0) {
+    console.error("\nINCOMPLETE: required DB checks skipped:");
+    for (const s of skippedRequired) console.error(` - ${s}`);
+    console.error(
+      "Release claim for Neon-backed publish safety is incomplete.",
+    );
+    process.exit(2);
+  }
+
+  console.log("\nOK: Instagram Phase 3B verify (offline + Neon).");
 }
 
 main().catch((error) => {
