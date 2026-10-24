@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { approveInstagramConceptAction } from "@/app/interne-instagram/actions";
+import {
+  approveInstagramConceptAction,
+  publishInstagramConceptAction,
+} from "@/app/interne-instagram/actions";
 import {
   imageUrlFromQuery,
   type InstagramDraft,
@@ -12,6 +15,7 @@ import {
   INSTAGRAM_WEBSITE,
   type InstagramFormatId,
 } from "@/lib/instagram/constants";
+import type { InstagramMetaPublishMode } from "@/lib/instagram/meta-config";
 
 const FORMAT_TITLE: Record<InstagramFormatId, string> = {
   binnenkort: "Format A — Binnenkort te beleven",
@@ -19,14 +23,29 @@ const FORMAT_TITLE: Record<InstagramFormatId, string> = {
   nieuw: "Format C — Nieuw op DateOfflineHub",
 };
 
-function DraftCard({ draft }: { draft: InstagramDraft }) {
+function DraftCard({
+  draft,
+  publishMode,
+}: {
+  draft: InstagramDraft;
+  publishMode: InstagramMetaPublishMode;
+}) {
   const [slideIndex, setSlideIndex] = useState(0);
   const [copied, setCopied] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const [approvePending, startApprove] = useTransition();
+  const [publishPending, startPublish] = useTransition();
   const [approved, setApproved] = useState(false);
+  const [publishMessage, setPublishMessage] = useState<string | null>(null);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [published, setPublished] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const slide = draft.slides[slideIndex] ?? draft.slides[0];
   const src = slide ? imageUrlFromQuery(slide.query) : "";
+  const publishDisabled =
+    publishPending ||
+    published ||
+    !approved ||
+    publishMode === "disabled";
 
   useEffect(() => {
     setImageLoaded(false);
@@ -85,7 +104,6 @@ function DraftCard({ draft }: { draft: InstagramDraft }) {
                     if (i === slideIndex) return;
                     setImageLoaded(false);
                     setSlideIndex(i);
-                    // Prefetch neighbour slides so the next click feels instant.
                     const next = draft.slides[i + 1];
                     if (next && typeof window !== "undefined") {
                       const img = new window.Image();
@@ -153,35 +171,105 @@ function DraftCard({ draft }: { draft: InstagramDraft }) {
             </pre>
           </div>
 
-          <form
-            className="mt-auto flex flex-wrap items-center gap-3 border-t border-stone-100 pt-4"
-            action={(formData) => {
-              startTransition(async () => {
-                const res = await approveInstagramConceptAction(formData);
-                if (res.ok) setApproved(true);
-              });
-            }}
-          >
-            <input
-              type="hidden"
-              name="eventIds"
-              value={draft.eventIds.join(",")}
-            />
-            <button
-              type="submit"
-              disabled={pending || approved}
-              className="rounded-xl bg-[var(--brand-bordeaux)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--brand-bordeaux-muted)] disabled:opacity-50"
+          <div className="mt-auto space-y-3 border-t border-stone-100 pt-4">
+            <form
+              className="flex flex-wrap items-center gap-3"
+              action={(formData) => {
+                startApprove(async () => {
+                  const res = await approveInstagramConceptAction(formData);
+                  if (res.ok) setApproved(true);
+                });
+              }}
             >
-              {approved
-                ? "Concept onthouden"
-                : pending
-                  ? "Bezig…"
-                  : "Goedkeuren (onthouden, niet publiceren)"}
-            </button>
-            <p className="text-xs text-stone-500">
-              Geen automatische Instagram-publicatie in fase 3A.
-            </p>
-          </form>
+              <input
+                type="hidden"
+                name="eventIds"
+                value={draft.eventIds.join(",")}
+              />
+              <button
+                type="submit"
+                disabled={approvePending || approved}
+                className="rounded-xl bg-[var(--brand-bordeaux)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--brand-bordeaux-muted)] disabled:opacity-50"
+              >
+                {approved
+                  ? "Concept onthouden"
+                  : approvePending
+                    ? "Bezig…"
+                    : "Goedkeuren (onthouden)"}
+              </button>
+            </form>
+
+            <form
+              className="flex flex-wrap items-center gap-3"
+              action={(formData) => {
+                startPublish(async () => {
+                  setPublishError(null);
+                  setPublishMessage(null);
+                  const res = await publishInstagramConceptAction(formData);
+                  if (res.ok) {
+                    setPublished(res.mode === "live" || res.status === "dry_run");
+                    setPublishMessage(res.message);
+                    return;
+                  }
+                  setPublishError(res.message);
+                  if (res.code === "already_published") setPublished(true);
+                });
+              }}
+            >
+              <input type="hidden" name="format" value={draft.format} />
+              <input
+                type="hidden"
+                name="eventIds"
+                value={draft.eventIds.join(",")}
+              />
+              <input type="hidden" name="caption" value={draft.caption} />
+              <input
+                type="hidden"
+                name="slides"
+                value={JSON.stringify(draft.slides)}
+              />
+              <button
+                type="submit"
+                data-testid={`ig-publish-${draft.format}`}
+                disabled={publishDisabled}
+                className="rounded-xl border border-[var(--brand-gold)] bg-[var(--brand-gold-soft)] px-4 py-2.5 text-sm font-semibold text-[var(--brand-gold-ink)] transition hover:bg-[color-mix(in_srgb,var(--brand-gold-soft)_70%,white)] disabled:opacity-50"
+              >
+                {published
+                  ? publishMode === "dry_run"
+                    ? "Dry-run voltooid"
+                    : "Gepubliceerd"
+                  : publishPending
+                    ? "Publiceren…"
+                    : "Publiceren naar Instagram"}
+              </button>
+              <p className="text-xs text-stone-500">
+                {!approved
+                  ? "Eerst goedkeuren, daarna publiceren."
+                  : publishMode === "disabled"
+                    ? "Publicatie staat uit (feature flag)."
+                    : publishMode === "dry_run"
+                      ? "Dry-run: geen echte Meta-post."
+                      : "Live Meta-publicatie (geen cron)."}
+              </p>
+            </form>
+
+            {publishMessage ? (
+              <p
+                className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900"
+                role="status"
+              >
+                {publishMessage}
+              </p>
+            ) : null}
+            {publishError ? (
+              <p
+                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900"
+                role="alert"
+              >
+                {publishError}
+              </p>
+            ) : null}
+          </div>
         </div>
       </div>
     </section>
@@ -191,23 +279,27 @@ function DraftCard({ draft }: { draft: InstagramDraft }) {
 export function InstagramPreviewClient({
   drafts,
   notes,
+  publishMode,
+  publishModeLabel,
 }: {
   drafts: InstagramDraft[];
   notes: string[];
+  publishMode: InstagramMetaPublishMode;
+  publishModeLabel: string;
 }) {
   return (
     <div className="space-y-8">
       <header className="space-y-2">
         <p className="text-sm font-semibold tracking-wide text-[var(--brand-gold-deep)]">
-          {INSTAGRAM_HANDLE} · fase 3A preview
+          {INSTAGRAM_HANDLE} · fase 3B
         </p>
         <h1 className="font-heading text-2xl tracking-tight text-[var(--brand-bordeaux)] sm:text-3xl">
           Instagram Autopilot — visuele voorbeelden
         </h1>
         <p className="max-w-2xl text-sm leading-6 text-stone-600">
           Gerenderde 4:5-beelden (1080×1350) met het echte logo, {INSTAGRAM_WEBSITE}{" "}
-          en huisstijl. Slogan: {INSTAGRAM_SLOGAN}. Selectie is objectief; er
-          wordt niets naar Instagram gestuurd.
+          en huisstijl. Slogan: {INSTAGRAM_SLOGAN}. Selectie is objectief.
+          Publicatiemodus: {publishModeLabel}.
         </p>
       </header>
 
@@ -227,7 +319,13 @@ export function InstagramPreviewClient({
           selectievensters.
         </p>
       ) : (
-        drafts.map((draft) => <DraftCard key={draft.id} draft={draft} />)
+        drafts.map((draft) => (
+          <DraftCard
+            key={draft.id}
+            draft={draft}
+            publishMode={publishMode}
+          />
+        ))
       )}
     </div>
   );
