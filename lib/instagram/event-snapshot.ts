@@ -4,6 +4,7 @@
  * including late Meta image fetches.
  */
 
+import { effectiveInstagramBlurb } from "@/lib/instagram/blurb";
 import type {
   ActivityId,
   EligibilityAgeRule,
@@ -113,13 +114,26 @@ export function canonicalizeEventSnapshots(
 ): InstagramEventSnapshot[] {
   return snapshots.map((raw) => {
     const s = raw as Partial<InstagramEventSnapshot>;
+    const city = String(s.city ?? "").trim().slice(0, 120);
+    const region = String(s.region ?? s.city ?? "").trim().slice(0, 120);
+    const activities = (Array.isArray(s.activities) ? s.activities : [])
+      .map(asActivityId)
+      .filter((a): a is ActivityId => a != null)
+      .slice(0, 20);
+    // Bind the same blurb EventSlide renders (rejects scraped multiline dumps).
+    const shortDescription = effectiveInstagramBlurb({
+      shortDescription: String(s.shortDescription ?? ""),
+      city,
+      region,
+      activities,
+    }).slice(0, 500);
     return {
       id: String(s.id ?? "").trim().slice(0, 120),
       title: String(s.title ?? "").trim().slice(0, 300),
       startDate: String(s.startDate ?? "").trim().slice(0, 32),
       startTime: s.startTime ? String(s.startTime).trim().slice(0, 16) : null,
-      city: String(s.city ?? "").trim().slice(0, 120),
-      region: String(s.region ?? s.city ?? "").trim().slice(0, 120),
+      city,
+      region,
       venue: s.venue ? String(s.venue).trim().slice(0, 200) : null,
       organizerName: String(s.organizerName ?? "").trim().slice(0, 200),
       organizerId: s.organizerId
@@ -130,7 +144,7 @@ export function canonicalizeEventSnapshots(
         : null,
       imageUrl: s.imageUrl ? String(s.imageUrl).trim().slice(0, 2000) : null,
       imageIsAtmosphere: s.imageIsAtmosphere === true,
-      shortDescription: String(s.shortDescription ?? "").trim().slice(0, 500),
+      shortDescription,
       description: s.description
         ? String(s.description).trim().slice(0, 4000)
         : null,
@@ -139,10 +153,7 @@ export function canonicalizeEventSnapshots(
       eligibilityAgeMin: asAge(s.eligibilityAgeMin),
       eligibilityAgeMax: asAge(s.eligibilityAgeMax),
       eligibilityAgeRule: asAgeRule(s.eligibilityAgeRule),
-      activities: (Array.isArray(s.activities) ? s.activities : [])
-        .map(asActivityId)
-        .filter((a): a is ActivityId => a != null)
-        .slice(0, 20),
+      activities,
       tags: (Array.isArray(s.tags) ? s.tags : [])
         .map((t) => String(t ?? "").trim().slice(0, 80))
         .filter(Boolean)

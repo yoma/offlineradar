@@ -132,8 +132,10 @@ export async function recordConceptApproval(input: {
  * Uses normalized fingerprints so FormData `\r\n` captions match server `\n`
  * drafts. Still rejects real caption/slide/snapshot drift.
  *
- * Prefer semantic equality (recompute both sides) so rows stored before
- * newline normalization still hydrate when the visible content is unchanged.
+ * Also requires the stored `content_fingerprint` column to equal the current
+ * algorithm output for that row. Approvals written under an older render
+ * contract (e.g. before blurb sanitization / fingerprint v4) therefore become
+ * invalid even when the raw stored dump fields are unchanged — force re-approve.
  */
 export function matchStoredApprovalContent(input: {
   format: InstagramFormatId;
@@ -159,17 +161,17 @@ export function matchStoredApprovalContent(input: {
     slides: input.storedSlides,
     eventSnapshots: input.storedEventSnapshots,
   });
-  if (submittedFingerprint === storedFingerprint) {
-    return { ok: true, contentFingerprint: submittedFingerprint };
+  if (submittedFingerprint !== storedFingerprint) {
+    return { ok: false };
   }
-  // Fast path for rows already written with the current fingerprint function.
+  // Opaque column must match current contract (invalidates pre-v4 / pre-blurb rows).
   if (
-    input.storedContentFingerprint &&
-    input.storedContentFingerprint === submittedFingerprint
+    !input.storedContentFingerprint ||
+    input.storedContentFingerprint !== submittedFingerprint
   ) {
-    return { ok: true, contentFingerprint: submittedFingerprint };
+    return { ok: false };
   }
-  return { ok: false };
+  return { ok: true, contentFingerprint: submittedFingerprint };
 }
 
 /**

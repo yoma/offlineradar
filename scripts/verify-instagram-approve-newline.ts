@@ -39,6 +39,7 @@ function legacyUnnormalizedFingerprint(input: {
     slides: canonicalizeSlidesForApproval(input.slides),
     eventSnapshots: canonicalizeEventSnapshots(input.eventSnapshots),
   };
+  // Intentionally uses the pre-v4 prefix to simulate a stale opaque column.
   return createHash("sha256")
     .update(`ig3b-content:v3:${JSON.stringify(payload)}`)
     .digest("hex")
@@ -214,22 +215,7 @@ assert.equal(
 );
 ok("3. approve(FormData CRLF) fingerprint == hydrate(server LF)");
 
-// Legacy row: fingerprint column may still be the pre-normalization CRLF hash.
-// Reproduce the production mismatch shape, then prove matchStoredApprovalContent
-// accepts unchanged content via semantic recompute.
-const legacyRawFingerprint = legacyUnnormalizedFingerprint({
-  format: draftA.format,
-  eventIds: draftA.eventIds,
-  caption: formCaption,
-  slides: draftA.slides,
-  eventSnapshots: approveSnaps,
-});
-assert.notEqual(
-  legacyRawFingerprint,
-  fpLoadA,
-  "legacy unnormalized CRLF hash differs from normalized LF hash (bug shape)",
-);
-
+// After approve, the opaque column stores the current (normalized) fingerprint.
 const hydrate = matchStoredApprovalContent({
   format: draftA.format,
   eventIds: draftA.eventIds,
@@ -238,12 +224,38 @@ const hydrate = matchStoredApprovalContent({
   storedCaption: formCaption, // what FormData wrote
   storedSlides: packed.slides,
   storedEventSnapshots: packed.eventSnapshots,
-  storedContentFingerprint: legacyRawFingerprint,
+  storedContentFingerprint: storedFingerprint,
 });
 assert.equal(hydrate.ok, true, "reload must recognize FormData-approved content");
 if (!hydrate.ok) throw new Error("hydrate failed");
 assert.equal(hydrate.contentFingerprint, fpLoadA);
 ok("4. matchStoredApprovalContent: CRLF-stored + LF-reload = approved");
+
+// Pre-normalization opaque hashes must not keep an approval valid.
+const legacyRawFingerprint = legacyUnnormalizedFingerprint({
+  format: draftA.format,
+  eventIds: draftA.eventIds,
+  caption: formCaption,
+  slides: draftA.slides,
+  eventSnapshots: approveSnaps,
+});
+assert.notEqual(legacyRawFingerprint, fpLoadA);
+const staleOpaque = matchStoredApprovalContent({
+  format: draftA.format,
+  eventIds: draftA.eventIds,
+  caption: draftA.caption,
+  slides: draftA.slides,
+  storedCaption: formCaption,
+  storedSlides: packed.slides,
+  storedEventSnapshots: packed.eventSnapshots,
+  storedContentFingerprint: legacyRawFingerprint,
+});
+assert.equal(
+  staleOpaque.ok,
+  false,
+  "stale opaque fingerprint must force re-approve",
+);
+ok("5. stale opaque fingerprint invalidates approval");
 
 const drifted = matchStoredApprovalContent({
   format: draftA.format,
@@ -253,10 +265,10 @@ const drifted = matchStoredApprovalContent({
   storedCaption: formCaption,
   storedSlides: packed.slides,
   storedEventSnapshots: packed.eventSnapshots,
-  storedContentFingerprint: legacyRawFingerprint,
+  storedContentFingerprint: storedFingerprint,
 });
 assert.equal(drifted.ok, false, "real caption edit must still require re-approval");
-ok("5. real caption change still content_mismatch");
+ok("6. real caption change still content_mismatch");
 
 const titleDriftSnaps = approveSnaps.map((s, i) =>
   i === 0 ? { ...s, title: "ANDERE TITEL" } : s,
@@ -269,6 +281,6 @@ const titleDriftFp = buildInstagramContentFingerprint({
   eventSnapshots: titleDriftSnaps,
 });
 assert.notEqual(titleDriftFp, fpLoadA);
-ok("6. event field drift still changes fingerprint");
+ok("7. event field drift still changes fingerprint");
 
 console.log("\nOK: Instagram approve newline / FormData parity verify.");
