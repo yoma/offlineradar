@@ -20,7 +20,11 @@ export async function approveInstagramConceptAction(formData: FormData) {
     .map((s) => s.trim())
     .filter(Boolean);
 
-  await recordConceptEventIds(eventIds);
+  const result = await recordConceptEventIds(eventIds);
   revalidatePath("/interne-instagram");
-  return { ok: true as const, recorded: eventIds.length };
+  return {
+    ok: true as const,
+    recorded: result.count,
+    stored: result.stored,
+  };
 }

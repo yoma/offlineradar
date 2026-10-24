@@ -195,10 +195,14 @@ zelfde pad als de eventkaart. Instagram en website tonen dezelfde URL. Neutrale
 fallback alleen als de website zelf neutraal is, of als Satori-fetch faalt.
 MIME-sniffing blijft voor mislabeled `/preview-mood/*.png` (JPEG op schijf).
 
-## 11. Open voor jouw GO
+## 11. Conceptgeschiedenis (Neon)
 
-- Eventuele laatste pixel-tweaks  
-- Daarna pas: Meta-koppeling / automatische publicatie  
-- Optioneel: Neon-tabel i.p.v. lokale conceptgeschiedenis  
+Tabel `instagram_concept_history` (migratie `20261024_instagram_concept_history_v1`).
 
-**Geen productie zonder expliciete GO.**
+- Upsert op `event_id` (geen dubbele rijen bij herhaald goedkeuren)  
+- Survives Vercel redeploy  
+- File-fallback alleen als SQL onbeschikbaar is (lokaal)  
+
+## 12. Fase 3A afronding
+
+Visuele GO ontvangen. Meta-publicatie blijft uitgeschakeld (`INSTAGRAM_META_STATUS.publishEnabled = false`).
