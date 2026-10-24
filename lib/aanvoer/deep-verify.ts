@@ -9,7 +9,7 @@ import {
   DEFAULT_ANTHROPIC_MODEL,
 } from "@/lib/screening/ai/anthropic-screener";
 import { listCatalogSources } from "@/lib/events/catalog-sources";
-import { editionLocationIsDiscoverable } from "@/lib/geo-cities";
+import { editionLocationIsPublishable } from "@/lib/geo-cities";
 import { runAdminIntakeExtract } from "@/lib/aanvoer/extract";
 import {
   collectProposalTextBlob,
@@ -88,7 +88,7 @@ export function detectEssentialGaps(proposal: IntakeProposal): string[] {
   // Venue-only / uncertain city is not enough: need found + mappable city.
   const hasDiscoverableCity =
     fieldFound(proposal.city) &&
-    editionLocationIsDiscoverable({ city: proposal.city.value });
+    editionLocationIsPublishable({ city: proposal.city.value });
   if (!hasDiscoverableCity) gaps.push("location");
   if (!fieldFound(proposal.organizer)) gaps.push("organizer");
   const singlesOk =

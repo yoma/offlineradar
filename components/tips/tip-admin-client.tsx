@@ -408,9 +408,11 @@ export function TipAdminClient({
                     >
                       {tip.originalUrl}
                     </a>
-                    <p className="text-xs text-muted-foreground">
-                      genormaliseerd: {tip.normalizedUrl}
-                    </p>
+                    {!embedded ? (
+                      <p className="text-xs text-muted-foreground">
+                        Genormaliseerde URL: {tip.normalizedUrl}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -465,24 +467,28 @@ export function TipAdminClient({
                         : "Nee (geen e-mail bewaard)"}
                     </dd>
                   </div>
+                  {!embedded ? (
+                    <div>
+                      <dt className="text-muted-foreground">
+                        Menselijke beslissing
+                      </dt>
+                      <dd>
+                        {review?.adminDecision
+                          ? `${TIP_STATUS_LABEL[review.adminDecision]}${
+                              review.decisionReason
+                                ? ` · ${review.decisionReason}`
+                                : ""
+                            }`
+                          : "Nog geen beheerderbeslissing"}
+                      </dd>
+                    </div>
+                  ) : null}
                   <div>
-                    <dt className="text-muted-foreground">Menselijke beslissing</dt>
-                    <dd>
-                      {review?.adminDecision
-                        ? `${TIP_STATUS_LABEL[review.adminDecision]}${
-                            review.decisionReason
-                              ? ` · ${review.decisionReason}`
-                              : ""
-                          }`
-                        : "Nog geen beheerderbeslissing"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Eventkoppeling</dt>
+                    <dt className="text-muted-foreground">Event</dt>
                     <dd>
                       {tip.linkedEventId ? (
                         <span>
-                          Voorlopig event klaar ·{" "}
+                          Concept klaar ·{" "}
                           <a
                             href="/interne-events"
                             className="font-medium underline-offset-4 hover:underline"
@@ -491,20 +497,22 @@ export function TipAdminClient({
                           </a>
                         </span>
                       ) : tip.status === "approved_for_publication" ? (
-                        "Nog geen voorlopig event"
+                        "Nog geen concept"
                       ) : (
                         "—"
                       )}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground">Publicatie</dt>
+                    <dt className="text-muted-foreground">Status</dt>
                     <dd>
                       {tip.status === "published"
-                        ? "Tip published (gekoppeld event live)"
+                        ? "Online (gekoppeld event staat live)"
                         : tip.status === "approved_for_publication"
-                          ? "Goedgekeurd, nog niet published"
-                          : "Nog niet goedgekeurd voor publicatie"}
+                          ? "Goedgekeurd — maak of publiceer het concept"
+                          : tip.status === "rejected"
+                            ? "Afgewezen"
+                            : "Nog te beoordelen"}
                     </dd>
                   </div>
                 </dl>
@@ -639,12 +647,12 @@ export function TipAdminClient({
                       {tip.status === "approved_for_publication" &&
                       tip.linkedEventId ? (
                         <StatusButton
-                          label="Markeer tip published"
+                          label="Markeer tip als online"
                           onClick={() =>
                             setStatus(
                               tip.id,
                               "published",
-                              "Gekoppeld event is published.",
+                              "Gekoppeld event staat live.",
                             )
                           }
                           pending={isPending}
@@ -687,9 +695,11 @@ export function TipAdminClient({
         </ul>
       )}
 
-      <p className="text-xs text-muted-foreground">
-        Statussen: {TIP_STATUSES.map((s) => TIP_STATUS_LABEL[s]).join(" · ")}
-      </p>
+      {!embedded ? (
+        <p className="text-xs text-muted-foreground">
+          Statussen: {TIP_STATUSES.map((s) => TIP_STATUS_LABEL[s]).join(" · ")}
+        </p>
+      ) : null}
     </div>
   );
 }

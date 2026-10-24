@@ -33,8 +33,10 @@ import {
   type CockpitCandidateRow,
   type CockpitSourceRow,
 } from "@/lib/aanvoer/cockpit-data";
+import { displayEventTitle } from "@/lib/aanvoer/display-title";
 import type { SourceFollowStatus } from "@/lib/aanvoer/source-follow";
 import { INTAKE_MAX_TEXT_CHARS } from "@/lib/aanvoer/types";
+import { isWeakLocationCity } from "@/lib/geo-cities";
 import {
   publicImageKindLabel,
   resolvePublicEventImage,
@@ -1243,7 +1245,9 @@ function AdminEventCard({
   ]
     .filter(Boolean)
     .join(" · ");
-  const place = [c.venueName, c.city].filter(Boolean).join(" · ");
+  const cityLabel =
+    c.city && !isWeakLocationCity(c.city) ? c.city : null;
+  const place = [c.venueName, cityLabel].filter(Boolean).join(" · ");
 
   return (
     <article
@@ -1276,7 +1280,7 @@ function AdminEventCard({
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div className="space-y-1.5">
           <h3 className="line-clamp-2 text-[15px] font-semibold tracking-tight text-stone-900">
-            {c.title}
+            {displayEventTitle(c.title) || c.title}
           </h3>
           <p className="text-sm text-stone-600">{when}</p>
           <p className="truncate text-sm text-stone-600">

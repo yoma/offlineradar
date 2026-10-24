@@ -285,3 +285,30 @@ export function editionLocationIsDiscoverable(input: {
   const geo = resolveCoordsForWrite(input);
   return geo.latitude != null && geo.longitude != null;
 }
+
+/**
+ * Country / region / placeholder labels that must never count as a publishable place.
+ * Explicit coords alone are not enough when the city label is weak.
+ */
+const WEAK_LOCATION_CITY =
+  /^(onbekend|unknown|n\/?a|-+|belgi[eë]|belgium|vlaanderen|flanders|walloni[eë]|ardennen|ardennes|limburg|kempen|hageland|regio|nederland|netherlands|france|frankrijk)$/i;
+
+/** True when the city string is empty, a placeholder, or only a country/region. */
+export function isWeakLocationCity(city: string | null | undefined): boolean {
+  if (!city?.trim()) return true;
+  return WEAK_LOCATION_CITY.test(city.trim());
+}
+
+/**
+ * Stricter gate for publishing: requires a known municipality label + discoverable coords.
+ * Coords with city “Onbekend” / “België” / unknown place are not publishable.
+ */
+export function editionLocationIsPublishable(input: {
+  latitude?: number | null;
+  longitude?: number | null;
+  city?: string | null;
+}): boolean {
+  if (isWeakLocationCity(input.city)) return false;
+  if (coordsForCity(input.city) == null) return false;
+  return editionLocationIsDiscoverable(input);
+}

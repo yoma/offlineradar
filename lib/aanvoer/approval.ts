@@ -1,7 +1,10 @@
 import type { FieldEvidence } from "@/lib/aanvoer/field-evidence";
 import type { IntakeEditableDraft, IntakeProposal } from "@/lib/aanvoer/types";
 import { normalizeIntakeDateToYmd } from "@/lib/aanvoer/dates";
-import { editionLocationIsDiscoverable } from "@/lib/geo-cities";
+import {
+  editionLocationIsPublishable,
+  isWeakLocationCity,
+} from "@/lib/geo-cities";
 
 export type IntakeApprovalGate = {
   /** Hard fail: cannot save at all. */
@@ -166,10 +169,10 @@ export function evaluateIntakeApproval(
   }
 
   const city = draft.city.trim();
-  if (!editionLocationIsDiscoverable({ city })) {
+  if (!editionLocationIsPublishable({ city })) {
     reviewReasons.push(
-      !city || /^onbekend$/i.test(city)
-        ? "Plaats ontbreekt"
+      !city || isWeakLocationCity(city)
+        ? "Specifieke plaats ontbreekt"
         : `Plaats “${city}” heeft geen bekende coördinaten; zou onzichtbaar blijven op Ontdek`,
     );
   }
@@ -261,7 +264,7 @@ export function evaluateIntakeApproval(
     reviewReasons.length === 0 &&
     hasConcreteDate(draft.startDate) &&
     hasUrl &&
-    editionLocationIsDiscoverable({ city }) &&
+    editionLocationIsPublishable({ city }) &&
     (draft.routeAdvice === "route_a" || draft.routeAdvice === "route_b");
 
   return { blockers, reviewReasons, canPublish };
