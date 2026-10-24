@@ -16,6 +16,7 @@ import {
   getRefreshPilot,
 } from "@/lib/source-refresh/registry";
 import {
+  expireStaleRefreshRuns,
   getSourceScheduleStates,
   listAutoFollowEnabledSourceIds,
   markSourceScheduledRefresh,
@@ -68,6 +69,8 @@ export type ScheduledRefreshSummary = {
   partial: number;
   failed: number;
   skipped: number;
+  /** Stuck pending/running runs expired this tick (lock recovery). */
+  staleLocksExpired?: number;
   outcomes: ScheduledSourceOutcome[];
 };
 
@@ -192,9 +195,14 @@ export async function runScheduledSourceRefresh(
     outcomes: [],
   };
 
+  const now = options.now ?? new Date();
+  // Clear aged pending/running locks even when the kill switch is off.
+  const stale = await expireStaleRefreshRuns({ now });
+
   if (!globallyEnabled && !options.bypassGlobalKillSwitch) {
     return {
       ...empty,
+      staleLocksExpired: stale.expired,
       skipped: REFRESH_PILOTS.length,
       outcomes: REFRESH_PILOTS.map((p) => ({
         catalogSourceId: p.catalogSourceId,
@@ -206,7 +214,6 @@ export async function runScheduledSourceRefresh(
     };
   }
 
-  const now = options.now ?? new Date();
   const maxSources = options.maxSources ?? SCHEDULED_REFRESH_BATCH_SIZE;
 
   const { listCatalogSources } = await import("@/lib/events/catalog-sources");
@@ -433,6 +440,7 @@ export async function runScheduledSourceRefresh(
         o.status,
       ),
     ).length,
+    staleLocksExpired: stale.expired,
     outcomes,
   };
   return summary;

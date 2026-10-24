@@ -43,14 +43,38 @@ export function formatPublicAvailabilityStatus(
   }
 }
 
+/**
+ * When the source splits availability by gender, a merged waitlist/sold_out
+ * status must not claim "nobody can book" if one gender still has places.
+ * Gender line stays authoritative; this only softens the general badge.
+ */
+export function effectivePublicCapacity(
+  status: CapacityStatus | null | undefined,
+  genderAvailability?: string | null,
+): CapacityStatus | null | undefined {
+  if (status == null || status === "unknown") return status;
+  if (status !== "waitlist" && status !== "sold_out") return status;
+  const gender = genderAvailability?.trim() ?? "";
+  if (!gender) return status;
+  const hasOpenGender =
+    /nog plaats/i.test(gender) ||
+    /laatste plaatsen/i.test(gender) ||
+    /bijna vol/i.test(gender);
+  if (!hasOpenGender) return status;
+  if (/laatste plaatsen|bijna vol/i.test(gender)) return "limited";
+  return "available";
+}
+
 /** Short badge for cards (max one capacity badge). */
 export function publicCapacityBadge(
   status: CapacityStatus | null | undefined,
+  genderAvailability?: string | null,
 ): string | null {
-  if (status === "almost_full") return "Bijna vol";
-  if (status === "waitlist") return "Wachtlijst";
-  if (status === "sold_out") return "Volzet";
-  if (status === "limited") return "Beperkte plaatsen";
+  const effective = effectivePublicCapacity(status, genderAvailability);
+  if (effective === "almost_full") return "Bijna vol";
+  if (effective === "waitlist") return "Wachtlijst";
+  if (effective === "sold_out") return "Volzet";
+  if (effective === "limited") return "Beperkte plaatsen";
   return null;
 }
 

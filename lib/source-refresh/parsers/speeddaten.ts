@@ -31,11 +31,14 @@ const STATUS_RANK: Record<CapacityStatus, number> = {
 function parseGenderStatus(rawHtmlOrText: string): CapacityStatus | null {
   const lower = rawHtmlOrText.toLowerCase();
   if (!lower.trim()) return null;
+  const hasWaitlistEvidence =
+    lower.includes("reservelijst") || lower.includes("wachtlijst");
+  // "volzet" / nee.png = sold out unless the source explicitly offers a waitlist.
   if (lower.includes("volzet") || lower.includes("volled")) {
-    if (lower.includes("reservelijst") || lower.includes("wachtlijst")) {
-      return "waitlist";
-    }
-    return "sold_out";
+    return hasWaitlistEvidence ? "waitlist" : "sold_out";
+  }
+  if (lower.includes("nee.png") || /(?:^|[\s/])nee(?:[\s.,]|$)/.test(lower)) {
+    return hasWaitlistEvidence ? "waitlist" : "sold_out";
   }
   if (lower.includes("laatste plaatsen") || lower.includes("bijna")) {
     return "limited";
@@ -43,13 +46,22 @@ function parseGenderStatus(rawHtmlOrText: string): CapacityStatus | null {
   if (
     lower.includes("nog plaats") ||
     lower.includes("plaatsen beschikbaar") ||
-    lower.includes("beschikbaar") ||
     lower.includes("ja.png") ||
     lower.includes("ok.png")
   ) {
     return "available";
   }
+  // Bare "beschikbaar" is too broad (also appears in "reservelijst beschikbaar").
   return null;
+}
+
+/** Bookable enough that a generic "volzet/wachtlijst" badge would mislead. */
+function isBookableStatus(status: CapacityStatus): boolean {
+  return (
+    status === "available" ||
+    status === "limited" ||
+    status === "almost_full"
+  );
 }
 
 function statusLabelNl(status: CapacityStatus): string {
@@ -69,14 +81,29 @@ function statusLabelNl(status: CapacityStatus): string {
   }
 }
 
-function mergeAvailability(
+/**
+ * Merge per-gender statuses into one card badge status.
+ * When one gender can still book, never surface waitlist/sold_out as the
+ * general badge (genderAvailability keeps the split). Waitlist only when
+ * both genders are closed and at least one has waitlist evidence.
+ */
+export function mergeAvailability(
   women: CapacityStatus | null,
   men: CapacityStatus | null,
 ): CapacityStatus | null {
   if (!women && !men) return null;
   if (!women) return men;
   if (!men) return women;
-  return STATUS_RANK[women] >= STATUS_RANK[men] ? women : men;
+  const wBook = isBookableStatus(women);
+  const mBook = isBookableStatus(men);
+  if (wBook || mBook) {
+    const open = [women, men].filter(isBookableStatus);
+    return open.reduce((best, cur) =>
+      STATUS_RANK[cur] < STATUS_RANK[best] ? cur : best,
+    );
+  }
+  // Both closed: prefer waitlist over sold_out when either still has a list.
+  return STATUS_RANK[women] <= STATUS_RANK[men] ? women : men;
 }
 
 function extractGenderBlock(
@@ -105,7 +132,19 @@ function extractTime(text: string): string | null {
 }
 
 function extractCityFromTitle(title: string): string {
-  const withoutDate = title.replace(/^\d{1,2}\/\d{1,2}\s+/, "");
+  const withoutDate = title.replace(/^\d{1,2}\/\d{1,2}\s+/, "").trim();
+  if (!withoutDate) return "Onbekend";
+  // Known Speeddaten truncations / FR labels → catalog city keys.
+  if (/^st(?:\s*|-)niklaas\b/i.test(withoutDate) || /^sint[-\s]?niklaas\b/i.test(withoutDate)) {
+    return "Sint-Niklaas";
+  }
+  if (/^kempen\b/i.test(withoutDate) || /\(\s*geel\s*\)/i.test(withoutDate)) {
+    return "Geel";
+  }
+  if (/^bruxelles\b/i.test(withoutDate)) return "Brussel";
+  if (/^louvain[-\s]?la[-\s]?neuve\b/i.test(withoutDate)) {
+    return "Louvain-la-Neuve";
+  }
   const city = withoutDate.split(/[,\-–]/)[0]?.trim() ?? "";
   const first = city.split(/\s+/)[0] ?? city;
   return first || "Onbekend";

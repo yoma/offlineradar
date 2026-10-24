@@ -147,6 +147,37 @@ export async function getActiveRefreshRun(
   return rows[0] ? mapRun(rows[0]) : null;
 }
 
+/** Default: treat pending/running older than 2h as stuck (cron maxDuration is 60s). */
+export const STALE_REFRESH_RUN_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * Mark aged pending/running runs as failed so per-source locks cannot stick forever.
+ * Safe to call at the start of every cron tick. Does not delete rows.
+ */
+export async function expireStaleRefreshRuns(input?: {
+  olderThanMs?: number;
+  now?: Date;
+}): Promise<{ expired: number; ids: string[] }> {
+  const sql = getEventsSql();
+  if (!sql) return { expired: 0, ids: [] };
+  const olderThanMs = input?.olderThanMs ?? STALE_REFRESH_RUN_MS;
+  const now = input?.now ?? new Date();
+  const cutoff = new Date(now.getTime() - olderThanMs).toISOString();
+  const rows = (await sql`
+    UPDATE source_refresh_runs SET
+      status = 'failed',
+      completed_at = ${now.toISOString()},
+      error = COALESCE(
+        NULLIF(error, ''),
+        'stale_lock_expired: pending/running longer than TTL'
+      )
+    WHERE status IN ('pending', 'running')
+      AND started_at < ${cutoff}
+    RETURNING id
+  `) as Array<{ id: string }>;
+  return { expired: rows.length, ids: rows.map((r) => r.id) };
+}
+
 export async function getLatestRefreshRun(
   catalogSourceId: string,
 ): Promise<SourceRefreshRunRecord | null> {
@@ -538,14 +569,20 @@ export async function updateRefreshItemStatus(input: {
   id: string;
   status: SourceRefreshItemStatus;
   reviewedBy: string | null;
+  matchEventEditionId?: string | null;
 }): Promise<SourceRefreshItemRecord | null> {
   const sql = getEventsSql();
   if (!sql) return null;
+  const linkEdition = input.matchEventEditionId !== undefined;
   const rows = (await sql`
     UPDATE source_refresh_items SET
       status = ${input.status},
       reviewed_at = now(),
-      reviewed_by = ${input.reviewedBy}
+      reviewed_by = ${input.reviewedBy},
+      match_event_edition_id = CASE
+        WHEN ${linkEdition} THEN ${input.matchEventEditionId ?? null}
+        ELSE match_event_edition_id
+      END
     WHERE id = ${input.id}
     RETURNING *
   `) as ItemRow[];

@@ -170,6 +170,17 @@ async function main() {
   assert.equal(publicCapacityBadge("waitlist"), "Wachtlijst");
   assert.equal(publicCapacityBadge("available"), null);
   assert.equal(
+    publicCapacityBadge(
+      "waitlist",
+      "Vrouwen: volzet (reservelijst) · Mannen: laatste plaatsen",
+    ),
+    "Beperkte plaatsen",
+  );
+  assert.equal(
+    publicCapacityBadge("sold_out", "Vrouwen: nog plaats · Mannen: volzet"),
+    null,
+  );
+  assert.equal(
     formatConsumerAvailabilityDetail(
       "unknown",
       "RSVP niet betrouwbaar afleesbaar; host niet gegarandeerd.",

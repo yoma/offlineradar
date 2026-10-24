@@ -4,6 +4,7 @@
  */
 
 import { randomUUID } from "node:crypto";
+import { brusselsOffsetForDate } from "@/lib/aanvoer/dates";
 import { getEventsSql } from "@/lib/events/db";
 import { canonicalizeActivityId } from "@/lib/event-category";
 import {
@@ -788,11 +789,10 @@ export async function patchEditionAdminFields(input: {
       timeHm && /^\d{2}:\d{2}$/.test(timeHm)
         ? timeHm
         : String(row.starts_at).slice(11, 16) || "00:00";
-    // Store as Brussels wall-clock ISO (+01/+02 not computed; keep +01 for gate).
-    startsAt = `${dateYmd}T${prevTime}:00+01:00`;
+    startsAt = `${dateYmd}T${prevTime}:00${brusselsOffsetForDate(dateYmd)}`;
   } else if (timeHm && /^\d{2}:\d{2}$/.test(timeHm)) {
     const day = String(row.starts_at).slice(0, 10);
-    startsAt = `${day}T${timeHm}:00+01:00`;
+    startsAt = `${day}T${timeHm}:00${brusselsOffsetForDate(day)}`;
   }
 
   let priceAmount = row.price_amount;
@@ -837,7 +837,7 @@ export async function patchEditionAdminFields(input: {
       price_note = ${priceNote},
       latitude = COALESCE(${geo.latitude}, latitude),
       longitude = COALESCE(${geo.longitude}, longitude),
-      tags = ${tags},
+      tags = ${JSON.stringify(tags)}::jsonb,
       internal_notes = ${notes},
       updated_at = now()
     WHERE id = ${input.id}
