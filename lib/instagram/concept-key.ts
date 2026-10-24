@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import type { InstagramFormatId } from "@/lib/instagram/constants";
 import type { InstagramRenderKind } from "@/lib/instagram/render";
+import {
+  canonicalizeEventSnapshots,
+  type InstagramEventSnapshot,
+} from "@/lib/instagram/event-snapshot";
 
 /** Idempotency key for publish slot (format + event *set*). Separate from approval. */
 export function buildInstagramConceptKey(
@@ -42,14 +46,15 @@ export function canonicalizeSlidesForApproval(
 }
 
 /**
- * Approval identity: exact caption + ordered event ids + ordered slides.
- * Changing any of these requires a new approval.
+ * Approval identity: caption + ordered event ids + slides + event field snapshots.
+ * Changing title/date/city/venue/etc. requires a new approval.
  */
 export function buildInstagramContentFingerprint(input: {
   format: InstagramFormatId;
   eventIds: readonly string[];
   caption: string;
   slides: readonly InstagramSlideApproval[];
+  eventSnapshots: readonly InstagramEventSnapshot[];
 }): string {
   const orderedIds = input.eventIds.map((id) => id.trim()).filter(Boolean);
   const payload = {
@@ -57,9 +62,10 @@ export function buildInstagramContentFingerprint(input: {
     eventIds: orderedIds,
     caption: input.caption.trim(),
     slides: canonicalizeSlidesForApproval(input.slides),
+    eventSnapshots: canonicalizeEventSnapshots(input.eventSnapshots),
   };
   return createHash("sha256")
-    .update(`ig3b-content:v1:${JSON.stringify(payload)}`)
+    .update(`ig3b-content:v2:${JSON.stringify(payload)}`)
     .digest("hex")
     .slice(0, 64);
 }

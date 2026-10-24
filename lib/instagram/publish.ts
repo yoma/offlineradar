@@ -4,6 +4,7 @@
  */
 
 import { appPublicBaseUrl } from "@/lib/email/app-brand";
+import { listEvents } from "@/lib/events";
 import type { InstagramDraft } from "@/lib/instagram/drafts";
 import { assertConceptContentApproved } from "@/lib/instagram/approvals";
 import {
@@ -11,6 +12,10 @@ import {
   buildInstagramContentFingerprint,
   type InstagramSlideApproval,
 } from "@/lib/instagram/concept-key";
+import {
+  liveEventsMatchSnapshots,
+  type InstagramEventSnapshot,
+} from "@/lib/instagram/event-snapshot";
 import { recordConceptEventIds } from "@/lib/instagram/history";
 import {
   createMetaClient,
@@ -52,6 +57,13 @@ export type PublishInstagramConceptInput = {
   metaClient?: MetaClient;
   /** Tests only — skip Neon approval gate. */
   skipApprovalCheck?: boolean;
+  /** Tests only — frozen snapshots when skipApprovalCheck is set. */
+  eventSnapshots?: InstagramEventSnapshot[];
+  /**
+   * When false, skip live-catalog drift check (tests). Default true.
+   * Meta public-media still always renders from approved snapshots via ticket fp.
+   */
+  checkLiveEventDrift?: boolean;
   /** Tests only — inject persistence / approval collaborators. */
   deps?: Partial<PublishCollaborators>;
 };
@@ -103,6 +115,7 @@ function collaborators(
 function buildSlidePublicUrls(
   draft: PublishInstagramConceptInput["draft"],
   publicBaseUrl: string,
+  contentFingerprint: string,
 ):
   | { ok: true; urls: string[] }
   | { ok: false; code: string; message: string } {
@@ -123,7 +136,11 @@ function buildSlidePublicUrls(
 
   const urls: string[] = [];
   for (const slide of draft.slides) {
-    const ticket = createInstagramMediaTicket(slide.kind, slide.query);
+    const ticket = createInstagramMediaTicket(
+      slide.kind,
+      slide.query,
+      contentFingerprint,
+    );
     if ("error" in ticket) {
       return {
         ok: false,
@@ -137,6 +154,51 @@ function buildSlidePublicUrls(
     urls.push(buildPublicMediaUrl(publicBaseUrl, ticket.token));
   }
   return { ok: true, urls };
+}
+
+function stubSnapshotsFromEventIds(
+  eventIds: readonly string[],
+): InstagramEventSnapshot[] {
+  return eventIds.map((id) => ({
+    id,
+    title: "",
+    startDate: "",
+    startTime: null,
+    city: "",
+    venue: null,
+    organizerName: "",
+    imageUrl: null,
+  }));
+}
+
+async function assertNoLiveEventDrift(
+  eventIds: readonly string[],
+  snapshots: readonly InstagramEventSnapshot[],
+): Promise<
+  | { ok: true }
+  | { ok: false; code: "event_drift"; message: string }
+> {
+  let catalog: Awaited<ReturnType<typeof listEvents>>;
+  try {
+    catalog = await listEvents();
+  } catch {
+    return {
+      ok: false,
+      code: "event_drift",
+      message: humanMetaPublishError(
+        "event_drift",
+        "Live catalogus niet bereikbaar voor driftcontrole.",
+      ),
+    };
+  }
+  if (!liveEventsMatchSnapshots(catalog, snapshots, eventIds)) {
+    return {
+      ok: false,
+      code: "event_drift",
+      message: humanMetaPublishError("event_drift"),
+    };
+  }
+  return { ok: true };
 }
 
 async function prepareContainersOnly(args: {
@@ -547,16 +609,13 @@ export async function publishInstagramConcept(
   const mode: "live" | "dry_run" = dryRun ? "dry_run" : "live";
 
   const slides = input.draft.slides as InstagramSlideApproval[];
-  const contentFingerprint = buildInstagramContentFingerprint({
-    format: input.draft.format,
-    eventIds: input.draft.eventIds,
-    caption: input.draft.caption,
-    slides,
-  });
   const conceptKey = buildInstagramConceptKey(
     input.draft.format,
     input.draft.eventIds,
   );
+
+  let eventSnapshots: InstagramEventSnapshot[];
+  let contentFingerprint: string;
 
   if (!input.skipApprovalCheck) {
     const approval = await collab.assertConceptContentApproved({
@@ -572,6 +631,32 @@ export async function publishInstagramConcept(
         message: approval.message,
       };
     }
+    eventSnapshots = approval.eventSnapshots;
+    contentFingerprint = approval.contentFingerprint;
+
+    if (input.checkLiveEventDrift !== false) {
+      const drift = await assertNoLiveEventDrift(
+        input.draft.eventIds,
+        eventSnapshots,
+      );
+      if (!drift.ok) {
+        return {
+          ok: false,
+          code: drift.code,
+          message: drift.message,
+        };
+      }
+    }
+  } else {
+    eventSnapshots =
+      input.eventSnapshots ?? stubSnapshotsFromEventIds(input.draft.eventIds);
+    contentFingerprint = buildInstagramContentFingerprint({
+      format: input.draft.format,
+      eventIds: input.draft.eventIds,
+      caption: input.draft.caption,
+      slides,
+      eventSnapshots,
+    });
   }
 
   const claim = await collab.claimPublishAttempt({
@@ -704,7 +789,11 @@ async function continueFreshPublish(args: {
 
   const publicBaseUrl =
     input.publicBaseUrl?.replace(/\/$/, "") || appPublicBaseUrl();
-  const urls = buildSlidePublicUrls(draft, publicBaseUrl);
+  const urls = buildSlidePublicUrls(
+    draft,
+    publicBaseUrl,
+    args.contentFingerprint,
+  );
   if (!urls.ok) {
     const failed = await collab.finishPublishAttempt(claimRow.id, {
       status: "failed",

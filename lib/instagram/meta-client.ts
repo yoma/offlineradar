@@ -283,6 +283,8 @@ export function humanMetaPublishError(code: string, detail?: string): string {
       "Dit concept is nog niet goedgekeurd. Klik eerst op Goedkeuren.",
     content_mismatch:
       "Inhoud wijkt af van de goedgekeurde versie. Keur opnieuw goed.",
+    event_drift:
+      "Eventgegevens (titel/datum/locatie) zijn gewijzigd na goedkeuring. Keur opnieuw goed vóór publiceren.",
     missing_credentials: "Meta-credentials ontbreken in de serveromgeving.",
     missing_signing_secret: "Signing-secret voor publieke media-URL ontbreekt.",
     already_published: "Dit concept is al gepubliceerd naar Instagram.",

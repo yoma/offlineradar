@@ -1,6 +1,9 @@
 /**
  * Short-lived signed tickets so Meta can fetch JPEG slides without admin cookies.
  * Tokens are HMAC-signed; never put Meta credentials in the URL.
+ *
+ * v2 tickets carry a content fingerprint so rendering uses frozen approved
+ * event snapshots instead of the live catalog.
  */
 
 import {
@@ -20,11 +23,13 @@ export const INSTAGRAM_PUBLIC_MEDIA_PATH = "/api/instagram/public-media";
 export const INSTAGRAM_MEDIA_TICKET_TTL_SEC = 6 * 60 * 60;
 
 export type InstagramMediaTicket = {
-  v: 1;
+  v: 2;
   exp: number;
   kind: InstagramRenderKind;
   /** Same query fields as admin /api/instagram/image (minus kind). */
   q: Record<string, string>;
+  /** Approval content fingerprint — required for frozen event render. */
+  fp: string;
   n: string;
 };
 
@@ -58,6 +63,7 @@ function signPayload(payloadB64: string, secret: string): string {
 export function createInstagramMediaTicket(
   kind: InstagramRenderKind,
   query: Record<string, string>,
+  contentFingerprint: string,
   now = Date.now(),
 ): { token: string } | { error: string } {
   const secret = signingSecret();
@@ -67,16 +73,21 @@ export function createInstagramMediaTicket(
         "Geen signing-secret (INSTAGRAM_IMAGE_SIGNING_SECRET of AUTH_SECRET).",
     };
   }
+  const fp = contentFingerprint.trim();
+  if (fp.length < 16) {
+    return { error: "content_fingerprint ontbreekt voor publieke media-ticket." };
+  }
   const q: Record<string, string> = {};
   for (const [k, v] of Object.entries(query)) {
     if (k === "kind") continue;
     if (typeof v === "string" && v.length > 0) q[k] = v.slice(0, 500);
   }
   const ticket: InstagramMediaTicket = {
-    v: 1,
+    v: 2,
     exp: Math.floor(now / 1000) + INSTAGRAM_MEDIA_TICKET_TTL_SEC,
     kind,
     q,
+    fp,
     n: randomBytes(8).toString("hex"),
   };
   const payloadB64 = b64url(JSON.stringify(ticket));
@@ -105,14 +116,17 @@ export function verifyInstagramMediaTicket(
   try {
     const parsed = JSON.parse(
       fromB64url(payloadB64).toString("utf8"),
-    ) as InstagramMediaTicket;
-    if (parsed?.v !== 1 || !parsed.kind || typeof parsed.exp !== "number") {
+    ) as InstagramMediaTicket & { v?: number };
+    if (parsed?.v !== 2 || !parsed.kind || typeof parsed.exp !== "number") {
       return { ok: false, error: "invalid_payload" };
+    }
+    if (!parsed.fp || typeof parsed.fp !== "string") {
+      return { ok: false, error: "missing_fingerprint" };
     }
     if (parsed.exp < Math.floor(now / 1000)) {
       return { ok: false, error: "expired" };
     }
-    return { ok: true, ticket: parsed };
+    return { ok: true, ticket: parsed as InstagramMediaTicket };
   } catch {
     return { ok: false, error: "invalid_payload" };
   }

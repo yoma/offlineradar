@@ -23,6 +23,7 @@ const DEFINITIVE_PRE_PUBLISH_CODES = new Set([
   "missing_signing_secret",
   "not_approved",
   "content_mismatch",
+  "event_drift",
 ]);
 
 export function isAmbiguousPostPublishError(code: string): boolean {

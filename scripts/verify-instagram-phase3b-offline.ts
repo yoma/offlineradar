@@ -4,10 +4,20 @@
  */
 import assert from "node:assert/strict";
 import {
+  packApprovalSlides,
+  unpackApprovalSlides,
+} from "@/lib/instagram/approvals";
+import {
   buildInstagramConceptKey,
   buildInstagramContentFingerprint,
   slideEventIdsMatchConcept,
 } from "@/lib/instagram/concept-key";
+import {
+  eventsFromSnapshots,
+  liveEventsMatchSnapshots,
+  snapshotFromEvent,
+  type InstagramEventSnapshot,
+} from "@/lib/instagram/event-snapshot";
 import { createMetaClient } from "@/lib/instagram/meta-client";
 import {
   canReleasePendingForStatus,
@@ -26,6 +36,7 @@ import {
   createInstagramMediaTicket,
   verifyInstagramMediaTicket,
 } from "@/lib/instagram/signed-media";
+import type { Event } from "@/types/event";
 
 function ok(label: string) {
   console.log(`OK: ${label}`);
@@ -139,7 +150,19 @@ function makeStore() {
     assertConceptContentApproved: async () => ({
       ok: true as const,
       conceptKey: "x",
-      contentFingerprint: "y",
+      contentFingerprint: "y".repeat(32),
+      eventSnapshots: [
+        {
+          id: "e1",
+          title: "Approved title",
+          startDate: "2026-10-24",
+          startTime: "20:00",
+          city: "Brussel",
+          venue: "Zaal",
+          organizerName: "Org",
+          imageUrl: null,
+        },
+      ] satisfies InstagramEventSnapshot[],
     }),
     recordConceptEventIds: async () => ({ stored: "neon" as const, count: 1 }),
   };
@@ -374,6 +397,37 @@ async function testStatusLookupKeepsBlocked() {
   ok("R4. status lookup failure keeps slot blocked");
 }
 
+function sampleSnapshots(
+  overrides: Partial<InstagramEventSnapshot> = {},
+): InstagramEventSnapshot[] {
+  return [
+    {
+      id: overrides.id ?? "e1",
+      title: overrides.title ?? "Speeddate Brussel",
+      startDate: overrides.startDate ?? "2026-10-24",
+      startTime:
+        overrides.startTime !== undefined ? overrides.startTime : "20:00",
+      city: overrides.city ?? "Brussel",
+      venue: overrides.venue !== undefined ? overrides.venue : "Café Central",
+      organizerName: overrides.organizerName ?? "Org",
+      imageUrl:
+        overrides.imageUrl !== undefined
+          ? overrides.imageUrl
+          : "https://example.invalid/a.jpg",
+    },
+    {
+      id: "e2",
+      title: "Walk Antwerpen",
+      startDate: "2026-10-25",
+      startTime: null,
+      city: "Antwerpen",
+      venue: null,
+      organizerName: "Org2",
+      imageUrl: null,
+    },
+  ];
+}
+
 async function testContentFingerprintApproval() {
   const base = {
     format: "deze_week" as const,
@@ -386,6 +440,7 @@ async function testContentFingerprintApproval() {
         query: { ids: "e1,e2" },
       },
     ],
+    eventSnapshots: sampleSnapshots(),
   };
   const a = buildInstagramContentFingerprint(base);
   const b = buildInstagramContentFingerprint({
@@ -402,8 +457,23 @@ async function testContentFingerprintApproval() {
       },
     ],
   });
+  const d = buildInstagramContentFingerprint({
+    ...base,
+    eventSnapshots: sampleSnapshots({ title: "Nieuwe titel" }),
+  });
+  const e = buildInstagramContentFingerprint({
+    ...base,
+    eventSnapshots: sampleSnapshots({ startDate: "2026-11-01" }),
+  });
+  const f = buildInstagramContentFingerprint({
+    ...base,
+    eventSnapshots: sampleSnapshots({ city: "Gent" }),
+  });
   assert.notEqual(a, b);
   assert.notEqual(a, c);
+  assert.notEqual(a, d);
+  assert.notEqual(a, e);
+  assert.notEqual(a, f);
   assert.equal(
     slideEventIdsMatchConcept(["e1"], [
       { kind: "deze_week", label: "x", query: { ids: "other" } },
@@ -415,7 +485,7 @@ async function testContentFingerprintApproval() {
     buildInstagramConceptKey("deze_week", ["e2", "e1"]),
     buildInstagramConceptKey("deze_week", ["e1", "e2"]),
   );
-  ok("R5. content fingerprint binds caption/slides; separate from concept key");
+  ok("R5. content fingerprint binds caption/slides/event snapshots; separate from concept key");
 }
 
 async function testNoFakeMediaId() {
@@ -551,16 +621,28 @@ async function testCarouselAndTimeouts() {
 
   withEnvSecret(() => {
     const now = Date.now();
-    const t = createInstagramMediaTicket("deze_week", { ids: "e1" }, now);
+    const fp = "f".repeat(32);
+    const t = createInstagramMediaTicket("deze_week", { ids: "e1" }, fp, now);
     assert.ok("token" in t);
-    assert.equal(
-      verifyInstagramMediaTicket((t as { token: string }).token, now + 5 * 3600_000)
-        .ok,
-      true,
+    const verified = verifyInstagramMediaTicket(
+      (t as { token: string }).token,
+      now + 5 * 3600_000,
     );
+    assert.equal(verified.ok, true);
+    if (verified.ok) {
+      assert.equal(verified.ticket.v, 2);
+      assert.equal(verified.ticket.fp, fp);
+    }
+    const legacy = createInstagramMediaTicket(
+      "deze_week",
+      { ids: "e1" },
+      "",
+      now,
+    );
+    assert.ok("error" in legacy);
   });
 
-  ok("R7. carousel path + timeouts + policy helpers + JWT TTL");
+  ok("R7. carousel path + timeouts + policy helpers + JWT TTL + fp ticket");
 }
 
 function withEnvSecret(fn: () => void) {
@@ -637,6 +719,112 @@ async function testParallelRecoveryLease() {
   ok("R8. parallel recovery: lease prevents double recovery");
 }
 
+async function testEventSnapshotDriftAndFrozenRender() {
+  const approved = sampleSnapshots();
+  const packed = packApprovalSlides(
+    [{ kind: "deze_week", label: "x", query: { ids: "e1,e2" } }],
+    approved,
+  );
+  const unpacked = unpackApprovalSlides(packed);
+  assert.ok(unpacked);
+  assert.equal(unpacked!.v, 2);
+  assert.equal(unpacked!.eventSnapshots[0]!.title, "Speeddate Brussel");
+
+  // Legacy array slides cannot authorize frozen render.
+  assert.equal(unpackApprovalSlides([{ kind: "deze_week" }]), null);
+
+  const frozen = eventsFromSnapshots(approved);
+  assert.equal(frozen[0]!.title, "Speeddate Brussel");
+  assert.equal(frozen[0]!.city, "Brussel");
+  assert.equal(frozen[0]!.startDate, "2026-10-24");
+
+  const liveOk: Event[] = frozen.map((e) => ({ ...e }));
+  assert.equal(liveEventsMatchSnapshots(liveOk, approved, ["e1", "e2"]), true);
+
+  const liveTitleDrift: Event[] = frozen.map((e, i) =>
+    i === 0 ? { ...e, title: "Gewijzigde titel" } : e,
+  );
+  assert.equal(
+    liveEventsMatchSnapshots(liveTitleDrift, approved, ["e1", "e2"]),
+    false,
+  );
+
+  const liveDateDrift: Event[] = frozen.map((e, i) =>
+    i === 0 ? { ...e, startDate: "2026-12-01" } : e,
+  );
+  assert.equal(
+    liveEventsMatchSnapshots(liveDateDrift, approved, ["e1", "e2"]),
+    false,
+  );
+
+  const liveCityDrift: Event[] = frozen.map((e, i) =>
+    i === 0 ? { ...e, city: "Gent" } : e,
+  );
+  assert.equal(
+    liveEventsMatchSnapshots(liveCityDrift, approved, ["e1", "e2"]),
+    false,
+  );
+
+  // Snapshot from a mutated live event must not equal the approved snapshot.
+  const mutated = snapshotFromEvent(liveTitleDrift[0]!);
+  assert.notEqual(mutated.title, approved[0]!.title);
+
+  // Late Meta fetch path: ticket fp → frozen catalog (not live drift).
+  withEnvSecret(() => {
+    const fp = buildInstagramContentFingerprint({
+      format: "deze_week",
+      eventIds: ["e1", "e2"],
+      caption: "Hello",
+      slides: [
+        { kind: "deze_week", label: "x", query: { ids: "e1,e2" } },
+      ],
+      eventSnapshots: approved,
+    });
+    const ticket = createInstagramMediaTicket(
+      "deze_week",
+      { ids: "e1,e2" },
+      fp,
+    );
+    assert.ok("token" in ticket);
+    const verified = verifyInstagramMediaTicket(
+      (ticket as { token: string }).token,
+    );
+    assert.equal(verified.ok, true);
+    if (verified.ok) {
+      // Simulate public-media: load approval by fp, render from snapshots
+      // even if "live" catalog already drifted.
+      assert.equal(verified.ticket.fp, fp);
+      const fromApproval = eventsFromSnapshots(unpacked!.eventSnapshots);
+      assert.equal(fromApproval[0]!.title, "Speeddate Brussel");
+      assert.notEqual(fromApproval[0]!.title, liveTitleDrift[0]!.title);
+      assert.equal(fromApproval[0]!.city, "Brussel");
+      assert.equal(fromApproval[0]!.startDate, "2026-10-24");
+    }
+  });
+
+  ok("R9. event snapshots freeze title/date/city; Meta late fetch uses fp, not live catalog");
+}
+
+async function testPublishBlocksWhenApprovalMissingSnapshots() {
+  await withLiveEnv(async () => {
+    const store = makeStore();
+    store.deps.assertConceptContentApproved = async () => ({
+      ok: false as const,
+      code: "content_mismatch" as const,
+      message: "Goedkeuring mist event-snapshots",
+    });
+    const r = await publishInstagramConcept({
+      draft: draft(),
+      publicBaseUrl: "https://example.invalid",
+      deps: store.deps,
+    });
+    assert.equal(r.ok, false);
+    if (!r.ok) assert.equal(r.code, "content_mismatch");
+    assert.equal(store.rows.length, 0, "no claim when approval rejects");
+  });
+  ok("R10. publish blocked when approval lacks event snapshots");
+}
+
 async function main() {
   await testLostAckKeepsSlot();
   await testPersistRequiredBeforePublish();
@@ -646,6 +834,8 @@ async function main() {
   await testNoFakeMediaId();
   await testCarouselAndTimeouts();
   await testParallelRecoveryLease();
+  await testEventSnapshotDriftAndFrozenRender();
+  await testPublishBlocksWhenApprovalMissingSnapshots();
   console.log("\nOK: Instagram Phase 3B offline regressions.");
 }
 

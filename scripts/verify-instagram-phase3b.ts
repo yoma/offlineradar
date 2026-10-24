@@ -6,9 +6,25 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { buildInstagramConceptKey } from "@/lib/instagram/concept-key";
 import { recordConceptApproval } from "@/lib/instagram/approvals";
+import type { InstagramEventSnapshot } from "@/lib/instagram/event-snapshot";
 import { readInstagramMetaConfig } from "@/lib/instagram/meta-config";
 import { publishInstagramConcept } from "@/lib/instagram/publish";
 import type { MetaClient } from "@/lib/instagram/meta-client";
+
+function probeSnapshots(eventId: string): InstagramEventSnapshot[] {
+  return [
+    {
+      id: eventId,
+      title: "Verify probe event",
+      startDate: "2026-10-24",
+      startTime: "20:00",
+      city: "Brussel",
+      venue: "Probe",
+      organizerName: "Verify",
+      imageUrl: null,
+    },
+  ];
+}
 
 const skippedRequired: string[] = [];
 
@@ -109,11 +125,13 @@ async function testApprovalContentOnNeon() {
     },
   ];
   const caption = "Goedgekeurde caption";
+  const eventSnapshots = probeSnapshots(eventId);
   const recorded = await recordConceptApproval({
     format: "deze_week",
     eventIds: [eventId],
     caption,
     slides,
+    eventSnapshots,
     approvedBy: "verify@test",
   });
   assert.equal(recorded.ok, true);
@@ -132,10 +150,13 @@ async function testApprovalContentOnNeon() {
           caption: "Gewijzigd na goedkeuring",
           slides,
         },
+        checkLiveEventDrift: false,
       });
       assert.equal(bad.ok, false);
       if (!bad.ok) assert.equal(bad.code, "content_mismatch");
 
+      // Probe event ids are not in the live catalog → drift would block.
+      // Disable live drift for this synthetic probe; offline R9 covers drift.
       const good = await publishInstagramConcept({
         draft: {
           format: "deze_week",
@@ -143,6 +164,7 @@ async function testApprovalContentOnNeon() {
           caption,
           slides,
         },
+        checkLiveEventDrift: false,
       });
       assert.equal(good.ok, true, good.ok ? "" : good.message);
       if (good.ok) assert.equal(good.mode, "dry_run");
@@ -196,6 +218,7 @@ async function testNeonIdempotency() {
     eventIds: [eventId],
     caption,
     slides,
+    eventSnapshots: probeSnapshots(eventId),
   });
 
   await withEnvAsync(
@@ -218,12 +241,14 @@ async function testNeonIdempotency() {
         draft,
         metaClient,
         publicBaseUrl: "https://dateofflinehub.be",
+        checkLiveEventDrift: false,
       });
       assert.equal(first.ok, true, first.ok ? "" : first.message);
       const second = await publishInstagramConcept({
         draft,
         metaClient,
         publicBaseUrl: "https://dateofflinehub.be",
+        checkLiveEventDrift: false,
       });
       assert.equal(second.ok, false);
       if (!second.ok) assert.equal(second.code, "already_published");

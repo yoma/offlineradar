@@ -1,13 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { listEvents } from "@/lib/events";
 import { resolveTipsAdminAccess } from "@/lib/tips/admin-auth";
 import { recordConceptApproval } from "@/lib/instagram/approvals";
+import type { InstagramSlideApproval } from "@/lib/instagram/concept-key";
+import type { InstagramFormatId } from "@/lib/instagram/constants";
+import { snapshotFromEvent } from "@/lib/instagram/event-snapshot";
 import { recordConceptEventIds } from "@/lib/instagram/history";
 import { publishInstagramConcept } from "@/lib/instagram/publish";
-import type { InstagramFormatId } from "@/lib/instagram/constants";
 import type { InstagramRenderKind } from "@/lib/instagram/render";
-import type { InstagramSlideApproval } from "@/lib/instagram/concept-key";
 
 function parseFormat(raw: string): InstagramFormatId | null {
   if (raw === "binnenkort" || raw === "deze_week" || raw === "nieuw") {
@@ -40,7 +42,7 @@ function parseSlides(raw: string): InstagramSlideApproval[] {
 }
 
 /**
- * Mark a concept as reviewed with exact caption + slides binding.
+ * Mark a concept as reviewed with exact caption + slides + event field snapshots.
  * Does NOT publish to Instagram.
  */
 export async function approveInstagramConceptAction(formData: FormData) {
@@ -61,12 +63,30 @@ export async function approveInstagramConceptAction(formData: FormData) {
     return { ok: false as const, error: "invalid_concept" };
   }
 
+  let catalog: Awaited<ReturnType<typeof listEvents>>;
+  try {
+    catalog = await listEvents();
+  } catch {
+    return { ok: false as const, error: "catalog_unavailable" };
+  }
+  const byId = new Map(catalog.map((e) => [e.id, e]));
+  const ordered = [];
+  for (const id of eventIds) {
+    const event = byId.get(id);
+    if (!event) {
+      return { ok: false as const, error: "events_missing", detail: id };
+    }
+    ordered.push(event);
+  }
+  const eventSnapshots = ordered.map(snapshotFromEvent);
+
   const result = await recordConceptEventIds(eventIds);
   const approval = await recordConceptApproval({
     format,
     eventIds,
     caption,
     slides,
+    eventSnapshots,
     approvedBy: access.email ?? null,
   });
   if (!approval.ok) {
@@ -90,6 +110,7 @@ export async function approveInstagramConceptAction(formData: FormData) {
 /**
  * Publish an approved concept to Instagram (or dry-run).
  * Gated by INSTAGRAM_META_PUBLISH_ENABLED / INSTAGRAM_META_DRY_RUN.
+ * Blocks when live event title/date/location drifted after approval.
  */
 export async function publishInstagramConceptAction(formData: FormData) {
   const access = await resolveTipsAdminAccess();

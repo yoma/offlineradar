@@ -4,6 +4,7 @@
 
 import sharp from "sharp";
 import { listEvents } from "@/lib/events";
+import type { Event } from "@/types/event";
 import {
   parseInstagramRenderKind,
   resolveInstagramRenderInput,
@@ -13,6 +14,10 @@ import { renderInstagramImage } from "@/lib/instagram/render";
 export async function renderInstagramJpegFromQuery(
   kindRaw: string,
   query: Record<string, string> | URLSearchParams,
+  options?: {
+    /** When set, skip live catalog and render from these events (approved snapshots). */
+    catalog?: Event[];
+  },
 ): Promise<
   | { ok: true; bytes: Buffer; contentType: "image/jpeg" }
   | { ok: false; error: string; status: number }
@@ -25,8 +30,8 @@ export async function renderInstagramJpegFromQuery(
       ? query
       : new URLSearchParams(query);
 
-  let catalog = [] as Awaited<ReturnType<typeof listEvents>>;
-  if (kind !== "nieuw_cover") {
+  let catalog = options?.catalog ?? ([] as Event[]);
+  if (!options?.catalog && kind !== "nieuw_cover") {
     try {
       catalog = await listEvents();
     } catch {
