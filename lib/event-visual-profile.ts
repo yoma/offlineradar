@@ -264,9 +264,22 @@ const ACTIVITY_RULES: ActivityRule[] = [
     why: "Past bij soep / food tasting",
   },
   {
+    activity: "drinks",
+    pattern:
+      /\b(wijnproef|wijnproeverij|wine.?tast|wijntasting|cocktailproef)\b/,
+    subjects: ["drinks", "bar", "social", "wine"],
+    setting: ["indoor", "bar"],
+    moment: ["evening"],
+    mood: ["social", "casual"],
+    mustInclude: ["drinks", "social"],
+    mustAvoid: ["hiking", "bowling", "sport_field", "soup"],
+    imageCategory: "drinks",
+    why: "Past bij wijnproeverij / drinks tasting",
+  },
+  {
     activity: "food_tasting",
     pattern:
-      /\b(proeverij|tasting|proeven|wijnproef|wine.?tast|food.?tast|hapjes|tapas)\b/,
+      /\b(proeverij|tasting|proeven|food.?tast|hapjes|tapas)\b/,
     subjects: ["food", "tasting", "table", "shared_table"],
     setting: ["indoor", "restaurant"],
     mood: ["social", "cozy"],
@@ -683,6 +696,34 @@ export function buildVisualProfile(input: VisualProfileInput): VisualProfile {
       "evening_club",
     ];
     why.push("overdag / breakfast");
+  }
+
+  // City walk vs nature walk — avoid mountain/hiking stock for stadswandelingen.
+  if (primary === "walking") {
+    const natureHint =
+      /\b(natuur|bos|boswandel|hike|hiking|berg|bergen|ardennen|trail)\b/.test(
+        text,
+      );
+    const cityHint =
+      /\b(stadswandel|city.?walk|griezel|halloween|leuven|gent|antwerpen|brugge|mechelen|brussel|kortrijk|hasselt|oostende|roeselare)\b/.test(
+        text,
+      );
+    if (cityHint && !natureHint) {
+      base.setting = ["outdoor", "city"];
+      base.mustAvoid = [
+        ...base.mustAvoid,
+        "hiking",
+        "mountain",
+        "backpack",
+      ];
+      base.subjects = Array.from(
+        new Set([...base.subjects, "city", "walking", "outdoors"]),
+      );
+      why.push("stadswandeling");
+    } else if (natureHint) {
+      base.setting = ["outdoor", "nature"];
+      why.push("natuurwandeling");
+    }
   }
 
   const themeRule = inferVisualThemeFromInput(input);

@@ -15,7 +15,8 @@ export function InterneAdminNav({
     | "tips"
     | "feedback"
     | "aanvoer"
-    | "bronnen";
+    | "bronnen"
+    | "instagram";
   newFeedbackCount?: number;
 }) {
   const items = [
@@ -31,6 +32,11 @@ export function InterneAdminNav({
       label: "Wachtrij",
     },
     { href: "/interne-events", key: "events" as const, label: "Live" },
+    {
+      href: "/interne-instagram",
+      key: "instagram" as const,
+      label: "Instagram",
+    },
     {
       href: "/interne-feedback",
       key: "feedback" as const,

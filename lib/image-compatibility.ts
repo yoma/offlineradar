@@ -193,9 +193,30 @@ function orderPoolByDiversity(
 
 /** Subject tags for known mood / Unsplash assets. */
 export const MOOD_ASSET_META: Record<string, MoodAssetMeta> = {
-  // outdoor / walking
+  // outdoor / city walks
+  "photo-1467269204594-9661b134dd2b": {
+    subjects: ["walking", "outdoors", "city", "group"],
+    setting: ["outdoor", "city"],
+    ageBands: ["any"],
+  },
+  "photo-1539635278303-d4002c07eae3": {
+    subjects: ["walking", "outdoors", "city", "group"],
+    setting: ["outdoor", "city"],
+    ageBands: ["any"],
+  },
+  "photo-1480714378408-67cf0d13bc1b": {
+    subjects: ["outdoors", "city", "nature_or_city"],
+    setting: ["outdoor", "city"],
+    ageBands: ["any"],
+  },
+  "photo-1514565131-fce0801e5785": {
+    subjects: ["outdoors", "city", "nature_or_city"],
+    setting: ["outdoor", "city"],
+    ageBands: ["any"],
+  },
+  // outdoor / nature walks
   "photo-1551632811-561732d1e306": {
-    subjects: ["walking", "outdoors", "hiking", "nature_or_city", "group"],
+    subjects: ["walking", "outdoors", "hiking", "nature_or_city", "group", "mountain"],
     setting: ["outdoor", "nature"],
     ageBands: ["any"],
   },
@@ -208,7 +229,7 @@ export const MOOD_ASSET_META: Record<string, MoodAssetMeta> = {
     setting: ["outdoor"],
   },
   "photo-1501555088652-021faa106b9b": {
-    subjects: ["walking", "outdoors", "hiking"],
+    subjects: ["walking", "outdoors", "hiking", "backpack", "mountain"],
     setting: ["outdoor", "nature"],
   },
   "photo-1452421822248-d4c2b47f0c81": {
@@ -216,11 +237,11 @@ export const MOOD_ASSET_META: Record<string, MoodAssetMeta> = {
     setting: ["outdoor"],
   },
   "photo-1464822759023-fed622ff2c3b": {
-    subjects: ["outdoors", "nature_or_city", "travel"],
+    subjects: ["outdoors", "nature_or_city", "travel", "mountain", "hiking"],
     setting: ["outdoor", "nature"],
   },
   "photo-1506905925346-21bda4d32df4": {
-    subjects: ["outdoors", "nature_or_city", "travel"],
+    subjects: ["outdoors", "nature_or_city", "travel", "mountain"],
     setting: ["outdoor", "nature"],
   },
   // bowling
@@ -510,13 +531,17 @@ export const CATEGORY_MOOD_POOLS: Record<
   readonly string[]
 > = {
   outdoor: [
+    // City / urban walks first — preferred for stadswandelingen
+    "https://images.unsplash.com/photo-1467269204594-9661b134dd2b?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1539635278303-d4002c07eae3?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&w=1200&q=80",
+    "https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=1200&q=80",
+    // Nature / trail walks
     "https://images.unsplash.com/photo-1551632811-561732d1e306?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1501555088652-021faa106b9b?auto=format&fit=crop&w=1200&q=80",
     "https://images.unsplash.com/photo-1452421822248-d4c2b47f0c81?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80",
-    "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1200&q=80",
   ],
   bowling: [
     "/preview-mood/mood-singles-bowling.png",
@@ -1073,9 +1098,37 @@ function withCandidates(
 function subjectFitScore(profile: VisualProfile, imageUrl: string): number {
   const meta = getMoodAssetMeta(imageUrl);
   if (!meta) return 0;
-  if (profile.theme && imageMatchesTitleTheme(profile, meta)) return 100;
-  if (profile.mustInclude.length === 0) return 1;
-  return profile.mustInclude.filter((s) => meta.subjects.includes(s)).length;
+  let score = 0;
+  if (profile.theme && imageMatchesTitleTheme(profile, meta)) score += 100;
+  if (profile.mustInclude.length > 0) {
+    score += profile.mustInclude.filter((s) => meta.subjects.includes(s)).length;
+  } else if (!profile.theme) {
+    score += 1;
+  }
+
+  // Prefer city stock for stadswandelingen; demote hiking/mountain packs.
+  const wantsCity =
+    profile.setting.includes("city") && !profile.setting.includes("nature");
+  const wantsNature =
+    profile.setting.includes("nature") && !profile.setting.includes("city");
+  if (wantsCity) {
+    if (meta.setting?.includes("city")) score += 25;
+    if (
+      meta.subjects.includes("hiking") ||
+      meta.subjects.includes("mountain") ||
+      meta.subjects.includes("backpack")
+    ) {
+      score -= 40;
+    }
+  }
+  if (wantsNature) {
+    if (meta.setting?.includes("nature")) score += 20;
+    if (meta.setting?.includes("city") && !meta.setting.includes("nature")) {
+      score -= 15;
+    }
+  }
+
+  return score;
 }
 
 function filterPoolByProfile(
