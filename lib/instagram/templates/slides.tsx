@@ -7,6 +7,7 @@
 import { formatAgeRange, ACTIVITY_LABEL } from "@/lib/format";
 import { formatDayMonth, formatLongDate, weekdayIndex } from "@/lib/dates";
 import type { ActivityId, Event } from "@/types/event";
+import { effectiveInstagramBlurb } from "@/lib/instagram/blurb";
 import { igColors } from "@/lib/instagram/constants";
 import {
   titleForEventRow,
@@ -21,6 +22,9 @@ import {
   PhotoCreamFade,
   slideStyle,
 } from "@/lib/instagram/templates/shared";
+
+/** @deprecated use sanitizeInstagramBlurb from `@/lib/instagram/blurb` */
+export { sanitizeInstagramBlurb } from "@/lib/instagram/blurb";
 
 const WEEKDAY_SHORT = ["zo", "ma", "di", "wo", "do", "vr", "za"] as const;
 const MONTHS_SHORT = [
@@ -88,16 +92,7 @@ function timeOnly(event: Event): string {
 }
 
 function shortBlurb(event: Event): string {
-  const raw = (event.shortDescription || "").trim();
-  if (!raw) {
-    const act = activityText(event);
-    const city = locationLine(event);
-    if (act && city) {
-      return `Ontmoet andere singles tijdens deze ${act.toLowerCase()} in ${city}.`;
-    }
-    return "Ontdek dit singles-event via DateOfflineHub.";
-  }
-  return raw.length > 140 ? `${raw.slice(0, 137)}…` : raw;
+  return effectiveInstagramBlurb(event);
 }
 
 /** SVG petal (opposite corners rounded) — Satori-friendly via data URL. */

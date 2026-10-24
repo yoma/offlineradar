@@ -117,6 +117,7 @@
     "verify:instagram-phase3b": "node --env-file=.env.local --import tsx scripts/verify-instagram-phase3b.ts",
     "verify:instagram-phase3b-offline": "npx tsx scripts/verify-instagram-phase3b-offline.ts",
     "verify:instagram-approve-ui": "npx tsx scripts/verify-instagram-approve-ui.ts",
+    "verify:instagram-blurb-sanitize": "npx tsx scripts/verify-instagram-blurb-sanitize.ts",
     "verify:instagram-approve-newline": "npx tsx scripts/verify-instagram-approve-newline.ts",
     "verify:instagram-history-neon": "node --env-file=.env.local --import tsx scripts/verify-instagram-history-neon.ts",
     "verify:instagram-publishes-neon": "node --env-file=.env.local --import tsx scripts/verify-instagram-publishes-neon.ts"
