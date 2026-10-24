@@ -20,6 +20,7 @@ import { recordConceptEventIds } from "@/lib/instagram/history";
 import {
   createMetaClient,
   humanMetaPublishError,
+  remainingBudgetMs,
   waitForContainerFinished,
   type MetaClient,
 } from "@/lib/instagram/meta-client";
@@ -31,6 +32,7 @@ import {
   canReleasePendingForStatus,
   isAmbiguousPostPublishError,
   META_CAROUSEL_TOTAL_BUDGET_MS,
+  META_HTTP_TIMEOUT_MS,
 } from "@/lib/instagram/publish-policy";
 import {
   acquireRecoveryLease,
@@ -165,9 +167,22 @@ function stubSnapshotsFromEventIds(
     startDate: "",
     startTime: null,
     city: "",
+    region: "",
     venue: null,
     organizerName: "",
+    organizerId: null,
+    organizerSlug: null,
     imageUrl: null,
+    imageIsAtmosphere: false,
+    shortDescription: "",
+    description: null,
+    category: "dating",
+    subCategory: "",
+    eligibilityAgeMin: null,
+    eligibilityAgeMax: null,
+    eligibilityAgeRule: "unknown",
+    activities: [],
+    tags: [],
   }));
 }
 
@@ -201,6 +216,12 @@ async function assertNoLiveEventDrift(
   return { ok: true };
 }
 
+function httpTimeoutWithinBudget(deadlineMs: number): number {
+  const remaining = remainingBudgetMs(deadlineMs);
+  if (remaining <= 0) return 0;
+  return Math.min(META_HTTP_TIMEOUT_MS, remaining);
+}
+
 async function prepareContainersOnly(args: {
   client: MetaClient;
   caption: string;
@@ -212,7 +233,7 @@ async function prepareContainersOnly(args: {
 > {
   const { client, caption, imageUrls, deadlineMs } = args;
   const guard = () => {
-    if (Date.now() > deadlineMs) {
+    if (remainingBudgetMs(deadlineMs) <= 0) {
       return {
         ok: false as const,
         code: "meta_container_timeout",
@@ -224,12 +245,32 @@ async function prepareContainersOnly(args: {
     }
     return null;
   };
+  const requestOpts = () => {
+    const timeoutMs = httpTimeoutWithinBudget(deadlineMs);
+    return timeoutMs > 0 ? { timeoutMs } : null;
+  };
 
   if (imageUrls.length === 1) {
-    const created = await client.createImageContainer({
-      imageUrl: imageUrls[0]!,
-      caption,
-    });
+    const over = guard();
+    if (over) return over;
+    const opts = requestOpts();
+    if (!opts) {
+      return {
+        ok: false,
+        code: "meta_container_timeout",
+        message: humanMetaPublishError(
+          "meta_container_timeout",
+          "Carrousel-totaalbudget overschreden.",
+        ),
+      };
+    }
+    const created = await client.createImageContainer(
+      {
+        imageUrl: imageUrls[0]!,
+        caption,
+      },
+      opts,
+    );
     if (!created.ok) {
       return {
         ok: false,
@@ -240,7 +281,10 @@ async function prepareContainersOnly(args: {
         ),
       };
     }
-    const ready = await waitForContainerFinished(client, created.data.id);
+    const ready = await waitForContainerFinished(client, created.data.id, {
+      deadlineMs,
+      httpTimeoutMs: META_HTTP_TIMEOUT_MS,
+    });
     if (!ready.ok) {
       return {
         ok: false,
@@ -264,10 +308,24 @@ async function prepareContainersOnly(args: {
   for (const imageUrl of imageUrls) {
     const over = guard();
     if (over) return over;
-    const child = await client.createImageContainer({
-      imageUrl,
-      isCarouselItem: true,
-    });
+    const opts = requestOpts();
+    if (!opts) {
+      return {
+        ok: false,
+        code: "meta_container_timeout",
+        message: humanMetaPublishError(
+          "meta_container_timeout",
+          "Carrousel-totaalbudget overschreden.",
+        ),
+      };
+    }
+    const child = await client.createImageContainer(
+      {
+        imageUrl,
+        isCarouselItem: true,
+      },
+      opts,
+    );
     if (!child.ok) {
       return {
         ok: false,
@@ -275,7 +333,10 @@ async function prepareContainersOnly(args: {
         message: humanMetaPublishError(child.error.code, child.error.message),
       };
     }
-    const ready = await waitForContainerFinished(client, child.data.id);
+    const ready = await waitForContainerFinished(client, child.data.id, {
+      deadlineMs,
+      httpTimeoutMs: META_HTTP_TIMEOUT_MS,
+    });
     if (!ready.ok) {
       return {
         ok: false,
@@ -289,11 +350,25 @@ async function prepareContainersOnly(args: {
 
   const over = guard();
   if (over) return over;
+  const carouselOpts = requestOpts();
+  if (!carouselOpts) {
+    return {
+      ok: false,
+      code: "meta_container_timeout",
+      message: humanMetaPublishError(
+        "meta_container_timeout",
+        "Carrousel-totaalbudget overschreden.",
+      ),
+    };
+  }
 
-  const carousel = await client.createCarouselContainer({
-    children: childIds,
-    caption,
-  });
+  const carousel = await client.createCarouselContainer(
+    {
+      children: childIds,
+      caption,
+    },
+    carouselOpts,
+  );
   if (!carousel.ok) {
     return {
       ok: false,
@@ -307,6 +382,10 @@ async function prepareContainersOnly(args: {
   const carouselReady = await waitForContainerFinished(
     client,
     carousel.data.id,
+    {
+      deadlineMs,
+      httpTimeoutMs: META_HTTP_TIMEOUT_MS,
+    },
   );
   if (!carouselReady.ok) {
     return {
@@ -331,12 +410,27 @@ export async function publishLiveToMeta(args: {
   | { ok: true; containerId: string; mediaId: string }
   | { ok: false; code: string; message: string; containerId?: string }
 > {
+  const deadlineMs = Date.now() + META_CAROUSEL_TOTAL_BUDGET_MS;
   const prepared = await prepareContainersOnly({
     ...args,
-    deadlineMs: Date.now() + META_CAROUSEL_TOTAL_BUDGET_MS,
+    deadlineMs,
   });
   if (!prepared.ok) return prepared;
-  const published = await args.client.publishContainer(prepared.containerId);
+  const publishTimeout = httpTimeoutWithinBudget(deadlineMs);
+  if (publishTimeout <= 0) {
+    return {
+      ok: false,
+      code: "meta_container_timeout",
+      message: humanMetaPublishError(
+        "meta_container_timeout",
+        "Carrousel-totaalbudget overschreden vóór media_publish.",
+      ),
+      containerId: prepared.containerId,
+    };
+  }
+  const published = await args.client.publishContainer(prepared.containerId, {
+    timeoutMs: publishTimeout,
+  });
   if (!published.ok) {
     return {
       ok: false,
@@ -355,13 +449,24 @@ export async function publishLiveToMeta(args: {
   };
 }
 
+function recoveryFingerprintMatches(args: {
+  storedFingerprint: string | null | undefined;
+  approvedFingerprint: string;
+}): boolean {
+  const stored = (args.storedFingerprint ?? "").trim();
+  const approved = args.approvedFingerprint.trim();
+  return Boolean(stored && approved && stored === approved);
+}
+
 async function recoverStaleAttempt(args: {
   row: InstagramPublishRow;
   client: MetaClient | null;
   mode: "live" | "dry_run";
   collab: PublishCollaborators;
+  /** Currently approved content fingerprint for this publish request. */
+  approvedContentFingerprint: string;
 }): Promise<PublishInstagramConceptResult | null> {
-  const { row, client, mode, collab } = args;
+  const { row, client, mode, collab, approvedContentFingerprint } = args;
   if (row.status !== "pending" && row.status !== "uncertain") return null;
   if (!isPublishPendingStale(row)) return null;
 
@@ -491,6 +596,25 @@ async function recoverStaleAttempt(args: {
   }
 
   if (action === "resume_finished") {
+    // Never media_publish an old container after a new approval.
+    // PUBLISHED reconcile (above) may still close the slot without republishing.
+    if (
+      !recoveryFingerprintMatches({
+        storedFingerprint: leased.contentFingerprint,
+        approvedFingerprint: approvedContentFingerprint,
+      })
+    ) {
+      return {
+        ok: false,
+        code: "content_mismatch",
+        message: humanMetaPublishError(
+          "content_mismatch",
+          "Opgeslagen publicatiepoging hoort bij een andere goedgekeurde inhoud. Slot blijft geblokkeerd.",
+        ),
+        publish: leased,
+      };
+    }
+
     const published = await client.publishContainer(leased.metaContainerId);
     if (published.ok) {
       const finished = await collab.finishPublishAttempt(leased.id, {
@@ -726,6 +850,7 @@ export async function publishInstagramConcept(
       client: recoveryClient,
       mode,
       collab,
+      approvedContentFingerprint: contentFingerprint,
     });
     if (recovered) {
       if (recovered.ok) {
@@ -859,11 +984,12 @@ async function continueFreshPublish(args: {
       graphHost: config.graphHost,
     });
 
+  const deadlineMs = Date.now() + META_CAROUSEL_TOTAL_BUDGET_MS;
   const prepared = await prepareContainersOnly({
     client,
     caption: draft.caption,
     imageUrls: urls.urls,
-    deadlineMs: Date.now() + META_CAROUSEL_TOTAL_BUDGET_MS,
+    deadlineMs,
   });
   if (!prepared.ok) {
     const failed = await collab.finishPublishAttempt(claimRow.id, {
@@ -900,7 +1026,31 @@ async function continueFreshPublish(args: {
     };
   }
 
-  const published = await client.publishContainer(prepared.containerId);
+  const publishTimeout = httpTimeoutWithinBudget(deadlineMs);
+  if (publishTimeout <= 0) {
+    const failed = await collab.finishPublishAttempt(claimRow.id, {
+      status: "failed",
+      metaContainerId: prepared.containerId,
+      errorCode: "meta_container_timeout",
+      errorMessage: humanMetaPublishError(
+        "meta_container_timeout",
+        "Carrousel-totaalbudget overschreden vóór media_publish.",
+      ),
+    });
+    return {
+      ok: false,
+      code: "meta_container_timeout",
+      message: humanMetaPublishError(
+        "meta_container_timeout",
+        "Carrousel-totaalbudget overschreden vóór media_publish.",
+      ),
+      publish: failed,
+    };
+  }
+
+  const published = await client.publishContainer(prepared.containerId, {
+    timeoutMs: publishTimeout,
+  });
   if (!published.ok) {
     if (
       published.error.code === "meta_already_published" ||

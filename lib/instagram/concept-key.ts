@@ -65,7 +65,7 @@ export function buildInstagramContentFingerprint(input: {
     eventSnapshots: canonicalizeEventSnapshots(input.eventSnapshots),
   };
   return createHash("sha256")
-    .update(`ig3b-content:v2:${JSON.stringify(payload)}`)
+    .update(`ig3b-content:v3:${JSON.stringify(payload)}`)
     .digest("hex")
     .slice(0, 64);
 }

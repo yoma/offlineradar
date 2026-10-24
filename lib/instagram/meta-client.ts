@@ -20,20 +20,35 @@ export type MetaClientResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: MetaGraphError };
 
+export type MetaRequestOptions = {
+  /** Cap this single HTTP call (ms). Defaults to client timeout. */
+  timeoutMs?: number;
+};
+
 export type MetaClient = {
-  createImageContainer: (args: {
-    imageUrl: string;
-    caption?: string;
-    isCarouselItem?: boolean;
-  }) => Promise<MetaClientResult<{ id: string }>>;
-  createCarouselContainer: (args: {
-    children: string[];
-    caption: string;
-  }) => Promise<MetaClientResult<{ id: string }>>;
-  publishContainer: (creationId: string) => Promise<
-    MetaClientResult<{ id: string }>
-  >;
-  getContainerStatus: (containerId: string) => Promise<
+  createImageContainer: (
+    args: {
+      imageUrl: string;
+      caption?: string;
+      isCarouselItem?: boolean;
+    },
+    opts?: MetaRequestOptions,
+  ) => Promise<MetaClientResult<{ id: string }>>;
+  createCarouselContainer: (
+    args: {
+      children: string[];
+      caption: string;
+    },
+    opts?: MetaRequestOptions,
+  ) => Promise<MetaClientResult<{ id: string }>>;
+  publishContainer: (
+    creationId: string,
+    opts?: MetaRequestOptions,
+  ) => Promise<MetaClientResult<{ id: string }>>;
+  getContainerStatus: (
+    containerId: string,
+    opts?: MetaRequestOptions,
+  ) => Promise<
     MetaClientResult<{
       status_code?: string;
       status?: string;
@@ -80,20 +95,30 @@ function mapMetaError(payload: unknown, httpStatus: number): MetaGraphError {
   return { code, message, httpStatus, metaCode, metaSubcode };
 }
 
+function resolveCallTimeoutMs(
+  defaultMs: number,
+  overrideMs: number | undefined,
+): number {
+  const ms = overrideMs ?? defaultMs;
+  return Math.max(1, Math.min(defaultMs, Math.floor(ms)));
+}
+
 export function createMetaClient(options: MetaClientOptions): MetaClient {
   const fetchImpl = options.fetchImpl ?? fetch;
-  const timeoutMs = options.timeoutMs ?? META_HTTP_TIMEOUT_MS;
+  const defaultTimeoutMs = options.timeoutMs ?? META_HTTP_TIMEOUT_MS;
   const base = `https://${options.graphHost}/${options.graphApiVersion}`;
 
   async function graphPost(
     path: string,
     body: Record<string, string>,
+    opts?: MetaRequestOptions,
   ): Promise<MetaClientResult<{ id: string }>> {
     const url = `${base}${path}`;
     const form = new URLSearchParams({
       ...body,
       access_token: options.accessToken,
     });
+    const timeoutMs = resolveCallTimeoutMs(defaultTimeoutMs, opts?.timeoutMs);
     try {
       const res = await fetchImpl(url, {
         method: "POST",
@@ -153,9 +178,11 @@ export function createMetaClient(options: MetaClientOptions): MetaClient {
   async function graphGet(
     path: string,
     fields: string,
+    opts?: MetaRequestOptions,
   ): Promise<MetaClientResult<Record<string, unknown>>> {
     const url = new URL(`${base}${path}`);
     url.searchParams.set("fields", fields);
+    const timeoutMs = resolveCallTimeoutMs(defaultTimeoutMs, opts?.timeoutMs);
     try {
       const res = await fetchImpl(url.toString(), {
         method: "GET",
@@ -196,25 +223,37 @@ export function createMetaClient(options: MetaClientOptions): MetaClient {
   }
 
   return {
-    createImageContainer: ({ imageUrl, caption, isCarouselItem }) => {
+    createImageContainer: ({ imageUrl, caption, isCarouselItem }, opts) => {
       const body: Record<string, string> = { image_url: imageUrl };
       if (caption) body.caption = caption;
       if (isCarouselItem) body.is_carousel_item = "true";
-      return graphPost(`/${options.igUserId}/media`, body);
+      return graphPost(`/${options.igUserId}/media`, body, opts);
     },
-    createCarouselContainer: ({ children, caption }) =>
-      graphPost(`/${options.igUserId}/media`, {
-        media_type: "CAROUSEL",
-        children: children.join(","),
-        caption,
-      }),
-    publishContainer: (creationId) =>
-      graphPost(`/${options.igUserId}/media_publish`, {
-        creation_id: creationId,
-      }),
-    getContainerStatus: async (containerId) => {
+    createCarouselContainer: ({ children, caption }, opts) =>
+      graphPost(
+        `/${options.igUserId}/media`,
+        {
+          media_type: "CAROUSEL",
+          children: children.join(","),
+          caption,
+        },
+        opts,
+      ),
+    publishContainer: (creationId, opts) =>
+      graphPost(
+        `/${options.igUserId}/media_publish`,
+        {
+          creation_id: creationId,
+        },
+        opts,
+      ),
+    getContainerStatus: async (containerId, opts) => {
       // Do not treat container `id` as an IG media id.
-      const res = await graphGet(`/${containerId}`, "status_code,status");
+      const res = await graphGet(
+        `/${containerId}`,
+        "status_code,status",
+        opts,
+      );
       if (!res.ok) return res;
       return {
         ok: true,
@@ -231,23 +270,55 @@ export function createMetaClient(options: MetaClientOptions): MetaClient {
   };
 }
 
+/** Remaining time until a carousel/publish deadline; 0 when already elapsed. */
+export function remainingBudgetMs(deadlineMs: number, now = Date.now()): number {
+  return Math.max(0, deadlineMs - now);
+}
+
 export async function waitForContainerFinished(
   client: MetaClient,
   containerId: string,
   options?: {
     attempts?: number;
     delayMs?: number;
+    /** Absolute epoch ms; polling/HTTP stop when this is reached. */
+    deadlineMs?: number;
     sleep?: (ms: number) => Promise<void>;
+    httpTimeoutMs?: number;
   },
 ): Promise<MetaClientResult<{ status_code: string }>> {
   const attempts = options?.attempts ?? 20;
   const delayMs = options?.delayMs ?? 2000;
+  const httpTimeoutMs = options?.httpTimeoutMs ?? META_HTTP_TIMEOUT_MS;
   const sleep =
     options?.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
 
   let last = "UNKNOWN";
   for (let i = 0; i < attempts; i++) {
-    const status = await client.getContainerStatus(containerId);
+    if (options?.deadlineMs != null) {
+      const remaining = remainingBudgetMs(options.deadlineMs);
+      if (remaining <= 0) {
+        return {
+          ok: false,
+          error: {
+            code: "meta_container_timeout",
+            message: `Media-container niet klaar binnen carrousel-budget (laatste status: ${last}).`,
+          },
+        };
+      }
+    }
+
+    const callTimeout =
+      options?.deadlineMs != null
+        ? Math.min(
+            httpTimeoutMs,
+            Math.max(1, remainingBudgetMs(options.deadlineMs)),
+          )
+        : httpTimeoutMs;
+
+    const status = await client.getContainerStatus(containerId, {
+      timeoutMs: callTimeout,
+    });
     if (!status.ok) return status;
     last = status.data.status_code ?? status.data.status ?? "UNKNOWN";
     if (last === "FINISHED" || last === "PUBLISHED") {
@@ -262,7 +333,22 @@ export async function waitForContainerFinished(
         },
       };
     }
-    await sleep(delayMs);
+
+    let sleepFor = delayMs;
+    if (options?.deadlineMs != null) {
+      const remaining = remainingBudgetMs(options.deadlineMs);
+      if (remaining <= 0) {
+        return {
+          ok: false,
+          error: {
+            code: "meta_container_timeout",
+            message: `Media-container niet klaar binnen carrousel-budget (laatste status: ${last}).`,
+          },
+        };
+      }
+      sleepFor = Math.min(delayMs, remaining);
+    }
+    await sleep(sleepFor);
   }
   return {
     ok: false,

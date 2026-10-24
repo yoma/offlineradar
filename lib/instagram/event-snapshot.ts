@@ -1,9 +1,15 @@
 /**
  * Frozen event fields bound into Instagram approvals / Meta media tickets.
- * Prevents title/date/city drift after approval, including late Meta image fetches.
+ * Prevents title/date/city/render/image-selection drift after approval,
+ * including late Meta image fetches.
  */
 
-import type { Event } from "@/types/event";
+import type {
+  ActivityId,
+  EligibilityAgeRule,
+  Event,
+  EventCategory,
+} from "@/types/event";
 
 export type InstagramEventSnapshot = {
   id: string;
@@ -11,11 +17,65 @@ export type InstagramEventSnapshot = {
   startDate: string;
   startTime: string | null;
   city: string;
+  region: string;
   venue: string | null;
   organizerName: string;
+  organizerId: string | null;
+  organizerSlug: string | null;
   /** Stored image URL at approval time (may be null). */
   imageUrl: string | null;
+  imageIsAtmosphere: boolean;
+  shortDescription: string;
+  description: string | null;
+  category: EventCategory;
+  subCategory: string;
+  eligibilityAgeMin: number | null;
+  eligibilityAgeMax: number | null;
+  eligibilityAgeRule: EligibilityAgeRule;
+  activities: ActivityId[];
+  tags: string[];
 };
+
+const ACTIVITY_IDS = new Set<string>([
+  "speeddate",
+  "eten",
+  "drinken",
+  "wandelen",
+  "lopen",
+  "sport",
+  "padel",
+  "party",
+  "dans",
+  "workshop",
+  "reizen",
+  "weekend",
+  "outdoor",
+]);
+
+const CATEGORIES = new Set<string>(["dating", "meet_new_people", "social"]);
+const AGE_RULES = new Set<string>(["strict", "guideline", "unknown"]);
+
+function asActivityId(value: unknown): ActivityId | null {
+  const id = String(value ?? "").trim();
+  return ACTIVITY_IDS.has(id) ? (id as ActivityId) : null;
+}
+
+function asCategory(value: unknown): EventCategory {
+  const c = String(value ?? "").trim();
+  return CATEGORIES.has(c) ? (c as EventCategory) : "dating";
+}
+
+function asAgeRule(value: unknown): EligibilityAgeRule {
+  const r = String(value ?? "").trim();
+  return AGE_RULES.has(r) ? (r as EligibilityAgeRule) : "unknown";
+}
+
+function asAge(value: unknown): number | null {
+  if (value == null || value === "") return null;
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(120, Math.trunc(n)));
+}
 
 export function snapshotFromEvent(event: Event): InstagramEventSnapshot {
   return {
@@ -24,25 +84,71 @@ export function snapshotFromEvent(event: Event): InstagramEventSnapshot {
     startDate: (event.startDate ?? "").trim(),
     startTime: event.startTime?.trim() || null,
     city: (event.city ?? "").trim(),
+    region: (event.region ?? event.city ?? "").trim(),
     venue: event.venue?.trim() || null,
     organizerName: (event.organizerName ?? "").trim(),
+    organizerId: event.organizerId?.trim() || null,
+    organizerSlug: event.organizerSlug?.trim() || null,
     imageUrl: event.imageUrl?.trim() || null,
+    imageIsAtmosphere: event.imageIsAtmosphere === true,
+    shortDescription: (event.shortDescription ?? "").trim(),
+    description: event.description?.trim() || null,
+    category: asCategory(event.category),
+    subCategory: (event.subCategory ?? "").trim(),
+    eligibilityAgeMin: asAge(event.eligibilityAgeMin),
+    eligibilityAgeMax: asAge(event.eligibilityAgeMax),
+    eligibilityAgeRule: asAgeRule(event.eligibilityAgeRule),
+    activities: (event.activities ?? [])
+      .map(asActivityId)
+      .filter((a): a is ActivityId => a != null),
+    tags: (event.tags ?? [])
+      .map((t) => String(t ?? "").trim())
+      .filter(Boolean)
+      .slice(0, 40),
   };
 }
 
 export function canonicalizeEventSnapshots(
   snapshots: readonly InstagramEventSnapshot[],
 ): InstagramEventSnapshot[] {
-  return snapshots.map((s) => ({
-    id: String(s.id ?? "").trim().slice(0, 120),
-    title: String(s.title ?? "").trim().slice(0, 300),
-    startDate: String(s.startDate ?? "").trim().slice(0, 32),
-    startTime: s.startTime ? String(s.startTime).trim().slice(0, 16) : null,
-    city: String(s.city ?? "").trim().slice(0, 120),
-    venue: s.venue ? String(s.venue).trim().slice(0, 200) : null,
-    organizerName: String(s.organizerName ?? "").trim().slice(0, 200),
-    imageUrl: s.imageUrl ? String(s.imageUrl).trim().slice(0, 2000) : null,
-  }));
+  return snapshots.map((raw) => {
+    const s = raw as Partial<InstagramEventSnapshot>;
+    return {
+      id: String(s.id ?? "").trim().slice(0, 120),
+      title: String(s.title ?? "").trim().slice(0, 300),
+      startDate: String(s.startDate ?? "").trim().slice(0, 32),
+      startTime: s.startTime ? String(s.startTime).trim().slice(0, 16) : null,
+      city: String(s.city ?? "").trim().slice(0, 120),
+      region: String(s.region ?? s.city ?? "").trim().slice(0, 120),
+      venue: s.venue ? String(s.venue).trim().slice(0, 200) : null,
+      organizerName: String(s.organizerName ?? "").trim().slice(0, 200),
+      organizerId: s.organizerId
+        ? String(s.organizerId).trim().slice(0, 120)
+        : null,
+      organizerSlug: s.organizerSlug
+        ? String(s.organizerSlug).trim().slice(0, 120)
+        : null,
+      imageUrl: s.imageUrl ? String(s.imageUrl).trim().slice(0, 2000) : null,
+      imageIsAtmosphere: s.imageIsAtmosphere === true,
+      shortDescription: String(s.shortDescription ?? "").trim().slice(0, 500),
+      description: s.description
+        ? String(s.description).trim().slice(0, 4000)
+        : null,
+      category: asCategory(s.category),
+      subCategory: String(s.subCategory ?? "").trim().slice(0, 120),
+      eligibilityAgeMin: asAge(s.eligibilityAgeMin),
+      eligibilityAgeMax: asAge(s.eligibilityAgeMax),
+      eligibilityAgeRule: asAgeRule(s.eligibilityAgeRule),
+      activities: (Array.isArray(s.activities) ? s.activities : [])
+        .map(asActivityId)
+        .filter((a): a is ActivityId => a != null)
+        .slice(0, 20),
+      tags: (Array.isArray(s.tags) ? s.tags : [])
+        .map((t) => String(t ?? "").trim().slice(0, 80))
+        .filter(Boolean)
+        .slice(0, 40),
+    };
+  });
 }
 
 export function eventSnapshotsEqual(
@@ -76,7 +182,8 @@ export function liveEventsMatchSnapshots(
 }
 
 /**
- * Minimal Event objects for rendering approved slides without the live catalog.
+ * Event objects for rendering approved slides without the live catalog.
+ * Restores every field used by templates and website-visible image selection.
  */
 export function eventsFromSnapshots(
   snapshots: readonly InstagramEventSnapshot[],
@@ -85,14 +192,15 @@ export function eventsFromSnapshots(
     id: s.id,
     title: s.title,
     slug: s.id,
-    shortDescription: "",
-    description: null,
-    category: "dating",
-    subCategory: "",
+    shortDescription: s.shortDescription,
+    description: s.description,
+    category: s.category,
+    subCategory: s.subCategory,
     organizerName: s.organizerName,
-    organizerId: null,
+    organizerId: s.organizerId,
+    organizerSlug: s.organizerSlug,
     city: s.city,
-    region: s.city,
+    region: s.region || s.city,
     venue: s.venue,
     venueId: null,
     latitude: 0,
@@ -105,9 +213,9 @@ export function eventsFromSnapshots(
     price: null,
     currency: "EUR",
     eligibility: { default: null, byGender: null, allowedGenders: null },
-    eligibilityAgeMin: null,
-    eligibilityAgeMax: null,
-    eligibilityAgeRule: "unknown",
+    eligibilityAgeMin: s.eligibilityAgeMin,
+    eligibilityAgeMax: s.eligibilityAgeMax,
+    eligibilityAgeRule: s.eligibilityAgeRule,
     preferredAudienceAgeMin: null,
     preferredAudienceAgeMax: null,
     audienceAgeFromSource: false,
@@ -129,8 +237,9 @@ export function eventsFromSnapshots(
     lastCheckedAt: null,
     addedAt: "1970-01-01T00:00:00.000Z",
     imageUrl: s.imageUrl,
-    tags: [],
-    activities: [],
+    imageIsAtmosphere: s.imageIsAtmosphere,
+    tags: s.tags,
+    activities: s.activities,
     practicalInfo: [],
   }));
 }

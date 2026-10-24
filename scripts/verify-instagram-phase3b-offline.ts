@@ -18,7 +18,12 @@ import {
   snapshotFromEvent,
   type InstagramEventSnapshot,
 } from "@/lib/instagram/event-snapshot";
-import { createMetaClient } from "@/lib/instagram/meta-client";
+import {
+  createMetaClient,
+  remainingBudgetMs,
+  waitForContainerFinished,
+} from "@/lib/instagram/meta-client";
+import { imageForEvent } from "@/lib/instagram/mood";
 import {
   canReleasePendingForStatus,
   isAmbiguousPostPublishError,
@@ -43,6 +48,83 @@ function ok(label: string) {
 }
 
 type Row = InstagramPublishRow;
+
+function sampleSnapshots(
+  overrides: Partial<InstagramEventSnapshot> = {},
+): InstagramEventSnapshot[] {
+  const first: InstagramEventSnapshot = {
+    id: overrides.id ?? "e1",
+    title: overrides.title ?? "Speeddate Brussel",
+    startDate: overrides.startDate ?? "2026-10-24",
+    startTime:
+      overrides.startTime !== undefined ? overrides.startTime : "20:00",
+    city: overrides.city ?? "Brussel",
+    region: overrides.region ?? "Brussel",
+    venue: overrides.venue !== undefined ? overrides.venue : "Café Central",
+    organizerName: overrides.organizerName ?? "Org",
+    organizerId:
+      overrides.organizerId !== undefined ? overrides.organizerId : "org-1",
+    organizerSlug:
+      overrides.organizerSlug !== undefined
+        ? overrides.organizerSlug
+        : "org-1",
+    imageUrl:
+      overrides.imageUrl !== undefined
+        ? overrides.imageUrl
+        : "https://example.invalid/a.jpg",
+    imageIsAtmosphere:
+      overrides.imageIsAtmosphere !== undefined
+        ? overrides.imageIsAtmosphere
+        : false,
+    shortDescription:
+      overrides.shortDescription !== undefined
+        ? overrides.shortDescription
+        : "Gezellige avond voor singles 28-40",
+    description:
+      overrides.description !== undefined
+        ? overrides.description
+        : "Lange beschrijving van de speeddate.",
+    category: overrides.category ?? "dating",
+    subCategory: overrides.subCategory ?? "speeddate",
+    eligibilityAgeMin:
+      overrides.eligibilityAgeMin !== undefined
+        ? overrides.eligibilityAgeMin
+        : 28,
+    eligibilityAgeMax:
+      overrides.eligibilityAgeMax !== undefined
+        ? overrides.eligibilityAgeMax
+        : 40,
+    eligibilityAgeRule: overrides.eligibilityAgeRule ?? "guideline",
+    activities: overrides.activities ?? ["speeddate"],
+    tags: overrides.tags ?? ["singles", "brussel"],
+  };
+  return [
+    first,
+    {
+      id: "e2",
+      title: "Walk Antwerpen",
+      startDate: "2026-10-25",
+      startTime: null,
+      city: "Antwerpen",
+      region: "Antwerpen",
+      venue: null,
+      organizerName: "Org2",
+      organizerId: null,
+      organizerSlug: null,
+      imageUrl: null,
+      imageIsAtmosphere: true,
+      shortDescription: "Wandeling in het park",
+      description: null,
+      category: "meet_new_people",
+      subCategory: "wandelen",
+      eligibilityAgeMin: 25,
+      eligibilityAgeMax: 45,
+      eligibilityAgeRule: "strict",
+      activities: ["wandelen", "outdoor"],
+      tags: ["antwerpen"],
+    },
+  ];
+}
 
 function makeStore() {
   const rows: Row[] = [];
@@ -151,18 +233,7 @@ function makeStore() {
       ok: true as const,
       conceptKey: "x",
       contentFingerprint: "y".repeat(32),
-      eventSnapshots: [
-        {
-          id: "e1",
-          title: "Approved title",
-          startDate: "2026-10-24",
-          startTime: "20:00",
-          city: "Brussel",
-          venue: "Zaal",
-          organizerName: "Org",
-          imageUrl: null,
-        },
-      ] satisfies InstagramEventSnapshot[],
+      eventSnapshots: sampleSnapshots({ id: "e1" }).slice(0, 1),
     }),
     recordConceptEventIds: async () => ({ stored: "neon" as const, count: 1 }),
   };
@@ -397,37 +468,6 @@ async function testStatusLookupKeepsBlocked() {
   ok("R4. status lookup failure keeps slot blocked");
 }
 
-function sampleSnapshots(
-  overrides: Partial<InstagramEventSnapshot> = {},
-): InstagramEventSnapshot[] {
-  return [
-    {
-      id: overrides.id ?? "e1",
-      title: overrides.title ?? "Speeddate Brussel",
-      startDate: overrides.startDate ?? "2026-10-24",
-      startTime:
-        overrides.startTime !== undefined ? overrides.startTime : "20:00",
-      city: overrides.city ?? "Brussel",
-      venue: overrides.venue !== undefined ? overrides.venue : "Café Central",
-      organizerName: overrides.organizerName ?? "Org",
-      imageUrl:
-        overrides.imageUrl !== undefined
-          ? overrides.imageUrl
-          : "https://example.invalid/a.jpg",
-    },
-    {
-      id: "e2",
-      title: "Walk Antwerpen",
-      startDate: "2026-10-25",
-      startTime: null,
-      city: "Antwerpen",
-      venue: null,
-      organizerName: "Org2",
-      imageUrl: null,
-    },
-  ];
-}
-
 async function testContentFingerprintApproval() {
   const base = {
     format: "deze_week" as const,
@@ -469,11 +509,26 @@ async function testContentFingerprintApproval() {
     ...base,
     eventSnapshots: sampleSnapshots({ city: "Gent" }),
   });
+  const g = buildInstagramContentFingerprint({
+    ...base,
+    eventSnapshots: sampleSnapshots({ shortDescription: "Andere blurb" }),
+  });
+  const h = buildInstagramContentFingerprint({
+    ...base,
+    eventSnapshots: sampleSnapshots({ eligibilityAgeMin: 30 }),
+  });
+  const i = buildInstagramContentFingerprint({
+    ...base,
+    eventSnapshots: sampleSnapshots({ activities: ["eten"] }),
+  });
   assert.notEqual(a, b);
   assert.notEqual(a, c);
   assert.notEqual(a, d);
   assert.notEqual(a, e);
   assert.notEqual(a, f);
+  assert.notEqual(a, g);
+  assert.notEqual(a, h);
+  assert.notEqual(a, i);
   assert.equal(
     slideEventIdsMatchConcept(["e1"], [
       { kind: "deze_week", label: "x", query: { ids: "other" } },
@@ -608,6 +663,43 @@ async function testCarouselAndTimeouts() {
   assert.ok(urls.every((u) => !u.includes("secret-token")));
   assert.ok(bodies.some((b) => b.includes("access_token=secret-token")));
 
+  // Carousel budget: polling stops when deadline is reached.
+  let polls = 0;
+  const budgetClient = {
+    createImageContainer: async () => ({
+      ok: true as const,
+      data: { id: "c" },
+    }),
+    createCarouselContainer: async () => ({
+      ok: true as const,
+      data: { id: "c" },
+    }),
+    publishContainer: async () => ({
+      ok: true as const,
+      data: { id: "m" },
+    }),
+    getContainerStatus: async () => {
+      polls += 1;
+      return {
+        ok: true as const,
+        data: { status_code: "IN_PROGRESS" },
+      };
+    },
+  };
+  const deadlineMs = Date.now() + 40;
+  const waited = await waitForContainerFinished(budgetClient, "c1", {
+    attempts: 20,
+    delayMs: 5,
+    deadlineMs,
+    sleep: async (ms) => {
+      await new Promise((r) => setTimeout(r, Math.max(ms, 45)));
+    },
+  });
+  assert.equal(waited.ok, false);
+  if (!waited.ok) assert.equal(waited.error.code, "meta_container_timeout");
+  assert.ok(polls >= 1 && polls <= 3, `expected few polls, got ${polls}`);
+  assert.equal(remainingBudgetMs(Date.now() - 1), 0);
+
   assert.equal(isAmbiguousPostPublishError("meta_network"), true);
   assert.equal(
     canReleasePendingForStatus({
@@ -736,7 +828,37 @@ async function testEventSnapshotDriftAndFrozenRender() {
   const frozen = eventsFromSnapshots(approved);
   assert.equal(frozen[0]!.title, "Speeddate Brussel");
   assert.equal(frozen[0]!.city, "Brussel");
+  assert.equal(frozen[0]!.region, "Brussel");
   assert.equal(frozen[0]!.startDate, "2026-10-24");
+  assert.equal(frozen[0]!.shortDescription, "Gezellige avond voor singles 28-40");
+  assert.equal(frozen[0]!.eligibilityAgeMin, 28);
+  assert.equal(frozen[0]!.eligibilityAgeMax, 40);
+  assert.equal(frozen[0]!.eligibilityAgeRule, "guideline");
+  assert.deepEqual(frozen[0]!.activities, ["speeddate"]);
+  assert.equal(frozen[0]!.venue, "Café Central");
+  assert.equal(frozen[0]!.imageUrl, "https://example.invalid/a.jpg");
+  assert.equal(frozen[0]!.imageIsAtmosphere, false);
+
+  // Distinct frozen render/image inputs produce distinct website-visible picks.
+  const dinnerSnap = sampleSnapshots({
+    title: "Dinner night",
+    subCategory: "eten",
+    tags: [],
+    activities: ["eten"],
+    eligibilityAgeMin: 18,
+    eligibilityAgeMax: 99,
+    shortDescription: "Eten met singles",
+    imageUrl: null,
+    imageIsAtmosphere: true,
+  })[0]!;
+  const approvedImage = imageForEvent(frozen[0]!);
+  const dinnerImage = imageForEvent(eventsFromSnapshots([dinnerSnap])[0]!);
+  assert.notEqual(approvedImage.url, dinnerImage.url);
+  // Late Meta path keeps the approved pick from frozen snapshots.
+  assert.equal(
+    imageForEvent(eventsFromSnapshots(approved)[0]!).url,
+    approvedImage.url,
+  );
 
   const liveOk: Event[] = frozen.map((e) => ({ ...e }));
   assert.equal(liveEventsMatchSnapshots(liveOk, approved, ["e1", "e2"]), true);
@@ -799,10 +921,163 @@ async function testEventSnapshotDriftAndFrozenRender() {
       assert.notEqual(fromApproval[0]!.title, liveTitleDrift[0]!.title);
       assert.equal(fromApproval[0]!.city, "Brussel");
       assert.equal(fromApproval[0]!.startDate, "2026-10-24");
+      assert.equal(
+        fromApproval[0]!.shortDescription,
+        "Gezellige avond voor singles 28-40",
+      );
+      assert.deepEqual(fromApproval[0]!.activities, ["speeddate"]);
+      assert.equal(fromApproval[0]!.eligibilityAgeMin, 28);
+      assert.equal(fromApproval[0]!.eligibilityAgeMax, 40);
+      assert.equal(imageForEvent(fromApproval[0]!).url, approvedImage.url);
+      assert.notEqual(imageForEvent(fromApproval[0]!).url, dinnerImage.url);
     }
   });
 
-  ok("R9. event snapshots freeze title/date/city; Meta late fetch uses fp, not live catalog");
+  ok("R9. event snapshots freeze title/date/city/age/blurb/activity/image; Meta late fetch uses fp");
+}
+
+async function testRecoveryBlocksFingerprintMismatch() {
+  await withLiveEnv(async () => {
+    const store = makeStore();
+    const approvedFp = "a".repeat(32);
+    const oldFp = "b".repeat(32);
+    let publishCalls = 0;
+    store.rows.push({
+      id: "old-1",
+      conceptKey: buildInstagramConceptKey("deze_week", ["e1"]),
+      format: "deze_week",
+      eventIds: ["e1"],
+      caption: "old caption",
+      slideCount: 1,
+      status: "pending",
+      dryRun: false,
+      metaContainerId: "old_container",
+      metaMediaId: null,
+      errorCode: null,
+      errorMessage: null,
+      contentFingerprint: oldFp,
+      recoveryLeaseUntil: null,
+      requestedBy: null,
+      createdAt: new Date(0).toISOString(),
+      updatedAt: new Date(0).toISOString(),
+      finishedAt: null,
+    });
+    store.deps.assertConceptContentApproved = async () => ({
+      ok: true as const,
+      conceptKey: buildInstagramConceptKey("deze_week", ["e1"]),
+      contentFingerprint: approvedFp,
+      eventSnapshots: sampleSnapshots().slice(0, 1),
+    });
+    const client = {
+      createImageContainer: async () => ({
+        ok: true as const,
+        data: { id: "new_c" },
+      }),
+      createCarouselContainer: async () => {
+        throw new Error("unused");
+      },
+      getContainerStatus: async () => ({
+        ok: true as const,
+        data: { status_code: "FINISHED" },
+      }),
+      publishContainer: async () => {
+        publishCalls += 1;
+        return { ok: true as const, data: { id: "media_should_not" } };
+      },
+    };
+
+    // Caption / slides / events changed vs old attempt fingerprint.
+    const r = await publishInstagramConcept({
+      draft: {
+        ...draft("new caption after re-approval"),
+        slides: [
+          {
+            kind: "deze_week",
+            label: "one",
+            query: { ids: "e1", note: "changed" },
+          },
+        ],
+      },
+      metaClient: client,
+      publicBaseUrl: "https://example.invalid",
+      deps: store.deps,
+      checkLiveEventDrift: false,
+    });
+    assert.equal(r.ok, false);
+    if (!r.ok) assert.equal(r.code, "content_mismatch");
+    assert.equal(publishCalls, 0, "must not media_publish old FINISHED container");
+    assert.equal(store.rows[0]!.status, "pending");
+    assert.equal(store.rows[0]!.metaContainerId, "old_container");
+
+    // Matching fingerprint may resume FINISHED → publish.
+    store.rows[0]!.contentFingerprint = approvedFp;
+    store.rows[0]!.recoveryLeaseUntil = null;
+    store.rows[0]!.updatedAt = new Date(0).toISOString();
+    const r2 = await publishInstagramConcept({
+      draft: draft("new caption after re-approval"),
+      metaClient: client,
+      publicBaseUrl: "https://example.invalid",
+      deps: store.deps,
+      checkLiveEventDrift: false,
+    });
+    assert.equal(r2.ok, true);
+    assert.equal(publishCalls, 1);
+
+    // PUBLISHED reconcile still works without matching fingerprint (no republish).
+    publishCalls = 0;
+    store.reset();
+    store.rows.push({
+      id: "pub-1",
+      conceptKey: buildInstagramConceptKey("deze_week", ["e1"]),
+      format: "deze_week",
+      eventIds: ["e1"],
+      caption: "old",
+      slideCount: 1,
+      status: "uncertain",
+      dryRun: false,
+      metaContainerId: "already_live",
+      metaMediaId: null,
+      errorCode: "publish_uncertain",
+      errorMessage: "x",
+      contentFingerprint: "z".repeat(32),
+      recoveryLeaseUntil: null,
+      requestedBy: null,
+      createdAt: new Date(0).toISOString(),
+      updatedAt: new Date(0).toISOString(),
+      finishedAt: null,
+    });
+    store.deps.assertConceptContentApproved = async () => ({
+      ok: true as const,
+      conceptKey: buildInstagramConceptKey("deze_week", ["e1"]),
+      contentFingerprint: approvedFp,
+      eventSnapshots: sampleSnapshots().slice(0, 1),
+    });
+    const publishedClient = {
+      ...client,
+      getContainerStatus: async () => ({
+        ok: true as const,
+        data: { status_code: "PUBLISHED" },
+      }),
+      publishContainer: async () => {
+        publishCalls += 1;
+        return { ok: true as const, data: { id: "m" } };
+      },
+    };
+    const r3 = await publishInstagramConcept({
+      draft: draft("latest approved"),
+      metaClient: publishedClient,
+      publicBaseUrl: "https://example.invalid",
+      deps: store.deps,
+      checkLiveEventDrift: false,
+    });
+    assert.equal(r3.ok, true);
+    assert.equal(publishCalls, 0, "PUBLISHED reconcile must not call media_publish");
+    if (r3.ok) {
+      assert.equal(r3.publish.status, "published");
+      assert.equal(r3.publish.metaMediaId, null);
+    }
+  });
+  ok("R11. recovery resumes media_publish only when stored fingerprint matches approval");
 }
 
 async function testPublishBlocksWhenApprovalMissingSnapshots() {
@@ -836,6 +1111,7 @@ async function main() {
   await testParallelRecoveryLease();
   await testEventSnapshotDriftAndFrozenRender();
   await testPublishBlocksWhenApprovalMissingSnapshots();
+  await testRecoveryBlocksFingerprintMismatch();
   console.log("\nOK: Instagram Phase 3B offline regressions.");
 }
 
