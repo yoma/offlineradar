@@ -521,6 +521,19 @@ async function testContentFingerprintApproval() {
     ...base,
     eventSnapshots: sampleSnapshots({ activities: ["eten"] }),
   });
+  const crlf = buildInstagramContentFingerprint({
+    ...base,
+    caption: "Hello\r\nWorld",
+  });
+  const lf = buildInstagramContentFingerprint({
+    ...base,
+    caption: "Hello\nWorld",
+  });
+  assert.equal(
+    crlf,
+    lf,
+    "FormData CRLF captions must match server LF captions",
+  );
   assert.notEqual(a, b);
   assert.notEqual(a, c);
   assert.notEqual(a, d);
