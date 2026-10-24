@@ -7,10 +7,25 @@ import { updateAanvoerCandidateStatusAction } from "@/app/interne-aanvoer/action
 import { PendingContent } from "@/components/ui/pending";
 import type { CockpitCandidateRow } from "@/lib/aanvoer/cockpit-data";
 import { ORIGIN_LABEL } from "@/lib/aanvoer/cockpit-data";
+import { displayEventTitle } from "@/lib/aanvoer/display-title";
+import { isWeakLocationCity } from "@/lib/geo-cities";
 
 type Props = {
   items: CockpitCandidateRow[];
 };
+
+function placeLabel(city: string | null | undefined): string | null {
+  if (!city?.trim() || isWeakLocationCity(city)) return null;
+  return city.trim();
+}
+
+function eyebrowFor(item: CockpitCandidateRow): string | null {
+  const origin =
+    item.origin === "onbekend" ? null : ORIGIN_LABEL[item.origin];
+  const state = item.readyToPublish ? "Klaar voor publicatie" : "Nakijken";
+  if (origin) return `${origin} · ${state}`;
+  return state;
+}
 
 export function GoedkeurenInbox({ items: initial }: Props) {
   const router = useRouter();
@@ -75,6 +90,10 @@ export function GoedkeurenInbox({ items: initial }: Props) {
         <ul className="space-y-4">
           {items.map((item) => {
             const busy = busyId === item.id;
+            const eyebrow = eyebrowFor(item);
+            const place = placeLabel(item.city);
+            const displayTitle = displayEventTitle(item.title);
+            const editHref = `/interne-aanvoer?tab=aandacht&editionId=${item.id}`;
             return (
               <li
                 key={item.id}
@@ -82,17 +101,26 @@ export function GoedkeurenInbox({ items: initial }: Props) {
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold tracking-wide text-stone-500 uppercase">
-                      {ORIGIN_LABEL[item.origin]}
-                      {item.readyToPublish
-                        ? " · klaar voor publicatie"
-                        : " · nakijken"}
-                    </p>
+                    {eyebrow ? (
+                      <p className="text-xs font-semibold tracking-wide text-stone-500">
+                        {eyebrow}
+                      </p>
+                    ) : null}
                     <h2 className="mt-1 text-lg font-semibold tracking-tight text-stone-900">
-                      {item.title}
+                      {displayTitle}
                     </h2>
+                    {displayTitle !== item.title.trim() ? (
+                      <p className="mt-0.5 line-clamp-2 text-xs text-stone-500">
+                        Volledige titel: {item.title}
+                      </p>
+                    ) : null}
                     <p className="mt-1 text-sm text-stone-600">
-                      {[item.displayDate, item.startTime, item.city, item.organizerName]
+                      {[
+                        item.displayDate,
+                        item.startTime,
+                        place ?? (item.checks.location ? null : "Locatie ontbreekt"),
+                        item.organizerName,
+                      ]
                         .filter(Boolean)
                         .join(" · ")}
                     </p>
@@ -119,16 +147,25 @@ export function GoedkeurenInbox({ items: initial }: Props) {
                 </div>
 
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => run(item.id, "toevoegen")}
-                    className="inline-flex min-h-11 items-center justify-center rounded-full bg-emerald-700 px-5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:opacity-60"
-                  >
-                    <PendingContent pending={busy} pendingLabel="Bezig…">
-                      {item.readyToPublish ? "Publiceren" : "Toch publiceren"}
-                    </PendingContent>
-                  </button>
+                  {item.readyToPublish ? (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => run(item.id, "toevoegen")}
+                      className="inline-flex min-h-11 items-center justify-center rounded-full bg-emerald-700 px-5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:opacity-60"
+                    >
+                      <PendingContent pending={busy} pendingLabel="Bezig…">
+                        Publiceren
+                      </PendingContent>
+                    </button>
+                  ) : (
+                    <Link
+                      href={editHref}
+                      className="inline-flex min-h-11 items-center justify-center rounded-full bg-stone-900 px-5 text-sm font-semibold text-white transition hover:bg-stone-800"
+                    >
+                      Gegevens corrigeren
+                    </Link>
+                  )}
                   <button
                     type="button"
                     disabled={busy}
@@ -137,12 +174,14 @@ export function GoedkeurenInbox({ items: initial }: Props) {
                   >
                     Niet toevoegen
                   </button>
-                  <Link
-                    href={`/interne-aanvoer?tab=aandacht&editionId=${item.id}`}
-                    className="inline-flex min-h-11 items-center justify-center rounded-full px-4 text-sm font-semibold text-stone-600 underline-offset-4 hover:underline"
-                  >
-                    Meer details
-                  </Link>
+                  {item.readyToPublish ? (
+                    <Link
+                      href={editHref}
+                      className="inline-flex min-h-11 items-center justify-center rounded-full px-4 text-sm font-semibold text-stone-600 underline-offset-4 hover:underline"
+                    >
+                      Meer details
+                    </Link>
+                  ) : null}
                 </div>
               </li>
             );

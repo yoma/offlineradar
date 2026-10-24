@@ -9,6 +9,7 @@ import {
   normalizeSpeeddateSubCategory,
 } from "@/lib/event-category";
 import { resolveSourceVerifiedAt } from "@/lib/freshness";
+import { displayEventTitle } from "@/lib/aanvoer/display-title";
 import { resolveEditionCoords } from "@/lib/geo-cities";
 import type { EventEditionBundle } from "@/types/event-catalog";
 import type { Event, EventEligibility, ListingPath } from "@/types/event";
@@ -163,7 +164,8 @@ export function mapEditionToConsumerEvent(
 
   return {
     id: edition.id,
-    title: edition.title,
+    // Display-only shortening; stored edition.title / description stay intact.
+    title: displayEventTitle(edition.title) || edition.title,
     slug: edition.slug,
     shortDescription: edition.shortDescription ?? "",
     description: edition.description,

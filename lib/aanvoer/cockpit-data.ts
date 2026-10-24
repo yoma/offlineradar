@@ -199,7 +199,14 @@ function resolveOrigin(tags: string[], notes: string): CockpitCandidateRow["orig
     return "admin_intake";
   }
   if (tags.includes("from-tip") || /tip_id=|from_tip/i.test(notes)) return "tip";
-  if (tags.includes("parser") || /parser_|source_refresh/i.test(notes)) return "parser";
+  // Tags use "source-refresh"; notes often say "source refresh item …".
+  if (
+    tags.includes("parser") ||
+    tags.includes("source-refresh") ||
+    /parser_|source[_-\s]?refresh/i.test(notes)
+  ) {
+    return "parser";
+  }
   if (tags.includes("ai-scan") || /ai_scan|discovery/i.test(notes)) return "ai_scan";
   return "onbekend";
 }
@@ -793,9 +800,9 @@ export const SOURCE_STATUS_LABEL: Record<CatalogSourceStatus, string> = {
 };
 
 export const ORIGIN_LABEL: Record<CockpitCandidateRow["origin"], string> = {
-  admin_intake: "Admin intake",
-  tip: "Tip",
-  parser: "Parser",
-  ai_scan: "AI scan",
+  admin_intake: "Zelf toegevoegd",
+  tip: "Bezoekerstip",
+  parser: "Automatische scan",
+  ai_scan: "AI-scan",
   onbekend: "Onbekend",
 };
