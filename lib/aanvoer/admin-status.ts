@@ -6,7 +6,10 @@
  * Ready-to-publish items are auto-published (no "Klaar" queue).
  */
 
-import { editionLocationIsDiscoverable } from "@/lib/geo-cities";
+import {
+  editionLocationIsPublishable,
+  isWeakLocationCity,
+} from "@/lib/geo-cities";
 
 export type AdminQueueStatus =
   | "aandacht_nodig"
@@ -108,6 +111,14 @@ function hasDateConflict(notes: string): boolean {
   );
 }
 
+function hasLocationConflict(notes: string): boolean {
+  return (
+    /conflict:\s*Plaats|plaatsconflict|Conflict postcode|Zwakke locatie|locatieconflict/i.test(
+      notes,
+    )
+  );
+}
+
 /**
  * Classify one edition for the admin queue.
  * Never returns a "klaar" bucket: ready items set readyToPublish instead.
@@ -120,13 +131,15 @@ export function classifyAdminStatus(input: AdminStatusInput): AdminStatusResult 
   const displayDate = displayEventDate(input.startsAt, tags, notes);
   const hasSource = Boolean(input.sourceUrl?.trim());
   const singles = singlesConfirmed(input);
-  // Must be discoverable on Ontdek: city with known coords, or explicit lat/lng.
-  // Venue-only is not enough (would publish as Infinity km and disappear).
-  const location = editionLocationIsDiscoverable({
-    city: input.city,
-    latitude: input.latitude,
-    longitude: input.longitude,
-  });
+  // Publishable place: known municipality + coords. Weak labels (België/Onbekend)
+  // or coords-only without a real city never pass — no ordinary override.
+  const location =
+    !hasLocationConflict(notes) &&
+    editionLocationIsPublishable({
+      city: input.city,
+      latitude: input.latitude,
+      longitude: input.longitude,
+    });
 
   const checks = {
     singles,
@@ -212,11 +225,18 @@ export function classifyAdminStatus(input: AdminStatusInput): AdminStatusResult 
   }
 
   if (!location) {
+    const city = input.city?.trim() ?? "";
+    let reason = "Locatie kon niet worden bevestigd";
+    if (hasLocationConflict(notes)) {
+      reason = "Bronnen geven conflicterende locatiegegevens";
+    } else if (isWeakLocationCity(city)) {
+      reason = "Specifieke plaats ontbreekt (alleen regio/land of onbekend)";
+    } else if (city) {
+      reason = `Plaats “${city}” heeft geen bekende coördinaten (zou onzichtbaar blijven op Ontdek)`;
+    }
     return {
       status: "aandacht_nodig",
-      reason: input.city?.trim() && input.city !== "Onbekend"
-        ? `Plaats “${input.city.trim()}” heeft geen bekende coördinaten (zou onzichtbaar blijven op Ontdek)`
-        : "Locatie kon niet worden bevestigd",
+      reason,
       displayDate,
       dateUnknown: false,
       readyToPublish: false,

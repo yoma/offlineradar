@@ -6,7 +6,10 @@
 import { randomUUID } from "node:crypto";
 import { getEventsSql } from "@/lib/events/db";
 import { canonicalizeActivityId } from "@/lib/event-category";
-import { resolveCoordsForWrite } from "@/lib/geo-cities";
+import {
+  editionLocationIsPublishable,
+  resolveCoordsForWrite,
+} from "@/lib/geo-cities";
 import type {
   AttachImageInput,
   AttachSourceInput,
@@ -672,7 +675,8 @@ export async function updateEditionPublication(input: {
       return null;
     }
 
-    // Hard gate: never publish an edition that Ontdek would hide (Infinity km).
+    // Hard gate: known municipality + coords. Weak city (België/Onbekend) or
+    // coords-only without a real place label can never publish.
     const current = (await sql`
       SELECT city, latitude, longitude
       FROM event_editions
@@ -685,6 +689,17 @@ export async function updateEditionPublication(input: {
     }[];
     const row = current[0];
     if (!row) return null;
+    if (
+      !editionLocationIsPublishable({
+        city: row.city,
+        latitude: row.latitude,
+        longitude: row.longitude,
+      })
+    ) {
+      throw new Error(
+        "Publiceren geweigerd: specifieke plaats ontbreekt of is niet bevestigd. Corrigeer de locatie eerst.",
+      );
+    }
     const geo = resolveCoordsForWrite({
       city: row.city,
       latitude: row.latitude,
