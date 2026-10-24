@@ -1,6 +1,6 @@
 /**
  * Instagram Autopilot Phase 3A — shared constants.
- * Visual + copy only. No Meta Graph API publish in this phase.
+ * Visual + copy constants. Meta publish is gated in lib/instagram/publish.ts.
  */
 
 import { brandColors, instagramFormats } from "@/lib/brand/tokens";

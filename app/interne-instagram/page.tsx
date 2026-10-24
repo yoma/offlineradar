@@ -6,7 +6,7 @@ import {
 import { listEvents } from "@/lib/events";
 import { buildPhase3aPreviewDrafts } from "@/lib/instagram/drafts";
 import { getRecentlyUsedEventIds } from "@/lib/instagram/history";
-import { INSTAGRAM_META_STATUS } from "@/lib/instagram/meta-readiness";
+import { getInstagramMetaStatus } from "@/lib/instagram/meta-readiness";
 import { InterneAdminNav } from "@/components/admin/interne-admin-nav";
 import { InterneAdminShell } from "@/components/admin/interne-admin-shell";
 import { InstagramPreviewClient } from "@/components/admin/instagram-preview-client";
@@ -99,17 +99,24 @@ export default async function InterneInstagramPage() {
     extraNotes.unshift(`Catalogusfout: ${loadError}`);
   }
 
+  const meta = getInstagramMetaStatus();
+
   return (
     <InterneAdminShell wide>
       <InterneAdminNav active="instagram" />
       <InstagramPreviewClient
         drafts={drafts.map(sanitizeDraft)}
         notes={extraNotes}
+        publishMode={meta.mode}
+        publishModeLabel={meta.modeLabel}
       />
       <p className="mt-8 text-xs text-stone-500">
-        Meta-status: publishEnabled=
-        {String(INSTAGRAM_META_STATUS.publishEnabled)}, phase=
-        {INSTAGRAM_META_STATUS.phase}. Geen Graph API-calls in deze fase.
+        Meta-status: mode={meta.mode}, graphWired=
+        {String(meta.graphApiWired)}, phase={meta.phase}
+        {meta.missingForLive.length > 0
+          ? `, ontbrekend voor live: ${meta.missingForLive.join(", ")}`
+          : ""}
+        . Geen cron / auto-post.
       </p>
     </InterneAdminShell>
   );
