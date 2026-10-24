@@ -41,6 +41,31 @@ function parseSlides(raw: string): InstagramSlideApproval[] {
   }
 }
 
+/** Dutch copy for approve action failures (UI must surface these, not swallow). */
+export function approveInstagramConceptErrorMessage(
+  error: string,
+  detail?: string,
+): string {
+  switch (error) {
+    case "unauthorized":
+      return "Je bent niet ingelogd als beheerder.";
+    case "invalid_concept":
+      return "Concept is onvolledig (events, caption of slides ontbreken).";
+    case "catalog_unavailable":
+      return "Catalogus kon niet worden geladen. Probeer opnieuw.";
+    case "events_missing":
+      return detail
+        ? `Event ontbreekt in de catalogus (${detail}). Vernieuw de pagina en keur opnieuw goed.`
+        : "Een of meer events ontbreken in de catalogus. Vernieuw de pagina.";
+    case "approval_store_failed":
+      return detail
+        ? `Goedkeuring kon niet worden opgeslagen: ${detail}`
+        : "Goedkeuring kon niet worden opgeslagen. Probeer opnieuw.";
+    default:
+      return "Goedkeuren mislukt — probeer opnieuw.";
+  }
+}
+
 /**
  * Mark a concept as reviewed with exact caption + slides + event field snapshots.
  * Does NOT publish to Instagram.
@@ -48,7 +73,11 @@ function parseSlides(raw: string): InstagramSlideApproval[] {
 export async function approveInstagramConceptAction(formData: FormData) {
   const access = await resolveTipsAdminAccess();
   if (!access.ok) {
-    return { ok: false as const, error: "unauthorized" };
+    return {
+      ok: false as const,
+      error: "unauthorized" as const,
+      message: approveInstagramConceptErrorMessage("unauthorized"),
+    };
   }
 
   const format = parseFormat(String(formData.get("format") ?? ""));
@@ -60,21 +89,34 @@ export async function approveInstagramConceptAction(formData: FormData) {
   const slides = parseSlides(String(formData.get("slides") ?? "[]"));
 
   if (!format || eventIds.length === 0 || !caption || slides.length === 0) {
-    return { ok: false as const, error: "invalid_concept" };
+    return {
+      ok: false as const,
+      error: "invalid_concept" as const,
+      message: approveInstagramConceptErrorMessage("invalid_concept"),
+    };
   }
 
   let catalog: Awaited<ReturnType<typeof listEvents>>;
   try {
     catalog = await listEvents();
   } catch {
-    return { ok: false as const, error: "catalog_unavailable" };
+    return {
+      ok: false as const,
+      error: "catalog_unavailable" as const,
+      message: approveInstagramConceptErrorMessage("catalog_unavailable"),
+    };
   }
   const byId = new Map(catalog.map((e) => [e.id, e]));
   const ordered = [];
   for (const id of eventIds) {
     const event = byId.get(id);
     if (!event) {
-      return { ok: false as const, error: "events_missing", detail: id };
+      return {
+        ok: false as const,
+        error: "events_missing" as const,
+        detail: id,
+        message: approveInstagramConceptErrorMessage("events_missing", id),
+      };
     }
     ordered.push(event);
   }
@@ -92,8 +134,12 @@ export async function approveInstagramConceptAction(formData: FormData) {
   if (!approval.ok) {
     return {
       ok: false as const,
-      error: "approval_store_failed",
+      error: "approval_store_failed" as const,
       detail: approval.error,
+      message: approveInstagramConceptErrorMessage(
+        "approval_store_failed",
+        approval.error,
+      ),
     };
   }
 
@@ -104,6 +150,7 @@ export async function approveInstagramConceptAction(formData: FormData) {
     stored: result.stored,
     conceptKey: approval.conceptKey,
     contentFingerprint: approval.contentFingerprint,
+    message: "Concept goedgekeurd en opgeslagen.",
   };
 }
 
