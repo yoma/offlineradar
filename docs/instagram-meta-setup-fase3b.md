@@ -39,8 +39,11 @@ Bron: [Meta Content Publishing](https://developers.facebook.com/docs/instagram-p
 
 ```bash
 npm run db:migrate:instagram-publishes
+npm run db:migrate:instagram-approvals
 npm run verify:instagram-phase3b
 ```
+
+Publieke JPEG-tickets (`/api/instagram/public-media`) zijn **6 uur** geldig — voldoende voor Meta om alle carrousel-slides op te halen.
 
 ## Hoe publiceren werkt in de app
 

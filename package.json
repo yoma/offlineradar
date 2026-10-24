@@ -111,6 +111,7 @@
     "backfill:coords": "node --env-file=.env.local --import tsx scripts/backfill-edition-coords.ts",
     "db:migrate:instagram-concept-history": "node --env-file=.env.local --import tsx scripts/migrate-instagram-concept-history.ts",
     "db:migrate:instagram-publishes": "node --env-file=.env.local --import tsx scripts/migrate-instagram-publishes.ts",
+    "db:migrate:instagram-approvals": "node --env-file=.env.local --import tsx scripts/migrate-instagram-approvals.ts",
     "verify:instagram-phase3a": "npx tsx scripts/verify-instagram-phase3a.ts",
     "verify:instagram-phase3b": "node --env-file=.env.local --import tsx scripts/verify-instagram-phase3b.ts",
     "verify:instagram-history-neon": "node --env-file=.env.local --import tsx scripts/verify-instagram-history-neon.ts",

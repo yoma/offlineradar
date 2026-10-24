@@ -2,13 +2,22 @@
 
 import { revalidatePath } from "next/cache";
 import { resolveTipsAdminAccess } from "@/lib/tips/admin-auth";
+import { recordConceptApproval } from "@/lib/instagram/approvals";
 import { recordConceptEventIds } from "@/lib/instagram/history";
 import { publishInstagramConcept } from "@/lib/instagram/publish";
 import type { InstagramFormatId } from "@/lib/instagram/constants";
 import type { InstagramRenderKind } from "@/lib/instagram/render";
 
+function parseFormat(raw: string): InstagramFormatId | null {
+  if (raw === "binnenkort" || raw === "deze_week" || raw === "nieuw") {
+    return raw;
+  }
+  return null;
+}
+
 /**
- * Mark a concept as reviewed: remember its event ids so later posts avoid them.
+ * Mark a concept as reviewed: remember its event ids so later posts avoid them,
+ * and store a concept-level approval required before Meta publish.
  * Does NOT publish to Instagram.
  */
 export async function approveInstagramConceptAction(formData: FormData) {
@@ -17,18 +26,37 @@ export async function approveInstagramConceptAction(formData: FormData) {
     return { ok: false as const, error: "unauthorized" };
   }
 
+  const format = parseFormat(String(formData.get("format") ?? ""));
   const idsRaw = String(formData.get("eventIds") ?? "");
   const eventIds = idsRaw
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
 
+  if (!format || eventIds.length === 0) {
+    return { ok: false as const, error: "invalid_concept" };
+  }
+
   const result = await recordConceptEventIds(eventIds);
+  const approval = await recordConceptApproval({
+    format,
+    eventIds,
+    approvedBy: access.email ?? null,
+  });
+  if (!approval.ok) {
+    return {
+      ok: false as const,
+      error: "approval_store_failed",
+      detail: approval.error,
+    };
+  }
+
   revalidatePath("/interne-instagram");
   return {
     ok: true as const,
     recorded: result.count,
     stored: result.stored,
+    conceptKey: approval.conceptKey,
   };
 }
 
@@ -73,12 +101,8 @@ export async function publishInstagramConceptAction(formData: FormData) {
     };
   }
 
-  const format = String(formData.get("format") ?? "") as InstagramFormatId;
-  if (
-    format !== "binnenkort" &&
-    format !== "deze_week" &&
-    format !== "nieuw"
-  ) {
+  const format = parseFormat(String(formData.get("format") ?? ""));
+  if (!format) {
     return {
       ok: false as const,
       code: "invalid_format",

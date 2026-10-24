@@ -1,5 +1,6 @@
 /**
  * Minimal Instagram Graph API client (Facebook Login / Page token path).
+ * Access tokens are sent in POST bodies / Authorization headers — never in URLs.
  * No cron. Caller gates live calls behind feature flags.
  */
 
@@ -29,7 +30,12 @@ export type MetaClient = {
     MetaClientResult<{ id: string }>
   >;
   getContainerStatus: (containerId: string) => Promise<
-    MetaClientResult<{ status_code?: string; status?: string }>
+    MetaClientResult<{
+      status_code?: string;
+      status?: string;
+      // Present on some Graph responses after publish.
+      id?: string;
+    }>
   >;
 };
 
@@ -51,6 +57,7 @@ function mapMetaError(payload: unknown, httpStatus: number): MetaGraphError {
   const metaCode = typeof err?.code === "number" ? err.code : undefined;
   const metaSubcode =
     typeof err?.error_subcode === "number" ? err.error_subcode : undefined;
+  const msgLower = message.toLowerCase();
   let code = "meta_graph_error";
   if (httpStatus === 401 || metaCode === 190) code = "meta_auth";
   else if (metaCode === 4 || metaCode === 17 || metaCode === 32)
@@ -59,6 +66,13 @@ function mapMetaError(payload: unknown, httpStatus: number): MetaGraphError {
     code = "meta_media_url";
   else if (metaCode === 9007 || metaSubcode === 2207027)
     code = "meta_media_format";
+  else if (
+    msgLower.includes("already published") ||
+    msgLower.includes("already been published") ||
+    metaSubcode === 2207020
+  ) {
+    code = "meta_already_published";
+  }
   return { code, message, httpStatus, metaCode, metaSubcode };
 }
 
@@ -70,13 +84,19 @@ export function createMetaClient(options: MetaClientOptions): MetaClient {
     path: string,
     body: Record<string, string>,
   ): Promise<MetaClientResult<{ id: string }>> {
-    const url = new URL(`${base}${path}`);
-    url.searchParams.set("access_token", options.accessToken);
-    for (const [k, v] of Object.entries(body)) {
-      url.searchParams.set(k, v);
-    }
+    const url = `${base}${path}`;
+    const form = new URLSearchParams({
+      ...body,
+      access_token: options.accessToken,
+    });
     try {
-      const res = await fetchImpl(url.toString(), { method: "POST" });
+      const res = await fetchImpl(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: form.toString(),
+      });
       const json = (await res.json().catch(() => null)) as unknown;
       if (!res.ok) {
         return { ok: false, error: mapMetaError(json, res.status) };
@@ -112,10 +132,14 @@ export function createMetaClient(options: MetaClientOptions): MetaClient {
     fields: string,
   ): Promise<MetaClientResult<Record<string, unknown>>> {
     const url = new URL(`${base}${path}`);
-    url.searchParams.set("access_token", options.accessToken);
     url.searchParams.set("fields", fields);
     try {
-      const res = await fetchImpl(url.toString(), { method: "GET" });
+      const res = await fetchImpl(url.toString(), {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${options.accessToken}`,
+        },
+      });
       const json = (await res.json().catch(() => null)) as unknown;
       if (!res.ok) {
         return { ok: false, error: mapMetaError(json, res.status) };
@@ -153,7 +177,7 @@ export function createMetaClient(options: MetaClientOptions): MetaClient {
         creation_id: creationId,
       }),
     getContainerStatus: async (containerId) => {
-      const res = await graphGet(`/${containerId}`, "status_code,status");
+      const res = await graphGet(`/${containerId}`, "status_code,status,id");
       if (!res.ok) return res;
       return {
         ok: true,
@@ -164,6 +188,7 @@ export function createMetaClient(options: MetaClientOptions): MetaClient {
               : undefined,
           status:
             typeof res.data.status === "string" ? res.data.status : undefined,
+          id: typeof res.data.id === "string" ? res.data.id : undefined,
         },
       };
     },
@@ -179,8 +204,8 @@ export async function waitForContainerFinished(
     sleep?: (ms: number) => Promise<void>;
   },
 ): Promise<MetaClientResult<{ status_code: string }>> {
-  const attempts = options?.attempts ?? 12;
-  const delayMs = options?.delayMs ?? 1500;
+  const attempts = options?.attempts ?? 20;
+  const delayMs = options?.delayMs ?? 2000;
   const sleep =
     options?.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
 
@@ -189,7 +214,7 @@ export async function waitForContainerFinished(
     const status = await client.getContainerStatus(containerId);
     if (!status.ok) return status;
     last = status.data.status_code ?? status.data.status ?? "UNKNOWN";
-    if (last === "FINISHED") {
+    if (last === "FINISHED" || last === "PUBLISHED") {
       return { ok: true, data: { status_code: last } };
     }
     if (last === "ERROR" || last === "EXPIRED") {
@@ -218,12 +243,15 @@ export function humanMetaPublishError(code: string, detail?: string): string {
     disabled:
       "Publicatie staat uit. Zet INSTAGRAM_META_DRY_RUN=1 (test) of INSTAGRAM_META_PUBLISH_ENABLED=1 (live).",
     unauthorized: "Je bent niet ingelogd als beheerder.",
+    not_approved:
+      "Dit concept is nog niet goedgekeurd. Klik eerst op Goedkeuren.",
     missing_credentials: "Meta-credentials ontbreken in de serveromgeving.",
     missing_signing_secret: "Signing-secret voor publieke media-URL ontbreekt.",
     already_published: "Dit concept is al gepubliceerd naar Instagram.",
     publish_in_progress: "Er loopt al een publicatie voor dit concept.",
     neon_unavailable: "Neon-database niet bereikbaar voor publicatielog.",
     no_slides: "Concept heeft geen slides om te publiceren.",
+    carousel_too_small: "Een carrousel heeft minstens 2 afbeeldingen nodig.",
     meta_auth: "Meta-token ongeldig of verlopen. Vernieuw META_PAGE_ACCESS_TOKEN.",
     meta_rate_limit: "Meta rate limit bereikt. Probeer later opnieuw.",
     meta_media_url:
@@ -232,6 +260,8 @@ export function humanMetaPublishError(code: string, detail?: string): string {
       "Afbeeldingsformaat geweigerd door Meta (JPEG vereist).",
     meta_container_failed: "Meta wees de media-container af.",
     meta_container_timeout: "Meta media-container werd niet op tijd klaar.",
+    meta_already_published:
+      "Meta meldt dat deze container al gepubliceerd is (geen dubbele post).",
     meta_network: "Netwerkfout bij contact met Meta.",
     meta_graph_error: "Meta Graph API gaf een fout.",
   };

@@ -11,7 +11,13 @@ import {
 import type { InstagramRenderKind } from "@/lib/instagram/render";
 
 export const INSTAGRAM_PUBLIC_MEDIA_PATH = "/api/instagram/public-media";
-export const INSTAGRAM_MEDIA_TICKET_TTL_SEC = 60 * 60; // 1 hour
+/**
+ * Meta curls each image_url when creating containers (and may retry).
+ * Carousel publishes create multiple children + wait for FINISHED; keep
+ * tickets valid well beyond a single serverless invocation.
+ * IG containers themselves expire after 24h — 6h is a safe middle ground.
+ */
+export const INSTAGRAM_MEDIA_TICKET_TTL_SEC = 6 * 60 * 60;
 
 export type InstagramMediaTicket = {
   v: 1;

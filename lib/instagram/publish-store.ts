@@ -31,6 +31,9 @@ export type InstagramPublishRow = {
   finishedAt: string | null;
 };
 
+/** Pending rows older than this are eligible for recovery / fail-and-retry. */
+export const PUBLISH_PENDING_STALE_MS = 15 * 60 * 1000;
+
 function mapRow(raw: Record<string, unknown>): InstagramPublishRow {
   const eventIds = Array.isArray(raw.event_ids)
     ? (raw.event_ids as string[])
@@ -59,6 +62,17 @@ function mapRow(raw: Record<string, unknown>): InstagramPublishRow {
       ? new Date(String(raw.finished_at)).toISOString()
       : null,
   };
+}
+
+export function isPublishPendingStale(
+  row: InstagramPublishRow,
+  now = Date.now(),
+  staleMs = PUBLISH_PENDING_STALE_MS,
+): boolean {
+  if (row.status !== "pending") return false;
+  const updated = Date.parse(row.updatedAt || row.createdAt);
+  if (Number.isNaN(updated)) return true;
+  return now - updated >= staleMs;
 }
 
 export async function findActivePublish(
@@ -159,6 +173,38 @@ export async function claimPublishAttempt(input: {
       error: "claim_failed",
       detail: error instanceof Error ? error.message : String(error),
     };
+  }
+}
+
+/** Persist progress on a still-pending attempt (e.g. container id before publish). */
+export async function patchPendingPublish(
+  id: string,
+  patch: {
+    metaContainerId?: string | null;
+    metaMediaId?: string | null;
+    errorCode?: string | null;
+    errorMessage?: string | null;
+  },
+): Promise<InstagramPublishRow | null> {
+  const sql = getEventsSql();
+  if (!sql) return null;
+  const updatedAt = new Date().toISOString();
+  try {
+    const rows = (await sql`
+      UPDATE instagram_publishes
+      SET
+        meta_container_id = COALESCE(${patch.metaContainerId ?? null}, meta_container_id),
+        meta_media_id = COALESCE(${patch.metaMediaId ?? null}, meta_media_id),
+        error_code = COALESCE(${patch.errorCode ?? null}, error_code),
+        error_message = COALESCE(${patch.errorMessage ?? null}, error_message),
+        updated_at = ${updatedAt}::timestamptz
+      WHERE id = ${id}
+        AND status = 'pending'
+      RETURNING *
+    `) as Record<string, unknown>[];
+    return rows[0] ? mapRow(rows[0]) : null;
+  } catch {
+    return null;
   }
 }
 

@@ -178,9 +178,11 @@ function DraftCard({
                 startApprove(async () => {
                   const res = await approveInstagramConceptAction(formData);
                   if (res.ok) setApproved(true);
+                  else setPublishError("Goedkeuren mislukt — probeer opnieuw.");
                 });
               }}
             >
+              <input type="hidden" name="format" value={draft.format} />
               <input
                 type="hidden"
                 name="eventIds"
@@ -192,7 +194,7 @@ function DraftCard({
                 className="rounded-xl bg-[var(--brand-bordeaux)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--brand-bordeaux-muted)] disabled:opacity-50"
               >
                 {approved
-                  ? "Concept onthouden"
+                  ? "Concept goedgekeurd"
                   : approvePending
                     ? "Bezig…"
                     : "Goedkeuren (onthouden)"}
