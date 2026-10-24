@@ -26,15 +26,21 @@ const FORMAT_TITLE: Record<InstagramFormatId, string> = {
 function DraftCard({
   draft,
   publishMode,
+  initialApproved,
 }: {
   draft: InstagramDraft;
   publishMode: InstagramMetaPublishMode;
+  initialApproved: boolean;
 }) {
   const [slideIndex, setSlideIndex] = useState(0);
   const [copied, setCopied] = useState(false);
   const [approvePending, startApprove] = useTransition();
   const [publishPending, startPublish] = useTransition();
-  const [approved, setApproved] = useState(false);
+  const [approved, setApproved] = useState(initialApproved);
+  const [approveMessage, setApproveMessage] = useState<string | null>(
+    initialApproved ? "Deze exacte inhoud is goedgekeurd." : null,
+  );
+  const [approveError, setApproveError] = useState<string | null>(null);
   const [publishMessage, setPublishMessage] = useState<string | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [published, setPublished] = useState(false);
@@ -46,6 +52,14 @@ function DraftCard({
     published ||
     !approved ||
     publishMode === "disabled";
+
+  useEffect(() => {
+    setApproved(initialApproved);
+    if (initialApproved) {
+      setApproveMessage("Deze exacte inhoud is goedgekeurd.");
+      setApproveError(null);
+    }
+  }, [initialApproved]);
 
   useEffect(() => {
     setImageLoaded(false);
@@ -176,9 +190,20 @@ function DraftCard({
               className="flex flex-wrap items-center gap-3"
               action={(formData) => {
                 startApprove(async () => {
+                  setApproveError(null);
+                  setApproveMessage(null);
                   const res = await approveInstagramConceptAction(formData);
-                  if (res.ok) setApproved(true);
-                  else setPublishError("Goedkeuren mislukt — probeer opnieuw.");
+                  if (res.ok) {
+                    setApproved(true);
+                    setApproveMessage(
+                      res.message ?? "Concept goedgekeurd en opgeslagen.",
+                    );
+                    return;
+                  }
+                  setApproved(false);
+                  setApproveError(
+                    res.message ?? "Goedkeuren mislukt — probeer opnieuw.",
+                  );
                 });
               }}
             >
@@ -196,11 +221,12 @@ function DraftCard({
               />
               <button
                 type="submit"
+                data-testid={`ig-approve-${draft.format}`}
                 disabled={approvePending || approved}
                 className="rounded-xl bg-[var(--brand-bordeaux)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--brand-bordeaux-muted)] disabled:opacity-50"
               >
                 {approved
-                  ? "Concept goedgekeurd"
+                  ? "Goedgekeurd"
                   : approvePending
                     ? "Bezig…"
                     : "Goedkeuren (onthouden)"}
@@ -250,17 +276,38 @@ function DraftCard({
                     ? "Publiceren…"
                     : "Publiceren naar Instagram"}
               </button>
-              <p className="text-xs text-stone-500">
+              <p
+                className="text-xs text-stone-500"
+                data-testid={`ig-publish-hint-${draft.format}`}
+              >
                 {!approved
                   ? "Eerst goedkeuren, daarna publiceren."
                   : publishMode === "disabled"
-                    ? "Publicatie staat uit (feature flag)."
+                    ? "Goedgekeurd — Instagram-publicatie staat apart uitgeschakeld (feature flag)."
                     : publishMode === "dry_run"
                       ? "Dry-run: geen echte Meta-post."
                       : "Live Meta-publicatie (geen cron)."}
               </p>
             </form>
 
+            {approveMessage ? (
+              <p
+                className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900"
+                role="status"
+                data-testid={`ig-approve-status-${draft.format}`}
+              >
+                {approveMessage}
+              </p>
+            ) : null}
+            {approveError ? (
+              <p
+                className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900"
+                role="alert"
+                data-testid={`ig-approve-error-${draft.format}`}
+              >
+                {approveError}
+              </p>
+            ) : null}
             {publishMessage ? (
               <p
                 className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900"
@@ -289,11 +336,14 @@ export function InstagramPreviewClient({
   notes,
   publishMode,
   publishModeLabel,
+  approvedByFormat = {},
 }: {
   drafts: InstagramDraft[];
   notes: string[];
   publishMode: InstagramMetaPublishMode;
   publishModeLabel: string;
+  /** Server-hydrated: true when stored approval matches exact draft content. */
+  approvedByFormat?: Partial<Record<InstagramFormatId, boolean>>;
 }) {
   return (
     <div className="space-y-8">
@@ -308,6 +358,9 @@ export function InstagramPreviewClient({
           Gerenderde 4:5-beelden (1080×1350) met het echte logo, {INSTAGRAM_WEBSITE}{" "}
           en huisstijl. Slogan: {INSTAGRAM_SLOGAN}. Selectie is objectief.
           Publicatiemodus: {publishModeLabel}.
+          {publishMode === "disabled"
+            ? " Instagram-publicatie staat uitgeschakeld; goedkeuren slaat alleen de exacte inhoud op."
+            : ""}
         </p>
       </header>
 
@@ -332,6 +385,7 @@ export function InstagramPreviewClient({
             key={draft.id}
             draft={draft}
             publishMode={publishMode}
+            initialApproved={Boolean(approvedByFormat[draft.format])}
           />
         ))
       )}

@@ -4,6 +4,7 @@ import {
   resolveTipsAdminAccess,
 } from "@/lib/tips/admin-auth";
 import { listEvents } from "@/lib/events";
+import { assertConceptContentApproved } from "@/lib/instagram/approvals";
 import { buildPhase3aPreviewDrafts } from "@/lib/instagram/drafts";
 import { getRecentlyUsedEventIds } from "@/lib/instagram/history";
 import { getInstagramMetaStatus } from "@/lib/instagram/meta-readiness";
@@ -12,6 +13,7 @@ import { InterneAdminShell } from "@/components/admin/interne-admin-shell";
 import { InstagramPreviewClient } from "@/components/admin/instagram-preview-client";
 import type { Event } from "@/types/event";
 import type { InstagramDraft } from "@/lib/instagram/drafts";
+import type { InstagramFormatId } from "@/lib/instagram/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -100,15 +102,31 @@ export default async function InterneInstagramPage() {
   }
 
   const meta = getInstagramMetaStatus();
+  const safeDrafts = drafts.map(sanitizeDraft);
+
+  /** Exact content match against stored approval (content_fingerprint). */
+  const approvedByFormat: Partial<Record<InstagramFormatId, boolean>> = {};
+  await Promise.all(
+    safeDrafts.map(async (draft) => {
+      const check = await assertConceptContentApproved({
+        format: draft.format,
+        eventIds: draft.eventIds,
+        caption: draft.caption,
+        slides: draft.slides,
+      });
+      approvedByFormat[draft.format] = check.ok;
+    }),
+  );
 
   return (
     <InterneAdminShell wide>
       <InterneAdminNav active="instagram" />
       <InstagramPreviewClient
-        drafts={drafts.map(sanitizeDraft)}
+        drafts={safeDrafts}
         notes={extraNotes}
         publishMode={meta.mode}
         publishModeLabel={meta.modeLabel}
+        approvedByFormat={approvedByFormat}
       />
       <p className="mt-8 text-xs text-stone-500">
         Meta-status: mode={meta.mode}, graphWired=
