@@ -46,6 +46,20 @@ export function canonicalizeSlidesForApproval(
 }
 
 /**
+ * Normalize caption text for approval identity.
+ * Browser FormData / HTML form posts often turn `\n` into `\r\n`; server-built
+ * drafts use `\n`. That must not count as a content change.
+ * Real caption edits (including added/removed blank lines of substance via
+ * different text) still change the fingerprint after normalization.
+ */
+export function normalizeInstagramApprovalCaption(caption: string): string {
+  return String(caption ?? "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .trim();
+}
+
+/**
  * Approval identity: caption + ordered event ids + slides + event field snapshots.
  * Changing title/date/city/venue/etc. requires a new approval.
  */
@@ -60,7 +74,7 @@ export function buildInstagramContentFingerprint(input: {
   const payload = {
     format: input.format,
     eventIds: orderedIds,
-    caption: input.caption.trim(),
+    caption: normalizeInstagramApprovalCaption(input.caption),
     slides: canonicalizeSlidesForApproval(input.slides),
     eventSnapshots: canonicalizeEventSnapshots(input.eventSnapshots),
   };

@@ -12,6 +12,7 @@ import {
   buildInstagramConceptKey,
   buildInstagramContentFingerprint,
   canonicalizeSlidesForApproval,
+  normalizeInstagramApprovalCaption,
   slideEventIdsMatchConcept,
   type InstagramSlideApproval,
 } from "@/lib/instagram/concept-key";
@@ -84,10 +85,11 @@ export async function recordConceptApproval(input: {
   const conceptKey = buildInstagramConceptKey(input.format, input.eventIds);
   const slides = canonicalizeSlidesForApproval(input.slides);
   const eventSnapshots = canonicalizeEventSnapshots(input.eventSnapshots);
+  const caption = normalizeInstagramApprovalCaption(input.caption);
   const contentFingerprint = buildInstagramContentFingerprint({
     format: input.format,
     eventIds: input.eventIds,
-    caption: input.caption,
+    caption,
     slides,
     eventSnapshots,
   });
@@ -105,7 +107,7 @@ export async function recordConceptApproval(input: {
         ${input.approvedBy ?? null},
         now(),
         ${contentFingerprint},
-        ${input.caption.trim()},
+        ${caption},
         ${JSON.stringify(packed)}
       )
       ON CONFLICT (concept_key) DO UPDATE SET
@@ -123,6 +125,51 @@ export async function recordConceptApproval(input: {
       error: error instanceof Error ? error.message : String(error),
     };
   }
+}
+
+/**
+ * Compare submitted concept content to a stored approval row.
+ * Uses normalized fingerprints so FormData `\r\n` captions match server `\n`
+ * drafts. Still rejects real caption/slide/snapshot drift.
+ *
+ * Prefer semantic equality (recompute both sides) so rows stored before
+ * newline normalization still hydrate when the visible content is unchanged.
+ */
+export function matchStoredApprovalContent(input: {
+  format: InstagramFormatId;
+  eventIds: readonly string[];
+  caption: string;
+  slides: readonly InstagramSlideApproval[];
+  storedCaption: string;
+  storedSlides: readonly InstagramSlideApproval[];
+  storedEventSnapshots: readonly InstagramEventSnapshot[];
+  storedContentFingerprint?: string | null;
+}): { ok: true; contentFingerprint: string } | { ok: false } {
+  const submittedFingerprint = buildInstagramContentFingerprint({
+    format: input.format,
+    eventIds: input.eventIds,
+    caption: input.caption,
+    slides: input.slides,
+    eventSnapshots: input.storedEventSnapshots,
+  });
+  const storedFingerprint = buildInstagramContentFingerprint({
+    format: input.format,
+    eventIds: input.eventIds,
+    caption: input.storedCaption,
+    slides: input.storedSlides,
+    eventSnapshots: input.storedEventSnapshots,
+  });
+  if (submittedFingerprint === storedFingerprint) {
+    return { ok: true, contentFingerprint: submittedFingerprint };
+  }
+  // Fast path for rows already written with the current fingerprint function.
+  if (
+    input.storedContentFingerprint &&
+    input.storedContentFingerprint === submittedFingerprint
+  ) {
+    return { ok: true, contentFingerprint: submittedFingerprint };
+  }
+  return { ok: false };
 }
 
 /**
@@ -198,15 +245,17 @@ export async function assertConceptContentApproved(input: {
       };
     }
 
-    const contentFingerprint = buildInstagramContentFingerprint({
+    const match = matchStoredApprovalContent({
       format: input.format,
       eventIds: input.eventIds,
       caption: input.caption,
       slides: input.slides,
-      eventSnapshots: packed.eventSnapshots,
+      storedCaption: row.caption,
+      storedSlides: packed.slides,
+      storedEventSnapshots: packed.eventSnapshots,
+      storedContentFingerprint: row.content_fingerprint,
     });
-
-    if (row.content_fingerprint !== contentFingerprint) {
+    if (!match.ok) {
       return {
         ok: false,
         code: "content_mismatch",
@@ -218,7 +267,7 @@ export async function assertConceptContentApproved(input: {
     return {
       ok: true,
       conceptKey,
-      contentFingerprint,
+      contentFingerprint: match.contentFingerprint,
       eventSnapshots: packed.eventSnapshots,
     };
   } catch {
