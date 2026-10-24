@@ -33,6 +33,8 @@ export const SOURCE_REFRESH_MATCH_CONFIDENCE = [
   "exact",
   "probable",
   "none",
+  /** Multiple canonical editions share the same SmartVibes CMS id. */
+  "conflict",
 ] as const;
 export type SourceRefreshMatchConfidence =
   (typeof SOURCE_REFRESH_MATCH_CONFIDENCE)[number];

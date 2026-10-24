@@ -217,6 +217,10 @@ function parseAgendaItem(block: string): ParseOutcome {
   const externalKey =
     officialUrl.match(/\/([^/]+)\.htm/i)?.[1] ??
     normalizeRefreshUrl(officialUrl);
+  const cmsId = officialUrl.match(/-(\d{4,})\.htm/i)?.[1] ?? null;
+  const ticketUrl = cmsId
+    ? `https://www.speeddaten.be/nl/tickets-${cmsId}.htm`
+    : null;
 
   return {
     ok: true,
@@ -241,7 +245,7 @@ function parseAgendaItem(block: string): ParseOutcome {
       menAvailability,
       language,
       officialUrl,
-      ticketUrl: null,
+      ticketUrl,
       rawEvidenceSummary: stripTags(block).slice(0, 280),
       sourceCheckedAt: PARSER_CHECKED(),
     },

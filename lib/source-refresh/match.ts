@@ -8,6 +8,7 @@ import {
   normalizeRefreshUrl,
   normalizeText,
   sameInstant,
+  smartvibesCmsIdFromUrl,
   titlesLooselyEqual,
   urlPathKey,
   urlsReferToSameEvent,
@@ -29,7 +30,12 @@ export type CandidateMatch = {
   editionId: string | null;
   confidence: SourceRefreshMatchConfidence;
   changes: RefreshFieldChange[];
+  /** When confidence=conflict: all editions that share the CMS id. */
+  conflictEditionIds?: string[];
+  conflictReason?: string;
 };
+
+const SMARTVIBES_ORGANIZER_SLUGS = new Set(["smartvibes", "hoptodate"]);
 
 function dayKey(iso: string | null | undefined): string {
   return calendarDayKey(iso);
@@ -178,9 +184,32 @@ export function bundlesToMatchable(
   }));
 }
 
+function candidateSmartvibesCmsId(
+  candidate: RefreshNormalizedCandidate,
+): string | null {
+  return (
+    smartvibesCmsIdFromUrl(candidate.officialUrl) ??
+    (candidate.ticketUrl ? smartvibesCmsIdFromUrl(candidate.ticketUrl) : null)
+  );
+}
+
+function editionSmartvibesCmsIds(row: MatchableEdition): string[] {
+  const ids = new Set<string>();
+  for (const u of row.sourceUrls) {
+    const id = smartvibesCmsIdFromUrl(u);
+    if (id) ids.add(id);
+  }
+  return [...ids];
+}
+
 /**
  * Shared listing URLs (one kalender for many editions) must not identity-match
  * without title agreement. Unique product URLs still qualify with title check.
+ *
+ * SmartVibes / HopToDate: CMS numeric id is the stable identity. Date or slug
+ * changes still match the same edition; startsAt diffs surface for review and
+ * are never auto-applied (see SAFE_AUTO_APPLY_FIELDS). Duplicate editions that
+ * share one CMS id are reported as confidence=conflict.
  */
 export function matchCandidate(
   candidate: RefreshNormalizedCandidate,
@@ -197,7 +226,37 @@ export function matchCandidate(
     ? null
     : urlPathKey(candidate.officialUrl);
 
-  // 0) Same product path key in any source URL (works across sister domains)
+  // 0) SmartVibes CMS id — survives date/slug moves; ticket URLs included.
+  const cmsId =
+    SMARTVIBES_ORGANIZER_SLUGS.has(expectedOrganizerSlug)
+      ? candidateSmartvibesCmsId(candidate)
+      : null;
+  if (cmsId) {
+    const hits = editions.filter((row) => {
+      if (row.organizerSlug !== expectedOrganizerSlug) return false;
+      return editionSmartvibesCmsIds(row).includes(cmsId);
+    });
+    if (hits.length > 1) {
+      return {
+        editionId: null,
+        confidence: "conflict",
+        changes: [],
+        conflictEditionIds: hits.map((h) => h.edition.id),
+        conflictReason: `Meerdere edities delen SmartVibes CMS-id ${cmsId}`,
+      };
+    }
+    if (hits.length === 1) {
+      const row = hits[0]!;
+      return {
+        editionId: row.edition.id,
+        confidence: "exact",
+        // Date moves intentionally appear here for human review.
+        changes: diffCandidate(candidate, row.edition),
+      };
+    }
+  }
+
+  // 1) Same product path key in any source URL (works across sister domains)
   if (candPathKey) {
     for (const row of editions) {
       if (row.organizerSlug !== expectedOrganizerSlug) continue;
@@ -222,7 +281,7 @@ export function matchCandidate(
     }
   }
 
-  // 1) Organizer + same day + title (preferred for outdoor calendars)
+  // 2) Organizer + same day + title (preferred for outdoor calendars)
   let bestTitle: { row: MatchableEdition; cityOk: boolean } | null = null;
   for (const row of editions) {
     if (row.organizerSlug !== expectedOrganizerSlug) continue;
@@ -253,7 +312,7 @@ export function matchCandidate(
     };
   }
 
-  // 2) Unique detail URL / ticket URL + same day + title similar
+  // 3) Unique detail URL / ticket URL + same day + title similar
   // Shared listing URLs are ignored here (many editions share one agenda page).
   for (const row of editions) {
     const urlHit =
@@ -292,7 +351,7 @@ export function matchCandidate(
     };
   }
 
-  // 3) Organizer + day + city only → probable (weak; outdoor cities collide)
+  // 4) Organizer + day + city only → probable (weak; outdoor cities collide)
   let probable: MatchableEdition | null = null;
   for (const row of editions) {
     if (row.organizerSlug !== expectedOrganizerSlug) continue;
