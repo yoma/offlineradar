@@ -147,21 +147,34 @@ export async function getActiveRefreshRun(
   return rows[0] ? mapRun(rows[0]) : null;
 }
 
-/** Default: treat pending/running older than 2h as stuck (cron maxDuration is 60s). */
-export const STALE_REFRESH_RUN_MS = 2 * 60 * 60 * 1000;
+/**
+ * Pending/running older than this cannot still be backed by a live worker.
+ * Not derived from cron maxDuration alone: cron is 60s, admin chat 120s, and
+ * both scheduled + manual runs share this status machine. Vercel serverless
+ * invocations cannot outlive their function maxDuration; 30m >> those caps
+ * (clock skew / delayed completion writes included).
+ */
+export const STALE_REFRESH_RUN_MS = 30 * 60 * 1000;
 
 /**
- * Mark aged pending/running runs as failed so per-source locks cannot stick forever.
- * Safe to call at the start of every cron tick. Does not delete rows.
+ * Mark aged pending/running runs as failed so per-source locks cannot stick.
+ * Does not delete rows. Caller must pass the allowed catalog source IDs
+ * (schedule allowlist / seed set); empty list → no writes.
  */
-export async function expireStaleRefreshRuns(input?: {
+export async function expireStaleRefreshRuns(input: {
+  catalogSourceIds: string[];
   olderThanMs?: number;
   now?: Date;
 }): Promise<{ expired: number; ids: string[] }> {
   const sql = getEventsSql();
-  if (!sql) return { expired: 0, ids: [] };
-  const olderThanMs = input?.olderThanMs ?? STALE_REFRESH_RUN_MS;
-  const now = input?.now ?? new Date();
+  const ids = [
+    ...new Set(
+      (input.catalogSourceIds ?? []).map((id) => id.trim()).filter(Boolean),
+    ),
+  ];
+  if (!sql || ids.length === 0) return { expired: 0, ids: [] };
+  const olderThanMs = input.olderThanMs ?? STALE_REFRESH_RUN_MS;
+  const now = input.now ?? new Date();
   const cutoff = new Date(now.getTime() - olderThanMs).toISOString();
   const rows = (await sql`
     UPDATE source_refresh_runs SET
@@ -172,6 +185,7 @@ export async function expireStaleRefreshRuns(input?: {
         'stale_lock_expired: pending/running longer than TTL'
       )
     WHERE status IN ('pending', 'running')
+      AND catalog_source_id = ANY(${ids})
       AND started_at < ${cutoff}
     RETURNING id
   `) as Array<{ id: string }>;
@@ -583,6 +597,26 @@ export async function updateRefreshItemStatus(input: {
         WHEN ${linkEdition} THEN ${input.matchEventEditionId ?? null}
         ELSE match_event_edition_id
       END
+    WHERE id = ${input.id}
+    RETURNING *
+  `) as ItemRow[];
+  return rows[0] ? mapItem(rows[0]) : null;
+}
+
+/**
+ * Replace change_summary without closing the review item (partial safe apply).
+ * Leaves status untouched so residual structural fields stay reviewable.
+ */
+export async function replaceRefreshItemChangeSummary(input: {
+  id: string;
+  changeSummary: RefreshFieldChange[];
+}): Promise<SourceRefreshItemRecord | null> {
+  const sql = getEventsSql();
+  if (!sql) return null;
+  const summaryJson = JSON.stringify(input.changeSummary ?? []);
+  const rows = (await sql`
+    UPDATE source_refresh_items SET
+      change_summary = ${summaryJson}::jsonb
     WHERE id = ${input.id}
     RETURNING *
   `) as ItemRow[];

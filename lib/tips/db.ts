@@ -59,7 +59,16 @@ export function assertOfflineRadarDbConfig(): {
       error: "Host staat niet in aws-eu-central-1 (Frankfurt).",
     };
   }
-  if (!parsed.hostname.includes(EXPECTED_ENDPOINT_ID)) {
+  const endpointAllowlist = (
+    process.env.OFFLINERADAR_NEON_ENDPOINT_ALLOWLIST ?? ""
+  )
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const endpointOk =
+    parsed.hostname.includes(EXPECTED_ENDPOINT_ID) ||
+    endpointAllowlist.some((ep) => parsed.hostname.includes(ep));
+  if (!endpointOk) {
     return {
       ok: false,
       error:
@@ -84,6 +93,11 @@ export function getTipsSql(): NeonQueryFunction<false, false> | null {
   if (!check.ok) return null;
   cachedSql = neon(check.databaseUrl);
   return cachedSql;
+}
+
+/** Test-only: drop cached client after switching OFFLINERADAR_DATABASE_URL. */
+export function resetTipsSqlCacheForTests(): void {
+  cachedSql = null;
 }
 
 export function expectedNeonProjectId(): string {

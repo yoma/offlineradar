@@ -646,7 +646,7 @@ async function main() {
     } else ok(`${label} → stored offset + display 19:30`);
   }
 
-  // Admin patch must serialize tags as jsonb (regression: bare array broke neon)
+  // Admin patch: tags jsonb + Brussels wall-clock helpers (no String.slice on starts_at)
   const { readFileSync } = await import("node:fs");
   const neonStoreSrc = readFileSync(
     path.join(process.cwd(), "lib/events/neon-store.ts"),
@@ -654,13 +654,36 @@ async function main() {
   );
   if (
     !/tags = \$\{JSON\.stringify\(tags\)\}::jsonb/.test(neonStoreSrc) ||
-    !/brusselsOffsetForDate/.test(neonStoreSrc)
+    !/brusselsWallDateTimeFromDb/.test(neonStoreSrc)
   ) {
     fail(
       "patchEditionAdminFields tags/tz",
-      "expected JSON.stringify(tags)::jsonb + brusselsOffsetForDate",
+      "expected JSON.stringify(tags)::jsonb + brusselsWallDateTimeFromDb",
     );
-  } else ok("patchEditionAdminFields serializes tags as jsonb + Brussels offset");
+  } else ok("patchEditionAdminFields uses jsonb tags + Brussels wall helper");
+  if (/String\(row\.starts_at\)\.slice/.test(neonStoreSrc)) {
+    fail("patchEditionAdminFields slice", "must not String(starts_at).slice");
+  } else ok("patchEditionAdminFields no longer slices starts_at string");
+
+  const {
+    brusselsWallDateTimeFromDb,
+  } = await import("../lib/aanvoer/dates");
+  const wallZ = brusselsWallDateTimeFromDb("2026-11-14T18:30:00.000Z");
+  if (wallZ?.date !== "2026-11-14" || wallZ.time !== "19:30") {
+    fail("brusselsWallDateTimeFromDb winter Z", JSON.stringify(wallZ));
+  } else ok("brusselsWallDateTimeFromDb winter Z → 19:30");
+  const wallSummer = brusselsWallDateTimeFromDb("2026-07-15T17:30:00.000Z");
+  if (wallSummer?.date !== "2026-07-15" || wallSummer.time !== "19:30") {
+    fail("brusselsWallDateTimeFromDb summer Z", JSON.stringify(wallSummer));
+  } else ok("brusselsWallDateTimeFromDb summer Z → 19:30");
+
+  // Partial apply: residual summary replace helper is wired in engine
+  if (
+    !engineSrc.includes("replaceRefreshItemChangeSummary") ||
+    !engineSrc.includes("partial_safe_apply")
+  ) {
+    fail("partial apply residual trim", "engine must trim change_summary");
+  } else ok("engine trims change_summary after partial safe apply");
 
   // No auto publish invariant in code paths: createDraft uses draft status — checked via source review
   ok("no auto publish (draft-only path by design)");

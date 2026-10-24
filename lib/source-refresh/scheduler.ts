@@ -196,13 +196,12 @@ export async function runScheduledSourceRefresh(
   };
 
   const now = options.now ?? new Date();
-  // Clear aged pending/running locks even when the kill switch is off.
-  const stale = await expireStaleRefreshRuns({ now });
 
+  // Disabled scheduler must not write (including lock recovery).
   if (!globallyEnabled && !options.bypassGlobalKillSwitch) {
     return {
       ...empty,
-      staleLocksExpired: stale.expired,
+      staleLocksExpired: 0,
       skipped: REFRESH_PILOTS.length,
       outcomes: REFRESH_PILOTS.map((p) => ({
         catalogSourceId: p.catalogSourceId,
@@ -238,6 +237,12 @@ export async function runScheduledSourceRefresh(
   const candidateIds = new Set(
     seedIds.map((id) => id.trim()).filter(Boolean),
   );
+
+  // Lock recovery only for the same allowed source set (never outside allowlist).
+  const stale = await expireStaleRefreshRuns({
+    now,
+    catalogSourceIds: [...candidateIds],
+  });
 
   const schedules = await getSourceScheduleStates([...candidateIds]);
   const dueCandidates: ScheduleCandidate[] = [];

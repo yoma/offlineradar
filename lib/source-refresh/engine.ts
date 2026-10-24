@@ -28,6 +28,7 @@ import {
   getLatestRefreshRun,
   insertRefreshItem,
   listFutureEditionsForOrganizerSlug,
+  replaceRefreshItemChangeSummary,
   touchEditionSourceCheckedAt,
   updateRefreshItemStatus,
   type EventEditionBundleLite,
@@ -755,7 +756,12 @@ async function applyThoroughPostProcess(input: {
           continue;
         }
         if (residual.length > 0) {
-          // Safe fields applied; leave needs_review so date/city/venue stay reviewable.
+          // Keep needs_review; drop applied safe fields from the summary so a
+          // later Accept cannot rewind newer availability/price from the old proposal.
+          await replaceRefreshItemChangeSummary({
+            id: row.id,
+            changeSummary: residual,
+          });
           skipped.push({
             reason: "partial_safe_apply",
             detail: `Veilige velden toegepast; rest in review: ${residual

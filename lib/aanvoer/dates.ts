@@ -114,6 +114,45 @@ export function brusselsOffsetForDate(dateYmd: string): "+01:00" | "+02:00" {
 }
 
 /**
+ * Read a DB `starts_at` (Date, ISO string, or timestamptz text) as Europe/Brussels
+ * wall-clock date + HH:MM. Never use String(value).slice — Neon may return Date
+ * or UTC `…Z` / `…+00` forms where slice(11,16) is not Brussels local time.
+ */
+export function brusselsWallDateTimeFromDb(
+  startsAt: string | Date | null | undefined,
+): { date: string; time: string } | null {
+  if (startsAt == null) return null;
+  const d =
+    startsAt instanceof Date
+      ? startsAt
+      : new Date(typeof startsAt === "string" ? startsAt : String(startsAt));
+  if (Number.isNaN(d.getTime())) return null;
+
+  const dateParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Brussels",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const year = dateParts.find((p) => p.type === "year")?.value;
+  const month = dateParts.find((p) => p.type === "month")?.value;
+  const day = dateParts.find((p) => p.type === "day")?.value;
+  if (!year || !month || !day) return null;
+
+  const timeParts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Brussels",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(d);
+  const hour = timeParts.find((p) => p.type === "hour")?.value;
+  const minute = timeParts.find((p) => p.type === "minute")?.value;
+  if (hour == null || minute == null) return null;
+
+  return { date: `${year}-${month}-${day}`, time: `${hour}:${minute}` };
+}
+
+/**
  * Build timestamptz strings from intake date/time fields.
  * DB requires starts_at NOT NULL: when clock is unknown we still store a
  * technical noon placeholder but set timeUnknown=true so callers mark
