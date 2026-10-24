@@ -103,6 +103,38 @@ function main() {
   assert.match(needCopy, /Nog nodig: datum/i);
   ok("5. readiness copy lists missing fields");
 
+  const weakCity = evaluateEventForPublication({
+    publicationStatus: "draft",
+    startsAt: "2026-11-01T19:00:00+01:00",
+    sourceUrl: "https://example-org.be/event",
+    eligibilityRoute: "route_a",
+    singlesOnly: true,
+    singlesOriented: true,
+    internalNotes: null,
+    tags: ["source-refresh"],
+    city: "België",
+    latitude: 50.5,
+    longitude: 4.5,
+  });
+  assert.equal(weakCity.decision, "needs_attention");
+  assert.match(weakCity.reason ?? "", /plaats|locatie/i);
+  ok("5b. weak city België blocked even with coords");
+
+  const unknownCityCoords = evaluateEventForPublication({
+    publicationStatus: "draft",
+    startsAt: "2026-11-01T19:00:00+01:00",
+    sourceUrl: "https://example-org.be/event",
+    eligibilityRoute: "route_a",
+    singlesOnly: true,
+    singlesOriented: true,
+    internalNotes: null,
+    city: "Atlantis",
+    latitude: 51.2,
+    longitude: 4.4,
+  });
+  assert.equal(unknownCityCoords.decision, "needs_attention");
+  ok("5c. unknown city + coords is not publishable");
+
   const prev = process.env.OFFLINERADAR_REFRESH_AUTO_DRAFT;
   delete process.env.OFFLINERADAR_REFRESH_AUTO_DRAFT;
   assert.equal(isRefreshAutoDraftGloballyEnabled(), false);
@@ -162,6 +194,16 @@ function main() {
   assert.ok(cockpit.includes("patchAanvoerCandidateFieldsAction"));
   assert.ok(cockpit.includes("Ophalen als concept"));
   ok("11. UI: Klaar/Nakijken + one-click + bulk + thorough scan");
+
+  const inbox = readFileSync(
+    join(process.cwd(), "components/admin/goedkeuren-inbox.tsx"),
+    "utf8",
+  );
+  assert.ok(!inbox.includes("Toch publiceren"));
+  assert.ok(inbox.includes("Gegevens corrigeren"));
+  assert.ok(inbox.includes("readyToPublish"));
+  assert.ok(inbox.includes("displayEventTitle"));
+  ok("11b. goedkeuren inbox: no override publish button");
 
   // Never invent free/zero price from missing
   assert.ok(!/priceAmount:\s*0/.test(needCopy));

@@ -8,6 +8,8 @@ import { matchingEvents } from "../lib/filters";
 import {
   coordsForCity,
   editionLocationIsDiscoverable,
+  editionLocationIsPublishable,
+  isWeakLocationCity,
   resolveEditionCoords,
 } from "../lib/geo-cities";
 import type { Event } from "../types/event";
@@ -69,6 +71,42 @@ check("venue-only is not discoverable without city/coords", () => {
     }),
     true,
   );
+  // Coords alone with unknown/weak city: discoverable for distance math,
+  // but never publishable via ordinary override.
+  assert.equal(
+    editionLocationIsPublishable({
+      city: "Atlantis",
+      latitude: 51.2,
+      longitude: 4.4,
+    }),
+    false,
+  );
+  assert.equal(
+    editionLocationIsPublishable({
+      city: "Onbekend",
+      latitude: 51.2,
+      longitude: 4.4,
+    }),
+    false,
+  );
+  assert.equal(
+    editionLocationIsPublishable({
+      city: "België",
+      latitude: null,
+      longitude: null,
+    }),
+    false,
+  );
+  assert.equal(
+    editionLocationIsPublishable({
+      city: "Gent",
+      latitude: 51.05,
+      longitude: 3.72,
+    }),
+    true,
+  );
+  assert.equal(isWeakLocationCity("België"), true);
+  assert.equal(isWeakLocationCity("Gent"), false);
 });
 
 check("missing coords resolve via city, not Antwerp", () => {
