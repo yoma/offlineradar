@@ -12,6 +12,7 @@ import {
   safeFetchTipSource,
 } from "@/lib/tips/safe-fetch";
 import { validateAndNormalizeTipUrl } from "@/lib/tips/url";
+import { brusselsIso } from "@/lib/source-refresh/normalize";
 import type { RefreshNormalizedCandidate } from "@/lib/source-refresh/types";
 import type { FollowMethod } from "@/lib/aanvoer/follow-capability";
 
@@ -52,7 +53,7 @@ async function proposalToCandidate(
     title,
     organizer: proposal.organizer.value?.trim() || organizerName,
     date,
-    startsAt: `${date}T${startTime}:00+02:00`,
+    startsAt: brusselsIso(date, startTime),
     endsAt: null,
     venue: proposal.venue.value?.trim() || proposal.location.value?.trim() || null,
     city,
