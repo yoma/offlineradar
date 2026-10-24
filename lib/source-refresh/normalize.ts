@@ -15,6 +15,46 @@ export function normalizeRefreshUrl(url: string): string {
 }
 
 /**
+ * Stable SmartVibes / Speeddaten.be CMS page id from a detail or ticket URL.
+ * Examples:
+ *   …/14-11-lochristi-53-65j-12937.htm → "12937"
+ *   …/tickets-12937.htm → "12937"
+ * Listing/kalender URLs return null (shared across many editions).
+ */
+export function smartvibesCmsIdFromUrl(url: string): string | null {
+  if (!url?.trim()) return null;
+  if (isListingOrIndexUrl(url)) return null;
+  try {
+    const parsed = new URL(normalizeRefreshUrl(url));
+    const host = parsed.hostname.replace(/^www\./, "");
+    const smartHost =
+      host === "speeddaten.be" ||
+      host.endsWith(".speeddaten.be") ||
+      host === "speeddatinginantwerpen.be" ||
+      host.endsWith(".speeddatinginantwerpen.be") ||
+      host === "hoptodate.com" ||
+      host.endsWith(".hoptodate.com");
+    if (!smartHost) return null;
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    const last = (parts[parts.length - 1] ?? "").replace(
+      /\.(html?|php|aspx?)$/i,
+      "",
+    );
+    if (!last) return null;
+    const ticket = /^tickets-(\d{4,})$/i.exec(last);
+    if (ticket) return ticket[1]!;
+    // Detail slug ends with -<cmsId>; require 4+ digits so years alone never match.
+    const detail = /-(\d{4,})$/.exec(last);
+    if (!detail) return null;
+    // Reject pure listing segments that somehow carry a trailing number.
+    if (isListingPathSegment(last)) return null;
+    return detail[1]!;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Last meaningful path segment (no extension), used as cross-host event identity.
  * Returns null for listing/index pages so many editions sharing one agenda URL
  * never collide.

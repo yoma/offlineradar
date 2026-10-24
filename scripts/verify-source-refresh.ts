@@ -12,6 +12,7 @@ import { parseSportieveSinglesHtml } from "../lib/source-refresh/parsers/sportie
 import {
   isListingOrIndexUrl,
   normalizeRefreshUrl,
+  smartvibesCmsIdFromUrl,
   titlesLooselyEqual,
   urlPathKey,
   urlsReferToSameEvent,
@@ -295,6 +296,193 @@ async function main() {
   if (novel.confidence !== "none" || novel.editionId) {
     fail("new detection", JSON.stringify(novel));
   } else ok("new detection");
+
+  // SmartVibes CMS id helpers
+  if (
+    smartvibesCmsIdFromUrl(
+      "https://www.speeddaten.be/nl/14-11-lochristi-53-65j-12937.htm",
+    ) !== "12937" ||
+    smartvibesCmsIdFromUrl(
+      "https://www.speeddaten.be/nl/tickets-12937.htm",
+    ) !== "12937"
+  ) {
+    fail("smartvibesCmsIdFromUrl", "detail/ticket parse");
+  } else ok("smartvibesCmsIdFromUrl detail + ticket");
+
+  if (
+    smartvibesCmsIdFromUrl("https://www.speeddaten.be/nl/kalender-8.htm") !=
+    null
+  ) {
+    fail("smartvibesCmsIdFromUrl listing", "kalender should be null");
+  } else ok("smartvibesCmsIdFromUrl ignores listings");
+
+  // Date move Lochristi 12937: 10/11 → 14/11 (same CMS id, different slug)
+  const lochristiDb: MatchableEdition[] = [
+    {
+      edition: minimalEdition({
+        id: "ed-lochristi",
+        title: "Speeddate Lochristi, 53–65 jaar",
+        startsAt: "2026-11-10T19:30:00+01:00",
+        city: "Lochristi",
+        minAge: 53,
+        maxAge: 65,
+        availabilityStatus: "limited",
+      }),
+      sourceUrls: [
+        normalizeRefreshUrl(
+          "https://www.speeddaten.be/nl/10-11-lochristi-53-65j-12937.htm",
+        ),
+      ],
+      organizerSlug: "smartvibes",
+    },
+  ];
+  const lochristiCand: RefreshNormalizedCandidate = {
+    ...candidate,
+    externalKey: "14-11-lochristi-53-65j-12937",
+    title: "14/11 Lochristi, 53-65j",
+    date: "2026-11-14",
+    startsAt: "2026-11-14T19:30:00+01:00",
+    city: "Lochristi",
+    minAge: 53,
+    maxAge: 65,
+    officialUrl:
+      "https://www.speeddaten.be/nl/14-11-lochristi-53-65j-12937.htm",
+    ticketUrl: "https://www.speeddaten.be/nl/tickets-12937.htm",
+  };
+  const lochristiMatch = matchCandidate(
+    lochristiCand,
+    lochristiDb,
+    "smartvibes",
+  );
+  if (
+    lochristiMatch.confidence !== "exact" ||
+    lochristiMatch.editionId !== "ed-lochristi" ||
+    !lochristiMatch.changes.some((c) => c.field === "startsAt")
+  ) {
+    fail("cms date-move Lochristi 12937", JSON.stringify(lochristiMatch));
+  } else ok("cms date-move Lochristi 12937 → startsAt for review");
+
+  // Date move Kortrijk 12520: 23/11 → 27/11 via ticket URL identity only
+  const kortrijkDb: MatchableEdition[] = [
+    {
+      edition: minimalEdition({
+        id: "ed-kortrijk",
+        title: "Speeddate Kortrijk Hogeropgeleiden, 45–55 jaar",
+        startsAt: "2026-11-23T19:30:00+01:00",
+        city: "Kortrijk",
+        minAge: 45,
+        maxAge: 55,
+      }),
+      sourceUrls: [
+        normalizeRefreshUrl(
+          "https://www.speeddaten.be/nl/tickets-12520.htm",
+        ),
+      ],
+      organizerSlug: "smartvibes",
+    },
+  ];
+  const kortrijkCand: RefreshNormalizedCandidate = {
+    ...candidate,
+    externalKey: "27-11-kortrijk-hogeropgeleiden-45-55j-12520",
+    title: "27/11 Kortrijk Hogeropgeleiden, 45-55j",
+    date: "2026-11-27",
+    startsAt: "2026-11-27T19:30:00+01:00",
+    city: "Kortrijk",
+    minAge: 45,
+    maxAge: 55,
+    officialUrl:
+      "https://www.speeddaten.be/nl/27-11-kortrijk-hogeropgeleiden-45-55j-12520.htm",
+    ticketUrl: "https://www.speeddaten.be/nl/tickets-12520.htm",
+  };
+  const kortrijkMatch = matchCandidate(kortrijkCand, kortrijkDb, "smartvibes");
+  if (
+    kortrijkMatch.confidence !== "exact" ||
+    kortrijkMatch.editionId !== "ed-kortrijk" ||
+    !kortrijkMatch.changes.some((c) => c.field === "startsAt")
+  ) {
+    fail("cms date-move Kortrijk 12520", JSON.stringify(kortrijkMatch));
+  } else ok("cms date-move Kortrijk 12520 via ticket URL");
+
+  // Different CMS ids must not merge
+  const otherCms = matchCandidate(
+    {
+      ...lochristiCand,
+      officialUrl:
+        "https://www.speeddaten.be/nl/14-11-lochristi-30-40j-99999.htm",
+      ticketUrl: "https://www.speeddaten.be/nl/tickets-99999.htm",
+      externalKey: "14-11-lochristi-30-40j-99999",
+    },
+    lochristiDb,
+    "smartvibes",
+  );
+  if (otherCms.editionId === "ed-lochristi") {
+    fail("cms id isolation", "different CMS ids merged");
+  } else ok("different CMS ids stay unmatched");
+
+  // Duplicate Sint-Niklaas 12670 editions → conflict
+  const snDupes: MatchableEdition[] = [
+    {
+      edition: minimalEdition({
+        id: "ed-sn-old",
+        title: "Speeddate Sint-Niklaas Hogeropgeleiden, 45–55 jaar",
+        startsAt: "2026-11-02T19:30:00+01:00",
+        city: "Sint-Niklaas",
+        minAge: 45,
+        maxAge: 55,
+      }),
+      sourceUrls: [
+        normalizeRefreshUrl(
+          "https://www.speeddaten.be/nl/02-11-st-niklaas-hogeropgeleiden-45-55j-12670.htm",
+        ),
+      ],
+      organizerSlug: "smartvibes",
+    },
+    {
+      edition: minimalEdition({
+        id: "ed-sn-new",
+        title: "04/11 St-Niklaas Hogeropgeleiden, 45-55j",
+        startsAt: "2026-11-04T19:30:00+01:00",
+        city: "St",
+        minAge: 45,
+        maxAge: 55,
+      }),
+      sourceUrls: [
+        normalizeRefreshUrl(
+          "https://www.speeddaten.be/nl/04-11-st-niklaas-hogeropgeleiden-45-55j-12670.htm",
+        ),
+      ],
+      organizerSlug: "smartvibes",
+    },
+  ];
+  const snCand: RefreshNormalizedCandidate = {
+    ...candidate,
+    externalKey: "04-11-st-niklaas-hogeropgeleiden-45-55j-12670",
+    title: "04/11 St-Niklaas Hogeropgeleiden, 45-55j",
+    date: "2026-11-04",
+    startsAt: "2026-11-04T19:30:00+01:00",
+    city: "St",
+    minAge: 45,
+    maxAge: 55,
+    officialUrl:
+      "https://www.speeddaten.be/nl/04-11-st-niklaas-hogeropgeleiden-45-55j-12670.htm",
+    ticketUrl: "https://www.speeddaten.be/nl/tickets-12670.htm",
+  };
+  const snMatch = matchCandidate(snCand, snDupes, "smartvibes");
+  if (
+    snMatch.confidence !== "conflict" ||
+    snMatch.editionId != null ||
+    (snMatch.conflictEditionIds?.length ?? 0) !== 2
+  ) {
+    fail("cms conflict Sint-Niklaas 12670", JSON.stringify(snMatch));
+  } else ok("cms conflict Sint-Niklaas 12670 duplicate editions");
+
+  // startsAt is NOT in SAFE_AUTO_APPLY — date moves stay review-only
+  const { SAFE_AUTO_APPLY_FIELDS } = await import(
+    "../lib/source-refresh/apply-change"
+  );
+  if (SAFE_AUTO_APPLY_FIELDS.has("startsAt") || SAFE_AUTO_APPLY_FIELDS.has("city")) {
+    fail("safe auto-apply", "startsAt/city must not auto-apply");
+  } else ok("date/city moves stay review-only (not auto-applied)");
 
   // No auto publish invariant in code paths: createDraft uses draft status — checked via source review
   ok("no auto publish (draft-only path by design)");

@@ -299,6 +299,36 @@ export async function startSourceRefresh(input: {
     for (const candidate of parsed.candidates) {
       const match = matchCandidate(candidate, available, pilot.organizerSlug);
 
+      // Duplicate canonical rows for one SmartVibes CMS id → review conflict.
+      // Never auto-draft or treat as a fresh "new" edition.
+      if (match.confidence === "conflict") {
+        const conflictIds = match.conflictEditionIds ?? [];
+        for (const id of conflictIds) matchedEditionIds.add(id);
+        available = available.filter(
+          (row) => !conflictIds.includes(row.edition.id),
+        );
+        // DB CHECK currently allows exact|probable|none only; signal conflict
+        // via change_summary until a migration adds 'conflict' to the enum.
+        await insertRefreshItem({
+          refreshRunId: run.id,
+          catalogSourceId: input.catalogSourceId,
+          candidate,
+          detectionType: "existing_changed",
+          matchEventEditionId: conflictIds[0] ?? null,
+          matchConfidence: "none",
+          changeSummary: [
+            {
+              field: "cmsIdConflict",
+              before: match.conflictReason ?? "CMS-id conflict",
+              after: conflictIds.join(","),
+            },
+          ],
+          status: "needs_review",
+        });
+        changedCount++;
+        continue;
+      }
+
       if (match.confidence === "none" || !match.editionId) {
         const item = await insertRefreshItem({
           refreshRunId: run.id,
