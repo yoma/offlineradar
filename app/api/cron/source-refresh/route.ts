@@ -28,6 +28,7 @@ export async function GET(request: Request) {
       partial: summary.partial,
       failed: summary.failed,
       skipped: summary.skipped,
+      staleLocksExpired: summary.staleLocksExpired ?? 0,
       outcomes: summary.outcomes.map((o) => ({
         catalogSourceId: o.catalogSourceId,
         parserKey: o.parserKey,

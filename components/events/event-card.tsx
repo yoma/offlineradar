@@ -44,7 +44,10 @@ export function EventCard({
   const priceLabel = event.priceIsFrom
     ? formatPriceFrom(event.price, event.currency)
     : formatPrice(event.price, event.currency);
-  const capacityBadge = publicCapacityBadge(event.capacityStatus);
+  const capacityBadge = publicCapacityBadge(
+    event.capacityStatus,
+    event.genderAvailability,
+  );
   const showReport = hrefBase === "/event";
 
   function onCardClick() {

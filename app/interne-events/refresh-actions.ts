@@ -110,6 +110,7 @@ export async function addRefreshItemAsDraftAction(formData: FormData) {
     id,
     status: "accepted",
     reviewedBy: access.email,
+    matchEventEditionId: edition.id,
   });
   revalidatePath(`/interne-events/refresh/${item.refreshRunId}`);
   revalidatePath("/interne-events");
@@ -168,6 +169,7 @@ export async function bulkAddRefreshDraftsAction(formData: FormData) {
       id,
       status: "accepted",
       reviewedBy: access.email,
+      matchEventEditionId: edition.id,
     });
   }
   if (runId) revalidatePath(`/interne-events/refresh/${runId}`);

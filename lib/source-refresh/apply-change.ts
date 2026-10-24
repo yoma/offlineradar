@@ -21,6 +21,13 @@ export function filterSafeAutoApplyChanges(
   return changes.filter((c) => SAFE_AUTO_APPLY_FIELDS.has(c.field));
 }
 
+/** Non-safe residual changes that must stay in needs_review after a partial apply. */
+export function residualUnsafeAutoApplyChanges(
+  changes: RefreshFieldChange[],
+): RefreshFieldChange[] {
+  return changes.filter((c) => !SAFE_AUTO_APPLY_FIELDS.has(c.field));
+}
+
 export async function applyRefreshChangesToEdition(input: {
   editionId: string;
   changes: RefreshFieldChange[];

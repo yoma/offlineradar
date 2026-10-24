@@ -28,6 +28,7 @@ import {
   formatSchedule,
 } from "@/lib/format";
 import {
+  effectivePublicCapacity,
   formatConsumerAvailabilityDetail,
   formatGuidelineOutsideHint,
   formatPublicAvailabilityStatus,
@@ -104,8 +105,12 @@ export function EventDetail({
   const primaryCtaLabel = event.ticketUrl
     ? "Boek bij organisator"
     : "Bekijk bij organisator";
-  const availabilityDetail = formatConsumerAvailabilityDetail(
+  const capacityForUi = effectivePublicCapacity(
     event.capacityStatus,
+    event.genderAvailability,
+  );
+  const availabilityDetail = formatConsumerAvailabilityDetail(
+    capacityForUi,
     event.availabilityNote,
   );
   const guidelineOutsideHint =
@@ -334,13 +339,13 @@ export function EventDetail({
                 <p className="max-w-[14rem] shrink text-right text-sm break-words text-muted-foreground">
                   {availabilityDetail}
                 </p>
-              ) : event.capacityStatus === "unknown" ? (
+              ) : capacityForUi === "unknown" || capacityForUi == null ? (
                 <p className="text-sm text-muted-foreground">
                   {formatPublicAvailabilityStatus(event.capacityStatus)}
                 </p>
               ) : (
                 <CapacityStatus
-                  status={event.capacityStatus}
+                  status={capacityForUi}
                   spotsRemaining={event.spotsRemaining}
                 />
               )}

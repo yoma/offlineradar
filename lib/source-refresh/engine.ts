@@ -18,6 +18,7 @@ import { safeFetchHtmlSource } from "@/lib/source-refresh/safe-fetch-html";
 import {
   applyRefreshChangesToEdition,
   filterSafeAutoApplyChanges,
+  residualUnsafeAutoApplyChanges,
 } from "@/lib/source-refresh/apply-change";
 import { createDraftFromRefreshCandidate } from "@/lib/source-refresh/draft-from-candidate";
 import {
@@ -27,6 +28,7 @@ import {
   getLatestRefreshRun,
   insertRefreshItem,
   listFutureEditionsForOrganizerSlug,
+  replaceRefreshItemChangeSummary,
   touchEditionSourceCheckedAt,
   updateRefreshItemStatus,
   type EventEditionBundleLite,
@@ -709,6 +711,7 @@ async function applyThoroughPostProcess(input: {
           id: row.id,
           status: "accepted",
           reviewedBy: input.triggeredBy,
+          matchEventEditionId: edition.id,
         });
         drafted++;
       } catch (err) {
@@ -735,6 +738,7 @@ async function applyThoroughPostProcess(input: {
         checkedAt: row.candidate.sourceCheckedAt,
       });
       const changes = filterSafeAutoApplyChanges(row.changeSummary);
+      const residual = residualUnsafeAutoApplyChanges(row.changeSummary);
       if (changes.length === 0) {
         // Keep needs_review for non-safe structural changes.
         continue;
@@ -748,6 +752,22 @@ async function applyThoroughPostProcess(input: {
           skipped.push({
             reason: "save_failed",
             detail: `Apply mislukt: ${row.candidate.title}`,
+          });
+          continue;
+        }
+        if (residual.length > 0) {
+          // Keep needs_review; drop applied safe fields from the summary so a
+          // later Accept cannot rewind newer availability/price from the old proposal.
+          await replaceRefreshItemChangeSummary({
+            id: row.id,
+            changeSummary: residual,
+          });
+          skipped.push({
+            reason: "partial_safe_apply",
+            detail: `Veilige velden toegepast; rest in review: ${residual
+              .map((c) => c.field)
+              .join(", ")}`,
+            evidence: row.candidate.title,
           });
           continue;
         }

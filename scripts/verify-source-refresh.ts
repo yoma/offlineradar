@@ -482,12 +482,106 @@ async function main() {
   } else ok("cms conflict Sint-Niklaas 12670 duplicate editions");
 
   // startsAt is NOT in SAFE_AUTO_APPLY — date moves stay review-only
-  const { SAFE_AUTO_APPLY_FIELDS } = await import(
-    "../lib/source-refresh/apply-change"
-  );
+  const {
+    SAFE_AUTO_APPLY_FIELDS,
+    filterSafeAutoApplyChanges,
+    residualUnsafeAutoApplyChanges,
+  } = await import("../lib/source-refresh/apply-change");
   if (SAFE_AUTO_APPLY_FIELDS.has("startsAt") || SAFE_AUTO_APPLY_FIELDS.has("city")) {
     fail("safe auto-apply", "startsAt/city must not auto-apply");
   } else ok("date/city moves stay review-only (not auto-applied)");
+
+  const mixedChanges = [
+    { field: "availability", before: "limited", after: "waitlist" },
+    { field: "startsAt", before: "a", after: "b" },
+    { field: "city", before: "Geel", after: "Kempen" },
+  ];
+  const safeOnly = filterSafeAutoApplyChanges(mixedChanges);
+  const residual = residualUnsafeAutoApplyChanges(mixedChanges);
+  if (
+    safeOnly.length !== 1 ||
+    safeOnly[0]?.field !== "availability" ||
+    residual.map((c) => c.field).sort().join(",") !== "city,startsAt"
+  ) {
+    fail("partial safe apply split", JSON.stringify({ safeOnly, residual }));
+  } else ok("partial safe apply keeps residual needs_review fields");
+
+  // Gender merge: open gender must win over waitlist/sold_out for the badge
+  const { mergeAvailability } = await import(
+    "../lib/source-refresh/parsers/speeddaten"
+  );
+  if (mergeAvailability("waitlist", "limited") !== "limited") {
+    fail("merge waitlist+limited", String(mergeAvailability("waitlist", "limited")));
+  } else ok("merge: waitlist+limited → limited (not waitlist)");
+  if (mergeAvailability("sold_out", "available") !== "available") {
+    fail("merge sold_out+available", String(mergeAvailability("sold_out", "available")));
+  } else ok("merge: sold_out+available → available");
+  if (mergeAvailability("waitlist", "waitlist") !== "waitlist") {
+    fail("merge waitlist+waitlist", String(mergeAvailability("waitlist", "waitlist")));
+  } else ok("merge: both waitlist → waitlist");
+  if (mergeAvailability("sold_out", "sold_out") !== "sold_out") {
+    fail("merge sold_out+sold_out", String(mergeAvailability("sold_out", "sold_out")));
+  } else ok("merge: both sold_out → sold_out (nee without reservelijst)");
+
+  // Fixture: women limited + men waitlist → merged limited (not waitlist)
+  if (speed.candidates[0]?.availability !== "limited") {
+    fail(
+      "fixture merged availability",
+      String(speed.candidates[0]?.availability),
+    );
+  } else ok("fixture merged availability is limited when one gender open");
+
+  const {
+    effectivePublicCapacity,
+    publicCapacityBadge,
+  } = await import("../lib/public-copy");
+  const genderOpen =
+    "Vrouwen: volzet (reservelijst) · Mannen: laatste plaatsen";
+  if (
+    effectivePublicCapacity("waitlist", genderOpen) !== "limited" ||
+    publicCapacityBadge("waitlist", genderOpen) !== "Beperkte plaatsen"
+  ) {
+    fail(
+      "public badge gender soften",
+      String(effectivePublicCapacity("waitlist", genderOpen)),
+    );
+  } else ok("public badge softens waitlist when one gender open");
+  if (publicCapacityBadge("waitlist", null) !== "Wachtlijst") {
+    fail("public badge no-gender waitlist", "expected Wachtlijst");
+  } else ok("public badge waitlist unchanged without gender split");
+
+  // City truncations from title
+  const cityHtml = `
+<div class="agenda-item">
+  <div class="date"><span class="big">5</span><span>Januari</span><span>2027</span></div>
+  <div class="title"><a href="https://www.speeddaten.be/nl/05-01-kempen-geel-22-30j-13007.htm">05/01 Kempen (Geel), 22-30j</a></div>
+  <div class="adres"><div class="description"><span>Caro's<br />Markt 51a<br />2440 Geel</span></div></div>
+  <div class="date"><div class="description"><span>dinsdag 5 januari om 19:30</span></div></div>
+  <div class="woman"><div class="description"><span><img src="/site/img/speeddatenbe/table/ja.png"/> Nog plaats</span></div></div>
+  <div class="man"><div class="description"><span><img src="/site/img/speeddatenbe/table/nee.png"/> Volzet</span></div></div>
+  <div class="price-wrapper"><div class="price"><span>EUR 29</span></div></div>
+</div>
+<div class="agenda-item">
+  <div class="date"><span class="big">25</span><span>Januari</span><span>2027</span></div>
+  <div class="title"><a href="https://www.speeddaten.be/nl/25-01-sint-niklaas-hogeropgeleiden-25-35j-13032.htm">25/01 Sint-Niklaas Hogeropgeleiden, 25-35j</a></div>
+  <div class="adres"><div class="description"><span>De Graanmaat<br />Grote Markt 24<br />9100 Sint-Niklaas</span></div></div>
+  <div class="date"><div class="description"><span>maandag 25 januari om 19:30</span></div></div>
+  <div class="woman"><div class="description"><span><img src="/site/img/speeddatenbe/table/ja.png"/> Nog plaats</span></div></div>
+  <div class="man"><div class="description"><span><img src="/site/img/speeddatenbe/table/ja.png"/> Nog plaats</span></div></div>
+  <div class="price-wrapper"><div class="price"><span>EUR 29</span></div></div>
+</div>`;
+  const cityParse = parseSpeeddatenHtml(cityHtml);
+  const geel = cityParse.candidates.find((c) => c.externalKey.includes("13007"));
+  const sn = cityParse.candidates.find((c) => c.externalKey.includes("13032"));
+  if (geel?.city !== "Geel" || geel.availability !== "available") {
+    fail("city/avail Geel+nee-without-list", JSON.stringify(geel));
+  } else ok("Kempen (Geel) → city Geel; nee without reservelijst → sold_out gender, merge available");
+  if (geel?.menAvailability !== "sold_out") {
+    fail("nee.png without reservelijst", String(geel?.menAvailability));
+  } else ok("nee.png without reservelijst → sold_out (not waitlist)");
+  if (sn?.city !== "Sint-Niklaas") {
+    fail("city Sint-Niklaas", String(sn?.city));
+  } else ok("Sint-Niklaas city from title");
 
   // brusselsIso + apply path: winter/summer wall clock stays correct after apply
   /** Same field pick as applyRefreshChangesToEdition for startsAt. */
@@ -551,6 +645,45 @@ async function main() {
       fail(`${label} conversion`, `stored=${written} shown=${shown}`);
     } else ok(`${label} → stored offset + display 19:30`);
   }
+
+  // Admin patch: tags jsonb + Brussels wall-clock helpers (no String.slice on starts_at)
+  const { readFileSync } = await import("node:fs");
+  const neonStoreSrc = readFileSync(
+    path.join(process.cwd(), "lib/events/neon-store.ts"),
+    "utf8",
+  );
+  if (
+    !/tags = \$\{JSON\.stringify\(tags\)\}::jsonb/.test(neonStoreSrc) ||
+    !/brusselsWallDateTimeFromDb/.test(neonStoreSrc)
+  ) {
+    fail(
+      "patchEditionAdminFields tags/tz",
+      "expected JSON.stringify(tags)::jsonb + brusselsWallDateTimeFromDb",
+    );
+  } else ok("patchEditionAdminFields uses jsonb tags + Brussels wall helper");
+  if (/String\(row\.starts_at\)\.slice/.test(neonStoreSrc)) {
+    fail("patchEditionAdminFields slice", "must not String(starts_at).slice");
+  } else ok("patchEditionAdminFields no longer slices starts_at string");
+
+  const {
+    brusselsWallDateTimeFromDb,
+  } = await import("../lib/aanvoer/dates");
+  const wallZ = brusselsWallDateTimeFromDb("2026-11-14T18:30:00.000Z");
+  if (wallZ?.date !== "2026-11-14" || wallZ.time !== "19:30") {
+    fail("brusselsWallDateTimeFromDb winter Z", JSON.stringify(wallZ));
+  } else ok("brusselsWallDateTimeFromDb winter Z → 19:30");
+  const wallSummer = brusselsWallDateTimeFromDb("2026-07-15T17:30:00.000Z");
+  if (wallSummer?.date !== "2026-07-15" || wallSummer.time !== "19:30") {
+    fail("brusselsWallDateTimeFromDb summer Z", JSON.stringify(wallSummer));
+  } else ok("brusselsWallDateTimeFromDb summer Z → 19:30");
+
+  // Partial apply: residual summary replace helper is wired in engine
+  if (
+    !engineSrc.includes("replaceRefreshItemChangeSummary") ||
+    !engineSrc.includes("partial_safe_apply")
+  ) {
+    fail("partial apply residual trim", "engine must trim change_summary");
+  } else ok("engine trims change_summary after partial safe apply");
 
   // No auto publish invariant in code paths: createDraft uses draft status — checked via source review
   ok("no auto publish (draft-only path by design)");

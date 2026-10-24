@@ -88,6 +88,46 @@ function main() {
   if (prev === undefined) delete process.env.OFFLINERADAR_SCHEDULED_REFRESH;
   else process.env.OFFLINERADAR_SCHEDULED_REFRESH = prev;
 
+  // Stale-lock recovery: disabled scheduler must not write; recovery scoped to allowlist
+  const schedulerSrc = readFileSync(
+    path.join(process.cwd(), "lib/source-refresh/scheduler.ts"),
+    "utf8",
+  );
+  const storeSrc = readFileSync(
+    path.join(process.cwd(), "lib/source-refresh/store.ts"),
+    "utf8",
+  );
+  const killNoWrite = schedulerSrc.indexOf("staleLocksExpired: 0");
+  const expireCall = schedulerSrc.indexOf(
+    "catalogSourceIds: [...candidateIds]",
+  );
+  if (
+    killNoWrite < 0 ||
+    expireCall < 0 ||
+    expireCall < killNoWrite ||
+    !schedulerSrc.includes("global_kill_switch")
+  ) {
+    fail(
+      "expire after kill-switch gate",
+      "kill-switch path must return staleLocksExpired:0 before allowlisted expire call",
+    );
+  } else ok("expireStaleRefreshRuns only after kill-switch allows writes");
+  if (!schedulerSrc.includes("catalogSourceIds: [...candidateIds]")) {
+    fail("expire allowlist scope", "must pass candidateIds / allowed sources");
+  } else ok("expireStaleRefreshRuns scoped to allowed catalogSourceIds");
+  if (
+    !storeSrc.includes("catalog_source_id = ANY") ||
+    !storeSrc.includes("ids.length === 0")
+  ) {
+    fail("expire empty-ids guard", "missing");
+  } else ok("expireStaleRefreshRuns no-ops on empty source list");
+  if (
+    !storeSrc.includes("both scheduled + manual") ||
+    !storeSrc.includes("STALE_REFRESH_RUN_MS")
+  ) {
+    fail("stale TTL rationale", "expected STALE_REFRESH_RUN_MS + manual coverage");
+  } else ok("stale TTL covers scheduled and manual runs");
+
   // Due logic
   const base: SourceScheduleState = {
     catalogSourceId: "x",
