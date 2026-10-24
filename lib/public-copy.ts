@@ -18,6 +18,12 @@ const TECHNICAL_NOTE_MARKERS = [
   "needs_review",
   "evidence",
   "internal",
+  // Speeddaten parser dumps img paths into availabilityNote — never show raw.
+  "/site/img/",
+  "speeddatenbe/table",
+  "ja.png",
+  "nee.png",
+  "bijna.png",
 ];
 
 export function formatPublicAvailabilityStatus(
@@ -109,6 +115,8 @@ export function formatConsumerAvailabilityDetail(
     if (status === "almost_full" || status === "limited") {
       return "Nog beperkte plaatsen. Controleer bij de organisator.";
     }
+    // available / sold_out / unknown: leave room for CapacityStatus + gender line
+    if (status === "available" || status === "sold_out") return null;
     return "Beschikbaarheid onbekend — controleer bij de organisator.";
   }
   return trimmed;

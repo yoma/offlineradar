@@ -188,6 +188,20 @@ async function main() {
     "Beschikbaarheid onbekend — controleer bij de organisator.",
   );
   assert.equal(
+    formatConsumerAvailabilityDetail(
+      "available",
+      "Vrouwen: Vrouwen /site/img/speeddatenbe/table/ja.png Nog plaats | Mannen: Mannen /site/img/speeddatenbe/table/nee.png Volzet, reservelijst beschikbaar",
+    ),
+    null,
+  );
+  assert.equal(
+    formatConsumerAvailabilityDetail(
+      "limited",
+      "Vrouwen: /site/img/speeddatenbe/table/nee.png Volzet, reservelijst beschikbaar | Mannen: bijna.png Laatste plaatsen",
+    ),
+    "Nog beperkte plaatsen. Controleer bij de organisator.",
+  );
+  assert.equal(
     formatCardAgeLine("guideline", "50+"),
     "Richtleeftijd 50+",
   );
