@@ -9,7 +9,9 @@ import { matchCandidate, type MatchableEdition } from "../lib/source-refresh/mat
 import { parseHoptodateHtml } from "../lib/source-refresh/parsers/hoptodate";
 import { parseSpeeddatenHtml } from "../lib/source-refresh/parsers/speeddaten";
 import { parseSportieveSinglesHtml } from "../lib/source-refresh/parsers/sportieve-singles";
+import { mapEditionToConsumerEvent } from "../lib/events/map-to-consumer";
 import {
+  brusselsIso,
   isListingOrIndexUrl,
   normalizeRefreshUrl,
   smartvibesCmsIdFromUrl,
@@ -20,7 +22,10 @@ import {
 import { REFRESH_PILOTS, isRefreshSupported } from "../lib/source-refresh/registry";
 import { validateAndNormalizeTipUrl } from "../lib/tips/url";
 import type { EventEditionRecord } from "../types/event-catalog";
-import type { RefreshNormalizedCandidate } from "../lib/source-refresh/types";
+import type {
+  RefreshFieldChange,
+  RefreshNormalizedCandidate,
+} from "../lib/source-refresh/types";
 
 let failed = 0;
 function ok(name: string) {
@@ -483,6 +488,69 @@ async function main() {
   if (SAFE_AUTO_APPLY_FIELDS.has("startsAt") || SAFE_AUTO_APPLY_FIELDS.has("city")) {
     fail("safe auto-apply", "startsAt/city must not auto-apply");
   } else ok("date/city moves stay review-only (not auto-applied)");
+
+  // brusselsIso + apply path: winter/summer wall clock stays correct after apply
+  /** Same field pick as applyRefreshChangesToEdition for startsAt. */
+  function appliedStartsAtFromChanges(
+    changes: RefreshFieldChange[],
+  ): string | null {
+    let startsAt: string | null = null;
+    for (const change of changes) {
+      if (change.field === "startsAt" && typeof change.after === "string") {
+        startsAt = change.after;
+      }
+    }
+    return startsAt;
+  }
+  function consumerStartTime(startsAt: string): string | null {
+    return mapEditionToConsumerEvent({
+      edition: minimalEdition({
+        id: "ed-tz",
+        title: "TZ check",
+        startsAt,
+        city: "Gent",
+      }),
+      organizer: null,
+      series: null,
+      sources: [],
+      images: [],
+    }).startTime;
+  }
+
+  const lochristiApplied = brusselsIso("2026-11-14", "19:30");
+  const kortrijkApplied = brusselsIso("2026-11-27", "19:30");
+  const summerApplied = brusselsIso("2026-07-15", "19:30");
+  if (lochristiApplied !== "2026-11-14T19:30:00+01:00") {
+    fail("brusselsIso Lochristi winter", lochristiApplied);
+  } else ok("brusselsIso Lochristi 14/11 → +01:00");
+  if (kortrijkApplied !== "2026-11-27T19:30:00+01:00") {
+    fail("brusselsIso Kortrijk winter", kortrijkApplied);
+  } else ok("brusselsIso Kortrijk 27/11 → +01:00");
+  if (summerApplied !== "2026-07-15T19:30:00+02:00") {
+    fail("brusselsIso summer", summerApplied);
+  } else ok("brusselsIso summer 15/07 → +02:00");
+
+  // Prove the old hardcode would shift winter display (18:30), new does not
+  if (consumerStartTime("2026-11-14T19:30:00+02:00") !== "18:30") {
+    fail(
+      "legacy +02:00 winter display",
+      String(consumerStartTime("2026-11-14T19:30:00+02:00")),
+    );
+  } else ok("legacy +02:00 winter would display 18:30 (bug baseline)");
+
+  for (const [label, iso] of [
+    ["Lochristi apply", lochristiApplied],
+    ["Kortrijk apply", kortrijkApplied],
+    ["summer apply", summerApplied],
+  ] as const) {
+    const written = appliedStartsAtFromChanges([
+      { field: "startsAt", before: null, after: iso },
+    ]);
+    const shown = written ? consumerStartTime(written) : null;
+    if (written !== iso || shown !== "19:30") {
+      fail(`${label} conversion`, `stored=${written} shown=${shown}`);
+    } else ok(`${label} → stored offset + display 19:30`);
+  }
 
   // No auto publish invariant in code paths: createDraft uses draft status — checked via source review
   ok("no auto publish (draft-only path by design)");

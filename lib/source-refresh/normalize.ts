@@ -1,5 +1,7 @@
 /** Shared text / URL helpers for source refresh parsers + matching. */
 
+import { brusselsOffsetForDate } from "@/lib/aanvoer/dates";
+
 export function normalizeRefreshUrl(url: string): string {
   try {
     const parsed = new URL(url.trim());
@@ -274,12 +276,12 @@ export function monthNumber(token: string): number | null {
   return NL_MONTHS[key] ?? FR_MONTHS[key] ?? null;
 }
 
-/** Build Europe/Brussels wall-time ISO (+02:00). Good enough for V1 calendar matches. */
+/** Build Europe/Brussels wall-time ISO with the correct offset for that calendar day. */
 export function brusselsIso(date: string, time: string | null): string {
   const hhmm = time && /^\d{1,2}:\d{2}$/.test(time) ? time : "00:00";
   const [h, m] = hhmm.split(":").map(Number);
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date}T${pad(h)}:${pad(m)}:00+02:00`;
+  return `${date}T${pad(h)}:${pad(m)}:00${brusselsOffsetForDate(date)}`;
 }
 
 export function parseAgeRange(
