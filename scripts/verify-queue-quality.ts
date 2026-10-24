@@ -102,6 +102,7 @@ function main() {
     eligibilityRoute: "route_a",
     singlesOnly: true,
     singlesOriented: true,
+    internalNotes: null,
     city: "Onbekend",
     latitude: 51.2,
     longitude: 4.4,
