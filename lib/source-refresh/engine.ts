@@ -9,6 +9,7 @@ import {
   getRefreshPilot,
 } from "@/lib/source-refresh/registry";
 import {
+  candidateSmartvibesCmsId,
   matchCandidate,
   type MatchableEdition,
 } from "@/lib/source-refresh/match";
@@ -27,6 +28,7 @@ import {
   getActiveRefreshRun,
   getLatestRefreshRun,
   insertRefreshItem,
+  findEditionsByStableIdentity,
   listFutureEditionsForOrganizerSlug,
   replaceRefreshItemChangeSummary,
   touchEditionSourceCheckedAt,
@@ -57,6 +59,7 @@ function liteToMatchable(rows: EventEditionBundleLite[]): MatchableEdition[] {
       venueName: row.venueName,
       genderAvailability: row.genderAvailability ?? null,
       availabilityNote: row.availabilityNote ?? null,
+      publicationStatus: row.publicationStatus,
     } as EventEditionRecord,
     sourceUrls: row.sourceUrls.map((u) => normalizeRefreshUrl(u)),
     organizerSlug: row.organizerSlug,
@@ -276,6 +279,9 @@ export async function startSourceRefresh(input: {
     }
     const future = await listFutureEditionsForOrganizerSlug(pilot.organizerSlug);
     const matchable = liteToMatchable(future);
+    const statusByEditionId = new Map(
+      future.map((row) => [row.id, row.publicationStatus]),
+    );
     const coverage = parsed.listingCoverage ?? "unknown";
     const observedDays = parsed.candidates
       .map((c) => c.date)
@@ -299,7 +305,28 @@ export async function startSourceRefresh(input: {
     }> = [];
 
     for (const candidate of parsed.candidates) {
-      const match = matchCandidate(candidate, available, pilot.organizerSlug);
+      let match = matchCandidate(candidate, available, pilot.organizerSlug);
+
+      // Near window missed: look up stable identity in full history (CMS id / URL).
+      // Targeted query only — never load the whole catalog per scan.
+      if (match.confidence === "none" || !match.editionId) {
+        const historical = await findEditionsByStableIdentity({
+          organizerSlug: pilot.organizerSlug,
+          cmsId: candidateSmartvibesCmsId(candidate),
+          officialUrl: candidate.officialUrl,
+          ticketUrl: candidate.ticketUrl,
+        });
+        if (historical.length > 0) {
+          for (const row of historical) {
+            statusByEditionId.set(row.id, row.publicationStatus);
+          }
+          match = matchCandidate(
+            candidate,
+            liteToMatchable(historical),
+            pilot.organizerSlug,
+          );
+        }
+      }
 
       // Duplicate canonical rows for one SmartVibes CMS id → review conflict.
       // Never auto-draft or treat as a fresh "new" edition.
@@ -354,6 +381,11 @@ export async function startSourceRefresh(input: {
       }
 
       matchedEditionIds.add(match.editionId);
+      const matchedStatus = statusByEditionId.get(match.editionId) ?? null;
+      const terminalStatus =
+        matchedStatus === "rejected" ||
+        matchedStatus === "cancelled" ||
+        matchedStatus === "expired";
       available = available.filter((row) => row.edition.id !== match.editionId);
       if (match.changes.length === 0) {
         await insertRefreshItem({
@@ -366,7 +398,7 @@ export async function startSourceRefresh(input: {
           changeSummary: [],
           status: "ignored",
         });
-        if (match.confidence === "exact") {
+        if (match.confidence === "exact" && !terminalStatus) {
           await touchEditionSourceCheckedAt(
             match.editionId,
             candidate.sourceCheckedAt,
@@ -391,7 +423,8 @@ export async function startSourceRefresh(input: {
           changeSummary: match.changes,
           status: "needs_review",
         });
-        if (item) {
+        // Never auto-apply or sync into rejected/cancelled/expired rows.
+        if (item && !terminalStatus) {
           insertedItemIds.push({
             id: item.id,
             detectionType: "existing_changed",
@@ -400,7 +433,7 @@ export async function startSourceRefresh(input: {
             changeSummary: match.changes,
           });
         }
-        if (match.confidence === "exact") {
+        if (match.confidence === "exact" && !terminalStatus) {
           await syncObservedSourceUrl({
             editionId: match.editionId,
             officialUrl: candidate.officialUrl,

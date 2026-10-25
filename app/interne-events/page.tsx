@@ -7,6 +7,7 @@ import {
   addCatalogSourceAction,
   updateCatalogSourceAction,
   updateEventReportsAction,
+  loadAdminEventsPageAction,
 } from "@/app/interne-events/actions";
 import {
   isGoogleAuthConfigured,
@@ -114,14 +115,19 @@ export default async function InterneEventsPage() {
     );
   }
 
-  const bundles = await listEditionBundlesForAdmin(2000);
-  if (!bundles) {
+  const adminPage = await listEditionBundlesForAdmin({
+    scope: "current",
+    limit: 50,
+    offset: 0,
+  });
+  if (!adminPage) {
     return (
       <GateShell title="Eventbeheer niet beschikbaar">
         <p>Catalogus kon niet worden gelezen.</p>
       </GateShell>
     );
   }
+  const bundles = adminPage.bundles;
 
   let catalogSources: Awaited<ReturnType<typeof listCatalogSources>> = [];
   try {
@@ -254,26 +260,33 @@ export default async function InterneEventsPage() {
           </p>
         </div>
       <EventsAdminBrowser
-        events={bundles.map((bundle) => {
-          const { edition } = bundle;
-          const primary =
-            bundle.sources.find((s) => s.isPrimary) ?? bundle.sources[0];
-          return {
-            id: edition.id,
-            title: edition.title,
-            slug: edition.slug,
-            publicationStatus: edition.publicationStatus,
-            publishedAt: edition.publishedAt,
-            lastCheckedAt: edition.lastCheckedAt,
-            city: edition.city,
-            startsAt: edition.startsAt,
-            endsAt: edition.endsAt,
-            primarySourceUrl: primary?.url ?? null,
-            primarySourceLabel:
-              primary?.sourceName ?? primary?.sourceType ?? null,
-            openReports: openByEdition.get(edition.id) ?? 0,
-          };
-        })}
+        initialPage={{
+          scope: adminPage.scope,
+          total: adminPage.total,
+          limit: adminPage.limit,
+          offset: adminPage.offset,
+          events: bundles.map((bundle) => {
+            const { edition } = bundle;
+            const primary =
+              bundle.sources.find((s) => s.isPrimary) ?? bundle.sources[0];
+            return {
+              id: edition.id,
+              title: edition.title,
+              slug: edition.slug,
+              publicationStatus: edition.publicationStatus,
+              publishedAt: edition.publishedAt,
+              lastCheckedAt: edition.lastCheckedAt,
+              city: edition.city,
+              startsAt: edition.startsAt,
+              endsAt: edition.endsAt,
+              primarySourceUrl: primary?.url ?? null,
+              primarySourceLabel:
+                primary?.sourceName ?? primary?.sourceType ?? null,
+              openReports: openByEdition.get(edition.id) ?? 0,
+            };
+          }),
+        }}
+        loadPageAction={loadAdminEventsPageAction}
         takeOfflineAction={takeEventOfflineAction}
         publishAction={publishEventAction}
       />

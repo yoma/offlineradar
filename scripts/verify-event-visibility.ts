@@ -384,12 +384,13 @@ check("refresh still recognises a past edition and a new date stays new", () => 
   assert.ok(REFRESH_MATCH_LOOKBACK_DAYS >= 180);
   const pastUrl =
     "https://www.speeddaten.be/nl/12-09-antwerpen-hogeropgeleiden-30-40j-12400.htm";
+  // Older than the near lookback window (181+ days before the scan clock).
   const editions: MatchableEdition[] = [
     {
       edition: minimalEdition({
         id: "ed-past",
         title: "Antwerpen Hogeropgeleiden 30-40",
-        startsAt: "2026-09-12T19:30:00+02:00",
+        startsAt: "2026-04-20T19:30:00+02:00",
         city: "Antwerpen",
       }),
       sourceUrls: [pastUrl],
@@ -416,6 +417,11 @@ check("refresh still recognises a past edition and a new date stays new", () => 
     rawEvidenceSummary: "test",
     sourceCheckedAt: "2026-10-25T04:28:41.000Z",
   };
+  // Near pool empty (outside 180d) → no match until history is supplied.
+  assert.equal(
+    matchCandidate(sameCms, [], "smartvibes").confidence,
+    "none",
+  );
   const recognised = matchCandidate(sameCms, editions, "smartvibes");
   assert.equal(recognised.editionId, "ed-past");
   assert.equal(recognised.confidence, "exact");
