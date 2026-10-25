@@ -36,6 +36,8 @@ export type InstagramQueuePost = {
   status: InstagramQueueStatus;
   errorMessage: string | null;
   instagramMediaId: string | null;
+  /** Container we sent to media_publish; set means a publish may have happened. */
+  containerId: string | null;
   source: "auto" | "manual";
   format: string | null;
   eventIds: string[];
@@ -54,6 +56,7 @@ type QueueRow = {
   status: InstagramQueueStatus;
   error_message: string | null;
   instagram_media_id: string | null;
+  container_id: string | null;
   source: "auto" | "manual";
   format: string | null;
   event_ids: unknown;
@@ -95,6 +98,7 @@ function mapRow(row: QueueRow): InstagramQueuePost {
     status: row.status,
     errorMessage: row.error_message,
     instagramMediaId: row.instagram_media_id,
+    containerId: row.container_id ?? null,
     source: row.source,
     format: row.format,
     eventIds: stringArray(row.event_ids),
@@ -270,7 +274,7 @@ export async function approveQueuePost(
       approved_at = now(),
       updated_at = now()
     WHERE id = ${id}
-      AND status = ANY(${[...EDITABLE]})
+      AND status IN ('te_keuren', 'goedgekeurd')
       AND publish_started_at IS NULL
     RETURNING id
   `) as unknown[];
@@ -304,14 +308,17 @@ export async function submitQueuePostForReview(id: string): Promise<boolean> {
   return rows.length > 0;
 }
 
-/** Make a failed post eligible again (it goes back to "te keuren"). */
+/**
+ * Make a failed post eligible again (it goes back to "te keuren").
+ * container_id is kept: the next publish checks it first, so a post that
+ * did reach Instagram is never published a second time.
+ */
 export async function resetFailedQueuePost(id: string): Promise<boolean> {
   const sql = await queueSql();
   const rows = (await sql`
     UPDATE instagram_post_queue SET
       status = 'te_keuren',
       error_message = NULL,
-      container_id = NULL,
       publish_started_at = NULL,
       approved_by = NULL,
       approved_at = NULL,
@@ -366,6 +373,23 @@ export async function claimDueQueuePost(args: {
   return rows[0] ? mapRow(rows[0]) : null;
 }
 
+/** Claim one specific post for an immediate "Nu plaatsen". */
+export async function claimQueuePostById(
+  id: string,
+): Promise<InstagramQueuePost | null> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    UPDATE instagram_post_queue SET
+      publish_started_at = now(),
+      updated_at = now()
+    WHERE id = ${id}
+      AND status IN ('te_keuren', 'goedgekeurd')
+      AND publish_started_at IS NULL
+    RETURNING *
+  `) as QueueRow[];
+  return rows[0] ? mapRow(rows[0]) : null;
+}
+
 export async function saveQueueContainerId(id: string, containerId: string) {
   const sql = await queueSql();
   await sql`
@@ -375,7 +399,7 @@ export async function saveQueueContainerId(id: string, containerId: string) {
   `;
 }
 
-export async function markQueuePosted(id: string, mediaId: string) {
+export async function markQueuePosted(id: string, mediaId: string | null) {
   const sql = await queueSql();
   await sql`
     UPDATE instagram_post_queue SET

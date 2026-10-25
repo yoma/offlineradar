@@ -40,6 +40,14 @@ type SettingsRow = {
   token_last_error: string | null;
 };
 
+/** Every token value this process has seen, so scrubSecrets can remove it. */
+const knownTokens = new Set<string>();
+
+function remember(token: string): string {
+  knownTokens.add(token);
+  return token;
+}
+
 function envToken(): string | null {
   return process.env.INSTAGRAM_ACCESS_TOKEN?.trim() || null;
 }
@@ -95,8 +103,10 @@ function toIso(value: string | Date | null): string | null {
 /** Remove anything that looks like a token from text we store or show. */
 export function scrubSecrets(text: string): string {
   let out = text;
-  const token = envToken();
-  if (token) out = out.split(token).join("[token]");
+  const env = envToken();
+  for (const token of env ? [env, ...knownTokens] : knownTokens) {
+    if (token.length >= 16) out = out.split(token).join("[token]");
+  }
   return out
     .replace(/access_token=[^&\s"']+/gi, "access_token=[token]")
     .replace(/\b(IG|EA)[A-Za-z0-9_-]{40,}\b/g, "[token]")
@@ -159,7 +169,7 @@ export async function getInstagramAccessToken(): Promise<string | null> {
 
   if (row?.token_ciphertext && key && !envChanged) {
     const token = decryptToken(row.token_ciphertext, key);
-    if (token) return token;
+    if (token) return remember(token);
   }
 
   if (!fromEnv) return null;
@@ -242,6 +252,8 @@ export async function refreshInstagramTokenIfDue(options?: {
   }
 
   const fetchImpl = options?.fetchImpl ?? fetch;
+  // Meta only accepts the token as a query parameter here. The URL is never
+  // logged or put in an error message.
   const url = new URL("https://graph.instagram.com/refresh_access_token");
   url.searchParams.set("grant_type", "ig_refresh_token");
   url.searchParams.set("access_token", token);
@@ -258,6 +270,7 @@ export async function refreshInstagramTokenIfDue(options?: {
       error?: { message?: string };
     } | null;
     if (res.ok && json?.access_token) {
+      remember(json.access_token);
       const expiresAt =
         typeof json.expires_in === "number" && json.expires_in > 0
           ? new Date(now.getTime() + json.expires_in * 1000)

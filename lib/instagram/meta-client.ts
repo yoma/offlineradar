@@ -1,7 +1,7 @@
 /**
  * Minimal Instagram Graph API client (Instagram Login, graph.instagram.com).
- * Access tokens are sent in POST bodies / Authorization headers — never in URLs.
- * No cron. Caller gates live calls behind feature flags.
+ * Access tokens are sent in POST bodies / Authorization headers, never in URLs
+ * (the one exception, refresh_access_token, lives in token-store.ts).
  */
 
 import {

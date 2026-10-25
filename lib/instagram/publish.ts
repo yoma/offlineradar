@@ -223,8 +223,7 @@ function httpTimeoutWithinBudget(deadlineMs: number): number {
   return Math.min(META_HTTP_TIMEOUT_MS, remaining);
 }
 
-/** Create (and wait for) all containers; does not call media_publish. */
-export async function prepareContainersOnly(args: {
+async function prepareContainersOnly(args: {
   client: MetaClient;
   caption: string;
   imageUrls: string[];

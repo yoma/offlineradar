@@ -4,22 +4,27 @@ Adminpagina: `/interne-instagram/wachtrij` (zelfde Google-login als `/interne-ev
 
 ## Hoe het werkt
 
-1. De site stelt elke week drie posts voor (Brusselse tijd):
-   maandag 19:00 *Deze week*, woensdag 19:00 *Nieuw*, vrijdag 17:00 *Binnenkort* (carrousel).
-   Voorstellen verschijnen tot 7 dagen vooraf onder **Te keuren**.
-2. Jij past eventueel caption/tijdstip aan en klikt **Goedkeuren** (of **Afwijzen**).
-3. Elke 15 minuten kijkt een geplande taak of er een goedgekeurde post klaarstaat
-   en plaatst die via de Instagram API (container → wachten tot klaar → publish).
+1. **Maak een post** (bovenaan de pagina): kies *Binnenkort*, *Deze week*, *Nieuw*
+   of *Eén event*. De site maakt de afbeeldingen + caption; er wordt nog niets geplaatst.
+2. Bekijk het voorbeeld, pas eventueel de caption aan en klik:
+   - **Nu plaatsen**: meteen op Instagram (±30 seconden), of
+   - **Plannen op dit tijdstip**: gaat online bij de dagelijkse ronde (18–20 uur).
+3. De site stelt daarnaast zelf drie posts per week voor (ma *Deze week*, wo *Nieuw*,
+   vr *Binnenkort*). Die verschijnen onder **Te keuren**. Goedkeuren of **Afwijzen**;
+   afgewezen posts worden verborgen en nooit geplaatst.
 4. Schakelaar **Automatisch posten zonder goedkeuring** (standaard UIT): als die aan
-   staat, gaan ook niet-goedgekeurde voorstellen op hun tijdstip online.
+   staat, gaan ook niet-goedgekeurde voorstellen op hun dag online.
 
-Afbeeldingen worden bij het voorstel één keer als JPEG gemaakt en in Neon bewaard.
+Afbeeldingen worden één keer als JPEG gemaakt en in Neon bewaard.
 Instagram haalt ze op via `https://dateofflinehub.be/api/instagram/media/<id>.jpg`.
 Na 30 dagen (gepost) of 60 dagen (afgewezen/mislukt) worden de bytes opgeruimd.
 
-Veiligheid tegen dubbel posten: een post wordt in één databasestap "geclaimd".
-Als publiceren halverwege stopt, wordt de post *mislukt* met de vraag om eerst op
-Instagram te kijken; er is nooit een automatische herhaling.
+Geen dubbele posts: een post wordt in één databasestap geclaimd. Als een poging
+onduidelijk afloopt, onthoudt de wachtrij de Instagram-container; "Opnieuw proberen"
+vraagt eerst aan Instagram of die al gepubliceerd is en plaatst dan niet opnieuw.
+
+Noodstop: zet `INSTAGRAM_META_PUBLISH_ENABLED=0` in Vercel (en redeploy) om alle
+posting via de wachtrij te stoppen.
 
 ## Eenmalige instellingen
 
@@ -38,19 +43,8 @@ Het token wordt bij eerste gebruik versleuteld in de database bewaard en daarna
 automatisch vernieuwd (`refresh_access_token`, ±elke 50 dagen). Zet je ooit een
 nieuw token in Vercel, dan neemt de site dat automatisch over.
 
-### GitHub (repo → Settings → Secrets and variables → Actions)
-
-Vercel Hobby laat crons maar één keer per dag lopen, daarom roept
-`.github/workflows/instagram-cron.yml` elke 15 minuten `/api/cron/instagram` aan.
-
-- **New repository secret** `CRON_SECRET` = exact dezelfde waarde als `CRON_SECRET` in Vercel.
-  Kun je die in Vercel niet meer zien? Maak een nieuwe lange willekeurige waarde,
-  zet die in Vercel (en redeploy) én hier.
-- Optioneel: **Variables** → `SITE_URL` als het domein ooit niet `https://dateofflinehub.be` is.
-
-Testen: GitHub → **Actions** → *Instagram wachtrij* → **Run workflow**.
-Let op: GitHub pauzeert geplande workflows na 60 dagen zonder activiteit in de repo;
-je krijgt dan een mail en zet hem met één klik weer aan.
+De geplande ronde is een gewone Vercel-cron (`vercel.json`, dagelijks 17:xx UTC);
+op het Hobby-plan kan dat maar één keer per dag. Voor een ander moment: **Nu plaatsen**.
 
 ### Database
 
@@ -64,9 +58,9 @@ Handmatig kan ook: `npm run db:migrate:instagram-post-queue`.
 | `lib/instagram/queue-schema.ts` | tabellen `instagram_post_queue`, `instagram_post_media`, `instagram_settings` |
 | `lib/instagram/queue.ts` | wachtrij-opslag + statussen |
 | `lib/instagram/queue-runner.ts` | cron-ronde: opruimen, token, publiceren, voorstellen |
-| `lib/instagram/queue-media.ts` | JPEG-rendering en externe afbeeldingen |
+| `lib/instagram/queue-media.ts` | JPEG-rendering |
 | `lib/instagram/token-store.ts` | token versleuteld opslaan + vernieuwen |
-| `app/api/cron/instagram/route.ts` | cron-endpoint (Bearer `CRON_SECRET`) |
+| `app/api/cron/instagram/route.ts` | dagelijkse Vercel-cron (Bearer `CRON_SECRET`) |
 | `app/api/instagram/media/[id]/route.ts` | publieke JPEG's voor Meta |
 | `app/interne-instagram/wachtrij/` | adminpagina |
 

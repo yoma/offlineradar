@@ -12,9 +12,19 @@ export type InstagramMetaConfig = {
   graphApiVersion: string;
   graphHost: string;
   publishEnabled: boolean;
+  /**
+   * INSTAGRAM_META_PUBLISH_ENABLED explicitly set to 0/false/off. The queue
+   * posts by default (approval is its gate); this is its emergency stop.
+   */
+  publishExplicitlyOff: boolean;
   dryRun: boolean;
   missingForLive: string[];
 };
+
+function flagOff(name: string): boolean {
+  const v = process.env[name]?.trim().toLowerCase();
+  return v === "0" || v === "false" || v === "no" || v === "off";
+}
 
 function flagOn(name: string): boolean {
   const v = process.env[name]?.trim().toLowerCase();
@@ -48,6 +58,7 @@ export function readInstagramMetaConfig(): InstagramMetaConfig {
     graphApiVersion,
     graphHost,
     publishEnabled,
+    publishExplicitlyOff: flagOff("INSTAGRAM_META_PUBLISH_ENABLED"),
     dryRun,
     missingForLive,
   };

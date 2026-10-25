@@ -10,8 +10,9 @@ export const maxDuration = 60;
 /**
  * Instagram queue tick: publish one due post, otherwise propose one post for
  * an empty weekly slot; refreshes the access token when due.
- * Called every 15 min by .github/workflows/instagram-cron.yml (Vercel Hobby
- * crons only run daily). Auth: Authorization: Bearer $CRON_SECRET.
+ * Vercel cron, daily at 17:xx UTC (18–19h Brussels; Hobby crons run once a
+ * day somewhere in the hour). "Nu plaatsen" on the admin page covers posting
+ * at any other moment. Auth: Authorization: Bearer $CRON_SECRET.
  */
 export async function GET(request: Request) {
   if (!isCronRequestAuthorized(request)) {

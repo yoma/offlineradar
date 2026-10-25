@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import {
   approveQueuePostAction,
-  createCustomPostAction,
-  createProposalAction,
+  createPostAction,
   deleteQueuePostAction,
+  publishNowAction,
   rejectQueuePostAction,
   retryQueuePostAction,
   saveQueuePostAction,
@@ -26,7 +26,7 @@ import {
 const CAPTION_MAX = 2200;
 
 const STATUS_LABEL: Record<InstagramQueueStatus, string> = {
-  concept: "Concept (afgewezen)",
+  concept: "Afgewezen",
   te_keuren: "Te keuren",
   goedgekeurd: "Goedgekeurd",
   gepost: "Gepost",
@@ -45,6 +45,7 @@ const FORMAT_LABEL: Record<string, string> = {
   binnenkort: "Binnenkort te beleven",
   deze_week: "Deze week",
   nieuw: "Nieuw op DateOfflineHub",
+  event: "Eén event",
 };
 
 type Setup = {
@@ -194,7 +195,7 @@ function PostCard({
             <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
               {autoPost
                 ? "Tijdstip is voorbij; wordt bij de volgende ronde geplaatst."
-                : "Tijdstip is voorbij. Goedkeuren plaatst de post binnen 15 minuten, of kies eerst een nieuw tijdstip."}
+                : "Tijdstip is voorbij. Klik Nu plaatsen, of kies een nieuw tijdstip."}
             </p>
           ) : null}
           {post.status === "te_keuren" && autoPost && !timePassed ? (
@@ -204,7 +205,10 @@ function PostCard({
           ) : null}
 
           <label className="text-sm font-semibold text-stone-800">
-            Gepland op (Brusselse tijd)
+            Tijdstip (Brusselse tijd)
+            <span className="block text-xs font-normal text-stone-500">
+              Geplande posts gaan online bij de dagelijkse ronde tussen 18 en 20 uur.
+            </span>
             <input
               type="datetime-local"
               value={time}
@@ -240,9 +244,23 @@ function PostCard({
                   type="button"
                   className={primaryBtn}
                   disabled={pending || !caption.trim()}
+                  onClick={() => {
+                    if (window.confirm("Deze post nu op Instagram zetten?")) {
+                      run(publishNowAction, form());
+                    }
+                  }}
+                >
+                  Nu plaatsen
+                </button>
+              ) : null}
+              {post.status === "te_keuren" || post.status === "goedgekeurd" ? (
+                <button
+                  type="button"
+                  className={secondaryBtn}
+                  disabled={pending || !caption.trim()}
                   onClick={() => run(approveQueuePostAction, form())}
                 >
-                  {post.status === "goedgekeurd" ? "Opslaan & goedgekeurd laten" : "Goedkeuren"}
+                  {post.status === "goedgekeurd" ? "Opslaan" : "Plannen op dit tijdstip"}
                 </button>
               ) : null}
               {post.status === "te_keuren" || post.status === "goedgekeurd" ? (
@@ -272,7 +290,7 @@ function PostCard({
                   disabled={pending}
                   onClick={() => run(submitQueuePostAction, form())}
                 >
-                  Terug naar te keuren
+                  Toch gebruiken
                 </button>
               ) : null}
               {post.status === "mislukt" ? (
@@ -303,7 +321,7 @@ function PostCard({
           ) : post.status !== "gepost" ? (
             <p className="text-sm text-stone-600">Wordt nu geplaatst…</p>
           ) : null}
-          {pending ? <p className="text-sm text-stone-500">Bezig…</p> : null}
+          {pending ? <p className="text-sm text-stone-500">Bezig… (plaatsen duurt tot een halve minuut)</p> : null}
           <ResultLine result={result} />
         </div>
       </div>
@@ -392,67 +410,78 @@ function SetupStatus({ setup }: { setup: Setup }) {
   );
 }
 
-function NewPostForms() {
-  const proposal = useAction();
-  const custom = useAction();
+type PostKind = "binnenkort" | "deze_week" | "nieuw" | "event";
+
+const KIND_OPTIONS: { value: PostKind; label: string; hint: string }[] = [
+  { value: "binnenkort", label: "Binnenkort te beleven", hint: "carrousel met een paar events" },
+  { value: "deze_week", label: "Deze week", hint: "overzicht van deze week" },
+  { value: "nieuw", label: "Nieuw op de site", hint: "recent toegevoegde events" },
+  { value: "event", label: "Eén event", hint: "jij kiest welk" },
+];
+
+function MakePostCard({ eventOptions }: { eventOptions: { id: string; label: string }[] }) {
+  const { pending, result, run } = useAction();
+  const [kind, setKind] = useState<PostKind>("binnenkort");
   const inputCls =
-    "mt-1 block w-full rounded-lg border border-stone-200 px-3 py-2 text-sm font-normal";
+    "mt-1 block w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-normal";
   return (
-    <details className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
-      <summary className="cursor-pointer text-sm font-semibold text-stone-800">
-        Zelf een post toevoegen
-      </summary>
-      <div className="mt-4 grid gap-6 md:grid-cols-2">
-        <form
-          className="space-y-3"
-          action={(fd) => proposal.run(createProposalAction, fd)}
-        >
-          <h3 className="text-sm font-semibold text-stone-800">Nieuw voorstel uit de events</h3>
-          <label className="block text-sm text-stone-700">
-            Soort post
-            <select name="format" className={inputCls} defaultValue="binnenkort">
-              <option value="binnenkort">Binnenkort te beleven (carrousel)</option>
-              <option value="deze_week">Deze week</option>
-              <option value="nieuw">Nieuw op DateOfflineHub</option>
+    <section className="rounded-2xl border-2 border-[var(--brand-bordeaux)]/20 bg-white p-4 shadow-sm sm:p-5">
+      <h2 className="text-lg font-semibold text-stone-900">Maak een post</h2>
+      <form
+        className="mt-3 space-y-4"
+        action={(fd) => {
+          fd.set("kind", kind);
+          run(createPostAction, fd);
+        }}
+      >
+        <div className="grid gap-2 sm:grid-cols-4">
+          {KIND_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setKind(option.value)}
+              aria-pressed={kind === option.value}
+              className={`rounded-xl border px-3 py-2.5 text-left transition ${
+                kind === option.value
+                  ? "border-[var(--brand-bordeaux)] bg-[var(--brand-bordeaux)] text-white"
+                  : "border-stone-200 bg-white text-stone-800 hover:bg-stone-50"
+              }`}
+            >
+              <span className="block text-sm font-semibold">{option.label}</span>
+              <span
+                className={`block text-xs ${kind === option.value ? "text-white/80" : "text-stone-500"}`}
+              >
+                {option.hint}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {kind === "event" ? (
+          <label className="block text-sm font-semibold text-stone-800">
+            Welk event?
+            <select name="eventId" required className={inputCls} defaultValue="">
+              <option value="" disabled>
+                Kies een event…
+              </option>
+              {eventOptions.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.label}
+                </option>
+              ))}
             </select>
           </label>
-          <label className="block text-sm text-stone-700">
-            Plaatsen op (Brusselse tijd)
-            <input type="datetime-local" name="scheduledAt" required className={inputCls} />
-          </label>
-          <button type="submit" className={primaryBtn} disabled={proposal.pending}>
-            {proposal.pending ? "Afbeeldingen maken…" : "Voorstel maken"}
-          </button>
-          <ResultLine result={proposal.result} />
-        </form>
+        ) : null}
 
-        <form
-          className="space-y-3"
-          action={(fd) => custom.run(createCustomPostAction, fd)}
-        >
-          <h3 className="text-sm font-semibold text-stone-800">Eigen afbeeldingen</h3>
-          <label className="block text-sm text-stone-700">
-            Afbeeldingslinks (https, één per regel, max. 10)
-            <textarea name="imageUrls" rows={3} required className={inputCls} />
-          </label>
-          <p className="text-xs text-stone-500">
-            Worden gedownload, omgezet naar JPEG en bijgesneden tot een formaat dat Instagram aanvaardt.
-          </p>
-          <label className="block text-sm text-stone-700">
-            Caption
-            <textarea name="caption" rows={4} maxLength={CAPTION_MAX} required className={inputCls} />
-          </label>
-          <label className="block text-sm text-stone-700">
-            Plaatsen op (Brusselse tijd)
-            <input type="datetime-local" name="scheduledAt" required className={inputCls} />
-          </label>
-          <button type="submit" className={primaryBtn} disabled={custom.pending}>
-            {custom.pending ? "Bezig…" : "Toevoegen"}
-          </button>
-          <ResultLine result={custom.result} />
-        </form>
-      </div>
-    </details>
+        <button type="submit" className={primaryBtn} disabled={pending}>
+          {pending ? "Afbeeldingen maken… (± 20 sec)" : "Maak post"}
+        </button>
+        <p className="text-xs text-stone-500">
+          Er wordt nog niets geplaatst: je krijgt eerst een voorbeeld te zien.
+        </p>
+        <ResultLine result={result} />
+      </form>
+    </section>
   );
 }
 
@@ -461,6 +490,7 @@ export function InstagramQueueClient({
   autoPost,
   loadError,
   nextSlots,
+  eventOptions,
   setup,
   renderedAt,
 }: {
@@ -468,6 +498,7 @@ export function InstagramQueueClient({
   autoPost: boolean;
   loadError: string | null;
   nextSlots: { at: string; format: string }[];
+  eventOptions: { id: string; label: string }[];
   setup: Setup;
   /** Server render time, so "time passed" is stable across re-renders. */
   renderedAt: string;
@@ -475,7 +506,8 @@ export function InstagramQueueClient({
   const nowMs = Date.parse(renderedAt);
   const open = posts.filter((p) => p.status === "te_keuren");
   const planned = posts.filter((p) => p.status === "goedgekeurd" || p.status === "mislukt");
-  const rest = posts.filter((p) => p.status === "gepost" || p.status === "concept");
+  const posted = posts.filter((p) => p.status === "gepost");
+  const rejected = posts.filter((p) => p.status === "concept");
 
   return (
     <div className="space-y-8">
@@ -485,8 +517,8 @@ export function InstagramQueueClient({
             Instagram-wachtrij
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-stone-600">
-            De site stelt elke week posts voor. Pas de tekst aan als je wilt en klik
-            op Goedkeuren; de post gaat dan op het geplande tijdstip online.
+            Maak zelf een post, of keur de voorstellen van de site goed. Pas de tekst
+            aan als je wilt en klik Nu plaatsen, of plan hem voor later.
           </p>
         </div>
         <Link
@@ -497,12 +529,14 @@ export function InstagramQueueClient({
         </Link>
       </header>
 
+      <MakePostCard eventOptions={eventOptions} />
+
       <section className="grid gap-4 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm md:grid-cols-2">
         <AutoPostToggle enabled={autoPost} />
         <SetupStatus setup={setup} />
         {nextSlots.length > 0 ? (
           <p className="text-xs text-stone-500 md:col-span-2">
-            Volgende voorstelmomenten:{" "}
+            De site stelt zelf ook posts voor, op:{" "}
             {nextSlots
               .map((s) => `${formatBrusselsDateTime(s.at)} (${FORMAT_LABEL[s.format] ?? s.format})`)
               .join(" · ")}
@@ -534,13 +568,22 @@ export function InstagramQueueClient({
         </section>
       ) : null}
 
-      <NewPostForms />
-
-      {rest.length > 0 ? (
+      {posted.length > 0 ? (
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-stone-900">Geplaatst en afgewezen</h2>
-          {rest.map((p) => <PostCard key={p.id} post={p} autoPost={autoPost} nowMs={nowMs} />)}
+          <h2 className="text-lg font-semibold text-stone-900">Geplaatst</h2>
+          {posted.map((p) => <PostCard key={p.id} post={p} autoPost={autoPost} nowMs={nowMs} />)}
         </section>
+      ) : null}
+
+      {rejected.length > 0 ? (
+        <details className="space-y-4">
+          <summary className="cursor-pointer text-sm font-semibold text-stone-600">
+            Afgewezen ({rejected.length}): verborgen, open om er toch één te gebruiken
+          </summary>
+          <div className="mt-4 space-y-4">
+            {rejected.map((p) => <PostCard key={p.id} post={p} autoPost={autoPost} nowMs={nowMs} />)}
+          </div>
+        </details>
       ) : null}
     </div>
   );

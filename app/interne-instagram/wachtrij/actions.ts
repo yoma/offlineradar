@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { listEvents } from "@/lib/events";
 import type { InstagramFormatId } from "@/lib/instagram/constants";
-import { buildInstagramDraft } from "@/lib/instagram/drafts";
+import {
+  buildInstagramDraft,
+  buildSingleEventDraft,
+  listSingleEventCandidates,
+} from "@/lib/instagram/drafts";
 import {
   getRecentlyUsedEventIds,
   recordConceptEventIds,
@@ -18,8 +22,13 @@ import {
   submitQueuePostForReview,
   updateQueuePost,
 } from "@/lib/instagram/queue";
-import { ingestExternalImage, renderDraftJpegs } from "@/lib/instagram/queue-media";
+import { renderDraftJpegs } from "@/lib/instagram/queue-media";
+import {
+  nextDailyPostTime,
+  publishQueuePostNow,
+} from "@/lib/instagram/queue-runner";
 import { fromBrusselsLocalInput } from "@/lib/instagram/queue-time";
+import { scrubSecrets } from "@/lib/instagram/token-store";
 import { resolveTipsAdminAccess } from "@/lib/tips/admin-auth";
 
 export type QueueActionResult = { ok: boolean; message: string };
@@ -50,7 +59,9 @@ function readTime(formData: FormData): Date | null | "invalid" {
 function failure(error: unknown): QueueActionResult {
   return {
     ok: false,
-    message: error instanceof Error ? error.message : "Er ging iets mis.",
+    message: scrubSecrets(
+      error instanceof Error ? error.message : "Er ging iets mis.",
+    ),
   };
 }
 
@@ -177,75 +188,87 @@ function parseFormat(raw: string): InstagramFormatId | null {
     : null;
 }
 
-/** Build a fresh proposal from the event catalog (same logic as the cron). */
-export async function createProposalAction(
+/**
+ * "Maak een post": build a post from the event catalog (a format, or one
+ * specific event). It lands under "Te keuren", set for now or the chosen time.
+ */
+export async function createPostAction(
   formData: FormData,
 ): Promise<QueueActionResult> {
   if (!(await guard())) return UNAUTHORIZED;
-  const format = parseFormat(String(formData.get("format") ?? ""));
+  const kind = String(formData.get("kind") ?? "");
   const time = readTime(formData);
-  if (!format) return { ok: false, message: "Kies een soort post." };
-  if (!time || time === "invalid") {
-    return { ok: false, message: "Kies een datum en tijd." };
-  }
+  if (time === "invalid") return { ok: false, message: "Ongeldig tijdstip." };
+  const scheduledAt = time ?? nextDailyPostTime();
   try {
     const catalog = await listEvents();
-    const draft = buildInstagramDraft(format, catalog, {
-      now: time,
-      recentlyUsedIds: await getRecentlyUsedEventIds(21),
-    });
-    if (!draft) {
-      return {
-        ok: false,
-        message: "Te weinig geschikte events voor dit soort post op dat moment.",
-      };
+    let draft;
+    if (kind === "event") {
+      const eventId = String(formData.get("eventId") ?? "");
+      const event = listSingleEventCandidates(catalog).find((e) => e.id === eventId);
+      if (!event) return { ok: false, message: "Kies een event uit de lijst." };
+      draft = buildSingleEventDraft(event);
+    } else {
+      const format = parseFormat(kind);
+      if (!format) return { ok: false, message: "Kies wat voor post je wilt." };
+      draft = buildInstagramDraft(format, catalog, {
+        now: scheduledAt,
+        recentlyUsedIds: await getRecentlyUsedEventIds(21),
+      });
+      // Too few fresh events: allow events that were used recently.
+      draft ??= buildInstagramDraft(format, catalog, { now: scheduledAt });
+      if (!draft) {
+        return {
+          ok: false,
+          message: "Te weinig geschikte events voor dit soort post.",
+        };
+      }
     }
     const created = await createQueuePost({
       jpegs: await renderDraftJpegs(draft, catalog),
       caption: draft.caption,
-      scheduledAt: time,
+      scheduledAt,
       status: "te_keuren",
       source: "manual",
-      format,
+      format: kind === "event" ? "event" : draft.format,
       eventIds: draft.eventIds,
     });
     if (created) await recordConceptEventIds(draft.eventIds);
-    return done(Boolean(created), "Voorstel gemaakt.", "Voorstel maken lukte niet.");
+    return done(
+      Boolean(created),
+      "Post gemaakt. Bekijk hem hieronder en klik Nu plaatsen of Goedkeuren.",
+      "Post maken lukte niet.",
+    );
   } catch (error) {
     return failure(error);
   }
 }
 
-/** Own post from image links: images are downloaded and stored as JPEG. */
-export async function createCustomPostAction(
+/** Approve (with the edited caption) and publish immediately. */
+export async function publishNowAction(
   formData: FormData,
 ): Promise<QueueActionResult> {
-  if (!(await guard())) return UNAUTHORIZED;
-  const urls = String(formData.get("imageUrls") ?? "")
-    .split(/\s+/)
-    .map((u) => u.trim())
-    .filter(Boolean);
+  const admin = await guard();
+  if (!admin) return UNAUTHORIZED;
+  const id = String(formData.get("id"));
   const caption = String(formData.get("caption") ?? "").trim();
-  const time = readTime(formData);
-  if (urls.length < 1 || urls.length > 10) {
-    return { ok: false, message: "Geef 1 tot 10 afbeeldingslinks (één per regel)." };
-  }
   if (!caption) return { ok: false, message: "Caption is leeg." };
-  if (!time || time === "invalid") {
-    return { ok: false, message: "Kies een datum en tijd." };
-  }
   try {
-    const jpegs: Buffer[] = [];
-    for (const url of urls) jpegs.push(await ingestExternalImage(url));
-    const created = await createQueuePost({
-      jpegs,
+    const approved = await approveQueuePost(id, {
       caption,
-      scheduledAt: time,
-      status: "te_keuren",
-      source: "manual",
+      scheduledAt: new Date(),
+      approvedBy: admin.email,
     });
-    return done(Boolean(created), "Post toegevoegd.", "Toevoegen lukte niet.");
+    if (!approved) {
+      return { ok: false, message: "Deze post wordt al geplaatst of is al geplaatst." };
+    }
+    const result = await publishQueuePostNow(id);
+    revalidatePath(PATH);
+    return result.ok
+      ? { ok: true, message: "Staat op Instagram!" }
+      : { ok: false, message: result.message };
   } catch (error) {
+    revalidatePath(PATH);
     return failure(error);
   }
 }

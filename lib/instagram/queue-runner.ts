@@ -1,6 +1,6 @@
 /**
- * One cron "tick" for the Instagram queue. Does at most one heavy step per
- * call so it fits a 60s Vercel Hobby function:
+ * One cron "tick" for the Instagram queue (Vercel cron, daily on Hobby).
+ * Does at most one heavy step per call so it fits a 60s function:
  *
  *   1. housekeeping + token refresh (cheap)
  *   2. publish one due post, or else
@@ -19,16 +19,17 @@ import {
 import {
   createMetaClient,
   humanMetaPublishError,
+  waitForContainerFinished,
   type MetaClient,
 } from "@/lib/instagram/meta-client";
 import { readInstagramMetaConfig } from "@/lib/instagram/meta-config";
-import { prepareContainersOnly } from "@/lib/instagram/publish";
 import {
   isAmbiguousPostPublishError,
   META_HTTP_TIMEOUT_MS,
 } from "@/lib/instagram/publish-policy";
 import {
   claimDueQueuePost,
+  claimQueuePostById,
   createQueuePost,
   getAutoPostWithoutApproval,
   hasPostForSlot,
@@ -48,15 +49,19 @@ import {
 /**
  * Weekly proposal slots (Brussels time). weekday: 0 = Sunday.
  * Monday: what's on this week. Wednesday: new on the site. Friday: coming up.
+ * 17:30 is just before the daily cron (17:xx UTC = 18–19h Brussels), so the
+ * post goes out in that evening's run.
  */
+const DAILY_POST_TIME = "17:30";
+
 export const INSTAGRAM_WEEKLY_SLOTS: {
   weekday: number;
   time: string;
   format: InstagramFormatId;
 }[] = [
-  { weekday: 1, time: "19:00", format: "deze_week" },
-  { weekday: 3, time: "19:00", format: "nieuw" },
-  { weekday: 5, time: "17:00", format: "binnenkort" },
+  { weekday: 1, time: DAILY_POST_TIME, format: "deze_week" },
+  { weekday: 3, time: DAILY_POST_TIME, format: "nieuw" },
+  { weekday: 5, time: DAILY_POST_TIME, format: "binnenkort" },
 ];
 
 /** Propose posts this far ahead, so there is time to review them. */
@@ -64,7 +69,7 @@ const PROPOSE_HORIZON_DAYS = 7;
 /** Don't propose a slot that is closer than this. */
 const PROPOSE_MIN_LEAD_MS = 6 * 3_600_000;
 /** Publishing must finish well within the 60s function limit. */
-const PUBLISH_BUDGET_MS = 40_000;
+const PUBLISH_BUDGET_MS = 45_000;
 
 export type QueueSlot = {
   slotKey: string;
@@ -88,6 +93,15 @@ export function upcomingQueueSlots(now = new Date()): QueueSlot[] {
     }
   }
   return out.sort((a, b) => a.at.getTime() - b.at.getTime());
+}
+
+/** Default time for a post made by hand: this evening's run, or tomorrow's. */
+export function nextDailyPostTime(now = new Date()): Date {
+  const today = brusselsToday(now);
+  const tonight = brusselsWallInstant(today, DAILY_POST_TIME);
+  return tonight.getTime() > now.getTime()
+    ? tonight
+    : brusselsWallInstant(addDays(today, 1), DAILY_POST_TIME);
 }
 
 export type QueueTickResult = {
@@ -121,6 +135,8 @@ export async function runInstagramQueueTick(options?: {
   const config = readInstagramMetaConfig();
   if (config.dryRun) {
     notes.push("INSTAGRAM_META_DRY_RUN staat aan: er wordt niets gepost.");
+  } else if (config.publishExplicitlyOff) {
+    notes.push("INSTAGRAM_META_PUBLISH_ENABLED=0: er wordt niets gepost.");
   } else {
     const autoPost = await getAutoPostWithoutApproval();
     const post = await claimDueQueuePost({ autoPost, now });
@@ -134,7 +150,7 @@ export async function runInstagramQueueTick(options?: {
   return result;
 }
 
-async function publishQueuePost(
+export async function publishQueuePost(
   post: InstagramQueuePost,
   injectedClient?: MetaClient,
 ): Promise<{ id: string; ok: boolean; message: string }> {
@@ -174,28 +190,59 @@ async function publishQueuePost(
       graphApiVersion: config.graphApiVersion,
       graphHost: config.graphHost,
     });
-
   const deadlineMs = Date.now() + PUBLISH_BUDGET_MS;
-  const prepared = await prepareContainersOnly({
-    client,
-    caption: post.caption,
-    imageUrls: post.imageUrls,
-    deadlineMs,
-  });
-  if (!prepared.ok) return fail(prepared.message);
-  await saveQueueContainerId(post.id, prepared.containerId);
 
-  const published = await client.publishContainer(prepared.containerId, {
+  // An earlier attempt reached media_publish: find out what happened before
+  // doing anything, so a post that did go live is never published twice.
+  let containerId: string | null = null;
+  if (post.containerId) {
+    const status = await client.getContainerStatus(post.containerId);
+    if (!status.ok) {
+      return fail(
+        "Kon niet nagaan of de vorige poging toch online kwam. Kijk op Instagram en probeer later opnieuw.",
+      );
+    }
+    const code = (status.data.status_code ?? status.data.status ?? "").toUpperCase();
+    if (code === "PUBLISHED") {
+      await markQueuePosted(post.id, null);
+      return { id: post.id, ok: true, message: "Stond al op Instagram (vorige poging)." };
+    }
+    if (code === "FINISHED") {
+      containerId = post.containerId; // ready but never published: reuse it
+    } else if (code !== "ERROR" && code !== "EXPIRED") {
+      return fail(
+        `Vorige poging is nog onduidelijk (status ${code || "onbekend"}). Probeer later opnieuw.`,
+      );
+    }
+  }
+
+  if (!containerId) {
+    const prepared = await prepareContainers({
+      client,
+      caption: post.caption,
+      imageUrls: post.imageUrls,
+      deadlineMs,
+    });
+    if (!prepared.ok) return fail(prepared.message);
+    containerId = prepared.containerId;
+  }
+  await saveQueueContainerId(post.id, containerId);
+
+  const published = await client.publishContainer(containerId, {
     timeoutMs: Math.max(5_000, Math.min(META_HTTP_TIMEOUT_MS, deadlineMs - Date.now())),
   });
   if (!published.ok) {
+    if (published.error.code === "meta_already_published") {
+      await markQueuePosted(post.id, null);
+      return { id: post.id, ok: true, message: "Stond al op Instagram." };
+    }
     const message = humanMetaPublishError(
       published.error.code,
       published.error.message,
     );
     return fail(
       isAmbiguousPostPublishError(published.error.code)
-        ? `Onzeker of de post online staat (${message}) Kijk op Instagram voor je opnieuw probeert.`
+        ? `Onzeker of de post online staat (${message}) "Opnieuw proberen" controleert dat eerst, er komt geen dubbele post.`
         : message,
     );
   }
@@ -203,6 +250,69 @@ async function publishQueuePost(
   await markQueuePosted(post.id, published.data.id);
   console.info(`[instagram/queue] ${post.id} gepost als ${published.data.id}`);
   return { id: post.id, ok: true, message: "Gepost op Instagram." };
+}
+
+/**
+ * Create the containers for one post. Carousel children are created and
+ * polled in parallel so a 7-slide carousel fits the 60s function limit.
+ */
+export async function prepareContainers(args: {
+  client: MetaClient;
+  caption: string;
+  imageUrls: string[];
+  deadlineMs: number;
+}): Promise<{ ok: true; containerId: string } | { ok: false; message: string }> {
+  const { client, caption, imageUrls, deadlineMs } = args;
+  const timeoutMs = () =>
+    Math.max(1_000, Math.min(META_HTTP_TIMEOUT_MS, deadlineMs - Date.now()));
+  const waitReady = (id: string) =>
+    waitForContainerFinished(client, id, { deadlineMs, delayMs: 1_500 });
+  const err = (e: { code: string; message: string }) => ({
+    ok: false as const,
+    message: humanMetaPublishError(e.code, e.message),
+  });
+
+  if (imageUrls.length > 10) {
+    return { ok: false, message: "Instagram staat maximaal 10 afbeeldingen toe." };
+  }
+
+  if (imageUrls.length === 1) {
+    const single = await client.createImageContainer(
+      { imageUrl: imageUrls[0]!, caption },
+      { timeoutMs: timeoutMs() },
+    );
+    if (!single.ok) return err(single.error);
+    const ready = await waitReady(single.data.id);
+    if (!ready.ok) return err(ready.error);
+    return { ok: true, containerId: single.data.id };
+  }
+
+  const children = await Promise.all(
+    imageUrls.map((imageUrl) =>
+      client.createImageContainer(
+        { imageUrl, isCarouselItem: true },
+        { timeoutMs: timeoutMs() },
+      ),
+    ),
+  );
+  const childIds: string[] = [];
+  for (const child of children) {
+    if (!child.ok) return err(child.error);
+    childIds.push(child.data.id);
+  }
+  const childReady = await Promise.all(childIds.map(waitReady));
+  for (const ready of childReady) {
+    if (!ready.ok) return err(ready.error);
+  }
+
+  const carousel = await client.createCarouselContainer(
+    { children: childIds, caption },
+    { timeoutMs: timeoutMs() },
+  );
+  if (!carousel.ok) return err(carousel.error);
+  const ready = await waitReady(carousel.data.id);
+  if (!ready.ok) return err(ready.error);
+  return { ok: true, containerId: carousel.data.id };
 }
 
 async function proposeNextSlot(
@@ -244,4 +354,23 @@ async function proposeNextSlot(
     return { id: created.id, slotKey: slot.slotKey };
   }
   return null;
+}
+
+/** "Nu plaatsen": publish one post right away (admin action). */
+export async function publishQueuePostNow(
+  id: string,
+): Promise<{ ok: boolean; message: string }> {
+  const config = readInstagramMetaConfig();
+  if (config.dryRun) {
+    return { ok: false, message: "INSTAGRAM_META_DRY_RUN staat aan: er wordt niets gepost." };
+  }
+  if (config.publishExplicitlyOff) {
+    return { ok: false, message: "INSTAGRAM_META_PUBLISH_ENABLED=0: posten staat uit." };
+  }
+  const post = await claimQueuePostById(id);
+  if (!post) {
+    return { ok: false, message: "Deze post wordt al geplaatst of is al geplaatst." };
+  }
+  const result = await publishQueuePost(post);
+  return { ok: result.ok, message: result.message };
 }

@@ -9,8 +9,13 @@ import {
   fromBrusselsLocalInput,
   toBrusselsLocalInput,
 } from "../lib/instagram/queue-time";
-import { toInstagramJpeg, ingestExternalImage } from "../lib/instagram/queue-media";
-import { upcomingQueueSlots } from "../lib/instagram/queue-runner";
+import { toInstagramJpeg } from "../lib/instagram/queue-media";
+import {
+  nextDailyPostTime,
+  prepareContainers,
+  upcomingQueueSlots,
+} from "../lib/instagram/queue-runner";
+import type { MetaClient } from "../lib/instagram/meta-client";
 import { publicMediaUrl, normalizeCaption } from "../lib/instagram/queue";
 import {
   decryptToken,
@@ -56,6 +61,10 @@ async function main() {
   assert.equal(config.graphHost, "graph.instagram.com");
   assert.equal(config.igUserId, "17841452044721453");
   assert.deepEqual(config.missingForLive, []);
+  assert.equal(config.publishExplicitlyOff, false, "queue posts by default");
+  process.env.INSTAGRAM_META_PUBLISH_ENABLED = "0";
+  assert.equal(readInstagramMetaConfig().publishExplicitlyOff, true, "emergency stop");
+  delete process.env.INSTAGRAM_META_PUBLISH_ENABLED;
 
   // --- Brussels time conversion (incl. DST) ---------------------------------
   for (const iso of [
@@ -74,13 +83,75 @@ async function main() {
   const slots = upcomingQueueSlots(new Date("2026-10-26T08:00:00Z")); // Monday 09:00
   const keys = slots.map((s) => s.slotKey);
   assert.deepEqual(keys, [
-    "2026-10-26T19:00|deze_week",
-    "2026-10-28T19:00|nieuw",
-    "2026-10-30T17:00|binnenkort",
+    "2026-10-26T17:30|deze_week",
+    "2026-10-28T17:30|nieuw",
+    "2026-10-30T17:30|binnenkort",
   ]);
-  assert.equal(slots[0]!.at.toISOString(), "2026-10-26T18:00:00.000Z", "19:00 CET");
+  assert.equal(slots[0]!.at.toISOString(), "2026-10-26T16:30:00.000Z", "17:30 CET");
   const tooClose = upcomingQueueSlots(new Date("2026-10-26T15:00:00Z"));
   assert.ok(!tooClose.some((s) => s.slotKey.startsWith("2026-10-26")), "needs 6h lead");
+
+  assert.equal(
+    nextDailyPostTime(new Date("2026-10-26T10:00:00Z")).toISOString(),
+    "2026-10-26T16:30:00.000Z",
+    "before 17:30 → tonight",
+  );
+  assert.equal(
+    nextDailyPostTime(new Date("2026-10-26T18:00:00Z")).toISOString(),
+    "2026-10-27T16:30:00.000Z",
+    "after 17:30 → tomorrow",
+  );
+
+  // --- carousel containers: parallel children, then parent ------------------
+  const calls: string[] = [];
+  let inFlight = 0;
+  let maxInFlight = 0;
+  let n = 0;
+  const fake: MetaClient = {
+    createImageContainer: async ({ isCarouselItem, caption }) => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      calls.push(isCarouselItem ? "child" : `single:${caption}`);
+      return { ok: true, data: { id: `c${++n}` } };
+    },
+    createCarouselContainer: async ({ children, caption }) => {
+      calls.push(`carousel:${children.length}:${caption}`);
+      return { ok: true, data: { id: "parent" } };
+    },
+    publishContainer: async () => ({ ok: true, data: { id: "media" } }),
+    getContainerStatus: async () => ({ ok: true, data: { status_code: "FINISHED" } }),
+  };
+  const carousel = await prepareContainers({
+    client: fake,
+    caption: "hallo",
+    imageUrls: ["a", "b", "c", "d", "e", "f", "g"],
+    deadlineMs: Date.now() + 10_000,
+  });
+  assert.deepEqual(carousel, { ok: true, containerId: "parent" });
+  assert.equal(calls.filter((c) => c === "child").length, 7);
+  assert.equal(calls.at(-1), "carousel:7:hallo");
+  assert.ok(maxInFlight > 1, "children are created in parallel");
+  const single = await prepareContainers({
+    client: fake,
+    caption: "één",
+    imageUrls: ["a"],
+    deadlineMs: Date.now() + 10_000,
+  });
+  assert.equal(single.ok, true);
+  assert.equal(calls.at(-1), "single:één");
+  const failing: MetaClient = {
+    ...fake,
+    getContainerStatus: async () => ({ ok: true, data: { status_code: "ERROR" } }),
+  };
+  const failed = await prepareContainers({
+    client: failing,
+    caption: "x",
+    imageUrls: ["a", "b"],
+    deadlineMs: Date.now() + 10_000,
+  });
+  assert.equal(failed.ok, false, "container error stops before publish");
 
   // --- public media URL + caption ------------------------------------------
   assert.equal(
@@ -107,17 +178,6 @@ async function main() {
     assert.ok(Math.abs(meta.width! / meta.height! - ratio) < 0.01, `${w}x${h}`);
     assert.ok(jpeg.byteLength < 8 * 1024 * 1024);
   }
-
-  // --- external images: https only, must be an image ------------------------
-  await assert.rejects(ingestExternalImage("http://example.com/a.jpg"), /https/);
-  const fakeFetch = (async () =>
-    new Response("<html>", { headers: { "content-type": "text/html" } })) as typeof fetch;
-  await assert.rejects(ingestExternalImage("https://example.com/a", fakeFetch), /Geen afbeelding/);
-  const pngBytes = await png(800, 800);
-  const imageFetch = (async () =>
-    new Response(new Uint8Array(pngBytes), { headers: { "content-type": "image/png" } })) as typeof fetch;
-  const ingested = await ingestExternalImage("https://example.com/a.png", imageFetch);
-  assert.equal((await sharp(ingested).metadata()).format, "jpeg");
 
   console.log("OK: Instagram queue offline checks passed.");
 }

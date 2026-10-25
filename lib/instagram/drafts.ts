@@ -3,15 +3,20 @@
  */
 
 import type { Event } from "@/types/event";
-import { buildInstagramCaption } from "@/lib/instagram/captions";
+import {
+  buildInstagramCaption,
+  buildSingleEventCaption,
+} from "@/lib/instagram/captions";
 import {
   type InstagramDraftStatus,
   type InstagramFormatId,
 } from "@/lib/instagram/constants";
 import {
   hasEnoughEventsForFormat,
+  isInstagramBaseEligible,
   selectInstagramEvents,
 } from "@/lib/instagram/selection";
+import { brusselsToday } from "@/lib/dates";
 import type { InstagramRenderKind } from "@/lib/instagram/render";
 
 export type InstagramSlidePlan = {
@@ -204,4 +209,47 @@ export function imageUrlFromQuery(
 ): string {
   const params = new URLSearchParams(query);
   return `${basePath}?${params.toString()}`;
+}
+
+/** Upcoming events that may get their own post, soonest first. */
+export function listSingleEventCandidates(
+  catalog: Event[],
+  now = new Date(),
+): Event[] {
+  const today = brusselsToday(now);
+  return catalog
+    .filter((e) => isInstagramBaseEligible(e, today, now))
+    .sort((a, b) =>
+      `${a.startDate} ${a.startTime ?? ""}`.localeCompare(
+        `${b.startDate} ${b.startTime ?? ""}`,
+      ),
+    );
+}
+
+/** One-slide post about a single event. */
+export function buildSingleEventDraft(event: Event): InstagramDraft {
+  const caption = buildSingleEventCaption(event);
+  return {
+    id: `ig-event-${event.id}-${Date.now()}`,
+    format: "binnenkort",
+    status: "concept",
+    periodLabel: "",
+    eventIds: [event.id],
+    events: [event],
+    caption: caption.text,
+    altHint: caption.altHint,
+    slides: [
+      {
+        kind: "event",
+        label: `Event — ${event.title}`,
+        query: slideQuery("event", {
+          id: event.id,
+          index: "1",
+          total: "1",
+          format: "binnenkort",
+        }),
+      },
+    ],
+    createdAt: new Date().toISOString(),
+  };
 }

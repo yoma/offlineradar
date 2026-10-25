@@ -183,3 +183,31 @@ export function buildInstagramCaption(
     altHint: `Binnenkort te beleven: ${events.length} activiteiten`,
   };
 }
+
+/** Caption for a post about one event (facts from Event only). */
+export function buildSingleEventCaption(event: Event): InstagramCaption {
+  const city = (event.city ?? "").trim();
+  const facts = [ageLine(event), priceLine(event)].filter(Boolean).join(" · ");
+  const blurb = (event.shortDescription ?? "").trim();
+  const organizer = (event.organizerName ?? "").trim();
+  const text = [
+    event.title,
+    "",
+    [igWhen(event), city].filter(Boolean).join(" · "),
+    ...(facts ? [facts] : []),
+    ...(blurb
+      ? ["", blurb.length > 400 ? `${blurb.slice(0, 397).trimEnd()}…` : blurb]
+      : []),
+    "",
+    `Inschrijven doe je rechtstreeks bij ${organizer || "de organisator"}. Meer info via de link in bio of op ${INSTAGRAM_WEBSITE}.`,
+    "",
+    INSTAGRAM_SLOGAN,
+    "",
+    hashtagsFor([event]),
+  ].join("\n");
+  return {
+    format: "binnenkort",
+    text,
+    altHint: `${event.title}${city ? ` in ${city}` : ""}`,
+  };
+}

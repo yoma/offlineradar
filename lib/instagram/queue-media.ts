@@ -2,6 +2,7 @@
  * Turn queue slides into JPEG bytes Instagram accepts:
  * JPEG, sRGB, ≤ 8 MB, aspect ratio between 4:5 and 1.91:1, max 1440 px wide.
  * Bytes are stored in Neon and served from /api/instagram/media/{id}.jpg.
+ * toInstagramJpeg is a safety net for images that do not come from our renderer.
  */
 
 import sharp from "sharp";
@@ -9,7 +10,6 @@ import type { InstagramDraft } from "@/lib/instagram/drafts";
 import { renderInstagramJpegFromQuery } from "@/lib/instagram/render-jpeg";
 import type { Event } from "@/types/event";
 
-const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
 const MAX_JPEG_BYTES = 8 * 1024 * 1024;
 const MIN_RATIO = 4 / 5;
 const MAX_RATIO = 1.91;
@@ -60,38 +60,4 @@ export async function toInstagramJpeg(input: Buffer): Promise<Buffer> {
     if (jpeg.byteLength <= MAX_JPEG_BYTES) return jpeg;
   }
   throw new Error("Afbeelding blijft groter dan 8 MB.");
-}
-
-/** Download an admin-supplied https image and convert it to a safe JPEG. */
-export async function ingestExternalImage(
-  rawUrl: string,
-  fetchImpl: typeof fetch = fetch,
-): Promise<Buffer> {
-  let url: URL;
-  try {
-    url = new URL(rawUrl.trim());
-  } catch {
-    throw new Error(`Ongeldige URL: ${rawUrl.slice(0, 80)}`);
-  }
-  if (url.protocol !== "https:") {
-    throw new Error("Alleen https-afbeeldingen zijn toegestaan.");
-  }
-  const res = await fetchImpl(url.toString(), {
-    redirect: "follow",
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!res.ok) {
-    throw new Error(`Afbeelding niet bereikbaar (HTTP ${res.status}): ${url.hostname}`);
-  }
-  const type = res.headers.get("content-type") ?? "";
-  if (type && !type.startsWith("image/")) {
-    throw new Error(`Geen afbeelding (${type.split(";")[0]}): ${url.hostname}`);
-  }
-  const length = Number(res.headers.get("content-length") ?? 0);
-  if (length > MAX_DOWNLOAD_BYTES) throw new Error("Afbeelding is groter dan 20 MB.");
-  const bytes = Buffer.from(await res.arrayBuffer());
-  if (bytes.byteLength > MAX_DOWNLOAD_BYTES) {
-    throw new Error("Afbeelding is groter dan 20 MB.");
-  }
-  return toInstagramJpeg(bytes);
 }

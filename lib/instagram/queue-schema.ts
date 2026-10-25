@@ -113,11 +113,12 @@ export function ensureInstagramQueueSchema(): Promise<boolean> {
         WHERE id = ${INSTAGRAM_POST_QUEUE_MIGRATION_ID}
       `) as unknown[];
       if (done.length > 0) return true;
-      for (const statement of splitSqlStatements(
-        INSTAGRAM_POST_QUEUE_SCHEMA_SQL,
-      )) {
-        await sql.query(statement, []);
-      }
+      // One transaction: either the whole schema exists or none of it.
+      await sql.transaction(
+        splitSqlStatements(INSTAGRAM_POST_QUEUE_SCHEMA_SQL).map((statement) =>
+          sql.query(statement, []),
+        ),
+      );
       return true;
     })().catch((error) => {
       ensured = null;

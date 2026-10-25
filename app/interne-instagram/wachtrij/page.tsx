@@ -6,6 +6,8 @@ import {
 import { InterneAdminNav } from "@/components/admin/interne-admin-nav";
 import { InterneAdminShell } from "@/components/admin/interne-admin-shell";
 import { InstagramQueueClient } from "@/components/admin/instagram-queue-client";
+import { listEvents } from "@/lib/events";
+import { listSingleEventCandidates } from "@/lib/instagram/drafts";
 import { readInstagramMetaConfig } from "@/lib/instagram/meta-config";
 import {
   getAutoPostWithoutApproval,
@@ -16,6 +18,8 @@ import { upcomingQueueSlots } from "@/lib/instagram/queue-runner";
 import { getInstagramTokenStatus } from "@/lib/instagram/token-store";
 
 export const dynamic = "force-dynamic";
+/** "Nu plaatsen" publishes inside the server action. */
+export const maxDuration = 60;
 
 function GateShell({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -63,6 +67,16 @@ export default async function InstagramWachtrijPage() {
       error instanceof Error ? error.message : "Wachtrij kon niet geladen worden.";
   }
 
+  let eventOptions: { id: string; label: string }[] = [];
+  try {
+    eventOptions = listSingleEventCandidates(await listEvents()).map((e) => ({
+      id: e.id,
+      label: `${e.startDate}${e.startTime ? ` ${e.startTime}` : ""} · ${e.title}${e.city ? ` (${e.city})` : ""}`,
+    }));
+  } catch {
+    eventOptions = [];
+  }
+
   const config = readInstagramMetaConfig();
   const token = await getInstagramTokenStatus();
   const nextSlots = upcomingQueueSlots().map((s) => ({
@@ -78,6 +92,7 @@ export default async function InstagramWachtrijPage() {
         autoPost={autoPost}
         loadError={loadError}
         nextSlots={nextSlots}
+        eventOptions={eventOptions}
         renderedAt={new Date().toISOString()}
         setup={{
           userIdSet: Boolean(config.igUserId),
