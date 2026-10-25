@@ -1,5 +1,9 @@
 # Instagram Fase 3B — eenmalige Meta-koppeling
 
+> **Verouderd:** de site gebruikt nu Instagram Login (`graph.instagram.com`) met
+> `INSTAGRAM_USER_ID` / `INSTAGRAM_ACCESS_TOKEN`, zonder Facebook-pagina.
+> Zie `docs/instagram-wachtrij.md`.
+
 Korte handleiding om `@dateofflinehub` klaar te zetten voor officiële publicatie via de Instagram Graph API. Geen cron, geen automatische posts: publicatie gebeurt alleen via de knop **Publiceren naar Instagram** op `/interne-instagram`.
 
 Bron: [Meta Content Publishing](https://developers.facebook.com/docs/instagram-platform/content-publishing).

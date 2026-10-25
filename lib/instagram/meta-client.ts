@@ -1,7 +1,7 @@
 /**
- * Minimal Instagram Graph API client (Facebook Login / Page token path).
- * Access tokens are sent in POST bodies / Authorization headers — never in URLs.
- * No cron. Caller gates live calls behind feature flags.
+ * Minimal Instagram Graph API client (Instagram Login, graph.instagram.com).
+ * Access tokens are sent in POST bodies / Authorization headers, never in URLs
+ * (the one exception, refresh_access_token, lives in token-store.ts).
  */
 
 import {
@@ -371,7 +371,8 @@ export function humanMetaPublishError(code: string, detail?: string): string {
       "Inhoud wijkt af van de goedgekeurde versie. Keur opnieuw goed.",
     event_drift:
       "Eventgegevens (titel/datum/locatie) zijn gewijzigd na goedkeuring. Keur opnieuw goed vóór publiceren.",
-    missing_credentials: "Meta-credentials ontbreken in de serveromgeving.",
+    missing_credentials:
+      "INSTAGRAM_USER_ID of INSTAGRAM_ACCESS_TOKEN ontbreekt in de serveromgeving.",
     missing_signing_secret: "Signing-secret voor publieke media-URL ontbreekt.",
     already_published: "Dit concept is al gepubliceerd naar Instagram.",
     publish_in_progress: "Er loopt al een publicatie voor dit concept.",
@@ -384,7 +385,8 @@ export function humanMetaPublishError(code: string, detail?: string): string {
       "Meta lijkt te zijn gepubliceerd, maar Neon-log kon niet worden bevestigd. Controleer Instagram; geen automatische retry.",
     no_slides: "Concept heeft geen slides om te publiceren.",
     carousel_too_small: "Een carrousel heeft minstens 2 afbeeldingen nodig.",
-    meta_auth: "Meta-token ongeldig of verlopen. Vernieuw META_PAGE_ACCESS_TOKEN.",
+    meta_auth:
+      "Instagram-token ongeldig of verlopen. Zet een nieuw INSTAGRAM_ACCESS_TOKEN in Vercel.",
     meta_rate_limit: "Meta rate limit bereikt. Probeer later opnieuw.",
     meta_media_url:
       "Meta kon de afbeeldings-URL niet ophalen. Controleer publieke URL / signing.",

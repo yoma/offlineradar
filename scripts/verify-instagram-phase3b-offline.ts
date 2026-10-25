@@ -270,8 +270,8 @@ async function withLiveEnv(fn: () => Promise<void>) {
   const prev = { ...process.env };
   process.env.INSTAGRAM_META_PUBLISH_ENABLED = "1";
   delete process.env.INSTAGRAM_META_DRY_RUN;
-  process.env.META_IG_USER_ID = "ig";
-  process.env.META_PAGE_ACCESS_TOKEN = "tok";
+  process.env.INSTAGRAM_USER_ID = "ig";
+  process.env.INSTAGRAM_ACCESS_TOKEN = "tok";
   process.env.INSTAGRAM_IMAGE_SIGNING_SECRET = "offline-secret";
   try {
     await fn();

@@ -28,6 +28,7 @@ import {
   metaPublishModeLabel,
   readInstagramMetaConfig,
 } from "@/lib/instagram/meta-config";
+import { getInstagramAccessToken } from "@/lib/instagram/token-store";
 import {
   canReleasePendingForStatus,
   isAmbiguousPostPublishError,
@@ -840,7 +841,7 @@ export async function publishInstagramConcept(
         : (input.metaClient ??
           createMetaClient({
             igUserId: config.igUserId!,
-            accessToken: config.accessToken!,
+            accessToken: (await getInstagramAccessToken()) ?? config.accessToken!,
             graphApiVersion: config.graphApiVersion,
             graphHost: config.graphHost,
           }));
@@ -979,7 +980,7 @@ async function continueFreshPublish(args: {
     input.metaClient ??
     createMetaClient({
       igUserId: config.igUserId!,
-      accessToken: config.accessToken!,
+      accessToken: (await getInstagramAccessToken()) ?? config.accessToken!,
       graphApiVersion: config.graphApiVersion,
       graphHost: config.graphHost,
     });

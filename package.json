@@ -111,6 +111,7 @@
     "backfill:coords": "node --env-file=.env.local --import tsx scripts/backfill-edition-coords.ts",
     "db:migrate:instagram-concept-history": "node --env-file=.env.local --import tsx scripts/migrate-instagram-concept-history.ts",
     "db:migrate:instagram-publishes": "node --env-file=.env.local --import tsx scripts/migrate-instagram-publishes.ts",
+    "db:migrate:instagram-post-queue": "node --env-file=.env.local --import tsx scripts/migrate-instagram-post-queue.ts",
     "db:migrate:instagram-approvals": "node --env-file=.env.local --import tsx scripts/migrate-instagram-approvals.ts",
     "db:migrate:instagram-approvals-content-v2": "node --env-file=.env.local --import tsx scripts/migrate-instagram-approvals-content-v2.ts",
     "verify:instagram-phase3a": "npx tsx scripts/verify-instagram-phase3a.ts",
@@ -120,6 +121,7 @@
     "verify:instagram-blurb-sanitize": "npx tsx scripts/verify-instagram-blurb-sanitize.ts",
     "verify:instagram-approve-newline": "npx tsx scripts/verify-instagram-approve-newline.ts",
     "verify:instagram-history-neon": "node --env-file=.env.local --import tsx scripts/verify-instagram-history-neon.ts",
+    "verify:instagram-queue": "npx tsx scripts/verify-instagram-queue.ts",
     "verify:instagram-publishes-neon": "node --env-file=.env.local --import tsx scripts/verify-instagram-publishes-neon.ts"
   },
   "dependencies": {

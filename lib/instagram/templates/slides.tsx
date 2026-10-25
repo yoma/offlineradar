@@ -743,7 +743,7 @@ function EventTypeSlide({
           padding: `${IG_MARGIN}px ${IG_MARGIN}px 60px`,
         }}
       >
-        <Masthead markSrc={logoSrc} tone={tone} right={`${index} / ${total}`} />
+        <Masthead markSrc={logoSrc} tone={tone} right={total > 1 ? `${index} / ${total}` : undefined} />
 
         <div style={{ display: "flex", marginTop: 44 }}>
           <Label color={p.accent} size={22}>
@@ -924,9 +924,11 @@ function EventPhotoSlide({
           style={{ width: 1080, height: photoH, objectFit: "cover" }}
           alt=""
         />
-        <div style={{ display: "flex", position: "absolute", top: 40, right: 40 }}>
-          <PhotoTag>{`${index} / ${total}`}</PhotoTag>
-        </div>
+        {total > 1 ? (
+          <div style={{ display: "flex", position: "absolute", top: 40, right: 40 }}>
+            <PhotoTag>{`${index} / ${total}`}</PhotoTag>
+          </div>
+        ) : null}
         {showAtmosphereLabel ? (
           <div style={{ display: "flex", position: "absolute", left: 40, bottom: 40 }}>
             <PhotoTag>Sfeerbeeld</PhotoTag>
