@@ -1,166 +1,84 @@
 /**
- * Shared Instagram chrome — cream-first like the website.
- * Official logo + website on every slide. Satori-safe CSS only.
+ * Shared Instagram chrome, "agenda" style.
+ *
+ * Design intent: read like a city magazine listings page, not a generated
+ * poster. Solid colour fields, a strict left edge, large type, hairline rules,
+ * one accent colour per slide. No gradients, no glow, no photo washes, no
+ * pill buttons (Instagram images are not clickable).
+ *
+ * Satori-safe CSS only: every element is display:flex.
  */
 
 import {
   IG_FEED,
-  INSTAGRAM_HANDLE,
-  INSTAGRAM_SLOGAN,
   INSTAGRAM_WEBSITE,
   igColors,
 } from "@/lib/instagram/constants";
 
-export const slideStyle = {
-  width: IG_FEED.width,
-  height: IG_FEED.height,
-  display: "flex" as const,
-  flexDirection: "column" as const,
-  fontFamily: "DM Sans",
-  color: igColors.anthracite,
-  position: "relative" as const,
-  overflow: "hidden" as const,
-  background: igColors.cream,
-};
+/** Outer margin on every slide (also the left text edge). */
+export const IG_MARGIN = 72;
 
-/**
- * Top brand row: official logo (square asset → display large) + wordmark + slogan.
- * Logo file is ~1:1; size by height so it stays readable on phone.
- */
-export function BrandHeader({
-  logoSrc,
-  light = false,
+export type SlideTone = "bordeaux" | "cream";
+
+/** Colour roles per tone. Keep one accent per slide. */
+export function tonePalette(tone: SlideTone) {
+  if (tone === "bordeaux") {
+    return {
+      bg: igColors.bordeaux,
+      ink: igColors.cream,
+      inkSoft: "rgba(249,242,234,0.72)",
+      inkFaint: "rgba(249,242,234,0.5)",
+      accent: igColors.gold,
+      rule: "rgba(249,242,234,0.2)",
+      ruleStrong: "rgba(249,242,234,0.55)",
+    };
+  }
+  return {
+    bg: igColors.cream,
+    ink: igColors.anthracite,
+    inkSoft: "rgba(47,48,53,0.74)",
+    inkFaint: "rgba(47,48,53,0.52)",
+    accent: igColors.bordeaux,
+    rule: "rgba(47,48,53,0.16)",
+    ruleStrong: "rgba(47,48,53,0.7)",
+  };
+}
+
+export function slideStyle(tone: SlideTone) {
+  const p = tonePalette(tone);
+  return {
+    width: IG_FEED.width,
+    height: IG_FEED.height,
+    display: "flex" as const,
+    flexDirection: "column" as const,
+    fontFamily: "DM Sans",
+    color: p.ink,
+    position: "relative" as const,
+    overflow: "hidden" as const,
+    background: p.bg,
+  };
+}
+
+/** Small tracked uppercase label (kickers, column labels). */
+export function Label({
+  children,
+  color,
+  size = 20,
 }: {
-  logoSrc: string;
-  /** true = on photo; false = on cream (website default). */
-  light?: boolean;
+  children: string;
+  color: string;
+  size?: number;
 }) {
   return (
     <div
       style={{
         display: "flex",
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 18,
-        width: "100%",
-      }}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={logoSrc}
-        width={168}
-        height={168}
-        style={{ objectFit: "contain", flexShrink: 0 }}
-        alt="DateOfflineHub"
-      />
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          flex: 1,
-          minWidth: 0,
-          gap: 6,
-          paddingLeft: 2,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            fontFamily: "Bricolage Grotesque",
-            fontSize: 36,
-            fontWeight: 700,
-            color: light ? igColors.cream : igColors.bordeaux,
-            lineHeight: 1.05,
-            letterSpacing: -0.4,
-          }}
-        >
-          DateOfflineHub
-        </div>
-        <div
-          style={{
-            display: "flex",
-            fontSize: 18,
-            lineHeight: 1.35,
-            color: light ? "rgba(249,242,234,0.95)" : igColors.bordeaux,
-            fontFamily: "DM Sans",
-            fontWeight: 500,
-            opacity: 0.92,
-          }}
-        >
-          {INSTAGRAM_SLOGAN}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** Bottom bar: website + handle (every slide). */
-export function BrandFooter({
-  light = false,
-  /** When false, footer sits tight under content (no flex push). */
-  pushDown = true,
-}: {
-  light?: boolean;
-  pushDown?: boolean;
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        width: "100%",
-        marginTop: pushDown ? "auto" : 8,
-        paddingTop: 16,
-        paddingBottom: 6,
-        borderTop: `1px solid ${
-          light ? igColors.lineGold : "rgba(103,40,58,0.18)"
-        }`,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          fontSize: 24,
-          fontWeight: 600,
-          color: light ? igColors.gold : igColors.goldDeep,
-          fontFamily: "DM Sans",
-          letterSpacing: 0.4,
-        }}
-      >
-        {INSTAGRAM_WEBSITE}
-      </div>
-      <div
-        style={{
-          display: "flex",
-          fontSize: 22,
-          fontWeight: 600,
-          color: light ? "rgba(249,242,234,0.9)" : igColors.bordeaux,
-          fontFamily: "DM Sans",
-        }}
-      >
-        {INSTAGRAM_HANDLE}
-      </div>
-    </div>
-  );
-}
-
-export function GoldPill({ children }: { children: string }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        padding: "8px 18px",
-        borderRadius: 999,
-        background: igColors.gold,
-        color: igColors.bordeaux,
-        fontSize: 18,
-        fontWeight: 700,
         fontFamily: "DM Sans",
-        letterSpacing: 1.2,
+        fontWeight: 600,
+        fontSize: size,
+        letterSpacing: size * 0.16,
         textTransform: "uppercase" as const,
+        color,
       }}
     >
       {children}
@@ -168,127 +86,145 @@ export function GoldPill({ children }: { children: string }) {
   );
 }
 
+export function Rule({
+  color,
+  thickness = 1,
+  marginTop = 0,
+}: {
+  color: string;
+  thickness?: number;
+  marginTop?: number;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        width: "100%",
+        height: thickness,
+        background: color,
+        marginTop,
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
 /**
- * Elegant gold accent line — not a large clickable-looking button.
- * Instagram images are not interactive.
+ * Masthead: the bubble mark only (no repeated wordmark image), the name set
+ * as small caps, and an optional right-hand label (section or slide count).
  */
-export function GoldCta({ children }: { children: string }) {
+export function Masthead({
+  markSrc,
+  tone,
+  right,
+}: {
+  markSrc: string;
+  tone: SlideTone;
+  right?: string;
+}) {
+  const p = tonePalette(tone);
   return (
     <div
       style={{
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
         width: "100%",
-        gap: 10,
-        paddingTop: 4,
-        paddingBottom: 2,
+        flexShrink: 0,
       }}
     >
       <div
         style={{
           display: "flex",
-          width: 120,
-          height: 2,
-          background: igColors.gold,
-          borderRadius: 2,
-        }}
-      />
-      <div
-        style={{
-          display: "flex",
+          flexDirection: "row",
           alignItems: "center",
-          justifyContent: "center",
-          color: igColors.goldDeep,
-          fontSize: 20,
-          fontWeight: 600,
-          fontFamily: "DM Sans",
-          letterSpacing: 0.2,
-          textAlign: "center",
+          justifyContent: "space-between",
+          width: "100%",
+          paddingBottom: 22,
         }}
       >
-        {children}
-      </div>
-    </div>
-  );
-}
-
-/** Category labels as quiet text — not pill buttons. */
-export function CategoryIconRow() {
-  const items = [
-    "Drinks",
-    "Sport",
-    "Speeddates",
-    "Diners",
-    "Feestjes",
-    "Reizen",
-  ];
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "row",
-        justifyContent: "center",
-        alignItems: "center",
-        width: "100%",
-        gap: 14,
-        marginTop: 14,
-        flexWrap: "wrap" as const,
-      }}
-    >
-      {items.map((label, i) => (
         <div
-          key={label}
           style={{
             display: "flex",
             flexDirection: "row",
             alignItems: "center",
-            gap: 14,
+            gap: 16,
           }}
         >
-          {i > 0 ? (
-            <div
-              style={{
-                display: "flex",
-                width: 4,
-                height: 4,
-                borderRadius: 4,
-                background: "rgba(156,124,37,0.55)",
-              }}
-            />
-          ) : null}
-          <div
-            style={{
-              display: "flex",
-              color: igColors.goldInk,
-              fontSize: 15,
-              fontWeight: 600,
-              fontFamily: "DM Sans",
-              letterSpacing: 0.3,
-            }}
-          >
-            {label}
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={markSrc}
+            width={62}
+            height={48}
+            style={{ objectFit: "contain" }}
+            alt=""
+          />
+          <Label color={p.ink} size={21}>
+            DateOfflineHub
+          </Label>
         </div>
-      ))}
+        {right ? (
+          <Label color={p.inkFaint} size={21}>
+            {right}
+          </Label>
+        ) : null}
+      </div>
+      <Rule color={p.ruleStrong} />
     </div>
   );
 }
 
-/** Soft photo → cream fade (no heavy bordeaux wash). */
-export function PhotoCreamFade({ height = 360 }: { height?: number }) {
+/** Bottom line on every slide: what to do + where. */
+export function Colophon({
+  tone,
+  action,
+}: {
+  tone: SlideTone;
+  action: string;
+}) {
+  const p = tonePalette(tone);
   return (
     <div
       style={{
-        position: "absolute",
-        left: 0,
-        bottom: 0,
-        width: 1080,
-        height: Math.round(height * 0.55),
-        background: `linear-gradient(180deg, rgba(249,242,234,0) 0%, ${igColors.cream} 100%)`,
         display: "flex",
+        flexDirection: "column",
+        width: "100%",
+        marginTop: "auto",
+        flexShrink: 0,
       }}
-    />
+    >
+      <Rule color={p.ruleStrong} />
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+          width: "100%",
+          paddingTop: 22,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            fontSize: 25,
+            color: p.inkSoft,
+            fontFamily: "DM Sans",
+          }}
+        >
+          {action}
+        </div>
+        <div
+          style={{
+            display: "flex",
+            fontSize: 25,
+            fontWeight: 600,
+            color: p.accent,
+            fontFamily: "DM Sans",
+          }}
+        >
+          {INSTAGRAM_WEBSITE}
+        </div>
+      </div>
+    </div>
   );
 }

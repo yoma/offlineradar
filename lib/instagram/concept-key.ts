@@ -78,8 +78,10 @@ export function buildInstagramContentFingerprint(input: {
     slides: canonicalizeSlidesForApproval(input.slides),
     eventSnapshots: canonicalizeEventSnapshots(input.eventSnapshots),
   };
+  // v5: slide design ("agenda" templates). Approvals are for what was seen,
+  // so a template redesign invalidates older approvals.
   return createHash("sha256")
-    .update(`ig3b-content:v4:${JSON.stringify(payload)}`)
+    .update(`ig3b-content:v5:${JSON.stringify(payload)}`)
     .digest("hex")
     .slice(0, 64);
 }

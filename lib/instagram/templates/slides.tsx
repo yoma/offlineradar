@@ -1,32 +1,43 @@
 /**
- * Instagram 4:5 templates — cream + lifestyle combo.
- * Petal date badges inspired by the upcoming-events reference,
- * without the heavy dark poster wash. Website-like cream canvas.
+ * Instagram 4:5 templates, "agenda" style (see templates/shared.tsx).
+ *
+ * - Covers and overviews are purely typographic: a listings page with a
+ *   large date column. No stock or generated photography.
+ * - Event slides show a photo only when it is a real image of that event.
+ *   Atmosphere / library images are left out on Instagram, because generated
+ *   people photos are what makes a feed look "AI made".
+ * - Facts come only from the Event. Unknown stays out; nothing is invented.
  */
 
-import { formatAgeRange, ACTIVITY_LABEL } from "@/lib/format";
-import { formatDayMonth, formatLongDate, weekdayIndex } from "@/lib/dates";
+import { ACTIVITY_LABEL, formatAgeRange, formatPrice, formatPriceFrom } from "@/lib/format";
+import { weekdayIndex } from "@/lib/dates";
 import type { ActivityId, Event } from "@/types/event";
-import { effectiveInstagramBlurb } from "@/lib/instagram/blurb";
-import { igColors } from "@/lib/instagram/constants";
+import { sanitizeInstagramBlurb } from "@/lib/instagram/blurb";
+import { shortenTitle } from "@/lib/instagram/title";
 import {
-  titleForEventRow,
-  titleForEventSlide,
-} from "@/lib/instagram/title";
-import {
-  BrandFooter,
-  BrandHeader,
-  CategoryIconRow,
-  GoldCta,
-  GoldPill,
-  PhotoCreamFade,
+  Colophon,
+  IG_MARGIN,
+  Label,
+  Masthead,
+  Rule,
+  type SlideTone,
   slideStyle,
+  tonePalette,
 } from "@/lib/instagram/templates/shared";
 
 /** @deprecated use sanitizeInstagramBlurb from `@/lib/instagram/blurb` */
 export { sanitizeInstagramBlurb } from "@/lib/instagram/blurb";
 
 const WEEKDAY_SHORT = ["zo", "ma", "di", "wo", "do", "vr", "za"] as const;
+const WEEKDAY_LONG = [
+  "zondag",
+  "maandag",
+  "dinsdag",
+  "woensdag",
+  "donderdag",
+  "vrijdag",
+  "zaterdag",
+] as const;
 const MONTHS_SHORT = [
   "jan",
   "feb",
@@ -41,29 +52,27 @@ const MONTHS_SHORT = [
   "nov",
   "dec",
 ] as const;
+const MONTHS_LONG = [
+  "januari",
+  "februari",
+  "maart",
+  "april",
+  "mei",
+  "juni",
+  "juli",
+  "augustus",
+  "september",
+  "oktober",
+  "november",
+  "december",
+] as const;
 
 function dayNumber(startDate: string): string {
   return String(Number(startDate.slice(8, 10)));
 }
 
-function monthShort(startDate: string): string {
-  const m = Number(startDate.slice(5, 7));
-  return MONTHS_SHORT[m - 1] ?? "";
-}
-
-function weekdayShort(startDate: string): string {
-  return WEEKDAY_SHORT[weekdayIndex(startDate)];
-}
-
-function locationLine(event: Pick<Event, "city" | "region">): string {
-  const city = (event.city ?? "").trim();
-  const region = (event.region ?? "").trim();
-  if (!region) return city;
-  if (region.toLowerCase() === city.toLowerCase()) return city;
-  if (/brussel|bruxelles/i.test(city) && /brussel|bruxelles/i.test(region)) {
-    return city;
-  }
-  return city;
+function monthIndex(startDate: string): number {
+  return Number(startDate.slice(5, 7)) - 1;
 }
 
 function activityText(event: Event): string | null {
@@ -72,278 +81,624 @@ function activityText(event: Event): string | null {
   return null;
 }
 
-function ageShort(event: Event): string | null {
+/** Age as shown on the slide. Guideline ages are labelled as such. */
+function ageText(event: Event): string | null {
   if (event.eligibilityAgeRule === "unknown") return null;
-  if (event.eligibilityAgeMin == null && event.eligibilityAgeMax == null) {
-    return null;
+  const range = formatAgeRange(event.eligibilityAgeMin, event.eligibilityAgeMax);
+  if (!range) return null;
+  return event.eligibilityAgeRule === "guideline"
+    ? `richtleeftijd ${range}`
+    : range;
+}
+
+/** Price only when known. "Prijs onbekend" is not something to advertise. */
+function priceText(event: Event): string | null {
+  if (event.price == null) return null;
+  return event.priceIsFrom
+    ? formatPriceFrom(event.price, event.currency)
+    : formatPrice(event.price, event.currency);
+}
+
+function placeText(event: Event): string {
+  const city = (event.city ?? "").trim();
+  const venue = (event.venue ?? "").trim();
+  if (venue && city && !venue.toLowerCase().includes(city.toLowerCase())) {
+    return `${venue}, ${city}`;
   }
-  return formatAgeRange(event.eligibilityAgeMin, event.eligibilityAgeMax);
+  return venue || city;
 }
 
-function whenDetail(event: Event): string {
-  const base = formatLongDate(event.startDate);
-  if (event.startTime) return `${base}, ${event.startTime}`;
-  return `${base} · startuur te bevestigen`;
+/** Row meta: "Gent · 19:30 · 40–50 jaar" */
+function rowMeta(event: Event): string {
+  return [
+    (event.city ?? "").trim(),
+    event.startTime ?? null,
+    ageText(event),
+  ]
+    .filter(Boolean)
+    .join("  ·  ");
 }
 
-function timeOnly(event: Event): string {
-  if (event.startTime) return event.startTime;
-  return "uur tbd";
-}
+/* ------------------------------------------------------------------ */
+/* Listings (cover + week overview)                                   */
+/* ------------------------------------------------------------------ */
 
-function shortBlurb(event: Event): string {
-  return effectiveInstagramBlurb(event);
-}
-
-/** SVG petal (opposite corners rounded) — Satori-friendly via data URL. */
-function petalShapeDataUrl(fill: string): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="86" height="86" viewBox="0 0 86 86"><path fill="${fill}" d="M8 0h46c17.673 0 32 14.327 32 32v46c0 4.418-3.582 8-8 8H32C14.327 86 0 71.673 0 54V8C0 3.582 3.582 0 8 0z"/></svg>`;
-  return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
-}
-
-/**
- * Petal / leaf date badge (reference icon style).
- * Light cream canvas — no heavy dark poster wash.
- */
-function PetalDateBadge({
-  startDate,
-  tone = "bordeaux",
-}: {
-  startDate: string;
-  tone?: "bordeaux" | "gold";
-}) {
-  const bg = tone === "gold" ? igColors.gold : igColors.bordeaux;
-  const fg = tone === "gold" ? igColors.bordeaux : igColors.cream;
-  return (
-    <div
-      style={{
-        display: "flex",
-        position: "relative",
-        width: 86,
-        height: 86,
-        flexShrink: 0,
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={petalShapeDataUrl(bg)}
-        width={86}
-        height={86}
-        style={{ position: "absolute", top: 0, left: 0 }}
-        alt=""
-      />
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          position: "relative",
-          color: fg,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            fontSize: 13,
-            fontWeight: 600,
-            fontFamily: "DM Sans",
-            letterSpacing: 0.6,
-            textTransform: "uppercase" as const,
-            opacity: 0.92,
-          }}
-        >
-          {weekdayShort(startDate)}
-        </div>
-        <div
-          style={{
-            display: "flex",
-            fontFamily: "Bricolage Grotesque",
-            fontSize: 34,
-            fontWeight: 700,
-            lineHeight: 1,
-            marginTop: 1,
-          }}
-        >
-          {dayNumber(startDate)}
-        </div>
-        <div
-          style={{
-            display: "flex",
-            fontSize: 13,
-            fontWeight: 600,
-            fontFamily: "DM Sans",
-            textTransform: "uppercase" as const,
-            marginTop: 2,
-          }}
-        >
-          {monthShort(startDate)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function EventRow({
+function ListingRow({
   event,
-  thumbSrc,
-  compact,
+  tone,
+  dense,
 }: {
   event: Event;
-  thumbSrc: string;
-  compact?: boolean;
+  tone: SlideTone;
+  dense: boolean;
 }) {
-  const age = ageShort(event);
-  const city = locationLine(event);
-  const act = activityText(event);
-
+  const p = tonePalette(tone);
+  const dateColor = tone === "bordeaux" ? p.accent : p.accent;
   return (
     <div
       style={{
         display: "flex",
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 16,
+        flexDirection: "column",
         width: "100%",
-        padding: compact ? "12px 14px" : "14px 16px",
-        borderRadius: 20,
-        background: igColors.white,
-        border: "1px solid rgba(228,213,203,0.95)",
+        flexShrink: 0,
       }}
     >
-      <PetalDateBadge startDate={event.startDate} />
-      {/* Light frame + lifted thumb so dark mood stock stays readable at small size */}
+      <Rule color={p.rule} />
       <div
         style={{
           display: "flex",
-          position: "relative",
-          width: compact ? 72 : 80,
-          height: compact ? 72 : 80,
-          flexShrink: 0,
-          borderRadius: "18px 8px 18px 8px",
-          overflow: "hidden",
-          background: igColors.creamDeep,
-          border: "1px solid rgba(228,213,203,0.95)",
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={thumbSrc}
-          width={compact ? 72 : 80}
-          height={compact ? 72 : 80}
-          style={{
-            objectFit: "cover",
-            width: compact ? 72 : 80,
-            height: compact ? 72 : 80,
-          }}
-          alt=""
-        />
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            top: 0,
-            width: compact ? 72 : 80,
-            height: compact ? 72 : 80,
-            background:
-              "linear-gradient(180deg, rgba(249,242,234,0.32) 0%, rgba(249,242,234,0.16) 100%)",
-            display: "flex",
-          }}
-        />
-      </div>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          flex: 1,
-          minWidth: 0,
-          gap: 4,
+          flexDirection: "row",
+          alignItems: "flex-start",
+          width: "100%",
+          paddingTop: dense ? 18 : 26,
+          paddingBottom: dense ? 18 : 26,
         }}
       >
         <div
           style={{
             display: "flex",
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: 10,
-            width: "100%",
+            flexDirection: "column",
+            width: 152,
+            flexShrink: 0,
           }}
         >
           <div
             style={{
               display: "flex",
               fontFamily: "Bricolage Grotesque",
-              fontSize: compact ? 21 : 23,
               fontWeight: 700,
-              color: igColors.bordeaux,
-              lineHeight: 1.22,
-              flex: 1,
-              maxHeight: compact ? 52 : 58,
-              overflow: "hidden",
+              fontSize: dense ? 60 : 68,
+              lineHeight: 0.9,
+              letterSpacing: -2,
+              color: dateColor,
             }}
           >
-            {titleForEventRow(event.title, compact)}
+            {dayNumber(event.startDate)}
           </div>
-          <div
-            style={{
-              display: "flex",
-              fontSize: 18,
-              fontWeight: 600,
-              color: igColors.goldDeep,
-              fontFamily: "DM Sans",
-              flexShrink: 0,
-            }}
-          >
-            {timeOnly(event)}
+          <div style={{ display: "flex", marginTop: 8 }}>
+            <Label color={p.inkFaint} size={19}>
+              {`${WEEKDAY_SHORT[weekdayIndex(event.startDate)]} ${MONTHS_SHORT[monthIndex(event.startDate)]}`}
+            </Label>
           </div>
         </div>
         <div
           style={{
             display: "flex",
-            flexDirection: "row",
-            flexWrap: "wrap" as const,
-            gap: 12,
-            fontSize: 16,
-            color: igColors.anthracite,
-            fontFamily: "DM Sans",
-            opacity: 0.78,
+            flexDirection: "column",
+            flex: 1,
+            minWidth: 0,
+            paddingTop: 2,
           }}
         >
-          <div style={{ display: "flex" }}>{city}</div>
-          {act ? <div style={{ display: "flex" }}>· {act}</div> : null}
-          {age ? <div style={{ display: "flex" }}>· {age}</div> : null}
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "Bricolage Grotesque",
+              fontWeight: 700,
+              fontSize: dense ? 34 : 38,
+              lineHeight: 1.1,
+              letterSpacing: -0.4,
+              color: p.ink,
+              maxHeight: dense ? 76 : 86,
+              overflow: "hidden",
+            }}
+          >
+            {shortenTitle(event.title, dense ? 58 : 64)}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: dense ? 24 : 26,
+              color: p.inkSoft,
+              marginTop: 8,
+              fontFamily: "DM Sans",
+            }}
+          >
+            {rowMeta(event)}
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-/** Format A — cream canvas + soft photo header + petal rows */
+function ListingSlide({
+  markSrc,
+  tone,
+  sectionLabel,
+  headline,
+  intro,
+  events,
+  max,
+  action,
+}: {
+  markSrc: string;
+  tone: SlideTone;
+  sectionLabel: string;
+  headline: string[];
+  intro: string;
+  events: Event[];
+  max: number;
+  action: string;
+}) {
+  const p = tonePalette(tone);
+  const shown = events.slice(0, max);
+  const dense = shown.length > 4;
+  return (
+    <div style={slideStyle(tone)}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flexGrow: 1,
+          padding: `${IG_MARGIN}px ${IG_MARGIN}px 60px`,
+        }}
+      >
+        <Masthead markSrc={markSrc} tone={tone} right={sectionLabel} />
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            marginTop: dense ? 44 : 64,
+            flexShrink: 0,
+          }}
+        >
+          {headline.map((line) => (
+            <div
+              key={line}
+              style={{
+                display: "flex",
+                fontFamily: "Bricolage Grotesque",
+                fontWeight: 700,
+                fontSize: dense ? 104 : 116,
+                lineHeight: 0.98,
+                letterSpacing: -3.5,
+                color: p.ink,
+              }}
+            >
+              {line}
+            </div>
+          ))}
+          <div
+            style={{
+              display: "flex",
+              fontSize: 28,
+              color: p.inkSoft,
+              marginTop: 24,
+              fontFamily: "DM Sans",
+            }}
+          >
+            {intro}
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            marginTop: dense ? 36 : 52,
+            flexShrink: 0,
+          }}
+        >
+          {shown.map((event) => (
+            <ListingRow key={event.id} event={event} tone={tone} dense={dense} />
+          ))}
+        </div>
+
+        <Colophon tone={tone} action={action} />
+      </div>
+    </div>
+  );
+}
+
+/** Format A cover: bordeaux listings page. */
 export function BinnenkortCoverSlide({
   logoSrc,
-  heroSrc,
   periodLabel,
   events,
-  thumbSrcs,
+}: {
+  logoSrc: string;
+  heroSrc?: string;
+  periodLabel: string;
+  events: Event[];
+  thumbSrcs?: string[];
+}) {
+  return (
+    <ListingSlide
+      markSrc={logoSrc}
+      tone="bordeaux"
+      sectionLabel="Agenda"
+      headline={["Binnenkort", "te beleven."]}
+      intro={
+        periodLabel
+          ? `Singlesactiviteiten van ${periodLabel}`
+          : "Singlesactiviteiten in de komende weken"
+      }
+      events={events}
+      max={5}
+      action="Swipe voor de details"
+    />
+  );
+}
+
+/** Format B: cream week overview. */
+export function DezeWeekOverviewSlide({
+  logoSrc,
+  periodLabel,
+  events,
+}: {
+  logoSrc: string;
+  heroSrc?: string;
+  periodLabel: string;
+  events: Event[];
+  thumbSrcs?: string[];
+}) {
+  return (
+    <ListingSlide
+      markSrc={logoSrc}
+      tone="cream"
+      sectionLabel="Deze week"
+      headline={["Nog niets", "gepland?"]}
+      intro={
+        periodLabel
+          ? `Waar je singles ontmoet, ${periodLabel}`
+          : "Waar je deze week singles ontmoet"
+      }
+      events={events}
+      max={4}
+      action="Alles staat via de link in bio"
+    />
+  );
+}
+
+/** Format C cover: one big typographic statement. */
+export function NieuwCoverSlide({
+  logoSrc,
+  periodLabel,
+}: {
+  logoSrc: string;
+  heroSrc?: string;
+  periodLabel: string;
+}) {
+  const p = tonePalette("bordeaux");
+  return (
+    <div style={slideStyle("bordeaux")}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flexGrow: 1,
+          padding: `${IG_MARGIN}px ${IG_MARGIN}px 60px`,
+        }}
+      >
+        <Masthead markSrc={logoSrc} tone="bordeaux" right="Nieuw" />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            marginTop: "auto",
+            marginBottom: 72,
+          }}
+        >
+          <Label color={p.accent} size={24}>
+            Net toegevoegd
+          </Label>
+          {["Nieuw", "op de", "agenda."].map((line) => (
+            <div
+              key={line}
+              style={{
+                display: "flex",
+                fontFamily: "Bricolage Grotesque",
+                fontWeight: 700,
+                fontSize: 176,
+                lineHeight: 0.94,
+                letterSpacing: -6,
+                color: p.ink,
+                marginTop: line === "Nieuw" ? 28 : 0,
+              }}
+            >
+              {line}
+            </div>
+          ))}
+          <div
+            style={{
+              display: "flex",
+              fontSize: 32,
+              color: p.inkSoft,
+              marginTop: 40,
+              fontFamily: "DM Sans",
+            }}
+          >
+            {periodLabel || "Verse singlesactiviteiten"}
+          </div>
+        </div>
+        <Colophon tone="bordeaux" action="Swipe voor de details" />
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Individual event                                                   */
+/* ------------------------------------------------------------------ */
+
+function FactRow({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: SlideTone;
+}) {
+  const p = tonePalette(tone);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+      <Rule color={p.rule} />
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          width: "100%",
+          paddingTop: 17,
+          paddingBottom: 17,
+        }}
+      >
+        <div style={{ display: "flex", width: 236, flexShrink: 0 }}>
+          <Label color={p.inkFaint} size={20}>
+            {label}
+          </Label>
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flex: 1,
+            fontSize: 29,
+            color: p.ink,
+            fontFamily: "DM Sans",
+            maxHeight: 38,
+            overflow: "hidden",
+          }}
+        >
+          {value}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function eventFacts(event: Event): { label: string; value: string }[] {
+  const facts: { label: string; value: string }[] = [];
+  const place = placeText(event);
+  if (place) facts.push({ label: "Waar", value: shortenTitle(place, 42) });
+  const age = ageText(event);
+  if (age) facts.push({ label: "Leeftijd", value: age });
+  const price = priceText(event);
+  if (price) facts.push({ label: "Prijs", value: price });
+  const org = (event.organizerName ?? "").trim();
+  if (org) facts.push({ label: "Organisator", value: shortenTitle(org, 40) });
+  return facts.slice(0, 4);
+}
+
+/** Typographic event page: monumental date, title, facts table. */
+function EventTypeSlide({
+  logoSrc,
+  event,
+  index,
+  total,
+  eyebrow,
+}: {
+  logoSrc: string;
+  event: Event;
+  index: number;
+  total: number;
+  eyebrow: string;
+}) {
+  const tone: SlideTone = "cream";
+  const p = tonePalette(tone);
+  const title = shortenTitle(event.title, 58);
+  const titleSize = title.length > 40 ? 62 : title.length > 24 ? 70 : 80;
+  // Only the organiser's own description; no generated filler sentence.
+  const blurb = sanitizeInstagramBlurb(event.shortDescription || "");
+  const facts = eventFacts(event);
+  const m = monthIndex(event.startDate);
+
+  return (
+    <div style={slideStyle(tone)}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flexGrow: 1,
+          padding: `${IG_MARGIN}px ${IG_MARGIN}px 60px`,
+        }}
+      >
+        <Masthead markSrc={logoSrc} tone={tone} right={`${index} / ${total}`} />
+
+        <div style={{ display: "flex", marginTop: 44 }}>
+          <Label color={p.accent} size={22}>
+            {(activityText(event) ?? eyebrow).toUpperCase()}
+          </Label>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "flex-end",
+            marginTop: 14,
+            gap: 32,
+            flexShrink: 0,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              fontFamily: "Bricolage Grotesque",
+              fontWeight: 700,
+              fontSize: 288,
+              lineHeight: 0.8,
+              letterSpacing: -12,
+              color: p.accent,
+            }}
+          >
+            {dayNumber(event.startDate)}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              paddingBottom: 6,
+              gap: 2,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                fontFamily: "Bricolage Grotesque",
+                fontWeight: 700,
+                fontSize: 48,
+                lineHeight: 1.05,
+                color: p.ink,
+              }}
+            >
+              {WEEKDAY_LONG[weekdayIndex(event.startDate)]}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                fontSize: 48,
+                lineHeight: 1.05,
+                color: p.inkSoft,
+                fontFamily: "DM Sans",
+              }}
+            >
+              {MONTHS_LONG[m]}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                fontSize: 48,
+                lineHeight: 1.05,
+                color: p.ink,
+                fontFamily: "DM Sans",
+                fontWeight: 600,
+              }}
+            >
+              {event.startTime ?? "uur volgt"}
+            </div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "Bricolage Grotesque",
+            fontWeight: 700,
+            fontSize: titleSize,
+            lineHeight: 1.04,
+            letterSpacing: -1.5,
+            color: p.ink,
+            marginTop: 44,
+            maxHeight: titleSize * 1.04 * 2 + 4,
+            overflow: "hidden",
+            flexShrink: 0,
+          }}
+        >
+          {title}
+        </div>
+
+        {blurb ? (
+        <div
+          style={{
+            display: "flex",
+            fontSize: 30,
+            lineHeight: 1.4,
+            color: p.inkSoft,
+            marginTop: 22,
+            fontFamily: "DM Sans",
+            maxHeight: 30 * 1.4 * 2 + 2,
+            overflow: "hidden",
+            flexShrink: 0,
+          }}
+        >
+          {blurb}
+        </div>
+        ) : null}
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            marginTop: "auto",
+            marginBottom: 34,
+            flexShrink: 0,
+          }}
+        >
+          {facts.map((f) => (
+            <FactRow key={f.label} label={f.label} value={f.value} tone={tone} />
+          ))}
+        </div>
+
+        <Colophon tone={tone} action="Inschrijven via de link in bio" />
+      </div>
+    </div>
+  );
+}
+
+/** Real event photo on top (no wash), facts below. */
+function EventPhotoSlide({
+  logoSrc,
+  heroSrc,
+  event,
+  index,
+  total,
+  eyebrow,
 }: {
   logoSrc: string;
   heroSrc: string;
-  periodLabel: string;
-  events: Event[];
-  thumbSrcs: string[];
+  event: Event;
+  index: number;
+  total: number;
+  eyebrow: string;
 }) {
-  const shown = events.slice(0, 5);
+  const tone: SlideTone = "cream";
+  const p = tonePalette(tone);
+  const title = shortenTitle(event.title, 60);
+  const facts = eventFacts(event).slice(0, 3);
+  const when = `${WEEKDAY_LONG[weekdayIndex(event.startDate)]} ${dayNumber(event.startDate)} ${MONTHS_LONG[monthIndex(event.startDate)]}${event.startTime ? `, ${event.startTime}` : ""}`;
+  const photoH = 560;
+
   return (
-    <div style={slideStyle}>
+    <div style={slideStyle(tone)}>
       <div
         style={{
           display: "flex",
           position: "relative",
           width: 1080,
-          height: 320,
+          height: photoH,
           flexShrink: 0,
           overflow: "hidden",
         }}
@@ -352,109 +707,105 @@ export function BinnenkortCoverSlide({
         <img
           src={heroSrc}
           width={1080}
-          height={320}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: 1080,
-            height: 320,
-            objectFit: "cover",
-          }}
+          height={photoH}
+          style={{ width: 1080, height: photoH, objectFit: "cover" }}
           alt=""
         />
         <div
           style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: 1080,
-            height: 320,
-            background:
-              "linear-gradient(180deg, rgba(249,242,234,0.15) 0%, rgba(249,242,234,0.35) 55%, rgba(249,242,234,0.92) 100%)",
             display: "flex",
+            position: "absolute",
+            top: 40,
+            right: 40,
+            padding: "10px 16px",
+            background: igColorsCream(),
           }}
-        />
-        <PhotoCreamFade height={320} />
+        >
+          <Label color={igColorsInk()} size={18}>
+            {`${index} / ${total}`}
+          </Label>
+        </div>
       </div>
-
       <div
         style={{
           display: "flex",
           flexDirection: "column",
           flexGrow: 1,
-          padding: "8px 48px 36px",
-          marginTop: -36,
+          padding: `44px ${IG_MARGIN}px 60px`,
         }}
       >
-        <BrandHeader logoSrc={logoSrc} light={false} />
-
         <div
           style={{
             display: "flex",
-            flexDirection: "column",
-            marginTop: 18,
-            gap: 8,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              fontFamily: "Bricolage Grotesque",
-              fontSize: 48,
-              fontWeight: 700,
-              color: igColors.bordeaux,
-              lineHeight: 1.12,
-              letterSpacing: -0.4,
-            }}
-          >
-            Binnenkort te beleven
-          </div>
-          <div
-            style={{
-              display: "flex",
-              fontSize: 22,
-              fontWeight: 500,
-              color: igColors.anthracite,
-              fontFamily: "DM Sans",
-              opacity: 0.78,
-            }}
-          >
-            Singlesactiviteiten via DateOfflineHub
-            {periodLabel ? ` · ${periodLabel}` : ""}
-          </div>
+          <Label color={p.accent} size={22}>
+            {(activityText(event) ?? eyebrow).toUpperCase()}
+          </Label>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={logoSrc} width={52} height={40} style={{ objectFit: "contain" }} alt="" />
         </div>
-
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "Bricolage Grotesque",
+            fontWeight: 700,
+            fontSize: 40,
+            color: p.accent,
+            marginTop: 18,
+          }}
+        >
+          {when}
+        </div>
+        <div
+          style={{
+            display: "flex",
+            fontFamily: "Bricolage Grotesque",
+            fontWeight: 700,
+            fontSize: 56,
+            lineHeight: 1.05,
+            letterSpacing: -1.2,
+            color: p.ink,
+            marginTop: 12,
+            maxHeight: 56 * 1.05 * 2 + 4,
+            overflow: "hidden",
+          }}
+        >
+          {title}
+        </div>
         <div
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: 10,
-            marginTop: 20,
-            flexGrow: 1,
+            marginTop: "auto",
+            marginBottom: 28,
           }}
         >
-          {shown.map((event, i) => (
-            <EventRow
-              key={event.id}
-              event={event}
-              thumbSrc={thumbSrcs[i] ?? thumbSrcs[0]}
-              compact={shown.length > 4}
-            />
+          {facts.map((f) => (
+            <FactRow key={f.label} label={f.label} value={f.value} tone={tone} />
           ))}
         </div>
-
-        <div style={{ display: "flex", marginTop: 14 }}>
-          <GoldCta>Meer info via dateofflinehub.be</GoldCta>
-        </div>
-        <CategoryIconRow />
-        <BrandFooter light={false} />
+        <Colophon tone={tone} action="Inschrijven via de link in bio" />
       </div>
     </div>
   );
 }
 
-/** Individuele eventslide — fuller canvas, balanced photo + info */
+function igColorsCream(): string {
+  return tonePalette("cream").bg;
+}
+function igColorsInk(): string {
+  return tonePalette("cream").ink;
+}
+
+/**
+ * Individual event slide. `showAtmosphereLabel` is true when the website image
+ * is a mood/library/fallback picture rather than a real photo of this event:
+ * then the slide is typographic only.
+ */
 export function EventSlide({
   logoSrc,
   heroSrc,
@@ -472,434 +823,25 @@ export function EventSlide({
   eyebrow?: string;
   showAtmosphereLabel?: boolean;
 }) {
-  const act = activityText(event);
-  const age = ageShort(event);
-  const city = locationLine(event);
-  const displayTitle = titleForEventSlide(event.title);
-  const titleSize = displayTitle.length > 55 ? 36 : displayTitle.length > 40 ? 40 : 44;
-
+  if (!showAtmosphereLabel && heroSrc) {
+    return (
+      <EventPhotoSlide
+        logoSrc={logoSrc}
+        heroSrc={heroSrc}
+        event={event}
+        index={index}
+        total={total}
+        eyebrow={eyebrow}
+      />
+    );
+  }
   return (
-    <div style={slideStyle}>
-      {/* Photo grows to fill; info block stays compact at the bottom */}
-      <div
-        style={{
-          display: "flex",
-          position: "relative",
-          width: 1080,
-          flexGrow: 1,
-          flexShrink: 1,
-          minHeight: 560,
-          overflow: "hidden",
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={heroSrc}
-          width={1080}
-          height={1100}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: 1080,
-            objectFit: "cover",
-          }}
-          alt=""
-        />
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            width: 1080,
-            background:
-              "linear-gradient(180deg, rgba(249,242,234,0.3) 0%, rgba(249,242,234,0.04) 48%, rgba(249,242,234,0.98) 100%)",
-            display: "flex",
-          }}
-        />
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            position: "relative",
-            width: "100%",
-            height: "100%",
-            padding: "28px 48px 16px",
-          }}
-        >
-          <BrandHeader logoSrc={logoSrc} light={false} />
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              marginTop: 14,
-              alignItems: "center",
-            }}
-          >
-            <GoldPill>{(act || eyebrow).toUpperCase()}</GoldPill>
-            <div
-              style={{
-                display: "flex",
-                fontSize: 17,
-                color: igColors.bordeaux,
-                fontFamily: "DM Sans",
-                fontWeight: 600,
-                background: "rgba(249,242,234,0.88)",
-                padding: "8px 14px",
-                borderRadius: 999,
-              }}
-            >
-              {index}/{total}
-              {showAtmosphereLabel ? " · Sfeerbeeld" : ""}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          flexShrink: 0,
-          padding: "0 48px 30px",
-          marginTop: -52,
-          gap: 12,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 14,
-            padding: "22px 24px 24px",
-            borderRadius: 22,
-            background: igColors.white,
-            border: "1px solid rgba(228,213,203,0.95)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              gap: 16,
-              alignItems: "flex-start",
-            }}
-          >
-            <PetalDateBadge startDate={event.startDate} tone="gold" />
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                flex: 1,
-                gap: 8,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  fontFamily: "Bricolage Grotesque",
-                  fontSize: titleSize,
-                  fontWeight: 700,
-                  color: igColors.bordeaux,
-                  lineHeight: 1.15,
-                  maxHeight: 104,
-                  overflow: "hidden",
-                }}
-              >
-                {displayTitle}
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  fontSize: 20,
-                  color: igColors.anthracite,
-                  fontFamily: "DM Sans",
-                  lineHeight: 1.4,
-                  opacity: 0.85,
-                }}
-              >
-                {shortBlurb(event)}
-              </div>
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              width: "100%",
-              height: 1,
-              background: "rgba(103,40,58,0.12)",
-            }}
-          />
-
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 6,
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                fontSize: 22,
-                color: igColors.bordeaux,
-                fontFamily: "DM Sans",
-                fontWeight: 600,
-              }}
-            >
-              {whenDetail(event)}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                fontSize: 21,
-                color: igColors.anthracite,
-                fontFamily: "DM Sans",
-                fontWeight: 500,
-              }}
-            >
-              {city}
-              {age ? ` · ${age}` : ""}
-              {act ? ` · ${act}` : ""}
-            </div>
-          </div>
-
-          <div style={{ display: "flex", marginTop: 4 }}>
-            <GoldCta>Alle details via link in bio</GoldCta>
-          </div>
-        </div>
-
-        <BrandFooter light={false} pushDown={false} />
-      </div>
-    </div>
-  );
-}
-
-/** Format B — compact week overview, cream + petal rows */
-export function DezeWeekOverviewSlide({
-  logoSrc,
-  heroSrc,
-  periodLabel,
-  events,
-  thumbSrcs,
-}: {
-  logoSrc: string;
-  heroSrc: string;
-  periodLabel: string;
-  events: Event[];
-  thumbSrcs: string[];
-}) {
-  const shown = events.slice(0, 4);
-  return (
-    <div style={slideStyle}>
-      <div
-        style={{
-          display: "flex",
-          position: "relative",
-          width: 1080,
-          height: 300,
-          flexShrink: 0,
-          overflow: "hidden",
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={heroSrc}
-          width={1080}
-          height={300}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: 1080,
-            height: 300,
-            objectFit: "cover",
-          }}
-          alt=""
-        />
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: 1080,
-            height: 300,
-            background:
-              "linear-gradient(180deg, rgba(249,242,234,0.2) 0%, rgba(249,242,234,0.9) 100%)",
-            display: "flex",
-          }}
-        />
-        <PhotoCreamFade height={300} />
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          flexGrow: 1,
-          padding: "4px 48px 36px",
-          marginTop: -28,
-        }}
-      >
-        <BrandHeader logoSrc={logoSrc} light={false} />
-
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            marginTop: 18,
-            gap: 12,
-          }}
-        >
-          <GoldPill>Deze week</GoldPill>
-          <div
-            style={{
-              display: "flex",
-              fontFamily: "Bricolage Grotesque",
-              fontSize: 48,
-              fontWeight: 700,
-              color: igColors.bordeaux,
-              lineHeight: 1.1,
-            }}
-          >
-            Nog iets gepland?
-          </div>
-          <div
-            style={{
-              display: "flex",
-              fontSize: 22,
-              color: igColors.anthracite,
-              fontFamily: "DM Sans",
-              opacity: 0.8,
-            }}
-          >
-            Singlesactiviteiten de komende dagen
-            {periodLabel ? ` · ${periodLabel}` : ""}
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
-            marginTop: 22,
-            flexGrow: 1,
-          }}
-        >
-          {shown.map((event, i) => (
-            <EventRow
-              key={event.id}
-              event={event}
-              thumbSrc={thumbSrcs[i] ?? thumbSrcs[0]}
-            />
-          ))}
-        </div>
-
-        <div style={{ display: "flex", marginTop: 14 }}>
-          <GoldCta>Ontdek alle activiteiten</GoldCta>
-        </div>
-        <BrandFooter light={false} />
-      </div>
-    </div>
-  );
-}
-
-/** Format C cover */
-export function NieuwCoverSlide({
-  logoSrc,
-  heroSrc,
-  periodLabel,
-}: {
-  logoSrc: string;
-  heroSrc: string;
-  periodLabel: string;
-}) {
-  return (
-    <div style={slideStyle}>
-      <div
-        style={{
-          display: "flex",
-          position: "relative",
-          width: 1080,
-          height: 420,
-          flexShrink: 0,
-          overflow: "hidden",
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={heroSrc}
-          width={1080}
-          height={420}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: 1080,
-            height: 420,
-            objectFit: "cover",
-          }}
-          alt=""
-        />
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: 1080,
-            height: 420,
-            background:
-              "linear-gradient(180deg, rgba(249,242,234,0.25) 0%, rgba(249,242,234,0.95) 100%)",
-            display: "flex",
-          }}
-        />
-      </div>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          flexGrow: 1,
-          padding: "8px 48px 36px",
-          marginTop: -40,
-          gap: 18,
-        }}
-      >
-        <BrandHeader logoSrc={logoSrc} light={false} />
-        <GoldPill>Nieuw</GoldPill>
-        <div
-          style={{
-            display: "flex",
-            fontFamily: "Bricolage Grotesque",
-            fontSize: 52,
-            fontWeight: 700,
-            color: igColors.bordeaux,
-            lineHeight: 1.12,
-          }}
-        >
-          Nieuw op DateOfflineHub
-        </div>
-        <div
-          style={{
-            display: "flex",
-            fontSize: 26,
-            color: igColors.anthracite,
-            fontFamily: "DM Sans",
-            opacity: 0.8,
-          }}
-        >
-          {periodLabel || "Verse singlesactiviteiten"}
-        </div>
-        <div style={{ display: "flex", marginTop: "auto" }}>
-          <GoldCta>Meer info via dateofflinehub.be</GoldCta>
-        </div>
-        <BrandFooter light={false} />
-      </div>
-    </div>
+    <EventTypeSlide
+      logoSrc={logoSrc}
+      event={event}
+      index={index}
+      total={total}
+      eyebrow={eyebrow}
+    />
   );
 }

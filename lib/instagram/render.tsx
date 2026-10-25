@@ -7,12 +7,11 @@ import type { ReactElement } from "react";
 import { ImageResponse } from "next/og";
 import type { Event } from "@/types/event";
 import { IG_FEED, type InstagramFormatId } from "@/lib/instagram/constants";
-import { getLogoDataUrl, loadInstagramFonts } from "@/lib/instagram/assets";
+import { getLogoMarkDataUrl, loadInstagramFonts } from "@/lib/instagram/assets";
 import {
-  heroForEvents,
+  IG_NEUTRAL_FALLBACK_DATA_URI,
   imageForEvent,
   resolveMoodBundle,
-  thumbForEvent,
 } from "@/lib/instagram/mood";
 import {
   BinnenkortCoverSlide,
@@ -42,7 +41,7 @@ export async function renderInstagramImage(
   input: InstagramRenderInput,
 ): Promise<ImageResponse> {
   const [logoSrc, fonts] = await Promise.all([
-    getLogoDataUrl(),
+    getLogoMarkDataUrl(),
     loadInstagramFonts(),
   ]);
 
@@ -69,47 +68,27 @@ export async function renderInstagramImage(
 
   let element: ReactElement;
 
+  // Covers and overviews are typographic (no stock/mood photography).
   if (input.kind === "binnenkort_cover") {
-    const events = input.events ?? [];
-    const hero = heroForEvents(events);
-    const thumbs = events.slice(0, 5).map(thumbForEvent);
-    const mood = await resolveMoodBundle({
-      heroSrc: hero.url,
-      thumbs: thumbs.map((t) => t.url),
-    });
     element = (
       <BinnenkortCoverSlide
         logoSrc={logoSrc}
-        heroSrc={mood.hero}
         periodLabel={input.periodLabel ?? ""}
-        events={events}
-        thumbSrcs={mood.thumbs}
+        events={input.events ?? []}
       />
     );
   } else if (input.kind === "deze_week") {
-    const events = input.events ?? [];
-    const hero = heroForEvents(events);
-    const thumbs = events.slice(0, 4).map(thumbForEvent);
-    const mood = await resolveMoodBundle({
-      heroSrc: hero.url,
-      thumbs: thumbs.map((t) => t.url),
-    });
     element = (
       <DezeWeekOverviewSlide
         logoSrc={logoSrc}
-        heroSrc={mood.hero}
         periodLabel={input.periodLabel ?? ""}
-        events={events}
-        thumbSrcs={mood.thumbs}
+        events={input.events ?? []}
       />
     );
   } else if (input.kind === "nieuw_cover") {
-    const hero = heroForEvents([]);
-    const mood = await resolveMoodBundle({ heroSrc: hero.url });
     element = (
       <NieuwCoverSlide
         logoSrc={logoSrc}
-        heroSrc={mood.hero}
         periodLabel={input.periodLabel ?? ""}
       />
     );
@@ -124,9 +103,10 @@ export async function renderInstagramImage(
           ? "Deze week"
           : "Binnenkort";
     const image = imageForEvent(input.event);
-    const mood = await resolveMoodBundle({
-      heroSrc: image.url,
-    });
+    // Only a real event photo is shown; atmosphere images stay off Instagram.
+    const mood = image.isAtmosphere
+      ? { hero: "" }
+      : await resolveMoodBundle({ heroSrc: image.url });
     element = (
       <EventSlide
         logoSrc={logoSrc}
@@ -135,7 +115,9 @@ export async function renderInstagramImage(
         index={input.index ?? 1}
         total={input.total ?? 1}
         eyebrow={eyebrow}
-        showAtmosphereLabel={image.isAtmosphere}
+        showAtmosphereLabel={
+          image.isAtmosphere || mood.hero === IG_NEUTRAL_FALLBACK_DATA_URI
+        }
       />
     );
   }
