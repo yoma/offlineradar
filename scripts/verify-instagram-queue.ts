@@ -153,7 +153,7 @@ async function main() {
   });
   assert.equal(failed.ok, false, "container error stops before publish");
 
-  // --- captions point to the link-in-bio page / event page ----------------
+  // --- captions send people to the website ---------------------------------
   const { buildInstagramCaption, buildSingleEventCaption } = await import(
     "../lib/instagram/captions"
   );
@@ -172,10 +172,11 @@ async function main() {
     price: null,
   } as unknown as Parameters<typeof buildSingleEventCaption>[0];
   const singleCaption = buildSingleEventCaption(ev).text;
-  assert.ok(singleCaption.includes("dateofflinehub.be/event/speeddate-gent"), singleCaption);
+  assert.ok(singleCaption.includes("dateofflinehub.be"), singleCaption);
   for (const format of ["binnenkort", "deze_week", "nieuw"] as const) {
     const text = buildInstagramCaption(format, [ev], "november").text;
-    assert.ok(text.includes("dateofflinehub.be/instagram"), `${format}: ${text}`);
+    assert.ok(text.includes("dateofflinehub.be"), `${format}: ${text}`);
+    assert.ok(!text.includes("/instagram"), `${format}: ${text}`);
   }
 
   // --- public media URL + caption ------------------------------------------

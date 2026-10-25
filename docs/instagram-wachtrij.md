@@ -14,15 +14,11 @@ Adminpagina: `/interne-instagram/wachtrij` (zelfde Google-login als `/interne-ev
    afgewezen posts worden verborgen en nooit geplaatst.
 4. **Verhaal (story):** vinkje "Ook als verhaal" (standaard aan). Na de feedpost
    plaatst de site een staand beeld (1080×1920): de eerste slide met
-   `dateofflinehub.be/instagram` eronder. Instagram laat via de API geen
+   `dateofflinehub.be` eronder. Instagram laat via de API geen
    linksticker toe; wil je een klikbare link, klik dan **Download verhaal** en plaats
    het zelf in de app met een linksticker. Mislukt het verhaal, dan blijft de post
    gewoon staan en kun je **Verhaal plaatsen** opnieuw proberen.
-5. **Link in bio:** `dateofflinehub.be/instagram` toont de events uit de posts van de
-   laatste 45 dagen (of anders de eerstvolgende events). Zet die link in de bio van
-   @dateofflinehub. Captions verwijzen ernaar; een post over één event toont ook het
-   adres van die eventpagina. Links in captions zijn op Instagram nooit klikbaar.
-6. Schakelaar **Automatisch posten zonder goedkeuring** (standaard UIT): als die aan
+5. Schakelaar **Automatisch posten zonder goedkeuring** (standaard UIT): als die aan
    staat, gaan ook niet-goedgekeurde voorstellen op hun dag online.
 
 Afbeeldingen worden één keer als JPEG gemaakt en in Neon bewaard.
@@ -76,7 +72,6 @@ Handmatig kan ook: `npm run db:migrate:instagram-post-queue`.
 | `lib/instagram/queue-runner.ts` | cron-ronde: opruimen, token, publiceren, voorstellen |
 | `lib/instagram/queue-media.ts` | JPEG-rendering |
 | `lib/instagram/story.tsx` | verhaal-beeld 1080×1920 |
-| `app/instagram/page.tsx` | publieke link-in-bio-pagina |
 | `lib/instagram/token-store.ts` | token versleuteld opslaan + vernieuwen |
 | `app/api/cron/instagram/route.ts` | dagelijkse Vercel-cron (Bearer `CRON_SECRET`) |
 | `app/api/instagram/media/[id]/route.ts` | publieke JPEG's voor Meta |

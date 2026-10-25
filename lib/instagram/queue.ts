@@ -586,22 +586,6 @@ export async function markStoryFailed(postId: string, message: string) {
   `;
 }
 
-/** Event ids from posts that went live recently (link-in-bio page). */
-export async function listRecentlyPostedEventIds(days = 45): Promise<string[]> {
-  const sql = await queueSql();
-  const rows = (await sql`
-    SELECT event_ids FROM instagram_post_queue
-    WHERE status = 'gepost'
-      AND posted_at >= now() - make_interval(days => ${days})
-    ORDER BY posted_at DESC
-  `) as { event_ids: unknown }[];
-  const seen = new Set<string>();
-  for (const row of rows) {
-    for (const id of stringArray(row.event_ids)) seen.add(id);
-  }
-  return [...seen];
-}
-
 // --- settings ---------------------------------------------------------------
 
 export async function getAutoPostWithoutApproval(): Promise<boolean> {

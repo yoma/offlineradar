@@ -7,7 +7,7 @@
 import { ImageResponse } from "next/og";
 import sharp from "sharp";
 import { instagramFormats } from "@/lib/brand/tokens";
-import { igColors, INSTAGRAM_LINK_PAGE_LABEL } from "@/lib/instagram/constants";
+import { igColors, INSTAGRAM_WEBSITE } from "@/lib/instagram/constants";
 import { loadInstagramFontList } from "@/lib/instagram/render";
 
 const STORY = instagramFormats.story;
@@ -61,11 +61,11 @@ export async function renderStoryJpeg(firstSlideJpeg: Buffer): Promise<Buffer> {
           marginTop: 10,
           fontFamily: "Bricolage Grotesque",
           fontWeight: 700,
-          fontSize: 56,
+          fontSize: 64,
           color: igColors.bordeaux,
         }}
       >
-        {INSTAGRAM_LINK_PAGE_LABEL}
+        {INSTAGRAM_WEBSITE}
       </div>
       <div
         style={{
