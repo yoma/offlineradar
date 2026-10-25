@@ -290,7 +290,7 @@ check("location options follow current cities and keep departure towns", () => {
   );
   assert.equal(
     formatLocationOptionLabel(options.find((option) => option.label === "Geel")!),
-    "Geel (1 activiteit)",
+    "Geel (1 in de stad)",
   );
   const labels = options.map((option) => option.label);
   assert.ok(labels.includes("Geel"));

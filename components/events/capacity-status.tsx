@@ -33,7 +33,9 @@ export function CapacityStatus({
       <span className={cn("size-1.5 rounded-full", dot[status])} />
       <span>{capacityLabel(status)}</span>
       {spotsRemaining != null && status !== "sold_out" ? (
-        <span className="text-muted-foreground">· {spotsRemaining}</span>
+        <span className="text-muted-foreground">
+          · {spotsRemaining} {spotsRemaining === 1 ? "plaats" : "plaatsen"}
+        </span>
       ) : null}
     </p>
   );

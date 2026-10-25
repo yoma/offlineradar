@@ -38,10 +38,10 @@ export default function AboutPage() {
 
       <div>
         <h2 className="font-heading-section text-xl tracking-tight text-[var(--brand-bordeaux)]">
-          Gesloten beta
+          Nieuw en in ontwikkeling
         </h2>
         <p className="mt-3 text-[15px] leading-7 text-muted-foreground">
-          DateOfflineHub zit in een gesloten testerfase. Je kunt de site zonder
+          DateOfflineHub is nieuw en groeit elke week. Je kunt de site zonder
           account gebruiken. Optioneel inloggen met Google bewaart voorkeuren en
           bewaarde activiteiten op al je toestellen.
         </p>

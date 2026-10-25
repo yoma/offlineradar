@@ -26,6 +26,27 @@ export function isCanonicalEventsFeedEnabled(): boolean {
 }
 
 /**
+ * Run a catalog read; `{ ok: false }` when the canonical DB is down, so pages
+ * can render their "tijdelijk niet beschikbaar" state outside a try/catch.
+ * Any other error is rethrown.
+ */
+export async function readCatalog<T>(
+  load: () => Promise<T>,
+): Promise<{ ok: true; value: T } | { ok: false }> {
+  try {
+    return { ok: true, value: await load() };
+  } catch (error) {
+    if (
+      isCanonicalEventsFeedEnabled() &&
+      error instanceof EventsCatalogUnavailableError
+    ) {
+      return { ok: false };
+    }
+    throw error;
+  }
+}
+
+/**
  * Product listing gate (Route A / Route B).
  * Shared by canonical public feed and internal real-events preview.
  * PAYMENT / singlesFriendly never enter this function.

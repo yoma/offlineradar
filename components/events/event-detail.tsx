@@ -365,7 +365,7 @@ export function EventDetail({
 
             <dl className="space-y-3 border-t border-border pt-4 text-sm">
               <Meta
-                label="Deelnamevoorwaarden"
+                label="Leeftijd"
                 value={ageRuleText(ageInfo.rule, ageLabel, event)}
               />
               {expectedAudience ? (
@@ -506,7 +506,7 @@ function ageRuleText(
     return "Niet vermeld door de bron";
   }
   if (rule === "guideline") return `Richtleeftijd: ${ageLabel}`;
-  return `Deelnamevoorwaarde: ${ageLabel}`;
+  return `${ageLabel} (strikt)`;
 }
 
 function Meta({ label, value }: { label: string; value: string }) {
