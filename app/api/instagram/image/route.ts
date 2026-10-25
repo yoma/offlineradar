@@ -28,7 +28,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const catalog = kind === "nieuw_cover" ? [] : await listEvents();
+    const catalog = await listEvents();
     const resolved = resolveInstagramRenderInput(
       kind,
       url.searchParams,

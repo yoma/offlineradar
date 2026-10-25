@@ -64,7 +64,10 @@ export function buildDraftSlides(
       {
         kind: "nieuw_cover",
         label: "Cover — Nieuw",
-        query: slideQuery("nieuw_cover", { period: periodLabel }),
+        query: slideQuery("nieuw_cover", {
+          period: periodLabel,
+          ids: events.map((e) => e.id).join(","),
+        }),
       },
     ];
     events.forEach((event, i) => {

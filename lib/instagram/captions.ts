@@ -4,9 +4,9 @@
  * Feed-links zijn niet betrouwbaar klikbaar → verwijs naar bio / website.
  */
 
-import { formatAgeRange, formatPrice, formatPriceFrom, ACTIVITY_LABEL } from "@/lib/format";
+import { formatAgeRange, formatPrice, formatPriceFrom } from "@/lib/format";
 import { formatDayMonth, weekdayIndex } from "@/lib/dates";
-import type { ActivityId, Event } from "@/types/event";
+import type { Event } from "@/types/event";
 import {
   INSTAGRAM_HANDLE,
   INSTAGRAM_SLOGAN,
@@ -20,13 +20,7 @@ function igWhen(event: Event): string {
   const day = WEEKDAY_SHORT[weekdayIndex(event.startDate)];
   const datePart = `${day} ${formatDayMonth(event.startDate)}`;
   if (event.startTime) return `${datePart} · ${event.startTime}`;
-  return `${datePart} · startuur te bevestigen`;
-}
-
-function activityLabel(event: Event): string | null {
-  const id = event.activities[0] as ActivityId | undefined;
-  if (!id) return null;
-  return ACTIVITY_LABEL[id] ?? null;
+  return `${datePart} · uur volgt`;
 }
 
 function ageLine(event: Event): string | null {
@@ -57,13 +51,16 @@ function priceLine(event: Event): string | null {
     : formatPrice(event.price, event.currency);
 }
 
+/** Agenda line: "ma 26 okt, 19:30 · Speeddate Gent (Gent)" */
 function eventBullet(event: Event): string {
-  const parts = [
-    igWhen(event),
-    event.city,
-    activityLabel(event),
-  ].filter(Boolean);
-  return `• ${event.title} — ${parts.join(" · ")}`;
+  const day = WEEKDAY_SHORT[weekdayIndex(event.startDate)];
+  const when = event.startTime
+    ? `${day} ${formatDayMonth(event.startDate)}, ${event.startTime}`
+    : `${day} ${formatDayMonth(event.startDate)}`;
+  const city = (event.city ?? "").trim();
+  const titleHasCity =
+    city && event.title.toLowerCase().includes(city.toLowerCase());
+  return `${when} · ${event.title}${city && !titleHasCity ? ` (${city})` : ""}`;
 }
 
 const HASHTAGS_BASE = [
@@ -111,7 +108,7 @@ export function buildInstagramCaption(
     return {
       format,
       text: `${INSTAGRAM_HANDLE}\n\nMomenteel geen geschikte evenementen voor deze post.\n\n${INSTAGRAM_WEBSITE}`,
-      altHint: "DateOfflineHub — geen evenementen",
+      altHint: "DateOfflineHub: geen activiteiten",
     };
   }
 
@@ -120,22 +117,22 @@ export function buildInstagramCaption(
 
   if (format === "deze_week") {
     const text = [
-      "Deze week nog iets gepland?",
+      "Nog niets gepland deze week?",
       "",
-      `Een paar singlesactiviteiten tussen ${periodLabel} — in het echt, niet op een app.`,
+      periodLabel
+        ? `Hier ontmoet je singles in het echt, van ${periodLabel}:`
+        : "Hier ontmoet je deze week singles in het echt:",
       "",
       bullets,
       "",
-      `Meer info en details: link in bio of ${INSTAGRAM_WEBSITE}`,
-      "",
-      INSTAGRAM_SLOGAN,
+      `Inschrijven doe je rechtstreeks bij de organisator. Alle links staan via de link in bio en op ${INSTAGRAM_WEBSITE}.`,
       "",
       tags,
     ].join("\n");
     return {
       format,
       text,
-      altHint: `Deze week op DateOfflineHub — ${events.length} activiteiten`,
+      altHint: `Deze week op DateOfflineHub: ${events.length} activiteiten`,
     };
   }
 
@@ -144,51 +141,45 @@ export function buildInstagramCaption(
       const bits = [
         igWhen(event),
         event.city,
-        activityLabel(event),
         ageLine(event),
         priceLine(event),
       ].filter(Boolean);
       return `${event.title}\n${bits.join(" · ")}`;
     });
     const text = [
-      "Nieuw op DateOfflineHub",
-      "",
-      "Fris gepubliceerd — weekends, reizen of een nieuwe organisator.",
+      "Nieuw op de agenda",
       "",
       detailLines.join("\n\n"),
       "",
-      `Bekijk alles via de link in bio · ${INSTAGRAM_WEBSITE}`,
+      `Meer info en inschrijven via de link in bio of op ${INSTAGRAM_WEBSITE}.`,
       "",
       tags,
     ].join("\n");
     return {
       format,
       text,
-      altHint: `Nieuw op DateOfflineHub — ${events[0].title}`,
+      altHint: `Nieuw op DateOfflineHub: ${events[0].title}`,
     };
   }
 
-  // Format A — binnenkort te beleven (al op de site, binnenkort te doen)
+  // Format A: binnenkort te beleven (al op de site, binnenkort te doen)
   const text = [
-    "Binnenkort te beleven",
-    periodLabel ? `Periode: ${periodLabel}` : null,
+    periodLabel ? `Binnenkort te beleven, ${periodLabel}` : "Binnenkort te beleven",
     "",
-    "Singlesactiviteiten in Vlaanderen en Brussel — offline, in het echt. Al te vinden via DateOfflineHub.",
+    "Singlesactiviteiten in Vlaanderen en Brussel. Swipe voor de details per activiteit.",
     "",
     bullets,
     "",
-    `Alle details op ${INSTAGRAM_WEBSITE} (of via de link in bio).`,
+    `Inschrijven doe je rechtstreeks bij de organisator. Alle links staan op ${INSTAGRAM_WEBSITE} (link in bio).`,
     "",
     INSTAGRAM_SLOGAN,
     "",
     tags,
-  ]
-    .filter((line) => line !== null)
-    .join("\n");
+  ].join("\n");
 
   return {
     format,
     text,
-    altHint: `Binnenkort te beleven — ${events.length} evenementen`,
+    altHint: `Binnenkort te beleven: ${events.length} activiteiten`,
   };
 }

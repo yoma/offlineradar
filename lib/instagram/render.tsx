@@ -7,12 +7,11 @@ import type { ReactElement } from "react";
 import { ImageResponse } from "next/og";
 import type { Event } from "@/types/event";
 import { IG_FEED, type InstagramFormatId } from "@/lib/instagram/constants";
-import { getLogoDataUrl, loadInstagramFonts } from "@/lib/instagram/assets";
+import { getLogoMarkDataUrl, loadInstagramFonts } from "@/lib/instagram/assets";
 import {
-  heroForEvents,
+  IG_NEUTRAL_FALLBACK_DATA_URI,
   imageForEvent,
   resolveMoodBundle,
-  thumbForEvent,
 } from "@/lib/instagram/mood";
 import {
   BinnenkortCoverSlide,
@@ -42,7 +41,7 @@ export async function renderInstagramImage(
   input: InstagramRenderInput,
 ): Promise<ImageResponse> {
   const [logoSrc, fonts] = await Promise.all([
-    getLogoDataUrl(),
+    getLogoMarkDataUrl(),
     loadInstagramFonts(),
   ]);
 
@@ -69,47 +68,44 @@ export async function renderInstagramImage(
 
   let element: ReactElement;
 
-  if (input.kind === "binnenkort_cover") {
+  // Photos = the website-visible image per event, resolved on every render
+  // (same pipeline as the site). A neutral fallback means "no photo".
+  const photoOrEmpty = (src: string) =>
+    src === IG_NEUTRAL_FALLBACK_DATA_URI ? "" : src;
+
+  if (input.kind === "binnenkort_cover" || input.kind === "deze_week") {
     const events = input.events ?? [];
-    const hero = heroForEvents(events);
-    const thumbs = events.slice(0, 5).map(thumbForEvent);
+    const urls = events.map((e) => imageForEvent(e).url);
     const mood = await resolveMoodBundle({
-      heroSrc: hero.url,
-      thumbs: thumbs.map((t) => t.url),
+      heroSrc: IG_NEUTRAL_FALLBACK_DATA_URI,
+      thumbs: urls,
     });
-    element = (
-      <BinnenkortCoverSlide
-        logoSrc={logoSrc}
-        heroSrc={mood.hero}
-        periodLabel={input.periodLabel ?? ""}
-        events={events}
-        thumbSrcs={mood.thumbs}
-      />
+    const thumbSrcs = mood.thumbs.map((src, i) =>
+      urls[i] === IG_NEUTRAL_FALLBACK_DATA_URI ? "" : photoOrEmpty(src),
     );
-  } else if (input.kind === "deze_week") {
-    const events = input.events ?? [];
-    const hero = heroForEvents(events);
-    const thumbs = events.slice(0, 4).map(thumbForEvent);
-    const mood = await resolveMoodBundle({
-      heroSrc: hero.url,
-      thumbs: thumbs.map((t) => t.url),
-    });
+    const Slide =
+      input.kind === "binnenkort_cover"
+        ? BinnenkortCoverSlide
+        : DezeWeekOverviewSlide;
     element = (
-      <DezeWeekOverviewSlide
+      <Slide
         logoSrc={logoSrc}
-        heroSrc={mood.hero}
         periodLabel={input.periodLabel ?? ""}
         events={events}
-        thumbSrcs={mood.thumbs}
+        thumbSrcs={thumbSrcs}
       />
     );
   } else if (input.kind === "nieuw_cover") {
-    const hero = heroForEvents([]);
-    const mood = await resolveMoodBundle({ heroSrc: hero.url });
+    const first = input.events?.[0];
+    const image = first ? imageForEvent(first) : null;
+    const mood = image
+      ? await resolveMoodBundle({ heroSrc: image.url })
+      : { hero: "" };
     element = (
       <NieuwCoverSlide
         logoSrc={logoSrc}
-        heroSrc={mood.hero}
+        heroSrc={photoOrEmpty(mood.hero)}
+        showAtmosphereLabel={image?.isAtmosphere === true}
         periodLabel={input.periodLabel ?? ""}
       />
     );
@@ -124,13 +120,11 @@ export async function renderInstagramImage(
           ? "Deze week"
           : "Binnenkort";
     const image = imageForEvent(input.event);
-    const mood = await resolveMoodBundle({
-      heroSrc: image.url,
-    });
+    const mood = await resolveMoodBundle({ heroSrc: image.url });
     element = (
       <EventSlide
         logoSrc={logoSrc}
-        heroSrc={mood.hero}
+        heroSrc={photoOrEmpty(mood.hero)}
         event={input.event}
         index={input.index ?? 1}
         total={input.total ?? 1}
