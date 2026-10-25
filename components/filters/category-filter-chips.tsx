@@ -5,7 +5,7 @@ import {
   type PublicActivityGroupId,
   togglePublicActivityGroup,
 } from "@/lib/public-activity-groups";
-import type { EventCategory } from "@/types/event";
+import type { ActivityId, EventCategory } from "@/types/event";
 import type { SearchState } from "@/types/search";
 
 /** Unified Categorieën chips → categories[] / activities[] state. */
@@ -27,54 +27,80 @@ export const CATEGORY_CHIPS: CategoryChip[] = [
   { kind: "activity", id: "travel", label: "Weekend / reis" },
 ];
 
+const CATEGORY_IDS = CATEGORY_CHIPS.flatMap((chip) =>
+  chip.kind === "category" ? [chip.id] : [],
+);
+const GROUP_IDS = CATEGORY_CHIPS.flatMap((chip) =>
+  chip.kind === "activity" ? [chip.id] : [],
+);
+
+/** Chips that are "on" (gold). Alle soorten = every chip on. */
+function selectedChips(state: SearchState): {
+  categories: EventCategory[];
+  groups: PublicActivityGroupId[];
+} {
+  if (state.typesMode === "all") {
+    return { categories: [...CATEGORY_IDS], groups: [...GROUP_IDS] };
+  }
+  if (state.typesMode === "none") return { categories: [], groups: [] };
+  return {
+    categories: CATEGORY_IDS.filter((id) => state.categories.includes(id)),
+    groups: GROUP_IDS.filter((id) =>
+      isPublicActivityGroupSelected(state.activities, id),
+    ),
+  };
+}
+
+function toggle<T>(list: T[], item: T): T[] {
+  return list.includes(item)
+    ? list.filter((value) => value !== item)
+    : [...list, item];
+}
+
+/**
+ * Chips work as on/off switches. Alle soorten turns every chip on (gold), so
+ * one tap switches a type off to exclude it. Tapping Alle soorten while
+ * everything is on clears the row, to pick just one or two types.
+ */
 export function applyCategoryChipPatch(
   state: SearchState,
   chip: CategoryChip,
 ): Partial<SearchState> {
   if (chip.kind === "all") {
-    // "Alle soorten" is sticky: never toggle into empty "none" (false zeros).
-    return { typesMode: "all", categories: [], activities: [] };
+    return state.typesMode === "all"
+      ? { typesMode: "none", categories: [], activities: [] }
+      : { typesMode: "all", categories: [], activities: [] };
   }
-  if (chip.kind === "category") {
-    // Leaving "all": start a fresh pick with only this chip.
-    if (state.typesMode === "all") {
-      return {
-        typesMode: "pick",
-        categories: [chip.id],
-        activities: [],
-      };
-    }
-    const categories = state.categories.includes(chip.id)
-      ? state.categories.filter((item) => item !== chip.id)
-      : [...state.categories, chip.id];
-    return {
-      typesMode:
-        categories.length > 0 || state.activities.length > 0 ? "pick" : "all",
-      categories,
-      activities: state.activities,
-    };
+  const current = selectedChips(state);
+  const categories =
+    chip.kind === "category"
+      ? toggle(current.categories, chip.id)
+      : current.categories;
+  const groups =
+    chip.kind === "activity" ? toggle(current.groups, chip.id) : current.groups;
+
+  const everyChipOn =
+    categories.length === CATEGORY_IDS.length &&
+    groups.length === GROUP_IDS.length;
+  if (everyChipOn) return { typesMode: "all", categories: [], activities: [] };
+  if (categories.length === 0 && groups.length === 0) {
+    return { typesMode: "none", categories: [], activities: [] };
   }
-  if (state.typesMode === "all") {
-    return {
-      typesMode: "pick",
-      categories: [],
-      activities: togglePublicActivityGroup([], chip.id),
-    };
-  }
-  const activities = togglePublicActivityGroup(state.activities, chip.id);
   return {
-    typesMode:
-      state.categories.length > 0 || activities.length > 0 ? "pick" : "all",
-    categories: state.categories,
-    activities,
+    typesMode: "pick",
+    categories,
+    activities: groups.reduce<ActivityId[]>(
+      (acc, id) => togglePublicActivityGroup(acc, id),
+      [],
+    ),
   };
 }
 
 function chipPressed(state: SearchState, chip: CategoryChip): boolean {
-  if (chip.kind === "all") return state.typesMode !== "pick";
-  if (state.typesMode !== "pick") return false;
-  if (chip.kind === "category") return state.categories.includes(chip.id);
-  return isPublicActivityGroupSelected(state.activities, chip.id);
+  if (chip.kind === "all") return state.typesMode === "all";
+  const current = selectedChips(state);
+  if (chip.kind === "category") return current.categories.includes(chip.id);
+  return current.groups.includes(chip.id);
 }
 
 /**
@@ -95,7 +121,11 @@ export function CategoryFilterChips({
         Categorieën
       </legend>
       <p className="mb-2 text-xs text-muted-foreground">
-        Laat Alle soorten staan, of tik wat je wil zien.
+        {state.typesMode === "all"
+          ? "Alles staat aan. Tik een soort uit om ze te verbergen."
+          : state.typesMode === "none"
+            ? "Tik de soorten aan die je wil zien."
+            : "Tik Alle soorten om alles weer aan te zetten."}
       </p>
       <div className="flex flex-wrap gap-1.5">
         {CATEGORY_CHIPS.map((chip) => {
@@ -110,7 +140,7 @@ export function CategoryFilterChips({
               onClick={() => onChange(applyCategoryChipPatch(state, chip))}
               className={`rounded-full border px-2.5 py-1.5 text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_srgb,var(--brand-bordeaux)_55%,var(--brand-gold))] ${
                 pressed
-                  ? "border-primary bg-primary text-primary-foreground shadow-[0_4px_12px_-8px_rgba(156,124,37,0.55)]"
+                  ? "border-primary bg-primary text-primary-foreground shadow-[0_4px_12px_-8px_rgba(134,105,31,0.55)]"
                   : "brand-chip-idle"
               }`}
             >

@@ -10,6 +10,8 @@ import { isCurrentEvent } from "@/lib/event-visibility";
 import { ALL_LOCATIONS_ID } from "@/lib/location-options";
 import { isEligibleForEvent } from "@/lib/eligibility";
 import {
+  coversAllPublicActivityGroups,
+  coversAllPublicCategories,
   eventMatchesActivityFilter,
   expandActivityFilterSelection,
   isTravelOrWeekendActivity,
@@ -118,6 +120,15 @@ export function matchingEvents(
 ): { visible: PreparedEvent[]; hiddenStrict: number; guidelineHidden: number } {
   const today = brusselsToday(now);
   const selectedActivities = expandActivityFilterSelection(state.activities);
+  // A dimension with every chip on restricts nothing (chips toggle off to
+  // exclude a type, so "all categories + all but Party" must not hide events
+  // in chip-less categories or without activity tags).
+  const categoryFilter = coversAllPublicCategories(state.categories)
+    ? []
+    : state.categories;
+  const activityFilter = coversAllPublicActivityGroups(selectedActivities)
+    ? []
+    : selectedActivities;
   const allLocations = state.placeId === ALL_LOCATIONS_ID;
   const origin = distanceOrigin(state.placeId);
   const prepared = prepareEvents(events, state).filter((event) => {
@@ -150,13 +161,13 @@ export function matchingEvents(
       selectedActivities.length > 0;
     if (typeFilterOn) {
       if (
-        state.categories.length > 0 &&
-        !state.categories.includes(event.category)
+        categoryFilter.length > 0 &&
+        !categoryFilter.includes(event.category)
       ) {
         return false;
       }
       if (
-        !eventMatchesActivityFilter(event.activities, selectedActivities, {
+        !eventMatchesActivityFilter(event.activities, activityFilter, {
           title: event.title,
           subCategory: event.subCategory,
         })

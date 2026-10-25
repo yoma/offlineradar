@@ -8,6 +8,7 @@ import {
   CATEGORY_CHIPS,
 } from "../components/filters/category-filter-chips";
 import { matchingEvents } from "../lib/filters";
+import { activeFilterChips, removeChipFromState } from "../lib/search-chips";
 import {
   applySearchPatch,
   defaultSearchState,
@@ -301,25 +302,58 @@ async function main() {
   ok("extra filters keep sparse catalog events");
 
   {
+    const chip = (match: (c: (typeof CATEGORY_CHIPS)[number]) => boolean) =>
+      CATEGORY_CHIPS.find(match)!;
+    const allChip = chip((c) => c.kind === "all");
+    const dating = chip((c) => c.kind === "category" && c.id === "dating");
+    const party = chip((c) => c.kind === "activity" && c.id === "party");
+    const speeddate = chip((c) => c.kind === "activity" && c.id === "speeddate");
+    const tap = (state: ReturnType<typeof defaultSearchState>, c: typeof allChip) =>
+      applySearchPatch(state, applyCategoryChipPatch(state, c));
+
     const all = defaultSearchState();
     assert.equal(all.typesMode, "all");
-    const dating = CATEGORY_CHIPS.find(
-      (chip) => chip.kind === "category" && chip.id === "dating",
-    )!;
-    const picked = applySearchPatch(all, applyCategoryChipPatch(all, dating));
-    assert.equal(picked.typesMode, "pick");
-    assert.deepEqual(picked.categories, ["dating"]);
-    assert.deepEqual(picked.activities, []);
-    const back = applySearchPatch(
-      picked,
-      applyCategoryChipPatch(
-        picked,
-        CATEGORY_CHIPS.find((chip) => chip.kind === "all")!,
-      ),
-    );
-    assert.equal(back.typesMode, "all");
-    assert.deepEqual(back.categories, []);
-    ok("category chips: Alle → pick one → Alle (no all-pressed pick mode)");
+
+    // Alle soorten = every chip on; tapping one switches only that one off.
+    const noDating = tap(all, dating);
+    assert.equal(noDating.typesMode, "pick");
+    assert.deepEqual(noDating.categories, ["meet_new_people"]);
+    assert.ok(noDating.activities.includes("speeddate"));
+    assert.ok(noDating.activities.includes("party"));
+
+    // Switching it back on returns to Alle soorten.
+    assert.equal(tap(noDating, dating).typesMode, "all");
+    // Alle soorten from a pick turns everything on again.
+    assert.equal(tap(noDating, allChip).typesMode, "all");
+
+    // Alle soorten while all on clears the row; then pick just one.
+    const cleared = tap(all, allChip);
+    assert.equal(cleared.typesMode, "none");
+    const onlySpeeddate = tap(cleared, speeddate);
+    assert.equal(onlySpeeddate.typesMode, "pick");
+    assert.deepEqual(onlySpeeddate.categories, []);
+    assert.deepEqual(onlySpeeddate.activities, ["speeddate"]);
+    ok("category chips: all on → tap to exclude → Alle restores; Alle again clears");
+
+    // Excluding Party hides a party-only event but keeps chip-less categories.
+    const now = new Date("2026-10-10T12:00:00+02:00");
+    const typed = [
+      stub({ id: "t1", slug: "party-night", startDate: "2026-10-16", activities: ["party"] }),
+      stub({ id: "t2", slug: "social-walk", startDate: "2026-10-16", category: "social", activities: ["wandelen"] }),
+      stub({ id: "t3", slug: "apero", startDate: "2026-10-16", activities: ["drinken"] }),
+    ];
+    const noParty = tap({ ...all, age: 30 }, party);
+    const visible = matchingEvents(typed, noParty, now).visible.map((e) => e.slug);
+    assert.ok(!visible.includes("party-night"), "Party off hides party-only event");
+    assert.ok(visible.includes("social-walk"), "category without chip stays");
+    assert.ok(visible.includes("apero"), "other types stay");
+    ok("excluding one activity keeps everything else");
+
+    const offChips = activeFilterChips(noParty).filter((c) => c.id.startsWith("no-"));
+    assert.deepEqual(offChips.map((c) => c.label), ["Zonder party"]);
+    const restored = removeChipFromState(noParty, offChips[0]!.id);
+    assert.equal(restored.typesMode, "all");
+    ok("active chips name the excluded type; removing it restores Alle soorten");
   }
 
   console.log("\nOK: search filter + public card invariants.");

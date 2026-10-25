@@ -10,7 +10,16 @@ import {
   PRICE_LABEL,
   WHEN_LABEL,
 } from "@/lib/format";
-import { publicActivityChipsFromSelection } from "@/lib/public-activity-groups";
+import {
+  PUBLIC_ACTIVITY_GROUPS,
+  PUBLIC_CATEGORY_FILTERS,
+  coversAllPublicActivityGroups,
+  coversAllPublicCategories,
+  getPublicActivityGroup,
+  isPublicActivityGroupSelected,
+  publicActivityChipsFromSelection,
+  type PublicActivityGroupId,
+} from "@/lib/public-activity-groups";
 import { applySearchPatch } from "@/lib/search-state";
 import type { SearchState } from "@/types/search";
 
@@ -45,6 +54,23 @@ export function countExtraFilters(
   if (state.preferredAgeMin != null || state.preferredAgeMax != null) n += 1;
   if (organizerSlugs.length > 0) n += 1;
   return n;
+}
+
+/**
+ * When more type chips are on than off (the user switched a few off from
+ * Alle soorten), the switched-off ones. Otherwise null.
+ */
+function excludedTypes(state: SearchState) {
+  if (state.typesMode !== "pick") return null;
+  const categories = PUBLIC_CATEGORY_FILTERS.filter(
+    (id) => !state.categories.includes(id),
+  );
+  const groups = PUBLIC_ACTIVITY_GROUPS.filter(
+    (group) => !isPublicActivityGroupSelected(state.activities, group.id),
+  );
+  const total = PUBLIC_CATEGORY_FILTERS.length + PUBLIC_ACTIVITY_GROUPS.length;
+  const off = categories.length + groups.length;
+  return off * 2 < total ? { categories, groups } : null;
 }
 
 export function activeFilterChips(
@@ -96,19 +122,38 @@ export function activeFilterChips(
       kind: "preference",
     });
   }
-  for (const category of state.categories) {
-    chips.push({
-      id: `cat-${category}`,
-      label: CATEGORY_LABEL[category],
-      kind: "filter",
-    });
-  }
-  for (const activityChip of publicActivityChipsFromSelection(state.activities)) {
-    chips.push({
-      id: `act-${activityChip.id}`,
-      label: activityChip.label,
-      kind: "filter",
-    });
+  const excluded = excludedTypes(state);
+  if (excluded) {
+    // Most types on: name what is switched off ("Zonder Party").
+    for (const category of excluded.categories) {
+      chips.push({
+        id: `no-cat-${category}`,
+        label: `Zonder ${CATEGORY_LABEL[category].toLowerCase()}`,
+        kind: "filter",
+      });
+    }
+    for (const group of excluded.groups) {
+      chips.push({
+        id: `no-act-${group.id}`,
+        label: `Zonder ${group.label.toLowerCase()}`,
+        kind: "filter",
+      });
+    }
+  } else {
+    for (const category of state.categories) {
+      chips.push({
+        id: `cat-${category}`,
+        label: CATEGORY_LABEL[category],
+        kind: "filter",
+      });
+    }
+    for (const activityChip of publicActivityChipsFromSelection(state.activities)) {
+      chips.push({
+        id: `act-${activityChip.id}`,
+        label: activityChip.label,
+        kind: "filter",
+      });
+    }
   }
   if (state.price !== "any") {
     chips.push({
@@ -169,6 +214,32 @@ export function removeChipFromState(
   }
   if (chipId === "strict") {
     return applySearchPatch(state, { strictOnly: false });
+  }
+  if (chipId.startsWith("no-cat-") || chipId.startsWith("no-act-")) {
+    // Switch the excluded type back on; all on again = Alle soorten.
+    const categories = chipId.startsWith("no-cat-")
+      ? [...state.categories, chipId.slice(7) as SearchState["categories"][number]]
+      : state.categories;
+    const activities = chipId.startsWith("no-act-")
+      ? Array.from(
+          new Set([
+            ...state.activities,
+            ...getPublicActivityGroup(chipId.slice(7) as PublicActivityGroupId)
+              .activities,
+          ]),
+        )
+      : state.activities;
+    if (
+      coversAllPublicCategories(categories) &&
+      coversAllPublicActivityGroups(activities)
+    ) {
+      return applySearchPatch(state, {
+        typesMode: "all",
+        categories: [],
+        activities: [],
+      });
+    }
+    return applySearchPatch(state, { typesMode: "pick", categories, activities });
   }
   if (chipId.startsWith("cat-")) {
     const category = chipId.slice(4);

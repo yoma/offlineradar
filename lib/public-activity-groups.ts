@@ -5,7 +5,7 @@
  * Public filters are broader groups so users get expected results
  * (e.g. Sport & actief includes walks and outdoor).
  */
-import type { ActivityId } from "@/types/event";
+import type { ActivityId, EventCategory } from "@/types/event";
 
 export type PublicActivityGroupId =
   | "speeddate"
@@ -450,6 +450,32 @@ export function eventMatchesActivityFilter(
   }
 
   return true;
+}
+
+/** Categories with their own chip ("social" has none). */
+export const PUBLIC_CATEGORY_FILTERS: readonly EventCategory[] = [
+  "dating",
+  "meet_new_people",
+];
+
+/**
+ * Every category chip is on: no category restriction (so events in
+ * categories without a chip stay visible when the user only excludes an
+ * activity).
+ */
+export function coversAllPublicCategories(
+  categories: readonly EventCategory[],
+): boolean {
+  return PUBLIC_CATEGORY_FILTERS.every((id) => categories.includes(id));
+}
+
+/** Every activity chip is on: no activity restriction. */
+export function coversAllPublicActivityGroups(
+  activities: readonly ActivityId[],
+): boolean {
+  return PUBLIC_ACTIVITY_GROUPS.every((group) =>
+    group.activities.every((activity) => activities.includes(activity)),
+  );
 }
 
 /** Toggle a full public group in/out of the activity selection. */
