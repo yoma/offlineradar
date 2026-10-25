@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { NEUTRAL_FALLBACK_DATA_URI } from "@/lib/image-compatibility";
 
 /**
@@ -25,13 +25,13 @@ export function EventVisualImage({
   candidates?: string[];
 }) {
   const queue = buildQueue(src, candidates);
-  const [index, setIndex] = useState(0);
+  // Failover position, tied to the queue it belongs to: a new src/candidate
+  // list starts at 0 again without an effect.
+  const queueKey = queue.join("|");
+  const [failover, setFailover] = useState({ key: queueKey, index: 0 });
+  const index = failover.key === queueKey ? failover.index : 0;
   const current = queue[Math.min(index, queue.length - 1)] ?? NEUTRAL_FALLBACK_DATA_URI;
   const unoptimized = current.startsWith("data:");
-
-  useEffect(() => {
-    setIndex(0);
-  }, [src, candidates.join("|")]);
 
   return (
     <Image
@@ -43,9 +43,10 @@ export function EventVisualImage({
       sizes={sizes}
       className={className}
       onError={() => {
-        setIndex((prev) => {
-          const next = prev + 1;
-          return next < queue.length ? next : queue.length - 1;
+        const next = index + 1;
+        setFailover({
+          key: queueKey,
+          index: next < queue.length ? next : queue.length - 1,
         });
       }}
     />

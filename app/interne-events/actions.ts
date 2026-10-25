@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidateCatalog } from "@/lib/events";
 import { signIn, signOut } from "@/auth";
 import { resolveTipsAdminAccess } from "@/lib/tips/admin-auth";
 import {
@@ -38,6 +39,7 @@ export async function takeEventOfflineAction(formData: FormData) {
   revalidatePath("/interne-events");
   revalidatePath("/interne-aanvoer");
   revalidatePath("/ontdek");
+  revalidateCatalog();
   revalidatePath(`/event/${updated.slug}`);
 }
 
@@ -60,6 +62,7 @@ export async function publishEventAction(formData: FormData) {
   revalidatePath("/interne-goedkeuren");
   revalidatePath("/interne-aanvoer");
   revalidatePath("/ontdek");
+  revalidateCatalog();
   revalidatePath(`/event/${result.slug}`);
 }
 
@@ -80,6 +83,7 @@ export async function bulkPublishEventsAction(formData: FormData) {
   revalidatePath("/interne-aanvoer");
   revalidatePath("/interne-goedkeuren");
   revalidatePath("/ontdek");
+  revalidateCatalog();
   if (result.published === 0 && result.failed.length > 0) {
     throw new Error(
       result.failed[0]?.error ?? "Geen events konden worden gepubliceerd.",

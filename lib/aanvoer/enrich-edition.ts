@@ -3,6 +3,7 @@
  * Never blanks fields; only adds or replaces placeholders.
  */
 import { revalidatePath } from "next/cache";
+import { revalidateCatalog } from "@/lib/events";
 import { isPlaceholderStartsAt } from "@/lib/aanvoer/admin-status";
 import {
   buildIntakeEndsAt,
@@ -267,6 +268,7 @@ export async function enrichEditionFromIntakeDraft(input: {
   }
 
   revalidatePath("/ontdek");
+  revalidateCatalog();
   revalidatePath(`/event/${row.slug}`);
   revalidatePath("/interne-aanvoer");
   revalidatePath("/interne-events");
