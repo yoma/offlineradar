@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { auth } from "@/auth";
 import { EventDetail } from "@/components/events/event-detail";
 import {
@@ -7,17 +8,55 @@ import {
   getEventBySlug,
   isCanonicalEventsFeedEnabled,
 } from "@/lib/events";
+import { formatLongDate } from "@/lib/dates";
+import { resolveWebsiteVisibleEventImage } from "@/lib/images";
 import { isFollowingOrganizer } from "@/lib/users/store";
+import type { Event } from "@/types/event";
 
 export const dynamic = "force-dynamic";
+
+/** One catalog lookup per request, shared by metadata and page. */
+const loadEvent = cache(getEventBySlug);
+
+/** "Zondag 25 oktober, 11:00 in Turnhout. <organiser text>" (max ~160 chars). */
+function eventDescription(event: Event): string {
+  const when = `${formatLongDate(event.startDate)}${event.startTime ? `, ${event.startTime}` : ""}`;
+  const lead = `${when.charAt(0).toUpperCase()}${when.slice(1)}${event.city ? ` in ${event.city}` : ""}.`;
+  const text = `${lead} ${(event.shortDescription ?? "").trim()}`.trim();
+  return text.length > 160 ? `${text.slice(0, 157).trimEnd()}…` : text;
+}
 
 export async function generateMetadata({
   params,
 }: PageProps<"/event/[slug]">): Promise<Metadata> {
   const { slug } = await params;
   try {
-    const event = await getEventBySlug(slug);
-    return { title: event?.title ?? "Activiteit" };
+    const event = await loadEvent(slug);
+    if (!event) return { title: "Activiteit" };
+    const description = eventDescription(event);
+    // Same image the page shows; the neutral data-URI fallback is no share image.
+    const image = resolveWebsiteVisibleEventImage(event).url;
+    const images = image.startsWith("data:")
+      ? undefined
+      : [{ url: image, alt: event.imageAlt ?? event.title }];
+    return {
+      title: event.title,
+      description,
+      alternates: { canonical: `/event/${slug}` },
+      openGraph: {
+        type: "website",
+        url: `/event/${slug}`,
+        title: event.title,
+        description,
+        ...(images ? { images } : {}),
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: event.title,
+        description,
+        ...(images ? { images } : {}),
+      },
+    };
   } catch {
     return { title: "Activiteit" };
   }
@@ -28,7 +67,7 @@ export default async function EventPage({
 }: PageProps<"/event/[slug]">) {
   const { slug } = await params;
   try {
-    const event = await getEventBySlug(slug);
+    const event = await loadEvent(slug);
     if (!event) notFound();
 
     let initialFollowingOrganizer = false;

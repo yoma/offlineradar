@@ -6,6 +6,7 @@ import { AnalyticsBeacon } from "@/components/analytics/analytics-beacon";
 import { BetaWelcomeModal } from "@/components/beta/beta-welcome-modal";
 import { FeedbackLauncher } from "@/components/feedback/feedback-launcher";
 import { MobileNav, SiteHeader } from "@/components/layout/site-nav";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 import { isAllowlistedAdminEmail } from "@/lib/tips/admin-auth";
 import "./globals.css";
 
@@ -30,29 +31,25 @@ const bricolage = Bricolage_Grotesque({
   variable: "--font-bricolage",
 });
 
-const siteDescription =
-  "Ontdek hier singlesevents en activiteiten waar je andere singles in het echt kunt ontmoeten.";
-
 export const metadata: Metadata = {
-  metadataBase: new URL("https://dateofflinehub.be"),
-  applicationName: "DateOfflineHub",
+  metadataBase: new URL(SITE_URL),
+  applicationName: SITE_NAME,
   title: {
-    default: "DateOfflineHub",
-    template: "%s · DateOfflineHub",
+    default: SITE_NAME,
+    template: `%s · ${SITE_NAME}`,
   },
-  description: siteDescription,
+  description: SITE_DESCRIPTION,
   openGraph: {
     type: "website",
     locale: "nl_BE",
-    url: "https://dateofflinehub.vercel.app",
-    siteName: "DateOfflineHub",
-    title: "DateOfflineHub",
-    description: siteDescription,
+    siteName: SITE_NAME,
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
   },
   twitter: {
     card: "summary_large_image",
-    title: "DateOfflineHub",
-    description: siteDescription,
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
   },
 };
 

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { HomeHero } from "@/components/home/home-search";
 import { TipSection } from "@/components/tips/tip-section";
 import { brusselsToday } from "@/lib/dates";
@@ -16,6 +17,11 @@ import { selectUpcomingEvents } from "@/lib/upcoming";
 import type { Event } from "@/types/event";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: { absolute: "DateOfflineHub · Singles ontmoeten in het echt" },
+  alternates: { canonical: "/" },
+};
 
 export default async function HomePage() {
   let organizerOptions: Awaited<

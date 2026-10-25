@@ -156,9 +156,11 @@ export function isEligibleForEvent(
   }
 
   if (user.age == null) {
+    // Browsing without an age shows everything; the card shows the age range
+    // and the detail page asks for an age to confirm.
     return {
       status: "needs_age",
-      includedByDefault: false,
+      includedByDefault: true,
       inRange: null,
       title: "Leeftijd nodig",
       detail: "Vul je leeftijd in om te controleren of je mag deelnemen.",

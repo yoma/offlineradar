@@ -58,6 +58,8 @@
   /*
    * DateOfflineHub visual system (Instagram-ready tokens).
    * Gold kept from logo (#D4AF37 / #9C7C25): warmer than #C29A58, better match.
+   * Interactive gold is #86691F: same hue, but ≥4.5:1 contrast with white text
+   * and on the cream background (#9C7C25 was 3.9:1).
    * Rose (#C98188) is a supporting accent only, never the primary identity.
    */
   --brand-cream: #f9f2ea;
@@ -78,7 +80,7 @@
   --brand-anthracite: #2f3035;
   --brand-gold: #d4af37;
   --brand-gold-light: #f5e49f;
-  --brand-gold-deep: #9c7c25;
+  --brand-gold-deep: #86691f;
   --brand-gold-soft: #fbf6e8;
   --brand-gold-ink: #7a5c1e;
   --background: #f9f2ea;
@@ -87,7 +89,7 @@
   --card-foreground: #2f3035;
   --popover: #ffffff;
   --popover-foreground: #2f3035;
-  --primary: #9c7c25;
+  --primary: #86691f;
   --primary-foreground: #ffffff;
   --secondary: #f3ebe3;
   --secondary-foreground: #2f3035;
@@ -98,8 +100,8 @@
   --destructive: #9b2c2c;
   --border: #e4d5cb;
   --input: #ddd2c6;
-  --ring: #9c7c25;
-  --chart-1: #9c7c25;
+  --ring: #86691f;
+  --chart-1: #86691f;
   --chart-2: #d4af37;
   --chart-3: #67283a;
   --chart-4: #c98188;
@@ -107,12 +109,12 @@
   --radius: 0.85rem;
   --sidebar: #ffffff;
   --sidebar-foreground: #2f3035;
-  --sidebar-primary: #9c7c25;
+  --sidebar-primary: #86691f;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #fbf6e8;
   --sidebar-accent-foreground: #7a5c1e;
   --sidebar-border: #e8ddd2;
-  --sidebar-ring: #9c7c25;
+  --sidebar-ring: #86691f;
 }
 
 @layer base {

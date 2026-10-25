@@ -628,7 +628,7 @@ function Field({
       >
         <span className="truncate">{label}</span>
         {optional ? (
-          <span className="truncate text-[10px] font-medium tracking-normal text-muted-foreground/80 normal-case">
+          <span className="truncate text-[10px] font-medium tracking-normal text-muted-foreground normal-case">
             optioneel
           </span>
         ) : null}
