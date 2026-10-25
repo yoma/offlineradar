@@ -12,7 +12,13 @@ Adminpagina: `/interne-instagram/wachtrij` (zelfde Google-login als `/interne-ev
 3. De site stelt daarnaast zelf drie posts per week voor (ma *Deze week*, wo *Nieuw*,
    vr *Binnenkort*). Die verschijnen onder **Te keuren**. Goedkeuren of **Afwijzen**;
    afgewezen posts worden verborgen en nooit geplaatst.
-4. Schakelaar **Automatisch posten zonder goedkeuring** (standaard UIT): als die aan
+4. **Verhaal (story):** vinkje "Ook als verhaal" (standaard aan). Na de feedpost
+   plaatst de site een staand beeld (1080×1920): de eerste slide met
+   `dateofflinehub.be` eronder. Instagram laat via de API geen
+   linksticker toe; wil je een klikbare link, klik dan **Download verhaal** en plaats
+   het zelf in de app met een linksticker. Mislukt het verhaal, dan blijft de post
+   gewoon staan en kun je **Verhaal plaatsen** opnieuw proberen.
+5. Schakelaar **Automatisch posten zonder goedkeuring** (standaard UIT): als die aan
    staat, gaan ook niet-goedgekeurde voorstellen op hun dag online.
 
 Afbeeldingen worden één keer als JPEG gemaakt en in Neon bewaard.
@@ -65,6 +71,7 @@ Handmatig kan ook: `npm run db:migrate:instagram-post-queue`.
 | `lib/instagram/queue.ts` | wachtrij-opslag + statussen |
 | `lib/instagram/queue-runner.ts` | cron-ronde: opruimen, token, publiceren, voorstellen |
 | `lib/instagram/queue-media.ts` | JPEG-rendering |
+| `lib/instagram/story.tsx` | verhaal-beeld 1080×1920 |
 | `lib/instagram/token-store.ts` | token versleuteld opslaan + vernieuwen |
 | `app/api/cron/instagram/route.ts` | dagelijkse Vercel-cron (Bearer `CRON_SECRET`) |
 | `app/api/instagram/media/[id]/route.ts` | publieke JPEG's voor Meta |

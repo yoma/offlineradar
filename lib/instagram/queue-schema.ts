@@ -100,25 +100,51 @@ VALUES ('20261025_instagram_post_queue_v1')
 ON CONFLICT (id) DO NOTHING;
 `;
 
+/** v2: optional story per post (story image stored as media kind 'story'). */
+export const INSTAGRAM_POST_QUEUE_STORY_MIGRATION_ID =
+  "20261025_instagram_post_queue_story_v2";
+
+export const INSTAGRAM_POST_QUEUE_STORY_SQL = `
+ALTER TABLE instagram_post_queue
+  ADD COLUMN IF NOT EXISTS post_story BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS story_media_id TEXT,
+  ADD COLUMN IF NOT EXISTS story_error TEXT,
+  ADD COLUMN IF NOT EXISTS story_started_at TIMESTAMPTZ;
+
+ALTER TABLE instagram_post_media
+  ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'feed';
+
+INSERT INTO schema_migrations (id)
+VALUES ('20261025_instagram_post_queue_story_v2')
+ON CONFLICT (id) DO NOTHING;
+`;
+
+const MIGRATIONS: [id: string, sql: string][] = [
+  [INSTAGRAM_POST_QUEUE_MIGRATION_ID, INSTAGRAM_POST_QUEUE_SCHEMA_SQL],
+  [INSTAGRAM_POST_QUEUE_STORY_MIGRATION_ID, INSTAGRAM_POST_QUEUE_STORY_SQL],
+];
+
 let ensured: Promise<boolean> | null = null;
 
-/** Create the queue tables once per server instance. False when Neon is unavailable. */
+/** Create/upgrade the queue tables once per server instance. False when Neon is unavailable. */
 export function ensureInstagramQueueSchema(): Promise<boolean> {
   if (!ensured) {
     ensured = (async () => {
       const sql = getEventsSql();
       if (!sql) return false;
-      const done = (await sql`
-        SELECT 1 FROM schema_migrations
-        WHERE id = ${INSTAGRAM_POST_QUEUE_MIGRATION_ID}
-      `) as unknown[];
-      if (done.length > 0) return true;
-      // One transaction: either the whole schema exists or none of it.
-      await sql.transaction(
-        splitSqlStatements(INSTAGRAM_POST_QUEUE_SCHEMA_SQL).map((statement) =>
-          sql.query(statement, []),
-        ),
+      const done = new Set(
+        ((await sql`
+          SELECT id FROM schema_migrations
+          WHERE id = ANY(${MIGRATIONS.map(([id]) => id)})
+        `) as { id: string }[]).map((r) => r.id),
       );
+      for (const [id, text] of MIGRATIONS) {
+        if (done.has(id)) continue;
+        // One transaction per migration: all of it or none of it.
+        await sql.transaction(
+          splitSqlStatements(text).map((statement) => sql.query(statement, [])),
+        );
+      }
       return true;
     })().catch((error) => {
       ensured = null;

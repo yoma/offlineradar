@@ -199,7 +199,8 @@ export function buildSingleEventCaption(event: Event): InstagramCaption {
       ? ["", blurb.length > 400 ? `${blurb.slice(0, 397).trimEnd()}…` : blurb]
       : []),
     "",
-    `Inschrijven doe je rechtstreeks bij ${organizer || "de organisator"}. Meer info via de link in bio of op ${INSTAGRAM_WEBSITE}.`,
+    `Inschrijven doe je rechtstreeks bij ${organizer || "de organisator"}.`,
+    `Meer info op ${INSTAGRAM_WEBSITE} (link in bio).`,
     "",
     INSTAGRAM_SLOGAN,
     "",

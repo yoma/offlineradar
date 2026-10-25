@@ -28,8 +28,15 @@ import {
   META_HTTP_TIMEOUT_MS,
 } from "@/lib/instagram/publish-policy";
 import {
+  addStoryImage,
   claimDueQueuePost,
   claimQueuePostById,
+  claimStoryPublish,
+  getFirstFeedImage,
+  getStoryImageId,
+  markStoryFailed,
+  markStoryPosted,
+  publicMediaUrl,
   createQueuePost,
   getAutoPostWithoutApproval,
   hasPostForSlot,
@@ -41,6 +48,7 @@ import {
 } from "@/lib/instagram/queue";
 import { renderDraftJpegs } from "@/lib/instagram/queue-media";
 import { NEEDS_INSTAGRAM_CHECK } from "@/lib/instagram/queue-messages";
+import { renderStoryJpeg, renderStoryOrNull } from "@/lib/instagram/story";
 import {
   getInstagramAccessToken,
   refreshInstagramTokenIfDue,
@@ -71,6 +79,9 @@ const PROPOSE_HORIZON_DAYS = 7;
 const PROPOSE_MIN_LEAD_MS = 6 * 3_600_000;
 /** Publishing must finish well within the 60s function limit. */
 const PUBLISH_BUDGET_MS = 45_000;
+/** The story goes after the feed post, within the same 60s function. */
+const STORY_DEADLINE_MS = 54_000;
+const STORY_MIN_MS = 8_000;
 /** Start another due post in the same cron run only while this much is left. */
 const NEXT_POST_MIN_REMAINING_MS = 45_000;
 const CRON_TOTAL_MS = 55_000;
@@ -198,7 +209,8 @@ export async function publishQueuePost(
       graphApiVersion: config.graphApiVersion,
       graphHost: config.graphHost,
     });
-  const deadlineMs = Date.now() + PUBLISH_BUDGET_MS;
+  const startedMs = Date.now();
+  const deadlineMs = startedMs + PUBLISH_BUDGET_MS;
 
   // An earlier attempt got as far as media_publish. Only post again when
   // Instagram clearly says that container was never published (FINISHED);
@@ -250,7 +262,102 @@ export async function publishQueuePost(
 
   await markQueuePosted(post.id, published.data.id);
   console.info(`[instagram/queue] ${post.id} gepost als ${published.data.id}`);
-  return { id: post.id, ok: true, message: "Gepost op Instagram." };
+
+  if (!post.postStory) {
+    return { id: post.id, ok: true, message: "Gepost op Instagram." };
+  }
+  const story = await publishStory(post.id, client, startedMs + STORY_DEADLINE_MS);
+  return {
+    id: post.id,
+    ok: true,
+    message: story.ok
+      ? "Gepost op Instagram, ook als verhaal."
+      : `Gepost op Instagram. Verhaal niet gelukt: ${story.message}`,
+  };
+}
+
+/**
+ * Publish the 1080×1920 story for a post that is already live.
+ * Never touches the feed post; failures only set story_error.
+ */
+async function publishStory(
+  postId: string,
+  client: MetaClient,
+  deadlineMs: number,
+): Promise<{ ok: boolean; message: string }> {
+  if (deadlineMs - Date.now() < STORY_MIN_MS) {
+    const message = "Geen tijd meer in deze ronde. Klik op 'Verhaal plaatsen'.";
+    await markStoryFailed(postId, message);
+    return { ok: false, message };
+  }
+  if (!(await claimStoryPublish(postId))) {
+    return { ok: false, message: "Verhaal staat al online of wordt net geplaatst." };
+  }
+  const fail = async (raw: string) => {
+    const message = scrubSecrets(raw);
+    await markStoryFailed(postId, message);
+    console.warn(`[instagram/queue] ${postId} verhaal mislukt: ${message}`);
+    return { ok: false, message };
+  };
+
+  try {
+    let storyImageId = await getStoryImageId(postId);
+    if (!storyImageId) {
+      // Posts made before stories existed: render from the first slide now.
+      const first = await getFirstFeedImage(postId);
+      if (!first) return fail("Geen afbeelding gevonden voor het verhaal.");
+      storyImageId = await addStoryImage(postId, await renderStoryJpeg(first));
+    }
+
+    const timeoutMs = () =>
+      Math.max(1_000, Math.min(META_HTTP_TIMEOUT_MS, deadlineMs - Date.now()));
+    if (!client.createStoryContainer) return fail("Verhalen niet ondersteund.");
+    const container = await client.createStoryContainer(
+      { imageUrl: publicMediaUrl(storyImageId) },
+      { timeoutMs: timeoutMs() },
+    );
+    if (!container.ok) {
+      return fail(humanMetaPublishError(container.error.code, container.error.message));
+    }
+    const ready = await waitForContainerFinished(client, container.data.id, {
+      deadlineMs,
+      delayMs: 1_500,
+    });
+    if (!ready.ok) {
+      return fail(humanMetaPublishError(ready.error.code, ready.error.message));
+    }
+    const published = await client.publishContainer(container.data.id, {
+      timeoutMs: timeoutMs(),
+    });
+    if (!published.ok) {
+      return fail(humanMetaPublishError(published.error.code, published.error.message));
+    }
+    await markStoryPosted(postId, published.data.id);
+    return { ok: true, message: "Verhaal geplaatst." };
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : "Verhaal mislukt.");
+  }
+}
+
+/** "Verhaal plaatsen": (re)try the story of a post that is already live. */
+export async function publishStoryNow(
+  postId: string,
+): Promise<{ ok: boolean; message: string }> {
+  const config = readInstagramMetaConfig();
+  if (config.dryRun || config.publishExplicitlyOff) {
+    return { ok: false, message: "Posten staat uit (dry-run of noodstop)." };
+  }
+  const accessToken = await getInstagramAccessToken();
+  if (!config.igUserId || !accessToken) {
+    return { ok: false, message: humanMetaPublishError("missing_credentials") };
+  }
+  const client = createMetaClient({
+    igUserId: config.igUserId,
+    accessToken,
+    graphApiVersion: config.graphApiVersion,
+    graphHost: config.graphHost,
+  });
+  return publishStory(postId, client, Date.now() + PUBLISH_BUDGET_MS);
 }
 
 /**
@@ -342,6 +449,7 @@ async function proposeNextSlot(
     const jpegs = await renderDraftJpegs(draft, catalog);
     const created = await createQueuePost({
       jpegs,
+      storyJpeg: await renderStoryOrNull(jpegs[0]!),
       caption: draft.caption,
       scheduledAt: slot.at,
       status: "te_keuren",
