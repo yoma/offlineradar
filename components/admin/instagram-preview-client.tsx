@@ -44,9 +44,11 @@ function DraftCard({
   const [publishMessage, setPublishMessage] = useState<string | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [published, setPublished] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
   const slide = draft.slides[slideIndex] ?? draft.slides[0];
   const src = slide ? imageUrlFromQuery(slide.query) : "";
+  // Loaded state belongs to one src, so switching slides resets it.
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const imageLoaded = loadedSrc === src;
   const publishDisabled =
     publishPending ||
     published ||
@@ -60,10 +62,6 @@ function DraftCard({
       setApproveError(null);
     }
   }, [initialApproved]);
-
-  useEffect(() => {
-    setImageLoaded(false);
-  }, [src]);
 
   return (
     <section className="overflow-hidden rounded-2xl border border-stone-200/90 bg-white shadow-sm">
@@ -97,8 +95,8 @@ function DraftCard({
               width={1080}
               height={1350}
               className={`h-auto w-full transition-opacity ${imageLoaded ? "opacity-100" : "opacity-40"}`}
-              onLoad={() => setImageLoaded(true)}
-              onError={() => setImageLoaded(true)}
+              onLoad={() => setLoadedSrc(src)}
+              onError={() => setLoadedSrc(src)}
             />
           </div>
           {draft.slides.length > 1 ? (
@@ -116,7 +114,6 @@ function DraftCard({
                   aria-selected={i === slideIndex}
                   onClick={() => {
                     if (i === slideIndex) return;
-                    setImageLoaded(false);
                     setSlideIndex(i);
                     const next = draft.slides[i + 1];
                     if (next && typeof window !== "undefined") {

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidateCatalog } from "@/lib/events";
 import { resolveTipsAdminAccess } from "@/lib/tips/admin-auth";
 import { applyRefreshChangesToEdition } from "@/lib/source-refresh/apply-change";
 import { createDraftFromRefreshCandidate } from "@/lib/source-refresh/draft-from-candidate";
@@ -142,6 +143,7 @@ export async function applyRefreshItemChangeAction(formData: FormData) {
   revalidatePath(`/interne-events/refresh/${item.refreshRunId}`);
   revalidatePath("/interne-events");
   revalidatePath("/ontdek");
+  revalidateCatalog();
 }
 
 export async function bulkAddRefreshDraftsAction(formData: FormData) {

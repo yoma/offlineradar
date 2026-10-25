@@ -1,3 +1,4 @@
+import { revalidateTag, unstable_cache } from "next/cache";
 import { buildMockEvents } from "@/data/events";
 import {
   getPublishedEditionBySlug,
@@ -80,7 +81,47 @@ async function loadMockEvents(): Promise<Event[]> {
   return buildMockEvents(new Date()).filter(isEventListable);
 }
 
+/**
+ * Public catalog cache. Pages stay dynamic (per-visitor search state), but the
+ * published catalog is read from Neon at most once per window per region.
+ * Admin actions that change it call revalidateCatalog() for an instant refresh.
+ */
+export const CATALOG_CACHE_TAG = "public-catalog";
+const CATALOG_CACHE_SECONDS = 60;
+
+/** Cached values go through JSON: Infinity (unknown coords) comes back null. */
+function restoreDistance(event: Event): Event {
+  return typeof event.distanceKm === "number"
+    ? event
+    : { ...event, distanceKm: Number.POSITIVE_INFINITY };
+}
+
+/** Mark the public catalog stale (call after publishing or editing events). */
+export function revalidateCatalog(): void {
+  try {
+    revalidateTag(CATALOG_CACHE_TAG, { expire: 0 });
+  } catch {
+    // Outside a request (CLI scripts): the short cache window covers it.
+  }
+}
+
+const cachedCanonicalEvents = unstable_cache(
+  () => loadCanonicalEventsUncached(),
+  ["public-catalog-list"],
+  { revalidate: CATALOG_CACHE_SECONDS, tags: [CATALOG_CACHE_TAG] },
+);
+
+/** Next sets NEXT_RUNTIME in the server; CLI scripts have no request cache. */
+function inNextServer(): boolean {
+  return Boolean(process.env.NEXT_RUNTIME);
+}
+
 async function loadCanonicalEvents(): Promise<Event[]> {
+  if (!inNextServer()) return loadCanonicalEventsUncached();
+  return (await cachedCanonicalEvents()).map(restoreDistance);
+}
+
+async function loadCanonicalEventsUncached(): Promise<Event[]> {
   try {
     // Public catalog must include the full published set (was silently capped at 100).
     const bundles = await listPublishedEditionBundles(500);
@@ -111,29 +152,43 @@ export async function listEvents(): Promise<Event[]> {
   return loadMockEvents();
 }
 
+const cachedCanonicalEventBySlug = unstable_cache(
+  (slug: string) => loadCanonicalEventBySlugUncached(slug),
+  ["public-catalog-event"],
+  { revalidate: CATALOG_CACHE_SECONDS, tags: [CATALOG_CACHE_TAG] },
+);
+
 export async function getEventBySlug(slug: string): Promise<Event | null> {
   if (isCanonicalEventsFeedEnabled()) {
-    try {
-      const bundle = await getPublishedEditionBySlug(slug);
-      if (!bundle) {
-        // Distinguish missing vs DB down: try listing path only when SQL works.
-        const sqlProbe = await listPublishedEditionBundles(1);
-        if (sqlProbe == null) {
-          throw new EventsCatalogUnavailableError(
-            "Canonical eventdatabase niet bereikbaar.",
-          );
-        }
-        return null;
-      }
-      const event = mapEditionToConsumerEvent(bundle);
-      return isRouteABListable(event) ? event : null;
-    } catch (error) {
-      if (error instanceof EventsCatalogUnavailableError) throw error;
-      throw new EventsCatalogUnavailableError(
-        "Canonical eventdatabase niet bereikbaar.",
-      );
-    }
+    if (!inNextServer()) return loadCanonicalEventBySlugUncached(slug);
+    const event = await cachedCanonicalEventBySlug(slug);
+    return event ? restoreDistance(event) : null;
   }
   const events = await loadMockEvents();
   return events.find((event) => event.slug === slug) ?? null;
+}
+
+async function loadCanonicalEventBySlugUncached(
+  slug: string,
+): Promise<Event | null> {
+  try {
+    const bundle = await getPublishedEditionBySlug(slug);
+    if (!bundle) {
+      // Distinguish missing vs DB down: try listing path only when SQL works.
+      const sqlProbe = await listPublishedEditionBundles(1);
+      if (sqlProbe == null) {
+        throw new EventsCatalogUnavailableError(
+          "Canonical eventdatabase niet bereikbaar.",
+        );
+      }
+      return null;
+    }
+    const event = mapEditionToConsumerEvent(bundle);
+    return isRouteABListable(event) ? event : null;
+  } catch (error) {
+    if (error instanceof EventsCatalogUnavailableError) throw error;
+    throw new EventsCatalogUnavailableError(
+      "Canonical eventdatabase niet bereikbaar.",
+    );
+  }
 }

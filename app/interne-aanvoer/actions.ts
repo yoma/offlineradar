@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidateCatalog } from "@/lib/events";
 import { signIn, signOut } from "@/auth";
 import { evaluateIntakeApproval } from "@/lib/aanvoer/approval";
 import {
@@ -448,6 +449,7 @@ export async function approveIntakeAction(
       revalidatePath("/interne-aanvoer");
       revalidatePath("/interne-events");
       revalidatePath("/ontdek");
+      revalidateCatalog();
       if (enriched.slug) revalidatePath(`/event/${enriched.slug}`);
       return {
         ok: true,
@@ -541,6 +543,7 @@ export async function approveIntakeAction(
   revalidatePath("/interne-events");
   if (published) {
     revalidatePath("/ontdek");
+    revalidateCatalog();
     revalidatePath(`/event/${event.slug}`);
   }
 
@@ -1245,6 +1248,7 @@ export async function updateAanvoerCandidateStatusAction(
         revalidatePath("/interne-aanvoer");
         revalidatePath("/interne-events");
         revalidatePath("/ontdek");
+        revalidateCatalog();
         const fieldLabel =
           deep.report.fieldsConfirmed.join(", ") || "kernvelden bevestigd";
         return {
@@ -1323,6 +1327,7 @@ export async function updateAanvoerCandidateStatusAction(
     revalidatePath("/interne-goedkeuren");
     revalidatePath("/interne-events");
     revalidatePath("/ontdek");
+    revalidateCatalog();
     revalidatePath(`/event/${published.slug}`);
     return { ok: true, message: "✓ Toegevoegd aan DateOfflineHub" };
   }
@@ -1345,6 +1350,7 @@ export async function updateAanvoerCandidateStatusAction(
     revalidatePath("/interne-goedkeuren");
     revalidatePath("/interne-events");
     revalidatePath("/ontdek");
+    revalidateCatalog();
     return { ok: true, message: "Niet toegevoegd." };
   }
 
@@ -1480,6 +1486,7 @@ export async function bulkPublishAanvoerCandidatesAction(
   revalidatePath("/interne-goedkeuren");
   revalidatePath("/interne-events");
   revalidatePath("/ontdek");
+  revalidateCatalog();
   if (result.published === 0) {
     return {
       ok: false,
@@ -1805,6 +1812,7 @@ export async function pasteInfoOntoAandachtCandidateAction(
       revalidatePath("/interne-aanvoer");
       revalidatePath("/interne-events");
       revalidatePath("/ontdek");
+      revalidateCatalog();
       return {
         ok: true,
         message: "✓ Info verwerkt — toegevoegd aan DateOfflineHub",

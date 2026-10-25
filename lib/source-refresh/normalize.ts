@@ -9,7 +9,7 @@ export function normalizeRefreshUrl(url: string): string {
     // Drop reserve/query noise for identity, keep path.
     const drop = ["reserve", "utm_source", "utm_medium", "utm_campaign"];
     for (const key of drop) parsed.searchParams.delete(key);
-    let out = parsed.toString().replace(/\/$/, "").toLowerCase();
+    const out = parsed.toString().replace(/\/$/, "").toLowerCase();
     return out;
   } catch {
     return url.trim().replace(/\/$/, "").toLowerCase();
