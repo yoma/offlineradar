@@ -192,7 +192,7 @@ export function DiscoverView({
   const refineNarrowed = refinementFiltersActive(refinement);
 
   useEffect(() => {
-    if (!booted || state.age == null || baseVisible.length > 0) return;
+    if (!booted || baseVisible.length > 0) return;
     const signature = serializeSearchState(state);
     if (zeroTracked.current === signature) return;
     zeroTracked.current = signature;
@@ -286,15 +286,13 @@ export function DiscoverView({
   });
 
   const resultHeading =
-    state.age == null
-      ? "Activiteiten"
-      : refineNarrowed
+    refineNarrowed
         ? `${visible.length} van ${baseVisible.length} ${
             baseVisible.length === 1 ? "activiteit" : "activiteiten"
           }`
         : `${visible.length} ${
             visible.length === 1 ? "activiteit" : "activiteiten"
-          } voor jou`;
+          }${state.age != null ? " voor jou" : ""}`;
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-6xl px-4 py-8 sm:px-6">
@@ -360,7 +358,7 @@ export function DiscoverView({
         </p>
       ) : null}
 
-      {state.age != null && !catalogError ? (
+      {!catalogError ? (
         <div className="mt-5 rounded-2xl border border-[color-mix(in_srgb,var(--border)_80%,var(--brand-gold)_20%)] bg-white px-4 py-3.5 shadow-[0_8px_24px_-18px_rgba(47,48,53,0.22)] sm:px-5">
           <CategoryFilterChips state={state} onChange={update} />
         </div>
@@ -375,60 +373,64 @@ export function DiscoverView({
             {catalogError}
           </p>
         </div>
-      ) : state.age == null ? (
-        <form
-          className="mt-10 max-w-md space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const trimmed = ageDraft.trim();
-            if (!trimmed) {
-              setAgeError("Vul je leeftijd in om activiteiten te tonen.");
-              return;
-            }
-            const age = Number(trimmed);
-            if (!Number.isFinite(age) || age < 18 || age > 99) {
-              setAgeError("Kies een leeftijd tussen 18 en 99.");
-              return;
-            }
-            setAgeError("");
-            update({ age });
-          }}
-        >
-          <Label htmlFor="results-age">Je leeftijd</Label>
-          <p className="text-sm text-muted-foreground">
-            We gebruiken je leeftijd alleen om te zien of je mag deelnemen.
-          </p>
-          <Input
-            id="results-age"
-            type="number"
-            min={18}
-            max={99}
-            value={ageDraft}
-            aria-invalid={ageError ? true : undefined}
-            aria-describedby={ageError ? "results-age-error" : undefined}
-            onChange={(event) => {
-              setAgeDraft(event.target.value);
-              if (ageError) setAgeError("");
-            }}
-            className={`h-12 rounded-xl text-base ${
-              ageError ? "border-primary ring-2 ring-primary/30" : ""
-            }`}
-          />
-          {ageError ? (
-            <p
-              id="results-age-error"
-              role="alert"
-              className="rounded-xl border border-primary/30 bg-[var(--brand-gold-soft)] px-3 py-2 text-sm font-medium text-[var(--brand-gold-ink)]"
-            >
-              {ageError}
-            </p>
-          ) : null}
-          <ActionButton pendingLabel="Bezig…" className="h-11 rounded-full px-6">
-            Toon activiteiten
-          </ActionButton>
-        </form>
       ) : (
         <>
+          {state.age == null ? (
+            <form
+              className="mt-5 flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-white px-4 py-3.5 sm:px-5"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const trimmed = ageDraft.trim();
+                if (!trimmed) {
+                  setAgeError("Vul je leeftijd in.");
+                  return;
+                }
+                const age = Number(trimmed);
+                if (!Number.isFinite(age) || age < 18 || age > 99) {
+                  setAgeError("Kies een leeftijd tussen 18 en 99.");
+                  return;
+                }
+                setAgeError("");
+                update({ age });
+              }}
+            >
+              <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
+                <Label htmlFor="results-age">Je leeftijd (optioneel)</Label>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Dan tonen we alleen activiteiten waar je aan mag deelnemen.
+                </p>
+              </div>
+              <Input
+                id="results-age"
+                type="number"
+                min={18}
+                max={99}
+                value={ageDraft}
+                aria-invalid={ageError ? true : undefined}
+                aria-describedby={ageError ? "results-age-error" : undefined}
+                onChange={(event) => {
+                  setAgeDraft(event.target.value);
+                  if (ageError) setAgeError("");
+                }}
+                placeholder="bv. 42"
+                className={`h-11 w-28 rounded-xl text-base ${
+                  ageError ? "border-primary ring-2 ring-primary/30" : ""
+                }`}
+              />
+              {ageError ? (
+                <p
+                  id="results-age-error"
+                  role="alert"
+                  className="basis-full rounded-xl border border-primary/30 bg-[var(--brand-gold-soft)] px-3 py-2 text-sm font-medium text-[var(--brand-gold-ink)]"
+                >
+                  {ageError}
+                </p>
+          ) : null}
+          <ActionButton pendingLabel="Bezig…" className="h-11 rounded-full px-6">
+            Toepassen
+          </ActionButton>
+        </form>
+          ) : null}
           {previewBanner}
 
           {chips.length > 0 ? (
@@ -617,7 +619,7 @@ export function DiscoverView({
         open={filtersOpen}
         onOpenChange={setFiltersOpen}
         state={state}
-        count={state.age == null ? 0 : visible.length}
+        count={visible.length}
         onChange={update}
         organizerOptions={organizerOptions.map((item) => ({
           id: item.slug,

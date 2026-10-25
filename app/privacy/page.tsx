@@ -4,6 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Privacy",
   description: "Hoe DateOfflineHub omgaat met je gegevens.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ActionButton } from "@/components/ui/action-submit-button";
 import { continueWithGoogle } from "@/app/account/actions";
@@ -7,6 +8,11 @@ import { isGoogleAuthConfigured } from "@/lib/tips/auth-env";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Inloggen",
+  robots: { index: false },
+};
 
 export default async function LoginPage({
   searchParams,

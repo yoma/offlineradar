@@ -4,6 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Over",
   description: "Wat DateOfflineHub is en hoe het werkt.",
+  alternates: { canonical: "/over" },
 };
 
 export default function AboutPage() {

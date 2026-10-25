@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { DiscoverView } from "@/components/discover/discover-view";
 import { auth } from "@/auth";
 import {
@@ -13,6 +14,13 @@ import {
 } from "@/lib/users/store";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Activiteiten voor singles",
+  description:
+    "Speeddates, wandelingen, apero's, workshops en weekends voor singles in Vlaanderen en Brussel. Filter op plaats, datum en leeftijd.",
+  alternates: { canonical: "/ontdek" },
+};
 
 export default async function OntdekPage({
   searchParams,

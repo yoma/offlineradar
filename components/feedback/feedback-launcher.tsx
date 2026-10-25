@@ -19,6 +19,15 @@ function shouldHideLauncher(pathname: string | null): boolean {
   return false;
 }
 
+/** Event pages have a fixed "Boek bij organisator" bar on mobile. */
+function isEventDetailPath(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return (
+    pathname.startsWith("/event/") ||
+    pathname.startsWith("/interne-preview/event/")
+  );
+}
+
 function readNudgeSeen(): boolean {
   if (typeof window === "undefined") return true;
   try {
@@ -52,6 +61,7 @@ export function FeedbackLauncher() {
   const [nudge, setNudge] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const hidden = shouldHideLauncher(pathname) || welcomeOpen;
+  const onEventDetail = isEventDetailPath(pathname);
 
   useEffect(() => {
     function onWelcome(event: Event) {
@@ -63,11 +73,12 @@ export function FeedbackLauncher() {
   }, []);
 
   useEffect(() => {
-    if (hidden) return;
+    // No nudge next to the booking card / bar: booking comes first there.
+    if (hidden || onEventDetail) return;
     if (readNudgeSeen()) return;
     const timer = window.setTimeout(() => setNudge(true), 1200);
     return () => window.clearTimeout(timer);
-  }, [hidden]);
+  }, [hidden, onEventDetail]);
 
   useEffect(() => {
     function onOpen() {
@@ -106,10 +117,13 @@ export function FeedbackLauncher() {
         <div
           className={cn(
             "fixed right-4 z-50 flex flex-col items-end gap-2",
-            "bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:bottom-6",
+            onEventDetail
+              ? // Above the mobile nav (4rem) + booking bar (~4.6rem).
+                "bottom-[calc(9.5rem+env(safe-area-inset-bottom,0px))] md:bottom-6"
+              : "bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:bottom-6",
           )}
         >
-          {nudge ? (
+          {nudge && !onEventDetail ? (
             <div
               role="status"
               className="relative max-w-[16.5rem] rounded-2xl border border-border/80 bg-white px-3.5 py-2.5 text-left text-sm font-medium text-foreground shadow-[0_14px_40px_-12px_rgba(26,18,20,0.35)]"
