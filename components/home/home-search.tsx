@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { PendingContent } from "@/components/ui/pending";
-import { Plus, Search, SlidersHorizontal, X } from "lucide-react";
+import { Search, SlidersHorizontal, X } from "lucide-react";
 import {
   useEffect,
   useMemo,
@@ -541,32 +541,13 @@ export function HomeHero({
                 onClick={go}
                 disabled={searching}
                 aria-busy={searching}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 text-base font-semibold text-primary-foreground shadow-[0_12px_28px_-10px_rgba(156,124,37,0.55)] transition hover:bg-[var(--brand-gold-ink)] disabled:cursor-wait disabled:opacity-80 sm:w-auto sm:min-w-[240px]"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 text-base font-semibold text-primary-foreground shadow-[0_12px_28px_-10px_rgba(134,105,31,0.55)] transition hover:bg-[var(--brand-gold-ink)] disabled:cursor-wait disabled:opacity-80 sm:w-auto sm:min-w-[240px]"
               >
                 <PendingContent pending={searching} pendingLabel="Bezig…">
                   <Search className="size-4" />
                   Vind activiteiten
                 </PendingContent>
               </button>
-              <a
-                href="#tip-een-activiteit"
-                aria-label="Ken je een singlesevent? Geef het aan ons door."
-                className="inline-flex w-full flex-col items-center justify-center gap-0.5 rounded-2xl border border-[color-mix(in_srgb,#ffffff_55%,var(--brand-rose)_45%)] bg-[color-mix(in_srgb,var(--brand-bordeaux)_42%,transparent)] px-5 py-3 text-center text-white backdrop-blur-sm transition hover:border-white/55 hover:bg-[color-mix(in_srgb,var(--brand-bordeaux)_55%,transparent)] sm:w-auto sm:min-w-[220px] sm:items-start sm:text-left"
-                onClick={() => {
-                  if (typeof window === "undefined") return;
-                  window.setTimeout(() => {
-                    window.dispatchEvent(new Event("offlineradar:open-tip"));
-                  }, 0);
-                }}
-              >
-                <span className="inline-flex items-center gap-1.5 text-[15px] font-semibold leading-5">
-                  <Plus className="size-3.5 shrink-0 opacity-90" aria-hidden />
-                  Ken je een singlesevent?
-                </span>
-                <span className="text-[13px] font-normal leading-5 text-white/80">
-                  Geef het aan ons door.
-                </span>
-              </a>
             </div>
           </div>
         </form>

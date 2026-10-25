@@ -255,6 +255,14 @@
   }
   .upcoming-ticker-viewport {
     touch-action: pan-y;
+    /* Cards fade in/out at the edges instead of looking cut off. */
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      #000 1.5rem,
+      #000 calc(100% - 1.5rem),
+      transparent
+    );
   }
   .upcoming-ticker-viewport:hover .upcoming-ticker-track,
   .upcoming-ticker-viewport:focus-within .upcoming-ticker-track {

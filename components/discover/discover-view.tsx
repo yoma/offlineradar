@@ -312,7 +312,7 @@ export function DiscoverView({
           <p className="mt-1 text-sm text-muted-foreground">
             {state.placeId === "all"
               ? "Alle locaties"
-              : `Rond ${placeLabel(state.placeId)}`}
+              : `Binnen ${state.maxDistanceKm} km van ${placeLabel(state.placeId)}`}
             {state.age != null ? ` · ${state.age} jaar` : ""}
           </p>
           <label className="mt-3 block w-full max-w-md">

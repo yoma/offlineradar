@@ -115,10 +115,13 @@ export function locationOptionsFromEvents(
  * stays selectable as a distance departure.
  */
 export function formatLocationOptionLabel(option: LocationOption): string {
-  if (option.kind === "all" || option.count > 0) {
+  if (option.kind === "all") {
     const noun = option.count === 1 ? "activiteit" : "activiteiten";
     return `${option.label} (${option.count} ${noun})`;
   }
+  // City counts are events in that city; results use a radius around it
+  // (plus trips), so say what the number means.
+  if (option.count > 0) return `${option.label} (${option.count} in de stad)`;
   if (
     option.kind === "departure" ||
     (option.kind === "selected" && distanceOrigin(option.id))

@@ -1,11 +1,7 @@
 import type { Metadata } from "next";
 import { DiscoverView } from "@/components/discover/discover-view";
 import { auth } from "@/auth";
-import {
-  EventsCatalogUnavailableError,
-  isCanonicalEventsFeedEnabled,
-  listEvents,
-} from "@/lib/events";
+import { listEvents, readCatalog } from "@/lib/events";
 import { parseResultRefinement } from "@/lib/result-refinement";
 import { parseSearchState } from "@/lib/search-state";
 import {
@@ -48,35 +44,20 @@ export default async function OntdekPage({
     }
   }
 
-  try {
-    const events = await listEvents();
-    return (
-      <DiscoverView
-        events={events}
-        initial={initial}
-        initialRefinement={initialRefinement}
-        isLoggedIn={Boolean(userId)}
-        serverPreferences={serverPreferences}
-        followedOrganizerIds={followedOrganizerIds}
-      />
-    );
-  } catch (error) {
-    if (
-      isCanonicalEventsFeedEnabled() &&
-      error instanceof EventsCatalogUnavailableError
-    ) {
-      return (
-        <DiscoverView
-          events={[]}
-          initial={initial}
-          initialRefinement={initialRefinement}
-          isLoggedIn={Boolean(userId)}
-          serverPreferences={serverPreferences}
-          followedOrganizerIds={followedOrganizerIds}
-          catalogError="De eventcatalogus is tijdelijk niet beschikbaar. Probeer het later opnieuw."
-        />
-      );
-    }
-    throw error;
-  }
+  const catalog = await readCatalog(listEvents);
+  return (
+    <DiscoverView
+      events={catalog.ok ? catalog.value : []}
+      initial={initial}
+      initialRefinement={initialRefinement}
+      isLoggedIn={Boolean(userId)}
+      serverPreferences={serverPreferences}
+      followedOrganizerIds={followedOrganizerIds}
+      catalogError={
+        catalog.ok
+          ? null
+          : "De eventcatalogus is tijdelijk niet beschikbaar. Probeer het later opnieuw."
+      }
+    />
+  );
 }

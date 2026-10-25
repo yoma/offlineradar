@@ -11,19 +11,23 @@ let logoMarkDataUrlCache: string | null = null;
 
 const fontCache = new Map<string, ArrayBuffer>();
 
-async function fileAsDataUrl(
-  relativePath: string,
+/**
+ * Read a file from public/brand. The path is scoped to that folder so the
+ * bundler traces only the brand assets, not the whole project.
+ */
+async function brandFileAsDataUrl(
+  fileName: string,
   mime: string,
 ): Promise<string> {
-  const abs = path.join(process.cwd(), relativePath);
+  const abs = path.join(process.cwd(), "public", "brand", fileName);
   const buf = await readFile(abs);
   return `data:${mime};base64,${buf.toString("base64")}`;
 }
 
 export async function getLogoDataUrl(): Promise<string> {
   if (logoDataUrlCache) return logoDataUrlCache;
-  logoDataUrlCache = await fileAsDataUrl(
-    "public/brand/dateofflinehub-logo.png",
+  logoDataUrlCache = await brandFileAsDataUrl(
+    "dateofflinehub-logo.png",
     "image/png",
   );
   return logoDataUrlCache;
@@ -31,8 +35,8 @@ export async function getLogoDataUrl(): Promise<string> {
 
 export async function getLogoMarkDataUrl(): Promise<string> {
   if (logoMarkDataUrlCache) return logoMarkDataUrlCache;
-  logoMarkDataUrlCache = await fileAsDataUrl(
-    "public/brand/dateofflinehub-mark.png",
+  logoMarkDataUrlCache = await brandFileAsDataUrl(
+    "dateofflinehub-mark.png",
     "image/png",
   );
   return logoMarkDataUrlCache;

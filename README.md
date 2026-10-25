@@ -5,7 +5,9 @@
 
 Prototype om offline activiteiten te ontdekken waar je nieuwe mensen kunt ontmoeten.
 
-Geen accounts, geen betalingen, geen chat. Tickets blijven bij de organisator. De events in deze versie zijn fictief.
+Geen betalingen, geen chat. Tickets blijven bij de organisator. Een account is optioneel (Google-login bewaart voorkeuren en bewaarde activiteiten).
+
+Productie toont de gepubliceerde events uit Neon (`OFFLINERADAR_EVENTS_CANONICAL_FEED=1`). Lokaal zonder database draait de site op fictieve testevents uit `data/events.ts`.
 
 ```bash
 npm install
