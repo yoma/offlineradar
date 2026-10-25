@@ -1,4 +1,3 @@
-import { findPlace } from "@/data/places";
 import {
   addDays,
   brusselsToday,
@@ -6,7 +5,9 @@ import {
   nextWeekRange,
   weekendRange,
 } from "@/lib/dates";
-import { withUserDistance } from "@/lib/distance";
+import { distanceOrigin, placeLabel, withUserDistance } from "@/lib/distance";
+import { isCurrentEvent } from "@/lib/event-visibility";
+import { ALL_LOCATIONS_ID } from "@/lib/location-options";
 import { isEligibleForEvent } from "@/lib/eligibility";
 import {
   eventMatchesActivityFilter,
@@ -117,11 +118,20 @@ export function matchingEvents(
 ): { visible: PreparedEvent[]; hiddenStrict: number; guidelineHidden: number } {
   const today = brusselsToday(now);
   const selectedActivities = expandActivityFilterSelection(state.activities);
+  const allLocations = state.placeId === ALL_LOCATIONS_ID;
+  const origin = distanceOrigin(state.placeId);
   const prepared = prepareEvents(events, state).filter((event) => {
+    if (!isCurrentEvent(event, now)) return false;
     if (!matchesWhen(event, state, today)) return false;
+    // Unknown place ids match nothing and are left selected by the caller.
+    if (!allLocations && !origin) return false;
     const travelExempt = isTravelOrWeekendActivity(event.activities);
-    // Exclude unknown/infinite distance from local radius searches.
-    if (!travelExempt && !(event.distanceKm <= state.maxDistanceKm)) {
+    // Alle locaties has no radius. Otherwise unknown/infinite distance stays out.
+    if (
+      !allLocations &&
+      !travelExempt &&
+      !(event.distanceKm <= state.maxDistanceKm)
+    ) {
       return false;
     }
     if (
@@ -187,6 +197,4 @@ export function matchingEvents(
   return { visible, hiddenStrict, guidelineHidden };
 }
 
-export function placeLabel(placeId: string): string {
-  return findPlace(placeId).label;
-}
+export { placeLabel };

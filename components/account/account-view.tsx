@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { PendingContent } from "@/components/ui/pending";
 import { ActionButton } from "@/components/ui/action-submit-button";
 import { USER_PLACES } from "@/data/places";
+import { ALL_LOCATIONS_ID } from "@/lib/location-options";
+import { placeLabel } from "@/lib/distance";
 import { writeProfile } from "@/lib/storage";
 import type { PreferredMeetGender, UserGender } from "@/types/event";
 import type { StoredProfile } from "@/types/search";
@@ -227,11 +229,17 @@ export function AccountView({
             onChange={(e) => setPlaceId(e.target.value)}
             className="mt-1.5 h-11 w-full rounded-xl border border-border bg-white px-3 text-base md:text-sm"
           >
+            <option value={ALL_LOCATIONS_ID}>Alle locaties</option>
             {USER_PLACES.map((place) => (
               <option key={place.id} value={place.id}>
                 {place.label}
               </option>
             ))}
+            {placeId &&
+            placeId !== ALL_LOCATIONS_ID &&
+            !USER_PLACES.some((place) => place.id === placeId) ? (
+              <option value={placeId}>{placeLabel(placeId)}</option>
+            ) : null}
           </select>
         </label>
 

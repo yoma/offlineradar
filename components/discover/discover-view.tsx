@@ -15,10 +15,11 @@ import { Button } from "@/components/ui/button";
 import { ActionButton } from "@/components/ui/action-submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { USER_PLACES } from "@/data/places";
+import { LocationSelect } from "@/components/filters/location-select";
 import { track } from "@/lib/analytics";
 import { brusselsToday } from "@/lib/dates";
 import { matchingEvents, placeLabel } from "@/lib/filters";
+import { locationOptionsFromEvents } from "@/lib/location-options";
 import { formatMeetPreference } from "@/lib/format";
 import {
   hasAnyStrongPreferenceMatch,
@@ -175,6 +176,10 @@ export function DiscoverView({
   );
   // Global infosstrip: never recompute from filters/age/location/activity.
   const upcoming = useMemo(() => selectUpcomingEvents(events), [events]);
+  const locationOptions = useMemo(
+    () => locationOptionsFromEvents(events, new Date(), state.placeId),
+    [events, state.placeId],
+  );
   const preferenceMiss =
     userHasMeetPreference(state) &&
     visible.length > 0 &&
@@ -307,9 +312,22 @@ export function DiscoverView({
             {resultHeading}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Rond {placeLabel(state.placeId)}
+            {state.placeId === "all"
+              ? "Alle locaties"
+              : `Rond ${placeLabel(state.placeId)}`}
             {state.age != null ? ` · ${state.age} jaar` : ""}
           </p>
+          <label className="mt-3 block w-full max-w-md">
+            <span className="text-xs font-medium text-muted-foreground">
+              Locatie
+            </span>
+            <LocationSelect
+              value={state.placeId}
+              options={locationOptions}
+              onChange={(placeId) => update({ placeId })}
+              className="mt-1 h-11 w-full rounded-xl border border-border bg-white px-3 text-base font-semibold text-foreground"
+            />
+          </label>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -526,8 +544,10 @@ export function DiscoverView({
                 Geen passende singlesactiviteiten gevonden met deze filters.
               </h2>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Verruim datum, regio of filters. Events met een strikte
-                leeftijdsgrens waar je niet aan voldoet blijven verborgen.
+                Geen activiteiten voor {placeLabel(state.placeId)}. Deze
+                locatie blijft geselecteerd. Verruim datum, afstand of filters.
+                Events met een strikte leeftijdsgrens waar je niet aan voldoet
+                blijven verborgen.
               </p>
               <div className="mt-6 flex flex-col gap-2">
                 {suggestions(state).map((suggestion) => (
@@ -616,7 +636,7 @@ export function DiscoverView({
           });
         }}
       />
-      <p className="sr-only">{USER_PLACES.length} plaatsen</p>
+      <p className="sr-only">{locationOptions.length} locaties</p>
     </div>
   );
 }

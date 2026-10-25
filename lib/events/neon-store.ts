@@ -1077,17 +1077,21 @@ export async function editionIsManuallySuppressed(
   return tags.includes("manual_suppressed");
 }
 
-export async function listEditionBundlesForAdmin(
-  limit = 100,
-): Promise<EventEditionBundle[] | null> {
+export type AdminEditionTimeScope = "current" | "past";
+
+export type AdminEditionListPage = {
+  bundles: EventEditionBundle[];
+  total: number;
+  scope: AdminEditionTimeScope;
+  limit: number;
+  offset: number;
+};
+
+async function hydrateEditionBundles(
+  editionRows: EditionRow[],
+): Promise<EventEditionBundle[]> {
   const sql = getEventsSql();
-  if (!sql) return null;
-  const editionRows = (await sql`
-    SELECT * FROM event_editions
-    ORDER BY starts_at ASC
-    LIMIT ${limit}
-  `) as EditionRow[];
-  if (editionRows.length === 0) return [];
+  if (!sql || editionRows.length === 0) return [];
 
   const editions = editionRows.map(mapEdition);
   const editionIds = editions.map((e) => e.id);
@@ -1153,6 +1157,161 @@ export async function listEditionBundlesForAdmin(
     sources: sourcesByEdition.get(edition.id) ?? [],
     images: imagesByEdition.get(edition.id) ?? [],
   }));
+}
+
+/**
+ * Admin event list. Actueel has no hidden 180-day cutoff.
+ * Voorbij/Archief pages the full history (oldest included) newest-first.
+ */
+export async function listEditionBundlesForAdmin(options?: {
+  scope?: AdminEditionTimeScope;
+  limit?: number;
+  offset?: number;
+  search?: string;
+}): Promise<AdminEditionListPage | null> {
+  const sql = getEventsSql();
+  if (!sql) return null;
+
+  const scope: AdminEditionTimeScope = options?.scope ?? "current";
+  const limit = Math.min(Math.max(options?.limit ?? 50, 1), 200);
+  const offset = Math.max(options?.offset ?? 0, 0);
+  const search = options?.search?.trim() ?? "";
+  const needle = search ? `%${search.replace(/[%_]/g, "")}%` : null;
+
+  let total = 0;
+  let editionRows: EditionRow[] = [];
+
+  // Current: known end still ahead, or unknown end and Brussels start day is today+.
+  if (scope === "current") {
+    if (needle) {
+      const countRows = (await sql`
+        SELECT COUNT(*)::int AS n FROM event_editions
+        WHERE (
+          (ends_at IS NOT NULL AND ends_at > now())
+          OR (
+            ends_at IS NULL
+            AND (starts_at AT TIME ZONE 'Europe/Brussels')::date
+              >= (now() AT TIME ZONE 'Europe/Brussels')::date
+          )
+        )
+          AND (
+            title ILIKE ${needle}
+            OR slug ILIKE ${needle}
+            OR COALESCE(city, '') ILIKE ${needle}
+          )
+      `) as { n: number }[];
+      total = countRows[0]?.n ?? 0;
+      editionRows = (await sql`
+        SELECT * FROM event_editions
+        WHERE (
+          (ends_at IS NOT NULL AND ends_at > now())
+          OR (
+            ends_at IS NULL
+            AND (starts_at AT TIME ZONE 'Europe/Brussels')::date
+              >= (now() AT TIME ZONE 'Europe/Brussels')::date
+          )
+        )
+          AND (
+            title ILIKE ${needle}
+            OR slug ILIKE ${needle}
+            OR COALESCE(city, '') ILIKE ${needle}
+          )
+        ORDER BY starts_at ASC
+        LIMIT ${limit} OFFSET ${offset}
+      `) as EditionRow[];
+    } else {
+      const countRows = (await sql`
+        SELECT COUNT(*)::int AS n FROM event_editions
+        WHERE (
+          (ends_at IS NOT NULL AND ends_at > now())
+          OR (
+            ends_at IS NULL
+            AND (starts_at AT TIME ZONE 'Europe/Brussels')::date
+              >= (now() AT TIME ZONE 'Europe/Brussels')::date
+          )
+        )
+      `) as { n: number }[];
+      total = countRows[0]?.n ?? 0;
+      editionRows = (await sql`
+        SELECT * FROM event_editions
+        WHERE (
+          (ends_at IS NOT NULL AND ends_at > now())
+          OR (
+            ends_at IS NULL
+            AND (starts_at AT TIME ZONE 'Europe/Brussels')::date
+              >= (now() AT TIME ZONE 'Europe/Brussels')::date
+          )
+        )
+        ORDER BY starts_at ASC
+        LIMIT ${limit} OFFSET ${offset}
+      `) as EditionRow[];
+    }
+  } else if (needle) {
+    const countRows = (await sql`
+      SELECT COUNT(*)::int AS n FROM event_editions
+      WHERE NOT (
+        (ends_at IS NOT NULL AND ends_at > now())
+        OR (
+          ends_at IS NULL
+          AND (starts_at AT TIME ZONE 'Europe/Brussels')::date
+            >= (now() AT TIME ZONE 'Europe/Brussels')::date
+        )
+      )
+        AND (
+          title ILIKE ${needle}
+          OR slug ILIKE ${needle}
+          OR COALESCE(city, '') ILIKE ${needle}
+        )
+    `) as { n: number }[];
+    total = countRows[0]?.n ?? 0;
+    editionRows = (await sql`
+      SELECT * FROM event_editions
+      WHERE NOT (
+        (ends_at IS NOT NULL AND ends_at > now())
+        OR (
+          ends_at IS NULL
+          AND (starts_at AT TIME ZONE 'Europe/Brussels')::date
+            >= (now() AT TIME ZONE 'Europe/Brussels')::date
+        )
+      )
+        AND (
+          title ILIKE ${needle}
+          OR slug ILIKE ${needle}
+          OR COALESCE(city, '') ILIKE ${needle}
+        )
+      ORDER BY starts_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `) as EditionRow[];
+  } else {
+    const countRows = (await sql`
+      SELECT COUNT(*)::int AS n FROM event_editions
+      WHERE NOT (
+        (ends_at IS NOT NULL AND ends_at > now())
+        OR (
+          ends_at IS NULL
+          AND (starts_at AT TIME ZONE 'Europe/Brussels')::date
+            >= (now() AT TIME ZONE 'Europe/Brussels')::date
+        )
+      )
+    `) as { n: number }[];
+    total = countRows[0]?.n ?? 0;
+    editionRows = (await sql`
+      SELECT * FROM event_editions
+      WHERE NOT (
+        (ends_at IS NOT NULL AND ends_at > now())
+        OR (
+          ends_at IS NULL
+          AND (starts_at AT TIME ZONE 'Europe/Brussels')::date
+            >= (now() AT TIME ZONE 'Europe/Brussels')::date
+        )
+      )
+      ORDER BY starts_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `) as EditionRow[];
+  }
+
+  const bundles = await hydrateEditionBundles(editionRows);
+  return { bundles, total, scope, limit, offset };
 }
 
 export async function attachSource(

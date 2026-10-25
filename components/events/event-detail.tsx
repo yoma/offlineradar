@@ -11,9 +11,9 @@ import { ReportSinglesCta } from "@/components/events/report-singles-cta";
 import { SaveButton } from "@/components/events/save-button";
 import { OutboundLink } from "@/components/analytics/outbound-link";
 import { Button } from "@/components/ui/button";
-import { findPlace } from "@/data/places";
 import { track } from "@/lib/analytics";
-import { withUserDistance } from "@/lib/distance";
+import { distanceOrigin, placeLabel, withUserDistance } from "@/lib/distance";
+import { isCurrentEvent } from "@/lib/event-visibility";
 import {
   displayEligibilityAge,
   isEligibleForEvent,
@@ -85,8 +85,9 @@ export function EventDetail({
     });
   }, [event.id, event.slug]);
 
-  const place = findPlace(state.placeId);
+  const place = distanceOrigin(state.placeId);
   const placed = withUserDistance(event, state.placeId);
+  const past = !isCurrentEvent(event);
   const eligibility = isEligibleForEvent(
     { age: state.age, gender: state.gender },
     placed,
@@ -144,6 +145,14 @@ export function EventDetail({
             ← Terug naar overzicht
           </a>
         </p>
+        {past ? (
+          <p
+            role="status"
+            className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-950"
+          >
+            Dit event is voorbij. De pagina blijft beschikbaar.
+          </p>
+        ) : null}
         <EventVisual
           category={event.category}
           city={event.city}
@@ -187,7 +196,10 @@ export function EventDetail({
             />
             <p className="text-[15px] text-muted-foreground">
               {event.venue ? `${event.venue}, ` : ""}
-              {event.city} · {placed.distanceKm} km van {place.label}
+              {event.city}
+              {place && Number.isFinite(placed.distanceKm)
+                ? ` · ${placed.distanceKm} km van ${placeLabel(state.placeId)}`
+                : ""}
             </p>
             <p className="text-[15px]">
               {formatSchedule(event)} ·{" "}

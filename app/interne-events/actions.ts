@@ -170,3 +170,55 @@ export async function updateEventReportsAction(formData: FormData) {
   });
   revalidatePath("/interne-events");
 }
+
+export async function loadAdminEventsPageAction(input: {
+  scope: "current" | "past";
+  limit: number;
+  offset: number;
+  search: string;
+}) {
+  const access = await resolveTipsAdminAccess();
+  if (!access.ok) throw new Error("Niet geautoriseerd");
+  const { listEditionBundlesForAdmin } = await import(
+    "@/lib/events/neon-store"
+  );
+  const { countOpenReportsByEditionIds } = await import(
+    "@/lib/events/reports"
+  );
+  const page = await listEditionBundlesForAdmin({
+    scope: input.scope,
+    limit: input.limit,
+    offset: input.offset,
+    search: input.search,
+  });
+  if (!page) throw new Error("Catalogus kon niet worden gelezen.");
+  const openByEdition = await countOpenReportsByEditionIds(
+    page.bundles.map((bundle) => bundle.edition.id),
+  ).catch(() => new Map<string, number>());
+  return {
+    scope: page.scope,
+    total: page.total,
+    limit: page.limit,
+    offset: page.offset,
+    events: page.bundles.map((bundle) => {
+      const { edition } = bundle;
+      const primary =
+        bundle.sources.find((source) => source.isPrimary) ?? bundle.sources[0];
+      return {
+        id: edition.id,
+        title: edition.title,
+        slug: edition.slug,
+        publicationStatus: edition.publicationStatus,
+        publishedAt: edition.publishedAt,
+        lastCheckedAt: edition.lastCheckedAt,
+        city: edition.city,
+        startsAt: edition.startsAt,
+        endsAt: edition.endsAt,
+        primarySourceUrl: primary?.url ?? null,
+        primarySourceLabel:
+          primary?.sourceName ?? primary?.sourceType ?? null,
+        openReports: openByEdition.get(edition.id) ?? 0,
+      };
+    }),
+  };
+}

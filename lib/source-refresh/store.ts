@@ -3,6 +3,10 @@
  */
 import { randomUUID } from "node:crypto";
 import { getEventsSql } from "@/lib/events/db";
+import {
+  isListingOrIndexUrl,
+  normalizeRefreshUrl,
+} from "@/lib/source-refresh/normalize";
 import type {
   RefreshNormalizedCandidate,
   RefreshParserKey,
@@ -642,6 +646,65 @@ export async function touchEditionSourceCheckedAt(
   return rows.length > 0;
 }
 
+/**
+ * Near window for day/title matching and removal detection.
+ * Stable identity (CMS id / product URL) uses findEditionsByStableIdentity
+ * and is not limited by this window.
+ */
+export const REFRESH_MATCH_LOOKBACK_DAYS = 180;
+
+type LiteEditionRow = {
+  id: string;
+  slug: string;
+  title: string;
+  starts_at: string | Date;
+  city: string;
+  min_age: number | null;
+  max_age: number | null;
+  price_amount: number | null;
+  availability_status: string | null;
+  venue_name: string | null;
+  gender_availability: string | null;
+  availability_note: string | null;
+  publication_status: string;
+  organizer_slug: string;
+};
+
+async function hydrateLiteEditions(
+  rows: LiteEditionRow[],
+): Promise<EventEditionBundleLite[]> {
+  const sql = getEventsSql();
+  if (!sql || rows.length === 0) return [];
+  const ids = rows.map((row) => row.id);
+  const sourceRows = (await sql`
+    SELECT event_edition_id, normalized_url, url FROM event_sources
+    WHERE event_edition_id = ANY(${ids})
+  `) as { event_edition_id: string; normalized_url: string; url: string }[];
+  const urlsByEdition = new Map<string, string[]>();
+  for (const source of sourceRows) {
+    const list = urlsByEdition.get(source.event_edition_id) ?? [];
+    list.push(source.normalized_url || source.url);
+    urlsByEdition.set(source.event_edition_id, list);
+  }
+  return rows.map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    startsAt: iso(row.starts_at)!,
+    city: row.city,
+    minAge: row.min_age,
+    maxAge: row.max_age,
+    priceAmount: row.price_amount == null ? null : Number(row.price_amount),
+    availabilityStatus: row.availability_status,
+    venueName: row.venue_name,
+    genderAvailability: row.gender_availability,
+    availabilityNote: row.availability_note,
+    publicationStatus: row.publication_status,
+    organizerSlug: row.organizer_slug,
+    sourceUrls: urlsByEdition.get(row.id) ?? [],
+  }));
+}
+
 export async function listFutureEditionsForOrganizerSlug(
   organizerSlug: string,
 ): Promise<EventEditionBundleLite[]> {
@@ -655,51 +718,80 @@ export async function listFutureEditionsForOrganizerSlug(
     FROM event_editions e
     JOIN organizers o ON o.id = e.organizer_id
     WHERE o.slug = ${organizerSlug}
-      AND e.starts_at >= now() - interval '1 day'
+      AND (
+        e.starts_at >= now() - (${REFRESH_MATCH_LOOKBACK_DAYS} * interval '1 day')
+        OR (e.ends_at IS NOT NULL AND e.ends_at >= now() - interval '1 day')
+      )
       AND e.publication_status NOT IN ('rejected', 'cancelled', 'expired')
     ORDER BY e.starts_at ASC
-  `) as {
-    id: string;
-    slug: string;
-    title: string;
-    starts_at: string | Date;
-    city: string;
-    min_age: number | null;
-    max_age: number | null;
-    price_amount: number | null;
-    availability_status: string | null;
-    venue_name: string | null;
-    gender_availability: string | null;
-    availability_note: string | null;
-    publication_status: string;
-    organizer_slug: string;
-  }[];
+  `) as LiteEditionRow[];
+  return hydrateLiteEditions(rows);
+}
 
-  const out: EventEditionBundleLite[] = [];
-  for (const row of rows) {
-    const sources = (await sql`
-      SELECT normalized_url, url FROM event_sources
-      WHERE event_edition_id = ${row.id}
-    `) as { normalized_url: string; url: string }[];
-    out.push({
-      id: row.id,
-      slug: row.slug,
-      title: row.title,
-      startsAt: iso(row.starts_at)!,
-      city: row.city,
-      minAge: row.min_age,
-      maxAge: row.max_age,
-      priceAmount: row.price_amount == null ? null : Number(row.price_amount),
-      availabilityStatus: row.availability_status,
-      venueName: row.venue_name,
-      genderAvailability: row.gender_availability,
-      availabilityNote: row.availability_note,
-      publicationStatus: row.publication_status,
-      organizerSlug: row.organizer_slug,
-      sourceUrls: sources.map((s) => s.normalized_url || s.url),
-    });
+/**
+ * Targeted history lookup by stable source identity within one organizer.
+ * Does not load the full catalog. Includes rejected/expired rows so an old
+ * edition is recognised and not drafted again; callers must not reactivate them.
+ */
+export async function findEditionsByStableIdentity(input: {
+  organizerSlug: string;
+  cmsId?: string | null;
+  officialUrl?: string | null;
+  ticketUrl?: string | null;
+}): Promise<EventEditionBundleLite[]> {
+  const sql = getEventsSql();
+  if (!sql) return [];
+
+  const cmsId = input.cmsId?.trim() || null;
+  const urls = [input.officialUrl, input.ticketUrl]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .filter((value) => !isListingOrIndexUrl(value))
+    .map((value) => normalizeRefreshUrl(value));
+  if (!cmsId && urls.length === 0) return [];
+
+  let rows: LiteEditionRow[] = [];
+  if (cmsId) {
+    const cmsNeedle = `%-${cmsId}.%`;
+    const ticketsNeedle = `%tickets-${cmsId}%`;
+    rows = (await sql`
+      SELECT DISTINCT e.id, e.slug, e.title, e.starts_at, e.city, e.min_age, e.max_age,
+             e.price_amount, e.availability_status, e.venue_name,
+             e.gender_availability, e.availability_note,
+             e.publication_status, o.slug AS organizer_slug
+      FROM event_editions e
+      JOIN organizers o ON o.id = e.organizer_id
+      JOIN event_sources s ON s.event_edition_id = e.id
+      WHERE o.slug = ${input.organizerSlug}
+        AND (
+          s.url ILIKE ${cmsNeedle}
+          OR s.normalized_url ILIKE ${cmsNeedle}
+          OR s.url ILIKE ${ticketsNeedle}
+          OR s.normalized_url ILIKE ${ticketsNeedle}
+        )
+      ORDER BY e.starts_at ASC
+      LIMIT 40
+    `) as LiteEditionRow[];
   }
-  return out;
+  if (rows.length === 0 && urls.length > 0) {
+    rows = (await sql`
+      SELECT DISTINCT e.id, e.slug, e.title, e.starts_at, e.city, e.min_age, e.max_age,
+             e.price_amount, e.availability_status, e.venue_name,
+             e.gender_availability, e.availability_note,
+             e.publication_status, o.slug AS organizer_slug
+      FROM event_editions e
+      JOIN organizers o ON o.id = e.organizer_id
+      JOIN event_sources s ON s.event_edition_id = e.id
+      WHERE o.slug = ${input.organizerSlug}
+        AND (
+          s.normalized_url = ANY(${urls})
+          OR s.url = ANY(${urls})
+        )
+      ORDER BY e.starts_at ASC
+      LIMIT 40
+    `) as LiteEditionRow[];
+  }
+
+  return hydrateLiteEditions(rows);
 }
 
 export type EventEditionBundleLite = {

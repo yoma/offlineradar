@@ -16,10 +16,14 @@ import { UpcomingStrip } from "@/components/discover/upcoming-strip";
 import { CategoryFilterChips } from "@/components/filters/category-filter-chips";
 import { FilterSheet } from "@/components/filters/filter-sheet";
 import { countHomeFilterMatches } from "@/app/home-filter-count";
-import { USER_PLACES, findPlace } from "@/data/places";
+import { LocationSelect } from "@/components/filters/location-select";
 import { track } from "@/lib/analytics";
 import { DISTANCES, GENDER_LABEL } from "@/lib/format";
 import { heroImageUrl } from "@/lib/images";
+import {
+  fallbackLocationOptions,
+  type LocationOption,
+} from "@/lib/location-options";
 import type { PublishedOrganizerOption } from "@/lib/organizers/published-options";
 import {
   normalizeOrganizerParam,
@@ -45,10 +49,12 @@ export function HomeHero({
   organizerOptions = [],
   upcomingEvents = [],
   today,
+  locationOptions = fallbackLocationOptions(),
 }: {
   organizerOptions?: PublishedOrganizerOption[];
   upcomingEvents?: Event[];
   today?: string;
+  locationOptions?: LocationOption[];
 }) {
   const [state, setState] = useState<SearchState>(() => defaultSearchState());
   const [ageDraft, setAgeDraft] = useState("");
@@ -70,7 +76,7 @@ export function HomeHero({
     queueMicrotask(() => {
       setState((current) => {
         const next = { ...current };
-        if (profile.placeId) next.placeId = findPlace(profile.placeId).id;
+        if (profile.placeId) next.placeId = profile.placeId;
         if (profile.maxDistanceKm) next.maxDistanceKm = profile.maxDistanceKm;
         if (profile.gender) next.gender = profile.gender;
         if (profile.preferredAgeMin != null) {
@@ -219,7 +225,7 @@ export function HomeHero({
     const searchState: SearchState = {
       ...state,
       age: parsedAge,
-      placeId: findPlace(state.placeId).id,
+      placeId: state.placeId,
       date: state.when === "date" ? state.date : null,
     };
     setError("");
@@ -302,20 +308,17 @@ export function HomeHero({
           }}
         >
           <div className="search-divider overflow-hidden rounded-3xl bg-white lg:rounded-[2.5rem]">
-            <div className="grid grid-cols-1 lg:grid-cols-5 lg:items-stretch">
+            <div className="grid grid-cols-1 lg:grid-cols-6 lg:items-stretch">
+              <div className="min-w-0 lg:col-span-2">
               <Field label="Waar" chevron>
-                <select
+                <LocationSelect
                   value={state.placeId}
-                  onChange={(event) => update({ placeId: event.target.value })}
+                  options={locationOptions}
+                  onChange={(placeId) => update({ placeId })}
                   className="search-field-control w-full bg-transparent text-base font-semibold leading-6 outline-none"
-                >
-                  {USER_PLACES.map((place) => (
-                    <option key={place.id} value={place.id}>
-                      {place.label}
-                    </option>
-                  ))}
-                </select>
+                />
               </Field>
+              </div>
               <Field label="Wanneer" divide chevron>
                 <select
                   value={state.when}

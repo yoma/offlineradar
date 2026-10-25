@@ -184,7 +184,7 @@ export function bundlesToMatchable(
   }));
 }
 
-function candidateSmartvibesCmsId(
+export function candidateSmartvibesCmsId(
   candidate: RefreshNormalizedCandidate,
 ): string | null {
   return (
