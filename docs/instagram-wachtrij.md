@@ -20,8 +20,14 @@ Instagram haalt ze op via `https://dateofflinehub.be/api/instagram/media/<id>.jp
 Na 30 dagen (gepost) of 60 dagen (afgewezen/mislukt) worden de bytes opgeruimd.
 
 Geen dubbele posts: een post wordt in één databasestap geclaimd. Als een poging
-onduidelijk afloopt, onthoudt de wachtrij de Instagram-container; "Opnieuw proberen"
-vraagt eerst aan Instagram of die al gepubliceerd is en plaatst dan niet opnieuw.
+onduidelijk afloopt, onthoudt de wachtrij de Instagram-container. "Opnieuw proberen"
+vraagt eerst aan Instagram wat ermee gebeurde: gepubliceerd → status *gepost*,
+nooit gepubliceerd → verse containers (met de huidige caption). Is het onduidelijk,
+dan post de site niets en vraagt ze jou eerst op Instagram te kijken
+(knop "Staat niet op Instagram, opnieuw plaatsen").
+
+De dagelijkse ronde plaatst alle posts die aan de beurt zijn (zolang de tijd het
+toelaat). Een post die meer dan 48 uur te laat is, wordt niet meer geplaatst.
 
 Noodstop: zet `INSTAGRAM_META_PUBLISH_ENABLED=0` in Vercel (en redeploy) om alle
 posting via de wachtrij te stoppen.

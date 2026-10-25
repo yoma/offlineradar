@@ -18,6 +18,7 @@ import type {
   InstagramQueuePost,
   InstagramQueueStatus,
 } from "@/lib/instagram/queue";
+import { NEEDS_INSTAGRAM_CHECK } from "@/lib/instagram/queue-messages";
 import {
   formatBrusselsDateTime,
   toBrusselsLocalInput,
@@ -56,6 +57,7 @@ type Setup = {
   tokenExpiresAt: string | null;
   tokenLastError: string | null;
   dryRun: boolean;
+  publishOff: boolean;
 };
 
 const primaryBtn =
@@ -293,7 +295,7 @@ function PostCard({
                   Toch gebruiken
                 </button>
               ) : null}
-              {post.status === "mislukt" ? (
+              {post.status === "mislukt" && post.errorMessage !== NEEDS_INSTAGRAM_CHECK ? (
                 <button
                   type="button"
                   className={secondaryBtn}
@@ -301,6 +303,26 @@ function PostCard({
                   onClick={() => run(retryQueuePostAction, form())}
                 >
                   Opnieuw proberen
+                </button>
+              ) : null}
+              {post.status === "mislukt" && post.errorMessage === NEEDS_INSTAGRAM_CHECK ? (
+                <button
+                  type="button"
+                  className={secondaryBtn}
+                  disabled={pending}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "Heb je op Instagram gekeken en staat deze post er NIET? Dan wordt hij opnieuw geplaatst.",
+                      )
+                    ) {
+                      const fd = form();
+                      fd.set("confirmedNotOnInstagram", "1");
+                      run(retryQueuePostAction, fd);
+                    }
+                  }}
+                >
+                  Staat niet op Instagram, opnieuw plaatsen
                 </button>
               ) : null}
               {post.status === "concept" || post.status === "mislukt" ? (
@@ -397,6 +419,11 @@ function SetupStatus({ setup }: { setup: Setup }) {
       ))}
       {setup.tokenLastError ? (
         <p className="text-red-700">Laatste vernieuwing mislukt: {setup.tokenLastError}</p>
+      ) : null}
+      {setup.publishOff ? (
+        <p className="font-semibold text-red-700">
+          Noodstop actief (INSTAGRAM_META_PUBLISH_ENABLED=0): er wordt niets geplaatst.
+        </p>
       ) : null}
       {setup.dryRun ? (
         <p className="text-amber-800">

@@ -40,6 +40,7 @@ import {
   type InstagramQueuePost,
 } from "@/lib/instagram/queue";
 import { renderDraftJpegs } from "@/lib/instagram/queue-media";
+import { NEEDS_INSTAGRAM_CHECK } from "@/lib/instagram/queue-messages";
 import {
   getInstagramAccessToken,
   refreshInstagramTokenIfDue,
@@ -70,6 +71,10 @@ const PROPOSE_HORIZON_DAYS = 7;
 const PROPOSE_MIN_LEAD_MS = 6 * 3_600_000;
 /** Publishing must finish well within the 60s function limit. */
 const PUBLISH_BUDGET_MS = 45_000;
+/** Start another due post in the same cron run only while this much is left. */
+const NEXT_POST_MIN_REMAINING_MS = 45_000;
+const CRON_TOTAL_MS = 55_000;
+
 
 export type QueueSlot = {
   slotKey: string;
@@ -107,7 +112,7 @@ export function nextDailyPostTime(now = new Date()): Date {
 export type QueueTickResult = {
   sweep: { interrupted: number; overdue: number; mediaPurged: number };
   token: string;
-  published: { id: string; ok: boolean; message: string } | null;
+  published: { id: string; ok: boolean; message: string }[];
   proposed: { id: string; slotKey: string } | null;
   notes: string[];
 };
@@ -116,6 +121,7 @@ export async function runInstagramQueueTick(options?: {
   now?: Date;
   metaClient?: MetaClient;
 }): Promise<QueueTickResult> {
+  const startedMs = Date.now();
   const now = options?.now ?? new Date();
   const notes: string[] = [];
 
@@ -127,7 +133,7 @@ export async function runInstagramQueueTick(options?: {
   const result: QueueTickResult = {
     sweep,
     token,
-    published: null,
+    published: [],
     proposed: null,
     notes,
   };
@@ -138,12 +144,14 @@ export async function runInstagramQueueTick(options?: {
   } else if (config.publishExplicitlyOff) {
     notes.push("INSTAGRAM_META_PUBLISH_ENABLED=0: er wordt niets gepost.");
   } else {
+    // The cron runs once a day, so publish every due post while time allows.
     const autoPost = await getAutoPostWithoutApproval();
-    const post = await claimDueQueuePost({ autoPost, now });
-    if (post) {
-      result.published = await publishQueuePost(post, options?.metaClient);
-      return result;
+    while (CRON_TOTAL_MS - (Date.now() - startedMs) >= NEXT_POST_MIN_REMAINING_MS) {
+      const post = await claimDueQueuePost({ autoPost, now });
+      if (!post) break;
+      result.published.push(await publishQueuePost(post, options?.metaClient));
     }
+    if (result.published.length > 0) return result;
   }
 
   result.proposed = await proposeNextSlot(now, notes);
@@ -192,40 +200,33 @@ export async function publishQueuePost(
     });
   const deadlineMs = Date.now() + PUBLISH_BUDGET_MS;
 
-  // An earlier attempt reached media_publish: find out what happened before
-  // doing anything, so a post that did go live is never published twice.
-  let containerId: string | null = null;
+  // An earlier attempt got as far as media_publish. Only post again when
+  // Instagram clearly says that container was never published (FINISHED);
+  // anything else needs a human look at Instagram first.
   if (post.containerId) {
     const status = await client.getContainerStatus(post.containerId);
-    if (!status.ok) {
-      return fail(
-        "Kon niet nagaan of de vorige poging toch online kwam. Kijk op Instagram en probeer later opnieuw.",
-      );
-    }
-    const code = (status.data.status_code ?? status.data.status ?? "").toUpperCase();
+    const code = status.ok
+      ? (status.data.status_code ?? status.data.status ?? "").toUpperCase()
+      : "";
     if (code === "PUBLISHED") {
       await markQueuePosted(post.id, null);
       return { id: post.id, ok: true, message: "Stond al op Instagram (vorige poging)." };
     }
-    if (code === "FINISHED") {
-      containerId = post.containerId; // ready but never published: reuse it
-    } else if (code !== "ERROR" && code !== "EXPIRED") {
-      return fail(
-        `Vorige poging is nog onduidelijk (status ${code || "onbekend"}). Probeer later opnieuw.`,
-      );
+    if (code !== "FINISHED") {
+      return fail(NEEDS_INSTAGRAM_CHECK);
     }
+    // FINISHED = never published. Build fresh containers anyway, so an
+    // edited caption is what goes live.
   }
 
-  if (!containerId) {
-    const prepared = await prepareContainers({
-      client,
-      caption: post.caption,
-      imageUrls: post.imageUrls,
-      deadlineMs,
-    });
-    if (!prepared.ok) return fail(prepared.message);
-    containerId = prepared.containerId;
-  }
+  const prepared = await prepareContainers({
+    client,
+    caption: post.caption,
+    imageUrls: post.imageUrls,
+    deadlineMs,
+  });
+  if (!prepared.ok) return fail(prepared.message);
+  const containerId = prepared.containerId;
   await saveQueueContainerId(post.id, containerId);
 
   const published = await client.publishContainer(containerId, {
@@ -242,7 +243,7 @@ export async function publishQueuePost(
     );
     return fail(
       isAmbiguousPostPublishError(published.error.code)
-        ? `Onzeker of de post online staat (${message}) "Opnieuw proberen" controleert dat eerst, er komt geen dubbele post.`
+        ? `Onzeker of de post online staat (${message}) Kijk op Instagram voor je opnieuw probeert.`
         : message,
     );
   }
