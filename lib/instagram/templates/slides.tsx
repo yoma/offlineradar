@@ -13,6 +13,10 @@ import { ACTIVITY_LABEL, formatAgeRange, formatPrice, formatPriceFrom } from "@/
 import { weekdayIndex } from "@/lib/dates";
 import type { ActivityId, Event } from "@/types/event";
 import { sanitizeInstagramBlurb } from "@/lib/instagram/blurb";
+import {
+  IG_CAROUSEL_MAX,
+  IG_THIS_WEEK_MAX_EVENTS,
+} from "@/lib/instagram/constants";
 import { shortenTitle } from "@/lib/instagram/title";
 import {
   Colophon,
@@ -127,13 +131,14 @@ function ListingRow({
   event,
   tone,
   dense,
+  tight = false,
 }: {
   event: Event;
   tone: SlideTone;
   dense: boolean;
+  tight?: boolean;
 }) {
   const p = tonePalette(tone);
-  const dateColor = tone === "bordeaux" ? p.accent : p.accent;
   return (
     <div
       style={{
@@ -150,8 +155,8 @@ function ListingRow({
           flexDirection: "row",
           alignItems: "flex-start",
           width: "100%",
-          paddingTop: dense ? 18 : 26,
-          paddingBottom: dense ? 18 : 26,
+          paddingTop: tight ? 14 : dense ? 18 : 26,
+          paddingBottom: tight ? 14 : dense ? 18 : 26,
         }}
       >
         <div
@@ -170,7 +175,7 @@ function ListingRow({
               fontSize: dense ? 60 : 68,
               lineHeight: 0.9,
               letterSpacing: -2,
-              color: dateColor,
+              color: p.accent,
             }}
           >
             {dayNumber(event.startDate)}
@@ -199,11 +204,12 @@ function ListingRow({
               lineHeight: 1.1,
               letterSpacing: -0.4,
               color: p.ink,
-              maxHeight: dense ? 76 : 86,
+              // Six rows only fit with one-line titles.
+              maxHeight: tight ? 38 : dense ? 76 : 86,
               overflow: "hidden",
             }}
           >
-            {shortenTitle(event.title, dense ? 58 : 64)}
+            {shortenTitle(event.title, tight ? 40 : dense ? 58 : 64)}
           </div>
           <div
             style={{
@@ -242,8 +248,11 @@ function ListingSlide({
   action: string;
 }) {
   const p = tonePalette(tone);
+  // Every selected event must be on the image: the caption lists them all.
   const shown = events.slice(0, max);
+  const hidden = events.length - shown.length;
   const dense = shown.length > 4;
+  const tight = shown.length > 5;
   return (
     <div style={slideStyle(tone)}>
       <div
@@ -260,7 +269,7 @@ function ListingSlide({
           style={{
             display: "flex",
             flexDirection: "column",
-            marginTop: dense ? 44 : 64,
+            marginTop: tight ? 36 : dense ? 44 : 64,
             flexShrink: 0,
           }}
         >
@@ -271,7 +280,7 @@ function ListingSlide({
                 display: "flex",
                 fontFamily: "Bricolage Grotesque",
                 fontWeight: 700,
-                fontSize: dense ? 104 : 116,
+                fontSize: tight ? 92 : dense ? 104 : 116,
                 lineHeight: 0.98,
                 letterSpacing: -3.5,
                 color: p.ink,
@@ -297,13 +306,35 @@ function ListingSlide({
           style={{
             display: "flex",
             flexDirection: "column",
-            marginTop: dense ? 36 : 52,
+            marginTop: tight ? 26 : dense ? 36 : 52,
             flexShrink: 0,
           }}
         >
           {shown.map((event) => (
-            <ListingRow key={event.id} event={event} tone={tone} dense={dense} />
+            <ListingRow
+              key={event.id}
+              event={event}
+              tone={tone}
+              dense={dense}
+              tight={tight}
+            />
           ))}
+          {hidden > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <Rule color={p.rule} />
+              <div
+                style={{
+                  display: "flex",
+                  fontSize: 24,
+                  color: p.inkSoft,
+                  paddingTop: 16,
+                  fontFamily: "DM Sans",
+                }}
+              >
+                {`+ ${hidden} meer in de caption`}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <Colophon tone={tone} action={action} />
@@ -336,7 +367,7 @@ export function BinnenkortCoverSlide({
           : "Singlesactiviteiten in de komende weken"
       }
       events={events}
-      max={5}
+      max={IG_CAROUSEL_MAX}
       action="Swipe voor de details"
     />
   );
@@ -366,7 +397,7 @@ export function DezeWeekOverviewSlide({
           : "Waar je deze week singles ontmoet"
       }
       events={events}
-      max={4}
+      max={IG_THIS_WEEK_MAX_EVENTS}
       action="Alles staat via de link in bio"
     />
   );
@@ -518,10 +549,13 @@ function EventTypeSlide({
 }) {
   const tone: SlideTone = "cream";
   const p = tonePalette(tone);
-  const title = shortenTitle(event.title, 58);
-  const titleSize = title.length > 40 ? 62 : title.length > 24 ? 70 : 80;
+  // Char budgets keep text within two lines, so it ends on "…" instead of
+  // being clipped mid-line by overflow:hidden.
+  const title = shortenTitle(event.title, 48);
+  const titleSize = title.length > 36 ? 62 : title.length > 24 ? 70 : 80;
   // Only the organiser's own description; no generated filler sentence.
-  const blurb = sanitizeInstagramBlurb(event.shortDescription || "");
+  const rawBlurb = sanitizeInstagramBlurb(event.shortDescription || "");
+  const blurb = rawBlurb ? shortenTitle(rawBlurb, 104) : null;
   const facts = eventFacts(event);
   const m = monthIndex(event.startDate);
 
@@ -686,7 +720,7 @@ function EventPhotoSlide({
 }) {
   const tone: SlideTone = "cream";
   const p = tonePalette(tone);
-  const title = shortenTitle(event.title, 60);
+  const title = shortenTitle(event.title, 50);
   const facts = eventFacts(event).slice(0, 3);
   const when = `${WEEKDAY_LONG[weekdayIndex(event.startDate)]} ${dayNumber(event.startDate)} ${MONTHS_LONG[monthIndex(event.startDate)]}${event.startTime ? `, ${event.startTime}` : ""}`;
   const photoH = 560;
