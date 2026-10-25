@@ -54,6 +54,8 @@ export function resolveInstagramRenderInput(
       input: {
         kind,
         periodLabel: period || "Nieuwe singlesactiviteiten",
+        // Optional: first event's website image leads the cover.
+        events: eventsByIds(catalog, get("ids")),
       },
     };
   }

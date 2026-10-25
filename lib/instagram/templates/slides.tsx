@@ -1,11 +1,13 @@
 /**
  * Instagram 4:5 templates, "agenda" style (see templates/shared.tsx).
  *
- * - Covers and overviews are purely typographic: a listings page with a
- *   large date column. No stock or generated photography.
- * - Event slides show a photo only when it is a real image of that event.
- *   Atmosphere / library images are left out on Instagram, because generated
- *   people photos are what makes a feed look "AI made".
+ * - Photos are the same website-visible image per event (official, own,
+ *   generated or semantic mood pick), resolved fresh on every render. They
+ *   are shown clean: no washes, no gradients, no text on top.
+ * - Covers and overviews are listings pages: date column, photo thumbnail,
+ *   title and facts. Event slides put the photo on top, facts below.
+ * - Atmosphere images carry a small "Sfeerbeeld" tag, as on the website.
+ *   Only when no image loads does a slide fall back to pure typography.
  * - Facts come only from the Event. Unknown stays out; nothing is invented.
  */
 
@@ -129,16 +131,22 @@ function rowMeta(event: Event): string {
 
 function ListingRow({
   event,
+  thumbSrc,
+  thumbSlot = false,
   tone,
   dense,
   tight = false,
 }: {
   event: Event;
+  thumbSrc?: string;
+  /** Keep the photo column when this row has no image but others do. */
+  thumbSlot?: boolean;
   tone: SlideTone;
   dense: boolean;
   tight?: boolean;
 }) {
   const p = tonePalette(tone);
+  const thumb = tight ? 84 : dense ? 96 : 112;
   return (
     <div
       style={{
@@ -163,7 +171,7 @@ function ListingRow({
           style={{
             display: "flex",
             flexDirection: "column",
-            width: 152,
+            width: 124,
             flexShrink: 0,
           }}
         >
@@ -186,6 +194,33 @@ function ListingRow({
             </Label>
           </div>
         </div>
+        {thumbSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={thumbSrc}
+            width={thumb}
+            height={thumb}
+            style={{
+              width: thumb,
+              height: thumb,
+              objectFit: "cover",
+              flexShrink: 0,
+              marginRight: 28,
+            }}
+            alt=""
+          />
+        ) : thumbSlot ? (
+          <div
+            style={{
+              display: "flex",
+              width: thumb,
+              height: thumb,
+              flexShrink: 0,
+              marginRight: 28,
+              background: p.rule,
+            }}
+          />
+        ) : null}
         <div
           style={{
             display: "flex",
@@ -209,7 +244,7 @@ function ListingRow({
               overflow: "hidden",
             }}
           >
-            {shortenTitle(event.title, tight ? 40 : dense ? 58 : 64)}
+            {shortenTitle(event.title, tight ? 34 : dense ? 54 : 56)}
           </div>
           <div
             style={{
@@ -235,6 +270,7 @@ function ListingSlide({
   headline,
   intro,
   events,
+  thumbSrcs,
   max,
   action,
 }: {
@@ -244,6 +280,7 @@ function ListingSlide({
   headline: string[];
   intro: string;
   events: Event[];
+  thumbSrcs: string[];
   max: number;
   action: string;
 }) {
@@ -253,6 +290,7 @@ function ListingSlide({
   const hidden = events.length - shown.length;
   const dense = shown.length > 4;
   const tight = shown.length > 5;
+  const thumbSlot = thumbSrcs.slice(0, max).some(Boolean);
   return (
     <div style={slideStyle(tone)}>
       <div
@@ -310,10 +348,12 @@ function ListingSlide({
             flexShrink: 0,
           }}
         >
-          {shown.map((event) => (
+          {shown.map((event, i) => (
             <ListingRow
               key={event.id}
               event={event}
+              thumbSrc={thumbSrcs[i]}
+              thumbSlot={thumbSlot}
               tone={tone}
               dense={dense}
               tight={tight}
@@ -348,11 +388,12 @@ export function BinnenkortCoverSlide({
   logoSrc,
   periodLabel,
   events,
+  thumbSrcs = [],
 }: {
   logoSrc: string;
-  heroSrc?: string;
   periodLabel: string;
   events: Event[];
+  /** Per-event website image, same order as `events`; "" = no photo. */
   thumbSrcs?: string[];
 }) {
   return (
@@ -367,6 +408,7 @@ export function BinnenkortCoverSlide({
           : "Singlesactiviteiten in de komende weken"
       }
       events={events}
+      thumbSrcs={thumbSrcs}
       max={IG_CAROUSEL_MAX}
       action="Swipe voor de details"
     />
@@ -378,11 +420,12 @@ export function DezeWeekOverviewSlide({
   logoSrc,
   periodLabel,
   events,
+  thumbSrcs = [],
 }: {
   logoSrc: string;
-  heroSrc?: string;
   periodLabel: string;
   events: Event[];
+  /** Per-event website image, same order as `events`; "" = no photo. */
   thumbSrcs?: string[];
 }) {
   return (
@@ -397,21 +440,152 @@ export function DezeWeekOverviewSlide({
           : "Waar je deze week singles ontmoet"
       }
       events={events}
+      thumbSrcs={thumbSrcs}
       max={IG_THIS_WEEK_MAX_EVENTS}
       action="Alles staat via de link in bio"
     />
   );
 }
 
-/** Format C cover: one big typographic statement. */
+/** Small corner tag on a photo ("1 / 6", "Sfeerbeeld"). */
+function PhotoTag({ children }: { children: string }) {
+  const p = tonePalette("cream");
+  return (
+    <div
+      style={{
+        display: "flex",
+        padding: "10px 16px",
+        background: p.bg,
+      }}
+    >
+      <Label color={p.ink} size={18}>
+        {children}
+      </Label>
+    </div>
+  );
+}
+
+/** Format C cover with the first new event's photo on top. */
+function NieuwPhotoCoverSlide({
+  logoSrc,
+  heroSrc,
+  showAtmosphereLabel,
+  periodLabel,
+}: {
+  logoSrc: string;
+  heroSrc: string;
+  showAtmosphereLabel: boolean;
+  periodLabel: string;
+}) {
+  const p = tonePalette("bordeaux");
+  const photoH = 600;
+  return (
+    <div style={slideStyle("bordeaux")}>
+      <div
+        style={{
+          display: "flex",
+          position: "relative",
+          width: 1080,
+          height: photoH,
+          flexShrink: 0,
+          overflow: "hidden",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={heroSrc}
+          width={1080}
+          height={photoH}
+          style={{ width: 1080, height: photoH, objectFit: "cover" }}
+          alt=""
+        />
+        {showAtmosphereLabel ? (
+          <div style={{ display: "flex", position: "absolute", left: 40, bottom: 40 }}>
+            <PhotoTag>Sfeerbeeld</PhotoTag>
+          </div>
+        ) : null}
+      </div>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flexGrow: 1,
+          padding: `52px ${IG_MARGIN}px 60px`,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <Label color={p.accent} size={24}>
+            Net toegevoegd
+          </Label>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={logoSrc} width={52} height={40} style={{ objectFit: "contain" }} alt="" />
+        </div>
+        {["Nieuw op", "de agenda."].map((line, i) => (
+          <div
+            key={line}
+            style={{
+              display: "flex",
+              fontFamily: "Bricolage Grotesque",
+              fontWeight: 700,
+              fontSize: 128,
+              lineHeight: 0.94,
+              letterSpacing: -4.5,
+              color: p.ink,
+              marginTop: i === 0 ? 24 : 0,
+            }}
+          >
+            {line}
+          </div>
+        ))}
+        <div
+          style={{
+            display: "flex",
+            fontSize: 32,
+            color: p.inkSoft,
+            marginTop: 28,
+            fontFamily: "DM Sans",
+          }}
+        >
+          {periodLabel || "Verse singlesactiviteiten"}
+        </div>
+        <Colophon tone="bordeaux" action="Swipe voor de details" />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Format C cover. With a photo (first new event's website image) the photo
+ * leads; without one it is one big typographic statement.
+ */
 export function NieuwCoverSlide({
   logoSrc,
+  heroSrc,
+  showAtmosphereLabel = false,
   periodLabel,
 }: {
   logoSrc: string;
   heroSrc?: string;
+  showAtmosphereLabel?: boolean;
   periodLabel: string;
 }) {
+  if (heroSrc) {
+    return (
+      <NieuwPhotoCoverSlide
+        logoSrc={logoSrc}
+        heroSrc={heroSrc}
+        showAtmosphereLabel={showAtmosphereLabel}
+        periodLabel={periodLabel}
+      />
+    );
+  }
   const p = tonePalette("bordeaux");
   return (
     <div style={slideStyle("bordeaux")}>
@@ -706,6 +880,7 @@ function EventTypeSlide({
 function EventPhotoSlide({
   logoSrc,
   heroSrc,
+  showAtmosphereLabel,
   event,
   index,
   total,
@@ -713,6 +888,7 @@ function EventPhotoSlide({
 }: {
   logoSrc: string;
   heroSrc: string;
+  showAtmosphereLabel: boolean;
   event: Event;
   index: number;
   total: number;
@@ -721,9 +897,12 @@ function EventPhotoSlide({
   const tone: SlideTone = "cream";
   const p = tonePalette(tone);
   const title = shortenTitle(event.title, 50);
+  const rawBlurb = sanitizeInstagramBlurb(event.shortDescription || "");
+  // One line under the photo layout; the full text stays in the caption.
+  const blurb = rawBlurb ? shortenTitle(rawBlurb, 58) : null;
   const facts = eventFacts(event).slice(0, 3);
   const when = `${WEEKDAY_LONG[weekdayIndex(event.startDate)]} ${dayNumber(event.startDate)} ${MONTHS_LONG[monthIndex(event.startDate)]}${event.startTime ? `, ${event.startTime}` : ""}`;
-  const photoH = 560;
+  const photoH = 620;
 
   return (
     <div style={slideStyle(tone)}>
@@ -745,20 +924,14 @@ function EventPhotoSlide({
           style={{ width: 1080, height: photoH, objectFit: "cover" }}
           alt=""
         />
-        <div
-          style={{
-            display: "flex",
-            position: "absolute",
-            top: 40,
-            right: 40,
-            padding: "10px 16px",
-            background: igColorsCream(),
-          }}
-        >
-          <Label color={igColorsInk()} size={18}>
-            {`${index} / ${total}`}
-          </Label>
+        <div style={{ display: "flex", position: "absolute", top: 40, right: 40 }}>
+          <PhotoTag>{`${index} / ${total}`}</PhotoTag>
         </div>
+        {showAtmosphereLabel ? (
+          <div style={{ display: "flex", position: "absolute", left: 40, bottom: 40 }}>
+            <PhotoTag>Sfeerbeeld</PhotoTag>
+          </div>
+        ) : null}
       </div>
       <div
         style={{
@@ -806,16 +979,35 @@ function EventPhotoSlide({
             marginTop: 12,
             maxHeight: 56 * 1.05 * 2 + 4,
             overflow: "hidden",
+            flexShrink: 0,
           }}
         >
           {title}
         </div>
+        {blurb ? (
+          <div
+            style={{
+              display: "flex",
+              fontSize: 28,
+              lineHeight: 1.4,
+              color: p.inkSoft,
+              marginTop: 14,
+              fontFamily: "DM Sans",
+              maxHeight: 40,
+              overflow: "hidden",
+              flexShrink: 0,
+            }}
+          >
+            {blurb}
+          </div>
+        ) : null}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
             marginTop: "auto",
             marginBottom: 28,
+            flexShrink: 0,
           }}
         >
           {facts.map((f) => (
@@ -828,17 +1020,10 @@ function EventPhotoSlide({
   );
 }
 
-function igColorsCream(): string {
-  return tonePalette("cream").bg;
-}
-function igColorsInk(): string {
-  return tonePalette("cream").ink;
-}
-
 /**
- * Individual event slide. `showAtmosphereLabel` is true when the website image
- * is a mood/library/fallback picture rather than a real photo of this event:
- * then the slide is typographic only.
+ * Individual event slide. `heroSrc` is the website-visible image of this
+ * event ("" when none loaded → typographic slide). `showAtmosphereLabel`
+ * tags mood / generated images as "Sfeerbeeld".
  */
 export function EventSlide({
   logoSrc,
@@ -847,7 +1032,7 @@ export function EventSlide({
   index,
   total,
   eyebrow = "Binnenkort",
-  showAtmosphereLabel = true,
+  showAtmosphereLabel = false,
 }: {
   logoSrc: string;
   heroSrc: string;
@@ -857,11 +1042,12 @@ export function EventSlide({
   eyebrow?: string;
   showAtmosphereLabel?: boolean;
 }) {
-  if (!showAtmosphereLabel && heroSrc) {
+  if (heroSrc) {
     return (
       <EventPhotoSlide
         logoSrc={logoSrc}
         heroSrc={heroSrc}
+        showAtmosphereLabel={showAtmosphereLabel}
         event={event}
         index={index}
         total={total}

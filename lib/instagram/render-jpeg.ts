@@ -31,7 +31,7 @@ export async function renderInstagramJpegFromQuery(
       : new URLSearchParams(query);
 
   let catalog = options?.catalog ?? ([] as Event[]);
-  if (!options?.catalog && kind !== "nieuw_cover") {
+  if (!options?.catalog) {
     try {
       catalog = await listEvents();
     } catch {

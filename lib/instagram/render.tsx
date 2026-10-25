@@ -68,27 +68,44 @@ export async function renderInstagramImage(
 
   let element: ReactElement;
 
-  // Covers and overviews are typographic (no stock/mood photography).
-  if (input.kind === "binnenkort_cover") {
-    element = (
-      <BinnenkortCoverSlide
-        logoSrc={logoSrc}
-        periodLabel={input.periodLabel ?? ""}
-        events={input.events ?? []}
-      />
+  // Photos = the website-visible image per event, resolved on every render
+  // (same pipeline as the site). A neutral fallback means "no photo".
+  const photoOrEmpty = (src: string) =>
+    src === IG_NEUTRAL_FALLBACK_DATA_URI ? "" : src;
+
+  if (input.kind === "binnenkort_cover" || input.kind === "deze_week") {
+    const events = input.events ?? [];
+    const urls = events.map((e) => imageForEvent(e).url);
+    const mood = await resolveMoodBundle({
+      heroSrc: IG_NEUTRAL_FALLBACK_DATA_URI,
+      thumbs: urls,
+    });
+    const thumbSrcs = mood.thumbs.map((src, i) =>
+      urls[i] === IG_NEUTRAL_FALLBACK_DATA_URI ? "" : photoOrEmpty(src),
     );
-  } else if (input.kind === "deze_week") {
+    const Slide =
+      input.kind === "binnenkort_cover"
+        ? BinnenkortCoverSlide
+        : DezeWeekOverviewSlide;
     element = (
-      <DezeWeekOverviewSlide
+      <Slide
         logoSrc={logoSrc}
         periodLabel={input.periodLabel ?? ""}
-        events={input.events ?? []}
+        events={events}
+        thumbSrcs={thumbSrcs}
       />
     );
   } else if (input.kind === "nieuw_cover") {
+    const first = input.events?.[0];
+    const image = first ? imageForEvent(first) : null;
+    const mood = image
+      ? await resolveMoodBundle({ heroSrc: image.url })
+      : { hero: "" };
     element = (
       <NieuwCoverSlide
         logoSrc={logoSrc}
+        heroSrc={photoOrEmpty(mood.hero)}
+        showAtmosphereLabel={image?.isAtmosphere === true}
         periodLabel={input.periodLabel ?? ""}
       />
     );
@@ -103,21 +120,16 @@ export async function renderInstagramImage(
           ? "Deze week"
           : "Binnenkort";
     const image = imageForEvent(input.event);
-    // Only a real event photo is shown; atmosphere images stay off Instagram.
-    const mood = image.isAtmosphere
-      ? { hero: "" }
-      : await resolveMoodBundle({ heroSrc: image.url });
+    const mood = await resolveMoodBundle({ heroSrc: image.url });
     element = (
       <EventSlide
         logoSrc={logoSrc}
-        heroSrc={mood.hero}
+        heroSrc={photoOrEmpty(mood.hero)}
         event={input.event}
         index={input.index ?? 1}
         total={input.total ?? 1}
         eyebrow={eyebrow}
-        showAtmosphereLabel={
-          image.isAtmosphere || mood.hero === IG_NEUTRAL_FALLBACK_DATA_URI
-        }
+        showAtmosphereLabel={image.isAtmosphere}
       />
     );
   }
