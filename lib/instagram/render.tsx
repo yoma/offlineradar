@@ -37,15 +37,10 @@ export type InstagramRenderInput = {
   format?: InstagramFormatId;
 };
 
-export async function renderInstagramImage(
-  input: InstagramRenderInput,
-): Promise<ImageResponse> {
-  const [logoSrc, fonts] = await Promise.all([
-    getLogoMarkDataUrl(),
-    loadInstagramFonts(),
-  ]);
-
-  const fontList = [
+/** Brand fonts in the shape ImageResponse expects. */
+export async function loadInstagramFontList() {
+  const fonts = await loadInstagramFonts();
+  return [
     {
       name: fonts.heading.name,
       data: fonts.heading.data,
@@ -65,6 +60,15 @@ export async function renderInstagramImage(
       style: fonts.bodySemibold.style,
     },
   ];
+}
+
+export async function renderInstagramImage(
+  input: InstagramRenderInput,
+): Promise<ImageResponse> {
+  const [logoSrc, fontList] = await Promise.all([
+    getLogoMarkDataUrl(),
+    loadInstagramFontList(),
+  ]);
 
   let element: ReactElement;
 

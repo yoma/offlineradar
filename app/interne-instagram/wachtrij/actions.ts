@@ -26,7 +26,9 @@ import { renderDraftJpegs } from "@/lib/instagram/queue-media";
 import {
   nextDailyPostTime,
   publishQueuePostNow,
+  publishStoryNow,
 } from "@/lib/instagram/queue-runner";
+import { renderStoryOrNull } from "@/lib/instagram/story";
 import { fromBrusselsLocalInput } from "@/lib/instagram/queue-time";
 import { scrubSecrets } from "@/lib/instagram/token-store";
 import { resolveTipsAdminAccess } from "@/lib/tips/admin-auth";
@@ -48,6 +50,11 @@ const UNAUTHORIZED: QueueActionResult = {
 function done(ok: boolean, yes: string, no: string): QueueActionResult {
   revalidatePath(PATH);
   return ok ? { ok, message: yes } : { ok, message: no };
+}
+
+function readPostStory(formData: FormData): boolean | undefined {
+  const raw = formData.get("postStory");
+  return raw == null ? undefined : String(raw) === "1";
 }
 
 function readTime(formData: FormData): Date | null | "invalid" {
@@ -75,6 +82,7 @@ export async function saveQueuePostAction(
     const ok = await updateQueuePost(String(formData.get("id")), {
       caption: String(formData.get("caption") ?? ""),
       scheduledAt: time ?? undefined,
+      postStory: readPostStory(formData),
     });
     return done(ok, "Opgeslagen.", "Deze post kan niet meer aangepast worden.");
   } catch (error) {
@@ -96,6 +104,7 @@ export async function approveQueuePostAction(
       caption,
       scheduledAt: time ?? undefined,
       approvedBy: admin.email,
+      postStory: readPostStory(formData),
     });
     return done(
       ok,
@@ -226,8 +235,11 @@ export async function createPostAction(
         };
       }
     }
+    const jpegs = await renderDraftJpegs(draft, catalog);
     const created = await createQueuePost({
-      jpegs: await renderDraftJpegs(draft, catalog),
+      jpegs,
+      storyJpeg: await renderStoryOrNull(jpegs[0]!),
+      postStory: String(formData.get("postStory") ?? "1") === "1",
       caption: draft.caption,
       scheduledAt,
       status: "te_keuren",
@@ -260,15 +272,29 @@ export async function publishNowAction(
       caption,
       scheduledAt: new Date(),
       approvedBy: admin.email,
+      postStory: readPostStory(formData),
     });
     if (!approved) {
       return { ok: false, message: "Deze post wordt al geplaatst of is al geplaatst." };
     }
     const result = await publishQueuePostNow(id);
     revalidatePath(PATH);
-    return result.ok
-      ? { ok: true, message: "Staat op Instagram!" }
-      : { ok: false, message: result.message };
+    return { ok: result.ok, message: result.message };
+  } catch (error) {
+    revalidatePath(PATH);
+    return failure(error);
+  }
+}
+
+/** Place (or retry) the story of a post that is already on Instagram. */
+export async function publishStoryAction(
+  formData: FormData,
+): Promise<QueueActionResult> {
+  if (!(await guard())) return UNAUTHORIZED;
+  try {
+    const result = await publishStoryNow(String(formData.get("id")));
+    revalidatePath(PATH);
+    return result;
   } catch (error) {
     revalidatePath(PATH);
     return failure(error);

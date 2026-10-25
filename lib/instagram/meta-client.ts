@@ -34,6 +34,11 @@ export type MetaClient = {
     },
     opts?: MetaRequestOptions,
   ) => Promise<MetaClientResult<{ id: string }>>;
+  /** Optional so older test doubles stay valid; the real client has it. */
+  createStoryContainer?: (
+    args: { imageUrl: string },
+    opts?: MetaRequestOptions,
+  ) => Promise<MetaClientResult<{ id: string }>>;
   createCarouselContainer: (
     args: {
       children: string[];
@@ -229,6 +234,12 @@ export function createMetaClient(options: MetaClientOptions): MetaClient {
       if (isCarouselItem) body.is_carousel_item = "true";
       return graphPost(`/${options.igUserId}/media`, body, opts);
     },
+    createStoryContainer: ({ imageUrl }, opts) =>
+      graphPost(
+        `/${options.igUserId}/media`,
+        { media_type: "STORIES", image_url: imageUrl },
+        opts,
+      ),
     createCarouselContainer: ({ children, caption }, opts) =>
       graphPost(
         `/${options.igUserId}/media`,

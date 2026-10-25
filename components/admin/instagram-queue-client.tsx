@@ -7,6 +7,7 @@ import {
   createPostAction,
   deleteQueuePostAction,
   publishNowAction,
+  publishStoryAction,
   rejectQueuePostAction,
   retryQueuePostAction,
   saveQueuePostAction,
@@ -153,6 +154,7 @@ function PostCard({
   const { pending, result, run } = useAction();
   const [caption, setCaption] = useState(post.caption);
   const [time, setTime] = useState(toBrusselsLocalInput(post.scheduledAt));
+  const [postStory, setPostStory] = useState(post.postStory);
   const locked = post.status === "gepost" || post.publishStartedAt != null;
   const timePassed = Date.parse(post.scheduledAt) < nowMs;
 
@@ -161,6 +163,7 @@ function PostCard({
     fd.set("id", post.id);
     fd.set("caption", caption);
     fd.set("scheduledAt", time);
+    fd.set("postStory", postStory ? "1" : "0");
     return fd;
   };
 
@@ -238,6 +241,14 @@ function PostCard({
               className="mt-1 block w-full rounded-xl border border-stone-200 bg-[#fbf8f0] p-3 text-sm font-normal leading-6 text-stone-800"
             />
           </label>
+
+          <StoryLine
+            post={post}
+            postStory={postStory}
+            onChange={setPostStory}
+            disabled={locked || pending}
+            onPublishStory={() => run(publishStoryAction, form())}
+          />
 
           {!locked ? (
             <div className="flex flex-wrap gap-2">
@@ -351,6 +362,78 @@ function PostCard({
   );
 }
 
+function StoryLine({
+  post,
+  postStory,
+  onChange,
+  disabled,
+  onPublishStory,
+}: {
+  post: InstagramQueuePost;
+  postStory: boolean;
+  onChange: (value: boolean) => void;
+  disabled: boolean;
+  onPublishStory: () => void;
+}) {
+  const download = post.storyImageId ? (
+    <a
+      href={`/api/instagram/media/${post.storyImageId}.jpg`}
+      download={`dateofflinehub-verhaal-${post.id}.jpg`}
+      target="_blank"
+      rel="noreferrer"
+      className="font-semibold text-[var(--brand-gold-ink)] underline-offset-2 hover:underline"
+    >
+      Download verhaal
+    </a>
+  ) : null;
+
+  if (post.status === "gepost") {
+    return (
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        {post.instagramStoryId ? (
+          <span className="text-emerald-700">✓ Ook als verhaal geplaatst</span>
+        ) : (
+          <>
+            {post.storyError ? (
+              <span className="text-red-700">Verhaal: {post.storyError}</span>
+            ) : (
+              <span className="text-stone-600">Geen verhaal geplaatst.</span>
+            )}
+            <button
+              type="button"
+              className={secondaryBtn}
+              disabled={disabled}
+              onClick={onPublishStory}
+            >
+              Verhaal plaatsen
+            </button>
+          </>
+        )}
+        {download}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 text-sm">
+      <label className="flex items-center gap-2 font-semibold text-stone-800">
+        <input
+          type="checkbox"
+          checked={postStory}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.checked)}
+          className="h-4 w-4"
+        />
+        Ook als verhaal
+      </label>
+      {download}
+      <span className="text-xs text-stone-500">
+        Klikbare link? Download het verhaal en plaats het zelf met een linksticker.
+      </span>
+    </div>
+  );
+}
+
 function AutoPostToggle({ enabled }: { enabled: boolean }) {
   const { pending, result, run } = useAction();
   return (
@@ -449,6 +532,7 @@ const KIND_OPTIONS: { value: PostKind; label: string; hint: string }[] = [
 function MakePostCard({ eventOptions }: { eventOptions: { id: string; label: string }[] }) {
   const { pending, result, run } = useAction();
   const [kind, setKind] = useState<PostKind>("binnenkort");
+  const [story, setStory] = useState(true);
   const inputCls =
     "mt-1 block w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-normal";
   return (
@@ -458,6 +542,7 @@ function MakePostCard({ eventOptions }: { eventOptions: { id: string; label: str
         className="mt-3 space-y-4"
         action={(fd) => {
           fd.set("kind", kind);
+          fd.set("postStory", story ? "1" : "0");
           run(createPostAction, fd);
         }}
       >
@@ -499,6 +584,16 @@ function MakePostCard({ eventOptions }: { eventOptions: { id: string; label: str
             </select>
           </label>
         ) : null}
+
+        <label className="flex items-center gap-2 text-sm font-semibold text-stone-800">
+          <input
+            type="checkbox"
+            checked={story}
+            onChange={(e) => setStory(e.target.checked)}
+            className="h-4 w-4"
+          />
+          Ook als verhaal plaatsen
+        </label>
 
         <button type="submit" className={primaryBtn} disabled={pending}>
           {pending ? "Afbeeldingen maken… (± 20 sec)" : "Maak post"}

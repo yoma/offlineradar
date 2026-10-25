@@ -153,6 +153,31 @@ async function main() {
   });
   assert.equal(failed.ok, false, "container error stops before publish");
 
+  // --- captions point to the link-in-bio page / event page ----------------
+  const { buildInstagramCaption, buildSingleEventCaption } = await import(
+    "../lib/instagram/captions"
+  );
+  const ev = {
+    id: "e1",
+    slug: "speeddate-gent",
+    title: "Speeddate Gent",
+    startDate: "2026-11-07",
+    startTime: "19:00",
+    city: "Gent",
+    organizerName: "Org",
+    shortDescription: "",
+    activities: ["speeddate"],
+    eligibilityAgeMin: null,
+    eligibilityAgeMax: null,
+    price: null,
+  } as unknown as Parameters<typeof buildSingleEventCaption>[0];
+  const singleCaption = buildSingleEventCaption(ev).text;
+  assert.ok(singleCaption.includes("dateofflinehub.be/event/speeddate-gent"), singleCaption);
+  for (const format of ["binnenkort", "deze_week", "nieuw"] as const) {
+    const text = buildInstagramCaption(format, [ev], "november").text;
+    assert.ok(text.includes("dateofflinehub.be/instagram"), `${format}: ${text}`);
+  }
+
   // --- public media URL + caption ------------------------------------------
   assert.equal(
     publicMediaUrl("a".repeat(32), "https://dateofflinehub.be/"),

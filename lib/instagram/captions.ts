@@ -9,6 +9,7 @@ import { formatDayMonth, weekdayIndex } from "@/lib/dates";
 import type { Event } from "@/types/event";
 import {
   INSTAGRAM_HANDLE,
+  INSTAGRAM_LINK_PAGE_LABEL,
   INSTAGRAM_SLOGAN,
   INSTAGRAM_WEBSITE,
   type InstagramFormatId,
@@ -125,7 +126,7 @@ export function buildInstagramCaption(
       "",
       bullets,
       "",
-      `Inschrijven doe je rechtstreeks bij de organisator. Alle links staan via de link in bio en op ${INSTAGRAM_WEBSITE}.`,
+      `Inschrijven doe je rechtstreeks bij de organisator. Alle links: ${INSTAGRAM_LINK_PAGE_LABEL} (of tik op de link in bio).`,
       "",
       tags,
     ].join("\n");
@@ -151,7 +152,7 @@ export function buildInstagramCaption(
       "",
       detailLines.join("\n\n"),
       "",
-      `Meer info en inschrijven via de link in bio of op ${INSTAGRAM_WEBSITE}.`,
+      `Meer info en inschrijven: ${INSTAGRAM_LINK_PAGE_LABEL} (of tik op de link in bio).`,
       "",
       tags,
     ].join("\n");
@@ -170,7 +171,7 @@ export function buildInstagramCaption(
     "",
     bullets,
     "",
-    `Inschrijven doe je rechtstreeks bij de organisator. Alle links staan op ${INSTAGRAM_WEBSITE} (link in bio).`,
+    `Inschrijven doe je rechtstreeks bij de organisator. Alle links: ${INSTAGRAM_LINK_PAGE_LABEL} (of tik op de link in bio).`,
     "",
     INSTAGRAM_SLOGAN,
     "",
@@ -199,7 +200,8 @@ export function buildSingleEventCaption(event: Event): InstagramCaption {
       ? ["", blurb.length > 400 ? `${blurb.slice(0, 397).trimEnd()}…` : blurb]
       : []),
     "",
-    `Inschrijven doe je rechtstreeks bij ${organizer || "de organisator"}. Meer info via de link in bio of op ${INSTAGRAM_WEBSITE}.`,
+    `Inschrijven doe je rechtstreeks bij ${organizer || "de organisator"}.`,
+    `Meer info: ${INSTAGRAM_WEBSITE}/event/${event.slug} (of tik op de link in bio).`,
     "",
     INSTAGRAM_SLOGAN,
     "",

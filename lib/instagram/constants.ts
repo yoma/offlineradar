@@ -9,6 +9,9 @@ export const INSTAGRAM_HANDLE = "@dateofflinehub";
 export const INSTAGRAM_WEBSITE = "dateofflinehub.be";
 export const INSTAGRAM_SLOGAN = "Minder swipen, terug echte connecties";
 export const INSTAGRAM_SITE_URL = "https://dateofflinehub.be";
+/** Link-in-bio page with the events from recent posts. */
+export const INSTAGRAM_LINK_PAGE_PATH = "/instagram";
+export const INSTAGRAM_LINK_PAGE_LABEL = `${INSTAGRAM_WEBSITE}${INSTAGRAM_LINK_PAGE_PATH}`;
 
 export const IG_FEED = instagramFormats.feedPortrait;
 

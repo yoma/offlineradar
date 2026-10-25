@@ -38,6 +38,13 @@ export type InstagramQueuePost = {
   instagramMediaId: string | null;
   /** Container we sent to media_publish; set means a publish may have happened. */
   containerId: string | null;
+  /** Also publish a story after the feed post. */
+  postStory: boolean;
+  /** Our media id of the 1080×1920 story JPEG (null until rendered). */
+  storyImageId: string | null;
+  /** Instagram media id of the published story. */
+  instagramStoryId: string | null;
+  storyError: string | null;
   source: "auto" | "manual";
   format: string | null;
   eventIds: string[];
@@ -57,6 +64,10 @@ type QueueRow = {
   error_message: string | null;
   instagram_media_id: string | null;
   container_id: string | null;
+  post_story?: boolean | null;
+  story_media_id?: string | null;
+  story_error?: string | null;
+  story_image_id?: string | null;
   source: "auto" | "manual";
   format: string | null;
   event_ids: unknown;
@@ -99,6 +110,10 @@ function mapRow(row: QueueRow): InstagramQueuePost {
     errorMessage: row.error_message,
     instagramMediaId: row.instagram_media_id,
     containerId: row.container_id ?? null,
+    postStory: row.post_story !== false,
+    storyImageId: row.story_image_id ?? null,
+    instagramStoryId: row.story_media_id ?? null,
+    storyError: row.story_error ?? null,
     source: row.source,
     format: row.format,
     eventIds: stringArray(row.event_ids),
@@ -135,9 +150,11 @@ export async function listQueuePosts(limit = 60): Promise<InstagramQueuePost[]> 
     SELECT q.*,
       COALESCE(
         (SELECT jsonb_agg(m.id ORDER BY m.position)
-         FROM instagram_post_media m WHERE m.post_id = q.id),
+         FROM instagram_post_media m WHERE m.post_id = q.id AND m.kind = 'feed'),
         '[]'::jsonb
-      ) AS media_ids
+      ) AS media_ids,
+      (SELECT m.id FROM instagram_post_media m
+       WHERE m.post_id = q.id AND m.kind = 'story' LIMIT 1) AS story_image_id
     FROM instagram_post_queue q
     ORDER BY
       CASE WHEN q.status IN ('te_keuren', 'goedgekeurd', 'mislukt') THEN 0 ELSE 1 END,
@@ -178,6 +195,9 @@ export async function createQueuePost(input: {
   format?: string | null;
   eventIds?: string[];
   slotKey?: string | null;
+  /** 1080×1920 story JPEG; null when it could not be rendered. */
+  storyJpeg?: Buffer | null;
+  postStory?: boolean;
 }): Promise<InstagramQueuePost | null> {
   if (input.jpegs.length < 1 || input.jpegs.length > 10) {
     throw new Error("Een post heeft 1 tot 10 afbeeldingen nodig.");
@@ -190,7 +210,7 @@ export async function createQueuePost(input: {
   const inserted = (await sql`
     INSERT INTO instagram_post_queue (
       id, image_urls, caption, scheduled_at, status, source, format,
-      event_ids, slot_key
+      event_ids, slot_key, post_story
     ) VALUES (
       ${id},
       ${JSON.stringify(imageUrls)}::jsonb,
@@ -200,7 +220,8 @@ export async function createQueuePost(input: {
       ${input.source},
       ${input.format ?? null},
       ${JSON.stringify(input.eventIds ?? [])}::jsonb,
-      ${input.slotKey ?? null}
+      ${input.slotKey ?? null},
+      ${input.postStory !== false}
     )
     ON CONFLICT DO NOTHING
     RETURNING id
@@ -214,6 +235,7 @@ export async function createQueuePost(input: {
         VALUES (${mediaIds[i]!}, ${id}, ${i}, ${input.jpegs[i]!})
       `;
     }
+    if (input.storyJpeg) await addStoryImage(id, input.storyJpeg);
   } catch (error) {
     await sql`DELETE FROM instagram_post_queue WHERE id = ${id}`.catch(
       () => undefined,
@@ -238,13 +260,14 @@ const EDITABLE = ["concept", "te_keuren", "goedgekeurd", "mislukt"] as const;
 
 export async function updateQueuePost(
   id: string,
-  patch: { caption?: string; scheduledAt?: Date },
+  patch: { caption?: string; scheduledAt?: Date; postStory?: boolean },
 ): Promise<boolean> {
   const sql = await queueSql();
   const rows = (await sql`
     UPDATE instagram_post_queue SET
       caption = COALESCE(${patch.caption != null ? normalizeCaption(patch.caption) : null}, caption),
       scheduled_at = COALESCE(${patch.scheduledAt?.toISOString() ?? null}::timestamptz, scheduled_at),
+      post_story = COALESCE(${patch.postStory ?? null}::boolean, post_story),
       updated_at = now()
     WHERE id = ${id}
       AND status = ANY(${[...EDITABLE]})
@@ -256,7 +279,12 @@ export async function updateQueuePost(
 
 export async function approveQueuePost(
   id: string,
-  args: { caption: string; scheduledAt?: Date; approvedBy: string | null },
+  args: {
+    caption: string;
+    scheduledAt?: Date;
+    approvedBy: string | null;
+    postStory?: boolean;
+  },
   now = new Date(),
 ): Promise<boolean> {
   const sql = await queueSql();
@@ -264,6 +292,7 @@ export async function approveQueuePost(
   const rows = (await sql`
     UPDATE instagram_post_queue SET
       caption = ${normalizeCaption(args.caption)},
+      post_story = COALESCE(${args.postStory ?? null}::boolean, post_story),
       scheduled_at = GREATEST(
         COALESCE(${args.scheduledAt?.toISOString() ?? null}::timestamptz, scheduled_at),
         ${now.toISOString()}::timestamptz
@@ -479,6 +508,98 @@ export async function sweepQueue(now = new Date()): Promise<{
     overdue: overdue.length,
     mediaPurged: mediaPurged.length,
   };
+}
+
+// --- stories ----------------------------------------------------------------
+
+export async function getStoryImageId(postId: string): Promise<string | null> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    SELECT id FROM instagram_post_media
+    WHERE post_id = ${postId} AND kind = 'story'
+    LIMIT 1
+  `) as { id: string }[];
+  return rows[0]?.id ?? null;
+}
+
+export async function getFirstFeedImage(postId: string): Promise<Buffer | null> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    SELECT id FROM instagram_post_media
+    WHERE post_id = ${postId} AND kind = 'feed'
+    ORDER BY position LIMIT 1
+  `) as { id: string }[];
+  return rows[0] ? getQueueMedia(rows[0].id) : null;
+}
+
+export async function addStoryImage(postId: string, jpeg: Buffer): Promise<string> {
+  const sql = await queueSql();
+  const mediaId = newMediaId();
+  await sql`
+    INSERT INTO instagram_post_media (id, post_id, position, bytes, kind)
+    VALUES (${mediaId}, ${postId}, 0, ${jpeg}, 'story')
+  `;
+  return mediaId;
+}
+
+/**
+ * Claim the story publish for a posted feed post. A claim older than 10
+ * minutes counts as abandoned. Returns false when a story is already live
+ * or another run holds the claim.
+ */
+export async function claimStoryPublish(postId: string): Promise<boolean> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    UPDATE instagram_post_queue SET
+      story_started_at = now(),
+      story_error = NULL,
+      updated_at = now()
+    WHERE id = ${postId}
+      AND status = 'gepost'
+      AND story_media_id IS NULL
+      AND (story_started_at IS NULL OR story_started_at < now() - interval '10 minutes')
+    RETURNING id
+  `) as unknown[];
+  return rows.length > 0;
+}
+
+export async function markStoryPosted(postId: string, igMediaId: string) {
+  const sql = await queueSql();
+  await sql`
+    UPDATE instagram_post_queue SET
+      story_media_id = ${igMediaId},
+      story_error = NULL,
+      updated_at = now()
+    WHERE id = ${postId}
+  `;
+}
+
+/** Story failed: release the claim so "Verhaal plaatsen" can try again. */
+export async function markStoryFailed(postId: string, message: string) {
+  const sql = await queueSql();
+  await sql`
+    UPDATE instagram_post_queue SET
+      story_error = ${message.slice(0, 1000)},
+      story_started_at = NULL,
+      updated_at = now()
+    WHERE id = ${postId}
+  `;
+}
+
+/** Event ids from posts that went live recently (link-in-bio page). */
+export async function listRecentlyPostedEventIds(days = 45): Promise<string[]> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    SELECT event_ids FROM instagram_post_queue
+    WHERE status = 'gepost'
+      AND posted_at >= now() - make_interval(days => ${days})
+    ORDER BY posted_at DESC
+  `) as { event_ids: unknown }[];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    for (const id of stringArray(row.event_ids)) seen.add(id);
+  }
+  return [...seen];
 }
 
 // --- settings ---------------------------------------------------------------

@@ -7,10 +7,9 @@ import {
   expectedNeonProjectId,
   getEventsSql,
 } from "../lib/events/db";
-import { splitSqlStatements } from "../lib/events/sql-split";
 import {
-  INSTAGRAM_POST_QUEUE_MIGRATION_ID as MIGRATION_ID,
-  INSTAGRAM_POST_QUEUE_SCHEMA_SQL,
+  INSTAGRAM_POST_QUEUE_STORY_MIGRATION_ID as MIGRATION_ID,
+  ensureInstagramQueueSchema,
 } from "../lib/instagram/queue-schema";
 
 async function main() {
@@ -34,9 +33,7 @@ async function main() {
   `;
   const pubBeforeN = (pubBefore[0] as { n: number }).n;
 
-  for (const statement of splitSqlStatements(INSTAGRAM_POST_QUEUE_SCHEMA_SQL)) {
-    await sql.query(statement, []);
-  }
+  await ensureInstagramQueueSchema();
 
   const tables = await sql`
     SELECT table_name FROM information_schema.tables
