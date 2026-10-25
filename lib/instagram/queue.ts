@@ -310,15 +310,22 @@ export async function submitQueuePostForReview(id: string): Promise<boolean> {
 
 /**
  * Make a failed post eligible again (it goes back to "te keuren").
- * container_id is kept: the next publish checks it first, so a post that
- * did reach Instagram is never published a second time.
+ *
+ * container_id is kept by default: the next publish asks Instagram what
+ * happened to it and refuses to post again unless it is clearly unpublished.
+ * `confirmedNotOnInstagram` (admin checked Instagram) clears it.
  */
-export async function resetFailedQueuePost(id: string): Promise<boolean> {
+export async function resetFailedQueuePost(
+  id: string,
+  options?: { confirmedNotOnInstagram?: boolean },
+): Promise<boolean> {
   const sql = await queueSql();
+  const clear = options?.confirmedNotOnInstagram === true;
   const rows = (await sql`
     UPDATE instagram_post_queue SET
       status = 'te_keuren',
       error_message = NULL,
+      container_id = CASE WHEN ${clear} THEN NULL ELSE container_id END,
       publish_started_at = NULL,
       approved_by = NULL,
       approved_at = NULL,
@@ -425,7 +432,7 @@ export async function markQueueFailed(id: string, message: string) {
 
 /**
  * Housekeeping: interrupted publishes, posts that missed their time by more
- * than a day, and old JPEG bytes (Instagram keeps its own copy).
+ * than two days, and old JPEG bytes (Instagram keeps its own copy).
  */
 export async function sweepQueue(now = new Date()): Promise<{
   interrupted: number;
@@ -447,11 +454,13 @@ export async function sweepQueue(now = new Date()): Promise<{
   const overdue = (await sql`
     UPDATE instagram_post_queue SET
       status = 'mislukt',
-      error_message = 'Niet geplaatst: het geplande tijdstip is meer dan een dag voorbij. Kies een nieuw tijdstip en keur opnieuw goed.',
+      error_message = 'Niet geplaatst: het geplande tijdstip is meer dan twee dagen voorbij. Kies een nieuw tijdstip en keur opnieuw goed.',
       updated_at = now()
     WHERE status = 'goedgekeurd'
       AND publish_started_at IS NULL
-      AND scheduled_at < ${nowIso}::timestamptz - interval '24 hours'
+      -- 48h: the cron runs once a day, so a missed evening still gets one
+      -- more chance the next day.
+      AND scheduled_at < ${nowIso}::timestamptz - interval '48 hours'
     RETURNING id
   `) as unknown[];
   const mediaPurged = (await sql`

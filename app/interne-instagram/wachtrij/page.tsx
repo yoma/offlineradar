@@ -15,7 +15,10 @@ import {
   type InstagramQueuePost,
 } from "@/lib/instagram/queue";
 import { upcomingQueueSlots } from "@/lib/instagram/queue-runner";
-import { getInstagramTokenStatus } from "@/lib/instagram/token-store";
+import {
+  getInstagramTokenStatus,
+  scrubSecrets,
+} from "@/lib/instagram/token-store";
 
 export const dynamic = "force-dynamic";
 /** "Nu plaatsen" publishes inside the server action. */
@@ -63,8 +66,9 @@ export default async function InstagramWachtrijPage() {
       getAutoPostWithoutApproval(),
     ]);
   } catch (error) {
-    loadError =
-      error instanceof Error ? error.message : "Wachtrij kon niet geladen worden.";
+    loadError = scrubSecrets(
+      error instanceof Error ? error.message : "Wachtrij kon niet geladen worden.",
+    );
   }
 
   let eventOptions: { id: string; label: string }[] = [];
@@ -102,6 +106,7 @@ export default async function InstagramWachtrijPage() {
           tokenExpiresAt: token.expiresAt,
           tokenLastError: token.lastError,
           dryRun: config.dryRun,
+          publishOff: config.publishExplicitlyOff,
         }}
       />
     </InterneAdminShell>

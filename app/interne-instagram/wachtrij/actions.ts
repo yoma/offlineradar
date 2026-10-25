@@ -140,7 +140,9 @@ export async function retryQueuePostAction(
 ): Promise<QueueActionResult> {
   if (!(await guard())) return UNAUTHORIZED;
   try {
-    const ok = await resetFailedQueuePost(String(formData.get("id")));
+    const ok = await resetFailedQueuePost(String(formData.get("id")), {
+      confirmedNotOnInstagram: String(formData.get("confirmedNotOnInstagram")) === "1",
+    });
     return done(
       ok,
       "Terug bij 'te keuren'. Kies een tijdstip en keur opnieuw goed.",
