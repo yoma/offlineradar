@@ -10,6 +10,7 @@ import {
   formatDayMonth,
   weekdayIndex,
 } from "@/lib/dates";
+import { isCurrentEvent } from "@/lib/event-visibility";
 import type { Event } from "@/types/event";
 
 export const UPCOMING_WINDOW_DAYS = 14;
@@ -137,6 +138,7 @@ export function selectUpcomingEvents(
 
   const pool = events.filter((event) => {
     if (!event.startDate) return false;
+    if (!isCurrentEvent(event, now)) return false;
     if (!isWithinUpcomingWindow(event, today, windowDays)) return false;
     if (isWalloniaEvent(event)) return false;
     return true;

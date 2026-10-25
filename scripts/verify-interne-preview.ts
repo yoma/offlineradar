@@ -154,7 +154,11 @@ async function main() {
     maxDistanceKm: 100,
     when: "any" as const,
   };
-  const match45 = matchingEvents(curated, age45);
+  const match45 = matchingEvents(
+    curated,
+    age45,
+    new Date("2026-10-01T10:00:00+02:00"),
+  );
   assert(
     "leeftijd 45: precies 2 strict verborgen (speeddates)",
     match45.hiddenStrict === 2,

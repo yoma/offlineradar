@@ -642,6 +642,9 @@ export async function touchEditionSourceCheckedAt(
   return rows.length > 0;
 }
 
+/** How far back a refresh still recognises an existing edition. */
+export const REFRESH_MATCH_LOOKBACK_DAYS = 180;
+
 export async function listFutureEditionsForOrganizerSlug(
   organizerSlug: string,
 ): Promise<EventEditionBundleLite[]> {
@@ -655,7 +658,10 @@ export async function listFutureEditionsForOrganizerSlug(
     FROM event_editions e
     JOIN organizers o ON o.id = e.organizer_id
     WHERE o.slug = ${organizerSlug}
-      AND e.starts_at >= now() - interval '1 day'
+      AND (
+        e.starts_at >= now() - (${REFRESH_MATCH_LOOKBACK_DAYS} * interval '1 day')
+        OR (e.ends_at IS NOT NULL AND e.ends_at >= now() - interval '1 day')
+      )
       AND e.publication_status NOT IN ('rejected', 'cancelled', 'expired')
     ORDER BY e.starts_at ASC
   `) as {
@@ -675,31 +681,37 @@ export async function listFutureEditionsForOrganizerSlug(
     organizer_slug: string;
   }[];
 
-  const out: EventEditionBundleLite[] = [];
-  for (const row of rows) {
-    const sources = (await sql`
-      SELECT normalized_url, url FROM event_sources
-      WHERE event_edition_id = ${row.id}
-    `) as { normalized_url: string; url: string }[];
-    out.push({
-      id: row.id,
-      slug: row.slug,
-      title: row.title,
-      startsAt: iso(row.starts_at)!,
-      city: row.city,
-      minAge: row.min_age,
-      maxAge: row.max_age,
-      priceAmount: row.price_amount == null ? null : Number(row.price_amount),
-      availabilityStatus: row.availability_status,
-      venueName: row.venue_name,
-      genderAvailability: row.gender_availability,
-      availabilityNote: row.availability_note,
-      publicationStatus: row.publication_status,
-      organizerSlug: row.organizer_slug,
-      sourceUrls: sources.map((s) => s.normalized_url || s.url),
-    });
+  const ids = rows.map((row) => row.id);
+  const sourceRows = ids.length
+    ? ((await sql`
+        SELECT event_edition_id, normalized_url, url FROM event_sources
+        WHERE event_edition_id = ANY(${ids})
+      `) as { event_edition_id: string; normalized_url: string; url: string }[])
+    : [];
+  const urlsByEdition = new Map<string, string[]>();
+  for (const source of sourceRows) {
+    const list = urlsByEdition.get(source.event_edition_id) ?? [];
+    list.push(source.normalized_url || source.url);
+    urlsByEdition.set(source.event_edition_id, list);
   }
-  return out;
+
+  return rows.map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    startsAt: iso(row.starts_at)!,
+    city: row.city,
+    minAge: row.min_age,
+    maxAge: row.max_age,
+    priceAmount: row.price_amount == null ? null : Number(row.price_amount),
+    availabilityStatus: row.availability_status,
+    venueName: row.venue_name,
+    genderAvailability: row.gender_availability,
+    availabilityNote: row.availability_note,
+    publicationStatus: row.publication_status,
+    organizerSlug: row.organizer_slug,
+    sourceUrls: urlsByEdition.get(row.id) ?? [],
+  }));
 }
 
 export type EventEditionBundleLite = {

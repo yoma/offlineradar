@@ -114,7 +114,7 @@ export default async function InterneEventsPage() {
     );
   }
 
-  const bundles = await listEditionBundlesForAdmin(80);
+  const bundles = await listEditionBundlesForAdmin(2000);
   if (!bundles) {
     return (
       <GateShell title="Eventbeheer niet beschikbaar">
@@ -267,6 +267,7 @@ export default async function InterneEventsPage() {
             lastCheckedAt: edition.lastCheckedAt,
             city: edition.city,
             startsAt: edition.startsAt,
+            endsAt: edition.endsAt,
             primarySourceUrl: primary?.url ?? null,
             primarySourceLabel:
               primary?.sourceName ?? primary?.sourceType ?? null,

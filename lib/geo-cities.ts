@@ -25,6 +25,8 @@ const CITY_COORDS: Record<string, { lat: number; lng: number }> = {
   lochristi: { lat: 51.0973, lng: 3.8396 },
   "sint niklaas": { lat: 51.1657, lng: 4.1437 },
   sintniklaas: { lat: 51.1657, lng: 4.1437 },
+  // Truncated SmartVibes label “St-Niklaas” / “St. Niklaas”. Not a city named “St”.
+  "st niklaas": { lat: 51.1657, lng: 4.1437 },
   oostende: { lat: 51.2303, lng: 2.9169 },
   ostend: { lat: 51.2303, lng: 2.9169 },
   ieper: { lat: 50.8511, lng: 2.8857 },
@@ -120,6 +122,7 @@ const CITY_LABEL_BY_KEY: Record<string, string> = {
   lochristi: "Lochristi",
   "sint niklaas": "Sint-Niklaas",
   sintniklaas: "Sint-Niklaas",
+  "st niklaas": "Sint-Niklaas",
   oostende: "Oostende",
   ostend: "Oostende",
   ieper: "Ieper",

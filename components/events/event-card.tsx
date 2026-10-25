@@ -8,6 +8,7 @@ import { FreshnessLabel } from "@/components/events/freshness-label";
 import { ReportSinglesCta } from "@/components/events/report-singles-cta";
 import { SaveButton } from "@/components/events/save-button";
 import { track } from "@/lib/analytics";
+import { isCurrentEvent } from "@/lib/event-visibility";
 import { displayEligibilityAge } from "@/lib/eligibility";
 import {
   formatAgeRange,
@@ -118,6 +119,11 @@ export function EventCard({
             strokeWidth={2.25}
           />
           <span>{formatCardWhen(event)}</span>
+          {!isCurrentEvent(event) ? (
+            <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-semibold text-stone-700">
+              Voorbij
+            </span>
+          ) : null}
         </p>
 
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">

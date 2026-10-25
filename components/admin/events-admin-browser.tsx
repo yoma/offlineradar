@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
+import { isStoredEditionCurrent } from "@/lib/event-visibility";
 
 export type EventsAdminListItem = {
   id: string;
@@ -12,6 +13,7 @@ export type EventsAdminListItem = {
   lastCheckedAt: string | null;
   city: string | null;
   startsAt: string | null;
+  endsAt: string | null;
   primarySourceUrl: string | null;
   primarySourceLabel: string | null;
   openReports: number;
@@ -29,6 +31,13 @@ const STATUS_FILTERS = [
   { value: "queue", label: "Te publiceren" },
   { value: "offline", label: "Offline" },
 ] as const;
+
+const TIME_FILTERS = [
+  { value: "current", label: "Actueel" },
+  { value: "past", label: "Voorbij" },
+] as const;
+
+type TimeFilter = (typeof TIME_FILTERS)[number]["value"];
 
 const QUEUE_STATUSES = new Set([
   "draft",
@@ -69,20 +78,31 @@ export function EventsAdminBrowser({
 }: Props) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState<string>("published");
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("current");
+
+  const timed = useMemo(() => {
+    return events.filter((event) => {
+      const current = isStoredEditionCurrent({
+        startsAt: event.startsAt,
+        endsAt: event.endsAt,
+      });
+      return timeFilter === "current" ? current : !current;
+    });
+  }, [events, timeFilter]);
 
   const counts = useMemo(() => {
-    const next = { all: events.length, published: 0, queue: 0, offline: 0 };
-    for (const event of events) {
+    const next = { all: timed.length, published: 0, queue: 0, offline: 0 };
+    for (const event of timed) {
       if (event.publicationStatus === "published") next.published += 1;
       else if (QUEUE_STATUSES.has(event.publicationStatus)) next.queue += 1;
       else next.offline += 1;
     }
     return next;
-  }, [events]);
+  }, [timed]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return events.filter((event) => {
+    return timed.filter((event) => {
       if (!matchesStatusFilter(event.publicationStatus, status)) return false;
       if (!needle) return true;
       const hay = [
@@ -96,7 +116,7 @@ export function EventsAdminBrowser({
         .toLowerCase();
       return hay.includes(needle);
     });
-  }, [events, q, status]);
+  }, [timed, q, status]);
 
   return (
     <div className="space-y-3">
@@ -110,6 +130,25 @@ export function EventsAdminBrowser({
           aria-label="Zoek events"
         />
         <div className="flex flex-wrap gap-1">
+          {TIME_FILTERS.map((filter) => {
+            const active = timeFilter === filter.value;
+            return (
+              <button
+                key={filter.value}
+                type="button"
+                onClick={() => setTimeFilter(filter.value)}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  active
+                    ? "bg-stone-900 text-white"
+                    : "border border-border bg-white text-stone-700 hover:bg-stone-50"
+                }`}
+              >
+                {filter.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex flex-wrap gap-1 sm:col-span-2">
           {STATUS_FILTERS.map((filter) => {
             const count =
               filter.value === "all"
@@ -139,7 +178,7 @@ export function EventsAdminBrowser({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        {filtered.length} van {events.length} events
+        {filtered.length} van {timed.length} events
       </p>
 
       {filtered.length === 0 ? (

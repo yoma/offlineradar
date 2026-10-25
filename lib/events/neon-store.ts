@@ -1084,6 +1084,8 @@ export async function listEditionBundlesForAdmin(
   if (!sql) return null;
   const editionRows = (await sql`
     SELECT * FROM event_editions
+    WHERE starts_at >= now() - interval '180 days'
+       OR (ends_at IS NOT NULL AND ends_at >= now() - interval '1 day')
     ORDER BY starts_at ASC
     LIMIT ${limit}
   `) as EditionRow[];
