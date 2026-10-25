@@ -28,6 +28,7 @@ import {
   metaPublishModeLabel,
   readInstagramMetaConfig,
 } from "@/lib/instagram/meta-config";
+import { getInstagramAccessToken } from "@/lib/instagram/token-store";
 import {
   canReleasePendingForStatus,
   isAmbiguousPostPublishError,
@@ -222,7 +223,8 @@ function httpTimeoutWithinBudget(deadlineMs: number): number {
   return Math.min(META_HTTP_TIMEOUT_MS, remaining);
 }
 
-async function prepareContainersOnly(args: {
+/** Create (and wait for) all containers; does not call media_publish. */
+export async function prepareContainersOnly(args: {
   client: MetaClient;
   caption: string;
   imageUrls: string[];
@@ -840,7 +842,7 @@ export async function publishInstagramConcept(
         : (input.metaClient ??
           createMetaClient({
             igUserId: config.igUserId!,
-            accessToken: config.accessToken!,
+            accessToken: (await getInstagramAccessToken()) ?? config.accessToken!,
             graphApiVersion: config.graphApiVersion,
             graphHost: config.graphHost,
           }));
@@ -979,7 +981,7 @@ async function continueFreshPublish(args: {
     input.metaClient ??
     createMetaClient({
       igUserId: config.igUserId!,
-      accessToken: config.accessToken!,
+      accessToken: (await getInstagramAccessToken()) ?? config.accessToken!,
       graphApiVersion: config.graphApiVersion,
       graphHost: config.graphHost,
     });

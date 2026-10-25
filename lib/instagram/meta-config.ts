@@ -1,5 +1,5 @@
 /**
- * Server-only Instagram Meta publish configuration (Phase 3B).
+ * Server-only Instagram publish configuration (Instagram Login API).
  * Credentials never use NEXT_PUBLIC_*.
  */
 
@@ -24,19 +24,18 @@ function flagOn(name: string): boolean {
 export function readInstagramMetaConfig(): InstagramMetaConfig {
   const publishEnabled = flagOn("INSTAGRAM_META_PUBLISH_ENABLED");
   const dryRun = flagOn("INSTAGRAM_META_DRY_RUN");
-  const igUserId = process.env.META_IG_USER_ID?.trim() || null;
-  const accessToken =
-    process.env.META_PAGE_ACCESS_TOKEN?.trim() ||
-    process.env.META_ACCESS_TOKEN?.trim() ||
-    null;
+  // Instagram API with Instagram Login (graph.instagram.com, no Facebook Page).
+  // The env token only seeds lib/instagram/token-store; callers use
+  // getInstagramAccessToken() for the current (refreshed) token.
+  const igUserId = process.env.INSTAGRAM_USER_ID?.trim() || null;
+  const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN?.trim() || null;
   const graphApiVersion =
-    process.env.META_GRAPH_API_VERSION?.trim() || "v22.0";
-  const graphHost =
-    process.env.META_GRAPH_HOST?.trim() || "graph.facebook.com";
+    process.env.INSTAGRAM_GRAPH_API_VERSION?.trim() || "v24.0";
+  const graphHost = "graph.instagram.com";
 
   const missingForLive: string[] = [];
-  if (!igUserId) missingForLive.push("META_IG_USER_ID");
-  if (!accessToken) missingForLive.push("META_PAGE_ACCESS_TOKEN");
+  if (!igUserId) missingForLive.push("INSTAGRAM_USER_ID");
+  if (!accessToken) missingForLive.push("INSTAGRAM_ACCESS_TOKEN");
 
   let mode: InstagramMetaPublishMode = "disabled";
   if (dryRun) mode = "dry_run";

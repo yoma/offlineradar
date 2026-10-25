@@ -33,7 +33,7 @@ export function InterneAdminNav({
     },
     { href: "/interne-events", key: "events" as const, label: "Live" },
     {
-      href: "/interne-instagram",
+      href: "/interne-instagram/wachtrij",
       key: "instagram" as const,
       label: "Instagram",
     },

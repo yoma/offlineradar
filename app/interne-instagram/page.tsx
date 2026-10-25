@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   isGoogleAuthConfigured,
@@ -121,6 +122,14 @@ export default async function InterneInstagramPage() {
   return (
     <InterneAdminShell wide>
       <InterneAdminNav active="instagram" />
+      <p className="mb-4 text-sm">
+        <Link
+          href="/interne-instagram/wachtrij"
+          className="font-semibold text-[var(--brand-gold-ink)] underline-offset-2 hover:underline"
+        >
+          ← Naar de Instagram-wachtrij (goedkeuren &amp; plannen)
+        </Link>
+      </p>
       <InstagramPreviewClient
         drafts={safeDrafts}
         notes={extraNotes}
@@ -134,7 +143,7 @@ export default async function InterneInstagramPage() {
         {meta.missingForLive.length > 0
           ? `, ontbrekend voor live: ${meta.missingForLive.join(", ")}`
           : ""}
-        . Geen cron / auto-post.
+        . Gepland posten gebeurt via de wachtrij.
       </p>
     </InterneAdminShell>
   );

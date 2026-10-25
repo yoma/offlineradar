@@ -238,8 +238,8 @@ async function testNeonIdempotency() {
     {
       INSTAGRAM_META_PUBLISH_ENABLED: "1",
       INSTAGRAM_META_DRY_RUN: undefined,
-      META_IG_USER_ID: "ig-test",
-      META_PAGE_ACCESS_TOKEN: "tok-test",
+      INSTAGRAM_USER_ID: "ig-test",
+      INSTAGRAM_ACCESS_TOKEN: "tok-test",
       INSTAGRAM_IMAGE_SIGNING_SECRET: "phase3b-test-secret",
       OFFLINERADAR_PUBLIC_BASE_URL: "https://dateofflinehub.be",
     },
