@@ -49,8 +49,9 @@ const HOOK_FRAMES = 75;
 const CTA_FRAMES = 75;
 const OVERLAP_FRAMES = 10;
 const SINGLE_FRAMES = 150;
-const CARD_MIN_FRAMES = 54;
-const CARD_MAX_FRAMES = 84;
+/** Each event card stays 2.5–3.5 s on screen, long enough to read it. */
+const CARD_MIN_FRAMES = 75;
+const CARD_MAX_FRAMES = 105;
 
 /** Replace em-dashes (house rule) with a comma. */
 export { noEmDash };
