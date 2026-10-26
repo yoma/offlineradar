@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { notifyInstagramAdmins } from "@/lib/instagram/notify";
 import { markReelFailed, markReelReady } from "@/lib/instagram/queue";
 import { isCronRequestAuthorized } from "@/lib/source-refresh/cron-auth";
 import { scrubSecrets } from "@/lib/instagram/token-store";
@@ -42,6 +43,14 @@ export async function POST(
     const failed = await markReelFailed(id, message);
     if (failed?.status === "mislukt") {
       console.error(`[instagram/reels] ${id}: reel definitief mislukt, de post gaat als gewone post: ${message}`);
+      await notifyInstagramAdmins({
+        kind: "reel_render_failed",
+        postId: id,
+        message:
+          `De reel voor post ${id} kon na 3 pogingen niet gemaakt worden. ` +
+          `Met reels aan gaat deze post als gewone post online. ` +
+          `In de wachtrij kan je "Reel opnieuw maken" proberen.\n\nFout: ${message}`,
+      });
     } else {
       console.warn(`[instagram/reels] ${id}: render mislukt, nieuwe poging volgt: ${message}`);
     }

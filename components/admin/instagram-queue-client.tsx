@@ -60,6 +60,10 @@ type Setup = {
   tokenLastError: string | null;
   dryRun: boolean;
   publishOff: boolean;
+  /** False only with the emergency stop INSTAGRAM_REEL_ENABLED=0. */
+  reelsOn: boolean;
+  /** INSTAGRAM_REEL_FALLBACK_TO_POST: a failed reel becomes the normal post. */
+  reelFallback: boolean;
 };
 
 const primaryBtn =
@@ -148,13 +152,29 @@ function ReelPreview({
   locked,
   onRemake,
   pending,
+  reelsOn,
+  asReel,
+  onAsReel,
 }: {
   post: InstagramQueuePost;
   locked: boolean;
   onRemake: () => void;
   pending: boolean;
+  reelsOn: boolean;
+  asReel: boolean;
+  onAsReel: (value: boolean) => void;
 }) {
   if (post.reelStatus === "geen") return null;
+  const plan =
+    post.status === "gepost" || !reelsOn
+      ? null
+      : !asReel
+        ? "Gaat online als gewone post (de slides)."
+        : post.reelStatus === "klaar"
+          ? "Gaat online als reel. Lukt dat niet, dan gaan de slides als gewone post."
+          : post.reelStatus === "mislukt"
+            ? null
+            : "Is de reel niet op tijd klaar, dan gaat de gewone post online.";
   const remake =
     !locked && post.reelStatus !== "te_maken" && post.reelStatus !== "bezig" ? (
       <button
@@ -181,7 +201,8 @@ function ReelPreview({
         />
       ) : post.reelStatus === "mislukt" ? (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-800">
-          Reel mislukt{post.reelError ? `: ${post.reelError}` : "."} Deze post gaat als gewone post online.
+          Reel mislukt{post.reelError ? `: ${post.reelError}` : "."}
+          {reelsOn ? " Deze post gaat als gewone post online." : ""}
         </p>
       ) : post.reelStatus === "klaar" ? (
         <p className="text-xs text-stone-500">Video opgeruimd (ouder dan 30 dagen).</p>
@@ -191,6 +212,19 @@ function ReelPreview({
         </div>
       )}
       {post.reelHook ? <p className="text-xs text-stone-600">Hook: {post.reelHook}</p> : null}
+      {post.status !== "gepost" && reelsOn ? (
+        <label className="flex items-center gap-2 text-sm font-semibold text-stone-800">
+          <input
+            type="checkbox"
+            checked={asReel}
+            disabled={locked || pending}
+            onChange={(e) => onAsReel(e.target.checked)}
+            className="h-4 w-4"
+          />
+          Plaatsen als reel
+        </label>
+      ) : null}
+      {plan ? <p className="text-xs font-semibold text-emerald-800">{plan}</p> : null}
       {remake}
     </div>
   );
@@ -200,15 +234,18 @@ function PostCard({
   post,
   autoPost,
   nowMs,
+  reelsOn,
 }: {
   post: InstagramQueuePost;
   autoPost: boolean;
   nowMs: number;
+  reelsOn: boolean;
 }) {
   const { pending, result, run } = useAction();
   const [caption, setCaption] = useState(post.caption);
   const [time, setTime] = useState(toBrusselsLocalInput(post.scheduledAt));
   const [postStory, setPostStory] = useState(post.postStory);
+  const [asReel, setAsReel] = useState(post.asReel);
   const locked = post.status === "gepost" || post.publishStartedAt != null;
   const timePassed = Date.parse(post.scheduledAt) < nowMs;
 
@@ -218,6 +255,7 @@ function PostCard({
     fd.set("caption", caption);
     fd.set("scheduledAt", time);
     fd.set("postStory", postStory ? "1" : "0");
+    fd.set("asReel", asReel ? "1" : "0");
     return fd;
   };
 
@@ -230,6 +268,9 @@ function PostCard({
             post={post}
             locked={locked}
             pending={pending}
+            reelsOn={reelsOn}
+            asReel={asReel}
+            onAsReel={setAsReel}
             onRemake={() => run(remakeReelAction, form())}
           />
         </div>
@@ -250,7 +291,12 @@ function PostCard({
 
           {post.status === "gepost" ? (
             <p className="text-sm text-stone-700">
-              Geplaatst op {formatBrusselsDateTime(post.postedAt ?? post.scheduledAt)}.
+              {post.publishedAs === "reel"
+                ? "Geplaatst als reel op "
+                : post.publishedAs === "post" && post.reelStatus !== "geen"
+                  ? "Geplaatst als gewone post op "
+                  : "Geplaatst op "}
+              {formatBrusselsDateTime(post.postedAt ?? post.scheduledAt)}.
             </p>
           ) : null}
           {post.status === "mislukt" && post.errorMessage ? (
@@ -307,6 +353,7 @@ function PostCard({
           <StoryLine
             post={post}
             postStory={postStory}
+            reelsOn={reelsOn && asReel}
             onChange={setPostStory}
             disabled={locked || pending}
             onPublishStory={() => run(publishStoryAction, form())}
@@ -427,12 +474,14 @@ function PostCard({
 function StoryLine({
   post,
   postStory,
+  reelsOn,
   onChange,
   disabled,
   onPublishStory,
 }: {
   post: InstagramQueuePost;
   postStory: boolean;
+  reelsOn: boolean;
   onChange: (value: boolean) => void;
   disabled: boolean;
   onPublishStory: () => void;
@@ -446,6 +495,19 @@ function StoryLine({
       className="font-semibold text-[var(--brand-gold-ink)] underline-offset-2 hover:underline"
     >
       Download verhaal
+    </a>
+  ) : null;
+
+  const asReel =
+    post.status === "gepost" ? post.publishedAs === "reel" : reelsOn && post.reelStatus === "klaar";
+  const reelStill = post.reelStoryId ? (
+    <a
+      href={`/api/instagram/media/${post.reelStoryId}.jpg`}
+      target="_blank"
+      rel="noreferrer"
+      className="font-semibold text-[var(--brand-gold-ink)] underline-offset-2 hover:underline"
+    >
+      Reserve-verhaalbeeld
     </a>
   ) : null;
 
@@ -471,7 +533,7 @@ function StoryLine({
             </button>
           </>
         )}
-        {download}
+        {asReel ? reelStill : download}
       </div>
     );
   }
@@ -488,10 +550,21 @@ function StoryLine({
         />
         Ook als verhaal
       </label>
-      {download}
-      <span className="text-xs text-stone-500">
-        Klikbare link? Download het verhaal en plaats het zelf met een linksticker.
-      </span>
+      {asReel ? (
+        <>
+          {reelStill}
+          <span className="text-xs text-stone-500">
+            Het verhaal wordt dezelfde video als de reel; lukt dat niet, dan dit beeld.
+          </span>
+        </>
+      ) : (
+        <>
+          {download}
+          <span className="text-xs text-stone-500">
+            Klikbare link? Download het verhaal en plaats het zelf met een linksticker.
+          </span>
+        </>
+      )}
     </div>
   );
 }
@@ -570,6 +643,14 @@ function SetupStatus({ setup }: { setup: Setup }) {
           Noodstop actief (INSTAGRAM_META_PUBLISH_ENABLED=0): er wordt niets geplaatst.
         </p>
       ) : null}
+      <p>
+        <span className="font-semibold text-stone-800">Reels:</span>{" "}
+        <span className="text-stone-600">
+          {setup.reelsOn
+            ? `per post te kiezen met "Plaatsen als reel"; ${setup.reelFallback ? "lukt de reel niet, dan gaat de gewone post" : "geen gewone post als de reel mislukt"}`
+            : "noodstop actief (INSTAGRAM_REEL_ENABLED=0): alles gaat als gewone post"}
+        </span>
+      </p>
       {setup.dryRun ? (
         <p className="text-amber-800">
           INSTAGRAM_META_DRY_RUN staat aan: er wordt niets echt gepost.
@@ -741,21 +822,21 @@ export function InstagramQueueClient({
             Niets te keuren. Nieuwe voorstellen verschijnen hier automatisch.
           </p>
         ) : (
-          open.map((p) => <PostCard key={p.id} post={p} autoPost={autoPost} nowMs={nowMs} />)
+          open.map((p) => <PostCard key={p.id} post={p} autoPost={autoPost} nowMs={nowMs} reelsOn={setup.reelsOn} />)
         )}
       </section>
 
       {planned.length > 0 ? (
         <section className="space-y-4">
           <h2 className="text-lg font-semibold text-stone-900">Gepland en mislukt</h2>
-          {planned.map((p) => <PostCard key={p.id} post={p} autoPost={autoPost} nowMs={nowMs} />)}
+          {planned.map((p) => <PostCard key={p.id} post={p} autoPost={autoPost} nowMs={nowMs} reelsOn={setup.reelsOn} />)}
         </section>
       ) : null}
 
       {posted.length > 0 ? (
         <section className="space-y-4">
           <h2 className="text-lg font-semibold text-stone-900">Geplaatst</h2>
-          {posted.map((p) => <PostCard key={p.id} post={p} autoPost={autoPost} nowMs={nowMs} />)}
+          {posted.map((p) => <PostCard key={p.id} post={p} autoPost={autoPost} nowMs={nowMs} reelsOn={setup.reelsOn} />)}
         </section>
       ) : null}
 
@@ -765,7 +846,7 @@ export function InstagramQueueClient({
             Afgewezen ({rejected.length}): verborgen, open om er toch één te gebruiken
           </summary>
           <div className="mt-4 space-y-4">
-            {rejected.map((p) => <PostCard key={p.id} post={p} autoPost={autoPost} nowMs={nowMs} />)}
+            {rejected.map((p) => <PostCard key={p.id} post={p} autoPost={autoPost} nowMs={nowMs} reelsOn={setup.reelsOn} />)}
           </div>
         </details>
       ) : null}

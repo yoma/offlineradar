@@ -7,6 +7,7 @@
 import { ACTIVITY_LABEL, formatAgeRange, formatPrice, formatPriceFrom } from "@/lib/format";
 import { addDays, brusselsToday, diffDays, weekdayIndex, weekendRange } from "@/lib/dates";
 import { sanitizeInstagramBlurb } from "@/lib/instagram/blurb";
+import { noEmDash } from "@/lib/instagram/captions";
 import {
   INSTAGRAM_SLOGAN,
   INSTAGRAM_WEBSITE,
@@ -52,9 +53,7 @@ const CARD_MIN_FRAMES = 54;
 const CARD_MAX_FRAMES = 84;
 
 /** Replace em-dashes (house rule) with a comma. */
-export function noEmDash(text: string): string {
-  return text.replace(/\s*—\s*/g, ", ");
-}
+export { noEmDash };
 
 function activityText(event: Event): string | null {
   const id = event.activities[0] as ActivityId | undefined;

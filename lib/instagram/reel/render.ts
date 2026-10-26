@@ -1,6 +1,7 @@
 /**
- * Remotion render of one reel: MP4 (H.264 + AAC, yuv420p, bt709) plus a
- * cover JPEG of the hook. Node only (scripts and GitHub Actions); the Next
+ * Remotion render of one reel: MP4 (H.264 + AAC 128k, yuv420p, bt709), a
+ * cover JPEG of the hook and the story still ("Nieuwe reel, bekijk ons
+ * profiel") for when the video story fails. Node only (scripts and GitHub Actions); the Next
  * app never imports this.
  */
 
@@ -13,6 +14,7 @@ import { REMOTION_PUBLIC_DIR } from "@/lib/instagram/reel/music";
 import type { ReelProps } from "@/lib/instagram/reel/types";
 
 export const REEL_COMPOSITION_ID = "DateOfflineHubReel";
+export const REEL_STORY_COMPOSITION_ID = "DateOfflineHubReelStory";
 
 /** Constant quality first; stricter when a file would pass the upload limit. */
 const CRF_STEPS = [18, 23, 28];
@@ -27,6 +29,7 @@ export async function bundleReelTemplate(): Promise<string> {
 export type RenderedReel = {
   videoPath: string;
   coverPath: string;
+  storyPath: string;
   seconds: number;
   bytes: number;
 };
@@ -34,7 +37,7 @@ export type RenderedReel = {
 export async function renderReel(args: {
   serveUrl: string;
   props: ReelProps;
-  /** Output path without extension; writes <base>.mp4 and <base>-cover.jpg. */
+  /** Output path without extension; writes <base>.mp4, <base>-cover.jpg and <base>-story.jpg. */
   outBase: string;
   browserExecutable?: string | null;
 }): Promise<RenderedReel> {
@@ -48,6 +51,7 @@ export async function renderReel(args: {
   });
   const videoPath = `${outBase}.mp4`;
   const coverPath = `${outBase}-cover.jpg`;
+  const storyPath = `${outBase}-story.jpg`;
 
   let bytes = Infinity;
   for (const crf of CRF_STEPS) {
@@ -57,7 +61,8 @@ export async function renderReel(args: {
       inputProps: props,
       codec: "h264",
       audioCodec: "aac",
-      audioBitrate: "192k",
+      // Meta's reel spec: AAC, 128 kbps, 48 kHz.
+      audioBitrate: "128k",
       crf,
       pixelFormat: "yuv420p",
       colorSpace: "bt709",
@@ -74,12 +79,31 @@ export async function renderReel(args: {
   }
 
   // Cover: the hook, fully on screen.
+  const coverFrame = Math.max(0, props.timing.hookFrames - 25);
   await renderStill({
     serveUrl,
     composition,
     inputProps: props,
-    frame: Math.max(0, props.timing.hookFrames - 25),
+    frame: coverFrame,
     output: coverPath,
+    imageFormat: "jpeg",
+    jpegQuality: 90,
+    browserExecutable,
+    overwrite: true,
+  });
+
+  const story = await selectComposition({
+    serveUrl,
+    id: REEL_STORY_COMPOSITION_ID,
+    inputProps: props,
+    browserExecutable,
+  });
+  await renderStill({
+    serveUrl,
+    composition: story,
+    inputProps: props,
+    frame: Math.min(coverFrame, story.durationInFrames - 1),
+    output: storyPath,
     imageFormat: "jpeg",
     jpegQuality: 90,
     browserExecutable,
@@ -89,6 +113,7 @@ export async function renderReel(args: {
   return {
     videoPath,
     coverPath,
+    storyPath,
     seconds: composition.durationInFrames / composition.fps,
     bytes,
   };

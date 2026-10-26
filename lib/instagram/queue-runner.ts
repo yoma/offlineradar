@@ -1,6 +1,6 @@
 /**
  * One cron "tick" for the Instagram queue (Vercel cron, daily on Hobby).
- * Does at most one heavy step per call so it fits a 60s function:
+ * Does at most one heavy step per call so it fits a 300s function:
  *
  *   1. housekeeping + token refresh (cheap)
  *   2. publish one due post, or else
@@ -27,16 +27,20 @@ import {
   isAmbiguousPostPublishError,
   META_HTTP_TIMEOUT_MS,
 } from "@/lib/instagram/publish-policy";
+import { notifyInstagramAdmins } from "@/lib/instagram/notify";
 import {
   addStoryImage,
   claimDueQueuePost,
   claimQueuePostById,
   claimStoryPublish,
   getFirstFeedImage,
+  getQueuePost,
+  getReelMediaIds,
   getStoryImageId,
   markStoryFailed,
   markStoryPosted,
   publicMediaUrl,
+  publicVideoUrl,
   createQueuePost,
   getAutoPostWithoutApproval,
   hasPostForSlot,
@@ -47,6 +51,9 @@ import {
   type InstagramQueuePost,
 } from "@/lib/instagram/queue";
 import { renderDraftJpegs } from "@/lib/instagram/queue-media";
+import { readInstagramReelConfig, type InstagramReelConfig } from "@/lib/instagram/reel/config";
+import { noEmDash } from "@/lib/instagram/reel/props";
+import { reelCollaborators, reelPhaseDeadline } from "@/lib/instagram/reel/publish-plan";
 import { prepareReelProps } from "@/lib/instagram/reel/queue-reel";
 import { NEEDS_INSTAGRAM_CHECK } from "@/lib/instagram/queue-messages";
 import { renderStoryJpeg, renderStoryOrNull } from "@/lib/instagram/story";
@@ -55,6 +62,7 @@ import {
   refreshInstagramTokenIfDue,
   scrubSecrets,
 } from "@/lib/instagram/token-store";
+import type { Event } from "@/types/event";
 
 /**
  * Weekly proposal slots (Brussels time). weekday: 0 = Sunday.
@@ -78,14 +86,23 @@ export const INSTAGRAM_WEEKLY_SLOTS: {
 const PROPOSE_HORIZON_DAYS = 7;
 /** Don't propose a slot that is closer than this. */
 const PROPOSE_MIN_LEAD_MS = 6 * 3_600_000;
-/** Publishing must finish well within the 60s function limit. */
+/**
+ * Time budgets inside the 300 s functions (cron route and the wachtrij page,
+ * Vercel Fluid compute). A feed post keeps its old 45 s + story budget; a
+ * reel gets the rest for Meta's video processing, keeping enough time for
+ * a fallback post and the story (see reel/publish-plan.ts).
+ */
 const PUBLISH_BUDGET_MS = 45_000;
-/** The story goes after the feed post, within the same 60s function. */
+/** The story goes after the feed post, within the same function. */
 const STORY_DEADLINE_MS = 54_000;
 const STORY_MIN_MS = 8_000;
+/** Everything for one post (reel, fallback post, story). */
+const POST_TOTAL_MS = 270_000;
+/** "Verhaal plaatsen" for a reel: video story, then the still. */
+const REEL_STORY_BUDGET_MS = 120_000;
 /** Start another due post in the same cron run only while this much is left. */
-const NEXT_POST_MIN_REMAINING_MS = 45_000;
-const CRON_TOTAL_MS = 55_000;
+const NEXT_POST_MIN_REMAINING_MS = 60_000;
+const CRON_TOTAL_MS = 285_000;
 
 
 export type QueueSlot = {
@@ -158,10 +175,15 @@ export async function runInstagramQueueTick(options?: {
   } else {
     // The cron runs once a day, so publish every due post while time allows.
     const autoPost = await getAutoPostWithoutApproval();
-    while (CRON_TOTAL_MS - (Date.now() - startedMs) >= NEXT_POST_MIN_REMAINING_MS) {
+    const cronDeadlineMs = startedMs + CRON_TOTAL_MS;
+    while (cronDeadlineMs - Date.now() >= NEXT_POST_MIN_REMAINING_MS) {
       const post = await claimDueQueuePost({ autoPost, now });
       if (!post) break;
-      result.published.push(await publishQueuePost(post, options?.metaClient));
+      result.published.push(
+        await publishQueuePost(post, options?.metaClient, {
+          deadlineMs: Math.min(Date.now() + POST_TOTAL_MS, cronDeadlineMs),
+        }),
+      );
     }
     if (result.published.length > 0) return result;
   }
@@ -173,11 +195,17 @@ export async function runInstagramQueueTick(options?: {
 export async function publishQueuePost(
   post: InstagramQueuePost,
   injectedClient?: MetaClient,
+  options?: { deadlineMs?: number },
 ): Promise<{ id: string; ok: boolean; message: string }> {
   const fail = async (message: string) => {
     const safe = scrubSecrets(message);
     await markQueueFailed(post.id, safe);
     console.warn(`[instagram/queue] ${post.id} mislukt: ${safe}`);
+    await notifyInstagramAdmins({
+      kind: "publish_failed",
+      postId: post.id,
+      message: `Post ${post.id} (gepland ${post.scheduledAt}) is niet geplaatst.\n\nFout: ${safe}`,
+    });
     return { id: post.id, ok: false, message: safe };
   };
 
@@ -188,15 +216,18 @@ export async function publishQueuePost(
   }
   if (post.imageUrls.length === 0) return fail(humanMetaPublishError("no_slides"));
 
+  let events: Event[] = [];
   if (post.eventIds.length > 0) {
     try {
-      const live = new Set((await listEvents()).map((e) => e.id));
+      const catalog = await listEvents();
+      const live = new Map(catalog.map((e) => [e.id, e]));
       const gone = post.eventIds.filter((id) => !live.has(id));
       if (gone.length > 0) {
         return fail(
           `Niet geplaatst: ${gone.length} event(s) uit deze post staan niet meer online. Maak een nieuw voorstel.`,
         );
       }
+      events = post.eventIds.map((id) => live.get(id)!);
     } catch {
       return fail("Catalogus niet bereikbaar om de events te controleren.");
     }
@@ -211,7 +242,8 @@ export async function publishQueuePost(
       graphHost: config.graphHost,
     });
   const startedMs = Date.now();
-  const deadlineMs = startedMs + PUBLISH_BUDGET_MS;
+  const postDeadlineMs = options?.deadlineMs ?? startedMs + POST_TOTAL_MS;
+  const caption = noEmDash(post.caption);
 
   // An earlier attempt got as far as media_publish. Only post again when
   // Instagram clearly says that container was never published (FINISHED);
@@ -232,22 +264,72 @@ export async function publishQueuePost(
     // edited caption is what goes live.
   }
 
+  const reelConfig = readInstagramReelConfig();
+  let fallbackReason: string | null = null;
+  // The admin ticks "Plaatsen als reel" per post; posts without a reel
+  // (made before reels existed) just go out as a post.
+  if (reelConfig.enabled && post.asReel && post.reelStatus !== "geen") {
+    const reel = await publishAsReel({
+      post,
+      client,
+      caption,
+      events,
+      reelConfig,
+      startedMs,
+      postDeadlineMs,
+    });
+    if (reel.kind === "done") {
+      return reel.result.ok ? reel.result : fail(reel.result.message);
+    }
+    fallbackReason = reel.reason;
+    console.warn(`[instagram/queue] ${post.id} reel niet gelukt: ${fallbackReason}`);
+    if (!reelConfig.fallbackToPost) {
+      return fail(`Reel niet geplaatst: ${fallbackReason} (terugval op een gewone post staat uit).`);
+    }
+  }
+
+  const result = await publishAsPost({ post, client, caption, postDeadlineMs, fail });
+  if (fallbackReason && result.ok) {
+    await notifyInstagramAdmins({
+      kind: "reel_fallback",
+      postId: post.id,
+      message:
+        `Post ${post.id} ging als gewone post online in plaats van als reel.\n\n` +
+        `Reden: ${fallbackReason}`,
+    });
+    return { ...result, message: `${result.message} (als gewone post: ${fallbackReason})` };
+  }
+  return result;
+}
+
+/** The feed post (carousel or single image) plus its story: the old flow. */
+async function publishAsPost(args: {
+  post: InstagramQueuePost;
+  client: MetaClient;
+  caption: string;
+  postDeadlineMs: number;
+  fail: (message: string) => Promise<{ id: string; ok: boolean; message: string }>;
+}): Promise<{ id: string; ok: boolean; message: string }> {
+  const { post, client, caption, fail } = args;
+  const startedMs = Date.now();
+  const deadlineMs = Math.min(startedMs + PUBLISH_BUDGET_MS, args.postDeadlineMs - 9_000);
+
   const prepared = await prepareContainers({
     client,
-    caption: post.caption,
+    caption,
     imageUrls: post.imageUrls,
     deadlineMs,
   });
   if (!prepared.ok) return fail(prepared.message);
   const containerId = prepared.containerId;
-  await saveQueueContainerId(post.id, containerId);
+  await saveQueueContainerId(post.id, containerId, "post");
 
   const published = await client.publishContainer(containerId, {
     timeoutMs: Math.max(5_000, Math.min(META_HTTP_TIMEOUT_MS, deadlineMs - Date.now())),
   });
   if (!published.ok) {
     if (published.error.code === "meta_already_published") {
-      await markQueuePosted(post.id, null);
+      await markQueuePosted(post.id, null, "post");
       return { id: post.id, ok: true, message: "Stond al op Instagram." };
     }
     const message = humanMetaPublishError(
@@ -261,13 +343,17 @@ export async function publishQueuePost(
     );
   }
 
-  await markQueuePosted(post.id, published.data.id);
+  await markQueuePosted(post.id, published.data.id, "post");
   console.info(`[instagram/queue] ${post.id} gepost als ${published.data.id}`);
 
   if (!post.postStory) {
     return { id: post.id, ok: true, message: "Gepost op Instagram." };
   }
-  const story = await publishStory(post.id, client, startedMs + STORY_DEADLINE_MS);
+  const story = await publishStory(
+    post.id,
+    client,
+    Math.min(startedMs + STORY_DEADLINE_MS, args.postDeadlineMs),
+  );
   return {
     id: post.id,
     ok: true,
@@ -277,14 +363,164 @@ export async function publishQueuePost(
   };
 }
 
+type ReelAttempt =
+  | { kind: "done"; result: { id: string; ok: boolean; message: string } }
+  /** Nothing went live; the caller may post the normal feed post. */
+  | { kind: "fallback"; reason: string };
+
 /**
- * Publish the 1080×1920 story for a post that is already live.
- * Never touches the feed post; failures only set story_error.
+ * Publish the post as a REELS container with the rendered MP4. Anything that
+ * fails before media_publish (or with a clear "not published" answer) is a
+ * fallback; an unclear media_publish answer is not, since the reel may be
+ * live already.
+ */
+async function publishAsReel(args: {
+  post: InstagramQueuePost;
+  client: MetaClient;
+  caption: string;
+  events: Event[];
+  reelConfig: InstagramReelConfig;
+  startedMs: number;
+  postDeadlineMs: number;
+}): Promise<ReelAttempt> {
+  const { post, client, caption, events, reelConfig, postDeadlineMs } = args;
+  const fallback = (reason: string): ReelAttempt => ({ kind: "fallback", reason });
+
+  if (!client.createReelContainer) return fallback("Reels niet ondersteund door de client.");
+  if (post.reelStatus !== "klaar") {
+    return fallback(
+      post.reelStatus === "mislukt"
+        ? "de reel kon niet gemaakt worden"
+        : `de reel was nog niet klaar (status ${post.reelStatus})`,
+    );
+  }
+  const media = await getReelMediaIds(post.id);
+  if (!media.video || !media.cover) return fallback("reelbestanden ontbreken");
+
+  const reelDeadlineMs = reelPhaseDeadline(Date.now(), postDeadlineMs);
+  if (reelDeadlineMs == null) return fallback("te weinig tijd over in deze ronde");
+  const timeoutMs = () =>
+    Math.max(1_000, Math.min(META_HTTP_TIMEOUT_MS, reelDeadlineMs - Date.now()));
+
+  // 100 posts per 24 h for reels and posts together: when it is reached, a
+  // fallback post would fail as well.
+  if (client.getPublishingLimit) {
+    const limit = await client.getPublishingLimit({ timeoutMs: timeoutMs() });
+    if (limit.ok && limit.data.used >= limit.data.total) {
+      return {
+        kind: "done",
+        result: {
+          id: post.id,
+          ok: false,
+          message: `${humanMetaPublishError("meta_publish_limit")} (${limit.data.used}/${limit.data.total}) Probeer morgen opnieuw.`,
+        },
+      };
+    }
+    if (!limit.ok) {
+      console.warn(`[instagram/queue] ${post.id} publicatielimiet onbekend: ${limit.error.message}`);
+    }
+  }
+
+  const collaborators = reelConfig.collaborators
+    ? reelCollaborators(events.map((e) => e.instagramUrl))
+    : [];
+  const reelArgs = {
+    videoUrl: publicVideoUrl(media.video),
+    coverUrl: publicMediaUrl(media.cover),
+    caption,
+    shareToFeed: true,
+  };
+  let container = await client.createReelContainer(
+    { ...reelArgs, collaborators },
+    { timeoutMs: timeoutMs() },
+  );
+  if (!container.ok && collaborators.length > 0 && container.error.code !== "meta_auth") {
+    // Collaborators are not available on every account type; try without.
+    console.warn(
+      `[instagram/queue] ${post.id} reel met collaborators geweigerd (${container.error.message}), opnieuw zonder`,
+    );
+    container = await client.createReelContainer(reelArgs, { timeoutMs: timeoutMs() });
+  }
+  if (!container.ok) {
+    return fallback(humanMetaPublishError(container.error.code, container.error.message));
+  }
+
+  const ready = await waitForContainerFinished(client, container.data.id, {
+    deadlineMs: reelDeadlineMs,
+    delayMs: 3_000,
+    attempts: 200,
+  });
+  if (!ready.ok) {
+    return fallback(humanMetaPublishError(ready.error.code, ready.error.message));
+  }
+
+  await saveQueueContainerId(post.id, container.data.id, "reel");
+  const published = await client.publishContainer(container.data.id, {
+    timeoutMs: Math.max(5_000, Math.min(META_HTTP_TIMEOUT_MS, postDeadlineMs - Date.now())),
+  });
+  if (!published.ok) {
+    if (published.error.code === "meta_already_published") {
+      await markQueuePosted(post.id, null, "reel");
+      return { kind: "done", result: { id: post.id, ok: true, message: "Reel stond al op Instagram." } };
+    }
+    const message = humanMetaPublishError(published.error.code, published.error.message);
+    if (isAmbiguousPostPublishError(published.error.code)) {
+      return {
+        kind: "done",
+        result: {
+          id: post.id,
+          ok: false,
+          message: `Onzeker of de reel online staat (${message}) Kijk op Instagram voor je opnieuw probeert.`,
+        },
+      };
+    }
+    return fallback(message);
+  }
+
+  await markQueuePosted(post.id, published.data.id, "reel");
+  console.info(
+    `[instagram/queue] ${post.id} gepost als reel ${published.data.id}` +
+      (collaborators.length > 0 ? ` (collaborators: ${collaborators.join(", ")})` : ""),
+  );
+
+  if (!post.postStory) {
+    return { kind: "done", result: { id: post.id, ok: true, message: "Gepost op Instagram als reel." } };
+  }
+  const story = await publishStory(post.id, client, postDeadlineMs, {
+    videoUrl: reelArgs.videoUrl,
+    stillId: media.story,
+  });
+  return {
+    kind: "done",
+    result: {
+      id: post.id,
+      ok: true,
+      message: story.ok
+        ? `Gepost op Instagram als reel, ook als verhaal${story.message === STILL_STORY ? " (stilstaand beeld)" : ""}.`
+        : `Gepost op Instagram als reel. Verhaal niet gelukt: ${story.message}`,
+    },
+  };
+}
+
+const STILL_STORY = "Verhaal geplaatst als stilstaand beeld.";
+
+type StoryReel = {
+  /** The reel's MP4, posted as a video story first. */
+  videoUrl: string;
+  /** Still "Nieuwe reel, bekijk ons profiel" when the video story fails. */
+  stillId: string | null;
+};
+
+/**
+ * Publish the 1080×1920 story for a post that is already live. For a reel:
+ * the same MP4 as a video story, else the reel's story still. Never touches
+ * the feed post or reel; failures only set story_error.
  */
 async function publishStory(
   postId: string,
   client: MetaClient,
   deadlineMs: number,
+  reel?: StoryReel,
 ): Promise<{ ok: boolean; message: string }> {
   if (deadlineMs - Date.now() < STORY_MIN_MS) {
     const message = "Geen tijd meer in deze ronde. Klik op 'Verhaal plaatsen'.";
@@ -302,42 +538,74 @@ async function publishStory(
   };
 
   try {
-    let storyImageId = await getStoryImageId(postId);
+    if (!client.createStoryContainer) return fail("Verhalen niet ondersteund.");
+
+    if (reel) {
+      // Keep time for the still if the video story does not make it.
+      const videoDeadline = deadlineMs - STORY_MIN_MS;
+      const video =
+        videoDeadline - Date.now() >= STORY_MIN_MS
+          ? await publishStoryContainer(client, { videoUrl: reel.videoUrl }, videoDeadline, 2_000)
+          : { ok: false as const, message: "te weinig tijd voor een videoverhaal", ambiguous: false };
+      if (video.ok) {
+        await markStoryPosted(postId, video.id);
+        return { ok: true, message: "Verhaal geplaatst." };
+      }
+      if (video.ambiguous) return fail(`Onzeker of het verhaal online staat: ${video.message}`);
+      console.warn(`[instagram/queue] ${postId} videoverhaal mislukt (${video.message}), stilstaand beeld`);
+    }
+
+    let storyImageId = reel?.stillId ?? null;
+    if (!storyImageId) storyImageId = await getStoryImageId(postId);
     if (!storyImageId) {
       // Posts made before stories existed: render from the first slide now.
       const first = await getFirstFeedImage(postId);
       if (!first) return fail("Geen afbeelding gevonden voor het verhaal.");
       storyImageId = await addStoryImage(postId, await renderStoryJpeg(first));
     }
-
-    const timeoutMs = () =>
-      Math.max(1_000, Math.min(META_HTTP_TIMEOUT_MS, deadlineMs - Date.now()));
-    if (!client.createStoryContainer) return fail("Verhalen niet ondersteund.");
-    const container = await client.createStoryContainer(
+    const image = await publishStoryContainer(
+      client,
       { imageUrl: publicMediaUrl(storyImageId) },
-      { timeoutMs: timeoutMs() },
-    );
-    if (!container.ok) {
-      return fail(humanMetaPublishError(container.error.code, container.error.message));
-    }
-    const ready = await waitForContainerFinished(client, container.data.id, {
       deadlineMs,
-      delayMs: 1_500,
-    });
-    if (!ready.ok) {
-      return fail(humanMetaPublishError(ready.error.code, ready.error.message));
-    }
-    const published = await client.publishContainer(container.data.id, {
-      timeoutMs: timeoutMs(),
-    });
-    if (!published.ok) {
-      return fail(humanMetaPublishError(published.error.code, published.error.message));
-    }
-    await markStoryPosted(postId, published.data.id);
-    return { ok: true, message: "Verhaal geplaatst." };
+      1_500,
+    );
+    if (!image.ok) return fail(image.message);
+    await markStoryPosted(postId, image.id);
+    return { ok: true, message: reel ? STILL_STORY : "Verhaal geplaatst." };
   } catch (error) {
     return fail(error instanceof Error ? error.message : "Verhaal mislukt.");
   }
+}
+
+/** Create, wait for and publish one STORIES container. */
+async function publishStoryContainer(
+  client: MetaClient,
+  media: { imageUrl: string } | { videoUrl: string },
+  deadlineMs: number,
+  delayMs: number,
+): Promise<{ ok: true; id: string } | { ok: false; message: string; ambiguous: boolean }> {
+  const timeoutMs = () =>
+    Math.max(1_000, Math.min(META_HTTP_TIMEOUT_MS, deadlineMs - Date.now()));
+  const failed = (e: { code: string; message: string }, ambiguous = false) => ({
+    ok: false as const,
+    message: humanMetaPublishError(e.code, e.message),
+    ambiguous,
+  });
+  const container = await client.createStoryContainer!(media, { timeoutMs: timeoutMs() });
+  if (!container.ok) return failed(container.error);
+  const ready = await waitForContainerFinished(client, container.data.id, {
+    deadlineMs,
+    delayMs,
+    attempts: 200,
+  });
+  if (!ready.ok) return failed(ready.error);
+  const published = await client.publishContainer(container.data.id, {
+    timeoutMs: Math.max(5_000, timeoutMs()),
+  });
+  if (!published.ok) {
+    return failed(published.error, isAmbiguousPostPublishError(published.error.code));
+  }
+  return { ok: true, id: published.data.id };
 }
 
 /** "Verhaal plaatsen": (re)try the story of a post that is already live. */
@@ -358,12 +626,18 @@ export async function publishStoryNow(
     graphApiVersion: config.graphApiVersion,
     graphHost: config.graphHost,
   });
-  return publishStory(postId, client, Date.now() + PUBLISH_BUDGET_MS);
+  const post = await getQueuePost(postId);
+  let reel: StoryReel | undefined;
+  if (post?.publishedAs === "reel") {
+    const media = await getReelMediaIds(postId);
+    if (media.video) reel = { videoUrl: publicVideoUrl(media.video), stillId: media.story };
+  }
+  return publishStory(postId, client, Date.now() + (reel ? REEL_STORY_BUDGET_MS : PUBLISH_BUDGET_MS), reel);
 }
 
 /**
  * Create the containers for one post. Carousel children are created and
- * polled in parallel so a 7-slide carousel fits the 60s function limit.
+ * polled in parallel so a 7-slide carousel fits the 45 s publish budget.
  */
 export async function prepareContainers(args: {
   client: MetaClient;

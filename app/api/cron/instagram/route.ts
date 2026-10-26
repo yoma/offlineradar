@@ -5,7 +5,7 @@ import { scrubSecrets } from "@/lib/instagram/token-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 /**
  * Instagram queue tick: publish one due post, otherwise propose one post for

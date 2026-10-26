@@ -62,6 +62,11 @@ function readPostStory(formData: FormData): boolean | undefined {
   return raw == null ? undefined : String(raw) === "1";
 }
 
+function readAsReel(formData: FormData): boolean | undefined {
+  const raw = formData.get("asReel");
+  return raw == null ? undefined : String(raw) === "1";
+}
+
 function readTime(formData: FormData): Date | null | "invalid" {
   const raw = String(formData.get("scheduledAt") ?? "").trim();
   if (!raw) return null;
@@ -88,6 +93,7 @@ export async function saveQueuePostAction(
       caption: String(formData.get("caption") ?? ""),
       scheduledAt: time ?? undefined,
       postStory: readPostStory(formData),
+      asReel: readAsReel(formData),
     });
     if (ok && time) await refreshReelAfterReschedule(String(formData.get("id")));
     return done(ok, "Opgeslagen.", "Deze post kan niet meer aangepast worden.");
@@ -111,6 +117,7 @@ export async function approveQueuePostAction(
       scheduledAt: time ?? undefined,
       approvedBy: admin.email,
       postStory: readPostStory(formData),
+      asReel: readAsReel(formData),
     });
     if (ok && time) await refreshReelAfterReschedule(String(formData.get("id")));
     return done(
@@ -281,6 +288,7 @@ export async function publishNowAction(
       scheduledAt: new Date(),
       approvedBy: admin.email,
       postStory: readPostStory(formData),
+      asReel: readAsReel(formData),
     });
     if (!approved) {
       return { ok: false, message: "Deze post wordt al geplaatst of is al geplaatst." };

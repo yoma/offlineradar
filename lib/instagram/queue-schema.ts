@@ -148,10 +148,30 @@ VALUES ('20261026_instagram_post_queue_reel_v3')
 ON CONFLICT (id) DO NOTHING;
 `;
 
+/**
+ * v4: publishing as a reel. as_reel is the admin's choice per post
+ * ("Plaatsen als reel"); published_as says how the post went out ('reel' or
+ * 'post', also set with container_id before media_publish); the reel's
+ * story still is stored as media kind 'reel_story'.
+ */
+export const INSTAGRAM_POST_QUEUE_REEL_PUBLISH_MIGRATION_ID =
+  "20261027_instagram_post_queue_reel_publish_v4b";
+
+export const INSTAGRAM_POST_QUEUE_REEL_PUBLISH_SQL = `
+ALTER TABLE instagram_post_queue
+  ADD COLUMN IF NOT EXISTS as_reel BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS published_as TEXT;
+
+INSERT INTO schema_migrations (id)
+VALUES ('20261027_instagram_post_queue_reel_publish_v4b')
+ON CONFLICT (id) DO NOTHING;
+`;
+
 const MIGRATIONS: [id: string, sql: string][] = [
   [INSTAGRAM_POST_QUEUE_MIGRATION_ID, INSTAGRAM_POST_QUEUE_SCHEMA_SQL],
   [INSTAGRAM_POST_QUEUE_STORY_MIGRATION_ID, INSTAGRAM_POST_QUEUE_STORY_SQL],
   [INSTAGRAM_POST_QUEUE_REEL_MIGRATION_ID, INSTAGRAM_POST_QUEUE_REEL_SQL],
+  [INSTAGRAM_POST_QUEUE_REEL_PUBLISH_MIGRATION_ID, INSTAGRAM_POST_QUEUE_REEL_PUBLISH_SQL],
 ];
 
 let ensured: Promise<boolean> | null = null;

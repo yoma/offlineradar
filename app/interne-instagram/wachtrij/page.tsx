@@ -9,6 +9,7 @@ import { InstagramQueueClient } from "@/components/admin/instagram-queue-client"
 import { listEvents } from "@/lib/events";
 import { listSingleEventCandidates } from "@/lib/instagram/drafts";
 import { readInstagramMetaConfig } from "@/lib/instagram/meta-config";
+import { readInstagramReelConfig } from "@/lib/instagram/reel/config";
 import {
   getAutoPostWithoutApproval,
   listQueuePosts,
@@ -22,7 +23,7 @@ import {
 
 export const dynamic = "force-dynamic";
 /** "Nu plaatsen" publishes inside the server action. */
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 function GateShell({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -82,6 +83,7 @@ export default async function InstagramWachtrijPage() {
   }
 
   const config = readInstagramMetaConfig();
+  const reelConfig = readInstagramReelConfig();
   const token = await getInstagramTokenStatus();
   const nextSlots = upcomingQueueSlots().map((s) => ({
     at: s.at.toISOString(),
@@ -107,6 +109,8 @@ export default async function InstagramWachtrijPage() {
           tokenLastError: token.lastError,
           dryRun: config.dryRun,
           publishOff: config.publishExplicitlyOff,
+          reelsOn: reelConfig.enabled,
+          reelFallback: reelConfig.fallbackToPost,
         }}
       />
     </InterneAdminShell>

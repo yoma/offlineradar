@@ -371,6 +371,67 @@ function CtaScene({ props, fadeIn }: { props: ReelProps; fadeIn: number }) {
   );
 }
 
+/** 👀 drawn inline, so the still does not depend on an emoji font. */
+function Eyes({ size }: { size: number }) {
+  const eye = (cx: number) => (
+    <g key={cx}>
+      <ellipse cx={cx} cy={50} rx={21} ry={30} fill="#ffffff" stroke="#2F3035" strokeWidth={4} />
+      <ellipse cx={cx + 7} cy={56} rx={10} ry={14} fill="#2F3035" />
+    </g>
+  );
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" style={{ display: "block" }}>
+      {eye(27)}
+      {eye(73)}
+    </svg>
+  );
+}
+
+/**
+ * Story still for a reel, used when the video story fails: the hook as on
+ * the cover (rendered at the cover frame), with "Nieuwe reel 👀 bekijk ons profiel" above Instagram's
+ * reply bar.
+ */
+export function ReelStoryStill(props: ReelProps) {
+  const p = palette("bordeaux");
+  return (
+    <AbsoluteFill style={{ background: p.bg }}>
+      <HookScene props={props} />
+      <div
+        style={{
+          position: "absolute",
+          left: MARGIN,
+          right: MARGIN,
+          bottom: 300,
+          display: "flex",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 18,
+            padding: "26px 44px",
+            borderRadius: 999,
+            background: p.ink,
+            color: palette("cream").accent,
+            fontFamily: HEADING,
+            fontWeight: 700,
+            fontSize: 50,
+            letterSpacing: -1,
+            boxShadow: "0 18px 40px rgba(0,0,0,0.22)",
+          }}
+        >
+          <span>Nieuwe reel</span>
+          <Eyes size={62} />
+          <span>bekijk ons profiel</span>
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Composition                                                        */
 /* ------------------------------------------------------------------ */

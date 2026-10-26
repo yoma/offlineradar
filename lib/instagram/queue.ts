@@ -30,6 +30,12 @@ export const INSTAGRAM_MEDIA_PATH = "/api/instagram/media";
 
 export type ReelStatus = "geen" | "te_maken" | "bezig" | "klaar" | "mislukt";
 
+/** How a post went (or is going) to Instagram. */
+export type PublishedAs = "reel" | "post";
+
+/** Media kinds a reel render uploads. */
+export type ReelMediaKind = "reel" | "reel_cover" | "reel_story";
+
 /** Render attempts before a reel counts as failed (the post stays usable). */
 export const REEL_MAX_ATTEMPTS = 3;
 
@@ -56,9 +62,15 @@ export type InstagramQueuePost = {
   /** Our media ids of the rendered MP4 and its cover (null until rendered). */
   reelVideoId: string | null;
   reelCoverId: string | null;
+  /** Story still for the reel ("Nieuwe reel, bekijk ons profiel"). */
+  reelStoryId: string | null;
   reelTrack: string | null;
   /** The reel's hook sentence, e.g. "3 singles-events in Gent dit weekend". */
   reelHook: string | null;
+  /** Admin's choice: publish as a reel (when the reel is ready). */
+  asReel: boolean;
+  /** Set once publishing starts: 'reel' or 'post' (fallback or reels off). */
+  publishedAs: PublishedAs | null;
   source: "auto" | "manual";
   format: string | null;
   eventIds: string[];
@@ -88,6 +100,9 @@ type QueueRow = {
   reel_props?: unknown;
   reel_video_id?: string | null;
   reel_cover_id?: string | null;
+  reel_story_id?: string | null;
+  published_as?: PublishedAs | null;
+  as_reel?: boolean | null;
   source: "auto" | "manual";
   format: string | null;
   event_ids: unknown;
@@ -144,8 +159,11 @@ function mapRow(row: QueueRow): InstagramQueuePost {
     reelError: row.reel_error ?? null,
     reelVideoId: row.reel_video_id ?? null,
     reelCoverId: row.reel_cover_id ?? null,
+    reelStoryId: row.reel_story_id ?? null,
     reelTrack: row.reel_track ?? null,
     reelHook: reelHookOf(row.reel_props),
+    publishedAs: row.published_as ?? null,
+    asReel: row.as_reel !== false,
     source: row.source,
     format: row.format,
     eventIds: stringArray(row.event_ids),
@@ -195,7 +213,9 @@ export async function listQueuePosts(limit = 60): Promise<InstagramQueuePost[]> 
       (SELECT m.id FROM instagram_post_media m
        WHERE m.post_id = q.id AND m.kind = 'reel' LIMIT 1) AS reel_video_id,
       (SELECT m.id FROM instagram_post_media m
-       WHERE m.post_id = q.id AND m.kind = 'reel_cover' LIMIT 1) AS reel_cover_id
+       WHERE m.post_id = q.id AND m.kind = 'reel_cover' LIMIT 1) AS reel_cover_id,
+      (SELECT m.id FROM instagram_post_media m
+       WHERE m.post_id = q.id AND m.kind = 'reel_story' LIMIT 1) AS reel_story_id
     FROM instagram_post_queue q
     ORDER BY
       CASE WHEN q.status IN ('te_keuren', 'goedgekeurd', 'mislukt') THEN 0 ELSE 1 END,
@@ -239,6 +259,8 @@ export async function createQueuePost(input: {
   /** 1080×1920 story JPEG; null when it could not be rendered. */
   storyJpeg?: Buffer | null;
   postStory?: boolean;
+  /** Publish as a reel (default yes). */
+  asReel?: boolean;
   /** Input for the reel render; null/absent = no reel for this post. */
   reelProps?: ReelProps | null;
 }): Promise<InstagramQueuePost | null> {
@@ -253,7 +275,7 @@ export async function createQueuePost(input: {
   const inserted = (await sql`
     INSERT INTO instagram_post_queue (
       id, image_urls, caption, scheduled_at, status, source, format,
-      event_ids, slot_key, post_story, reel_status, reel_props
+      event_ids, slot_key, post_story, as_reel, reel_status, reel_props
     ) VALUES (
       ${id},
       ${JSON.stringify(imageUrls)}::jsonb,
@@ -265,6 +287,7 @@ export async function createQueuePost(input: {
       ${JSON.stringify(input.eventIds ?? [])}::jsonb,
       ${input.slotKey ?? null},
       ${input.postStory !== false},
+      ${input.asReel !== false},
       ${input.reelProps ? "te_maken" : "geen"},
       ${input.reelProps ? JSON.stringify(input.reelProps) : null}::jsonb
     )
@@ -315,7 +338,7 @@ const EDITABLE = ["concept", "te_keuren", "goedgekeurd", "mislukt"] as const;
 
 export async function updateQueuePost(
   id: string,
-  patch: { caption?: string; scheduledAt?: Date; postStory?: boolean },
+  patch: { caption?: string; scheduledAt?: Date; postStory?: boolean; asReel?: boolean },
 ): Promise<boolean> {
   const sql = await queueSql();
   const rows = (await sql`
@@ -323,6 +346,7 @@ export async function updateQueuePost(
       caption = COALESCE(${patch.caption != null ? normalizeCaption(patch.caption) : null}, caption),
       scheduled_at = COALESCE(${patch.scheduledAt?.toISOString() ?? null}::timestamptz, scheduled_at),
       post_story = COALESCE(${patch.postStory ?? null}::boolean, post_story),
+      as_reel = COALESCE(${patch.asReel ?? null}::boolean, as_reel),
       updated_at = now()
     WHERE id = ${id}
       AND status = ANY(${[...EDITABLE]})
@@ -339,6 +363,7 @@ export async function approveQueuePost(
     scheduledAt?: Date;
     approvedBy: string | null;
     postStory?: boolean;
+    asReel?: boolean;
   },
   now = new Date(),
 ): Promise<boolean> {
@@ -348,6 +373,7 @@ export async function approveQueuePost(
     UPDATE instagram_post_queue SET
       caption = ${normalizeCaption(args.caption)},
       post_story = COALESCE(${args.postStory ?? null}::boolean, post_story),
+      as_reel = COALESCE(${args.asReel ?? null}::boolean, as_reel),
       scheduled_at = GREATEST(
         COALESCE(${args.scheduledAt?.toISOString() ?? null}::timestamptz, scheduled_at),
         ${now.toISOString()}::timestamptz
@@ -410,6 +436,7 @@ export async function resetFailedQueuePost(
       status = 'te_keuren',
       error_message = NULL,
       container_id = CASE WHEN ${clear} THEN NULL ELSE container_id END,
+      published_as = CASE WHEN ${clear} THEN NULL ELSE published_as END,
       publish_started_at = NULL,
       approved_by = NULL,
       approved_at = NULL,
@@ -481,20 +508,45 @@ export async function claimQueuePostById(
   return rows[0] ? mapRow(rows[0]) : null;
 }
 
-export async function saveQueueContainerId(id: string, containerId: string) {
+/** Saved right before media_publish, so a retry can check that container. */
+export async function saveQueueContainerId(
+  id: string,
+  containerId: string,
+  publishedAs: PublishedAs = "post",
+) {
   const sql = await queueSql();
   await sql`
     UPDATE instagram_post_queue
-    SET container_id = ${containerId}, updated_at = now()
+    SET container_id = ${containerId}, published_as = ${publishedAs}, updated_at = now()
     WHERE id = ${id}
   `;
 }
 
-export async function markQueuePosted(id: string, mediaId: string | null) {
+/** The reel files of a post (null ids when not rendered). */
+export async function getReelMediaIds(postId: string): Promise<{
+  video: string | null;
+  cover: string | null;
+  story: string | null;
+}> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    SELECT id, kind FROM instagram_post_media
+    WHERE post_id = ${postId} AND kind IN ('reel', 'reel_cover', 'reel_story')
+  `) as { id: string; kind: string }[];
+  const of = (kind: string) => rows.find((r) => r.kind === kind)?.id ?? null;
+  return { video: of("reel"), cover: of("reel_cover"), story: of("reel_story") };
+}
+
+export async function markQueuePosted(
+  id: string,
+  mediaId: string | null,
+  publishedAs?: PublishedAs,
+) {
   const sql = await queueSql();
   await sql`
     UPDATE instagram_post_queue SET
       status = 'gepost',
+      published_as = COALESCE(${publishedAs ?? null}, published_as, 'post'),
       instagram_media_id = ${mediaId},
       error_message = NULL,
       posted_at = now(),
@@ -727,10 +779,10 @@ export async function getLastReelTrack(): Promise<string | null> {
   return rows[0]?.reel_track ?? null;
 }
 
-/** Store (or replace) the rendered MP4 or cover of a post being rendered. */
+/** Store (or replace) the rendered MP4, cover or story still of a post being rendered. */
 export async function saveReelMedia(
   postId: string,
-  kind: "reel" | "reel_cover",
+  kind: ReelMediaKind,
   bytes: Buffer,
 ): Promise<string | null> {
   const sql = await queueSql();
