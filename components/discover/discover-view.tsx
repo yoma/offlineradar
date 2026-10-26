@@ -181,6 +181,24 @@ export function DiscoverView({
     () => splitByGuidelineAge(visible),
     [visible],
   );
+  const [showIneligible, setShowIneligible] = useState(false);
+  const ineligible = useMemo(
+    () =>
+      applyResultRefinement(result.ineligible, refinement, today, {
+        followedOrganizerIds,
+      }),
+    [result.ineligible, refinement, today, followedOrganizerIds],
+  );
+
+  function revealIneligible() {
+    setShowIneligible(true);
+    track("filter_change", { showIneligible: true });
+    requestAnimationFrame(() => {
+      document
+        .getElementById("niet-deelnemen")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
 
   function renderGrid(events: typeof visible) {
     return (
@@ -520,6 +538,17 @@ export function DiscoverView({
                   Persoonlijke ontmoetingsvoorkeuren verbergen geen activiteiten.
                 </p>
               </details>
+              <button
+                type="button"
+                onClick={() =>
+                  showIneligible
+                    ? setShowIneligible(false)
+                    : revealIneligible()
+                }
+                className="mt-2 font-semibold text-[var(--brand-bordeaux)] underline-offset-4 hover:underline"
+              >
+                {showIneligible ? "Verberg ze weer" : "Toon ze toch"}
+              </button>
             </div>
           ) : null}
 
@@ -647,6 +676,35 @@ export function DiscoverView({
               ) : null}
             </div>
           )}
+          {showIneligible && result.hiddenStrict > 0 ? (
+            <section
+              id="niet-deelnemen"
+              className="mt-12 scroll-mt-24 border-t border-border pt-6"
+            >
+              <h2 className="font-heading-section text-xl text-[var(--brand-bordeaux)]">
+                Je voldoet niet aan de voorwaarden ({ineligible.length})
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Volgens de organisator kun je hier niet aan deelnemen, door je
+                leeftijd, gender of een andere strikte voorwaarde. We tonen ze
+                omdat je erom vroeg.{" "}
+                <button
+                  type="button"
+                  onClick={() => setShowIneligible(false)}
+                  className="font-semibold text-[var(--brand-bordeaux)] underline-offset-4 hover:underline"
+                >
+                  Verberg ze weer
+                </button>
+              </p>
+              {ineligible.length > 0 ? (
+                <div className="mt-6">{renderGrid(ineligible)}</div>
+              ) : (
+                <p className="mt-4 text-sm text-muted-foreground">
+                  Geen van deze events past bij je verfijning.
+                </p>
+              )}
+            </section>
+          ) : null}
           </div>
         </>
       )}
