@@ -70,6 +70,7 @@ export function defaultSearchState(): SearchState {
     typesMode: "all",
     price: "any",
     singlesOnly: false,
+    trips: true,
     availability: "any",
     strictOnly: false,
     sort: "match",
@@ -196,6 +197,7 @@ export function parseSearchState(
     typesMode,
     price: oneOf(one(raw.price), PRICES, "any"),
     singlesOnly: one(raw.singles) === "1",
+    trips: one(raw.trips) !== "0",
     availability: oneOf(one(raw.avail), AVAILABILITY, "any"),
     strictOnly: one(raw.strict) === "1",
     sort: oneOf(one(raw.sort), SORTS, "match"),
@@ -226,6 +228,7 @@ export function serializeSearchState(state: SearchState): string {
   }
   if (state.price !== "any") params.set("price", state.price);
   if (state.singlesOnly) params.set("singles", "1");
+  if (!state.trips) params.set("trips", "0");
   if (state.availability !== "any") params.set("avail", state.availability);
   if (state.strictOnly) params.set("strict", "1");
   if (state.sort !== "match") params.set("sort", state.sort);

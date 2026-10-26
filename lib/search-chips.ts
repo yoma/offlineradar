@@ -48,6 +48,7 @@ export function countExtraFilters(
   let n = 0;
   if (state.price !== "any") n += 1;
   if (state.singlesOnly) n += 1;
+  if (!state.trips) n += 1;
   if (state.availability !== "any") n += 1;
   if (state.strictOnly) n += 1;
   if (state.preferredMeetGender !== "anyone") n += 1;
@@ -169,6 +170,13 @@ export function activeFilterChips(
       kind: "filter",
     });
   }
+  if (!state.trips) {
+    chips.push({
+      id: "trips",
+      label: "Zonder reizen",
+      kind: "filter",
+    });
+  }
   if (state.availability !== "any") {
     chips.push({
       id: "avail",
@@ -209,6 +217,7 @@ export function removeChipFromState(
   if (chipId === "singles") {
     return applySearchPatch(state, { singlesOnly: false });
   }
+  if (chipId === "trips") return applySearchPatch(state, { trips: true });
   if (chipId === "avail") {
     return applySearchPatch(state, { availability: "any" });
   }
@@ -275,6 +284,7 @@ export function clearAdvancedSearchFilters(
   return applySearchPatch(state, {
     price: "any",
     singlesOnly: false,
+    trips: true,
     availability: "any",
     strictOnly: false,
     preferredMeetGender: "anyone",
@@ -295,6 +305,7 @@ export function extraFiltersSummary(
     parts.push(`${organizerSlugs.length} organisatoren`);
   }
   if (state.singlesOnly) parts.push("Alleen singles");
+  if (!state.trips) parts.push("Zonder reizen");
   if (state.price !== "any") parts.push(PRICE_LABEL[state.price]);
   if (state.availability !== "any") {
     parts.push(AVAILABILITY_LABEL[state.availability]);

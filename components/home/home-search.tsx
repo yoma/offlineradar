@@ -16,14 +16,10 @@ import { UpcomingStrip } from "@/components/discover/upcoming-strip";
 import { CategoryFilterChips } from "@/components/filters/category-filter-chips";
 import { FilterSheet } from "@/components/filters/filter-sheet";
 import { countHomeFilterMatches } from "@/app/home-filter-count";
-import { LocationSelect } from "@/components/filters/location-select";
+import { LocationPicker } from "@/components/filters/location-picker";
 import { track } from "@/lib/analytics";
 import { DISTANCES, GENDER_LABEL } from "@/lib/format";
 import { heroImageUrl } from "@/lib/images";
-import {
-  fallbackLocationOptions,
-  type LocationOption,
-} from "@/lib/location-options";
 import type { PublishedOrganizerOption } from "@/lib/organizers/published-options";
 import {
   normalizeOrganizerParam,
@@ -49,12 +45,10 @@ export function HomeHero({
   organizerOptions = [],
   upcomingEvents = [],
   today,
-  locationOptions = fallbackLocationOptions(),
 }: {
   organizerOptions?: PublishedOrganizerOption[];
   upcomingEvents?: Event[];
   today?: string;
-  locationOptions?: LocationOption[];
 }) {
   const [state, setState] = useState<SearchState>(() => defaultSearchState());
   const [ageDraft, setAgeDraft] = useState("");
@@ -310,10 +304,9 @@ export function HomeHero({
           <div className="search-divider overflow-hidden rounded-3xl bg-white lg:rounded-[2.5rem]">
             <div className="grid grid-cols-1 lg:grid-cols-6 lg:items-stretch">
               <div className="min-w-0 lg:col-span-2">
-              <Field label="Waar" chevron>
-                <LocationSelect
+              <Field label="Waar">
+                <LocationPicker
                   value={state.placeId}
-                  options={locationOptions}
                   onChange={(placeId) => update({ placeId })}
                   className="search-field-control w-full bg-transparent text-base font-semibold leading-6 outline-none"
                 />

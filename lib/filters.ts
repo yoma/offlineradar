@@ -5,7 +5,12 @@ import {
   nextWeekRange,
   weekendRange,
 } from "@/lib/dates";
-import { distanceOrigin, placeLabel, withUserDistance } from "@/lib/distance";
+import {
+  distanceOrigin,
+  isInBelgiumArea,
+  placeLabel,
+  withUserDistance,
+} from "@/lib/distance";
 import { isCurrentEvent } from "@/lib/event-visibility";
 import { ALL_LOCATIONS_ID } from "@/lib/location-options";
 import { isEligibleForEvent } from "@/lib/eligibility";
@@ -85,6 +90,20 @@ function matchesAvailability(event: Event, state: SearchState): boolean {
   return status === "waitlist";
 }
 
+/**
+ * A trip: tagged reizen/weekend, or located abroad (a country or resort as
+ * place). Trips are not local outings, so the radius never applies to them.
+ */
+export function isTripEvent(
+  event: Pick<Event, "activities" | "latitude" | "longitude">,
+): boolean {
+  if (isTravelOrWeekendActivity(event.activities)) return true;
+  if (!Number.isFinite(event.latitude) || !Number.isFinite(event.longitude)) {
+    return false;
+  }
+  return !isInBelgiumArea({ lat: event.latitude, lng: event.longitude });
+}
+
 export function prepareEvents(
   events: Event[],
   state: SearchState,
@@ -110,8 +129,9 @@ export function prepareEvents(
  * - one or more activities selected → OR match on those ActivityIds
  * Classic speeddates expose activity `speeddate` via normalizeEventActivities.
  *
- * Distance: travel/weekend editions are exempt from maxDistanceKm so
+ * Distance: trips (isTripEvent) are exempt from maxDistanceKm so
  * destination trips stay findable from Belgian search places.
+ * “Reizen tonen” off (state.trips false) hides them altogether.
  */
 export function matchingEvents(
   events: Event[],
@@ -136,11 +156,12 @@ export function matchingEvents(
     if (!matchesWhen(event, state, today)) return false;
     // Unknown place ids match nothing and are left selected by the caller.
     if (!allLocations && !origin) return false;
-    const travelExempt = isTravelOrWeekendActivity(event.activities);
+    const trip = isTripEvent(event);
+    if (trip && !state.trips) return false;
     // Alle locaties has no radius. Otherwise unknown/infinite distance stays out.
     if (
       !allLocations &&
-      !travelExempt &&
+      !trip &&
       !(event.distanceKm <= state.maxDistanceKm)
     ) {
       return false;

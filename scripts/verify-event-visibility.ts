@@ -1,5 +1,5 @@
 /**
- * Current-event visibility and location options.
+ * Current-event visibility and location picker.
  * Usage: npx tsx scripts/verify-event-visibility.ts
  */
 import assert from "node:assert/strict";
@@ -13,8 +13,8 @@ import {
 import { inferKnownCityLabel } from "../lib/geo-cities";
 import {
   ALL_LOCATIONS_ID,
-  formatLocationOptionLabel,
-  locationOptionsFromEvents,
+  locationSuggestions,
+  resolveLocationInput,
 } from "../lib/location-options";
 import { selectUpcomingEvents } from "../lib/upcoming";
 import { parseSearchState, serializeSearchState } from "../lib/search-state";
@@ -269,55 +269,33 @@ check("public match and ticker hide past events", () => {
   );
 });
 
-check("location options follow current cities and keep departure towns", () => {
-  const events = [
-    stub({ id: "geel", startDate: "2026-10-26", city: "Geel", latitude: 51.1655, longitude: 4.9892 }),
-    stub({ id: "bx", startDate: "2026-10-26", city: "Bruxelles", latitude: 50.85, longitude: 4.35 }),
-    stub({ id: "br", startDate: "2026-10-27", city: "Brussels", latitude: 50.85, longitude: 4.35 }),
-    stub({ id: "sn1", startDate: "2026-10-28", city: "St-Niklaas", latitude: 51.16, longitude: 4.14 }),
-    stub({ id: "sn2", startDate: "2026-10-29", city: "Sint-Niklaas", latitude: 51.16, longitude: 4.14 }),
-    stub({ id: "old", startDate: "2026-10-01", city: "Oostende", latitude: 51.23, longitude: 2.92 }),
-    stub({ id: "st", startDate: "2026-10-26", city: "St", latitude: 51.2, longitude: 4.4 }),
-    stub({ id: "venue", startDate: "2026-10-26", city: "Zaal De Roma", latitude: 51.2, longitude: 4.4 }),
-  ];
-  const options = locationOptionsFromEvents(events, WINTER_MORNING, "zzz-dorp");
-  assert.equal(options[0]?.id, ALL_LOCATIONS_ID);
-  assert.equal(options[0]?.label, "Alle locaties");
-  assert.equal(options[0]?.count, 7);
-  assert.equal(
-    formatLocationOptionLabel(options[0]!),
-    "Alle locaties (7 activiteiten)",
-  );
-  assert.equal(
-    formatLocationOptionLabel(options.find((option) => option.label === "Geel")!),
-    "Geel (1 in de stad)",
-  );
-  const labels = options.map((option) => option.label);
-  assert.ok(labels.includes("Geel"));
-  assert.ok(labels.includes("Brussel"));
-  assert.ok(labels.includes("Sint-Niklaas"));
-  assert.equal(labels.includes("Oostende"), false);
-  assert.equal(labels.includes("St"), false);
-  assert.equal(labels.includes("Zaal De Roma"), false);
-  assert.equal(labels.filter((label) => label === "Brussel").length, 1);
-  assert.equal(labels.filter((label) => label === "Sint-Niklaas").length, 1);
-  assert.equal(options.find((option) => option.label === "Brussel")?.count, 2);
-  assert.equal(options.find((option) => option.label === "Sint-Niklaas")?.count, 2);
-  assert.equal(options.find((option) => option.id === "turnhout")?.kind, "departure");
-  assert.equal(
-    formatLocationOptionLabel(
-      options.find((option) => option.id === "turnhout")!,
-    ),
-    "Turnhout (vertrekpunt)",
-  );
-  const cities = options.slice(1, -1).map((option) => option.label);
-  const sorted = [...cities].sort((a, b) => a.localeCompare(b, "nl"));
-  assert.deepEqual(cities, sorted);
-  assert.equal(options.at(-1)?.id, "zzz-dorp");
+check("location picker offers any Belgian place, without counts", () => {
+  const empty = locationSuggestions("");
+  assert.equal(empty[0]?.id, ALL_LOCATIONS_ID);
+  assert.equal(empty[0]?.label, "Alle locaties");
+  assert.ok(empty.some((option) => option.id === "turnhout"));
+  assert.ok(empty.every((option) => !/\(\d+ /.test(option.label)));
+  const zot = locationSuggestions("zotte");
+  assert.equal(zot[0]?.label, "Zottegem");
+  const aalst = locationSuggestions("aalst").map((option) => option.label);
+  assert.ok(aalst.includes("Aalst (9300)"));
+  assert.ok(aalst.includes("Aalst (3800)"));
+  assert.equal(resolveLocationInput("Alle locaties"), ALL_LOCATIONS_ID);
+  assert.equal(resolveLocationInput("Zottegem"), "zottegem");
+  assert.equal(resolveLocationInput("Aalst (3800)"), "aalst-3800");
+  assert.equal(resolveLocationInput("Aalst"), "aalst-9300");
+  assert.equal(resolveLocationInput("9620"), "zottegem");
+  assert.equal(resolveLocationInput("Luik"), "liege");
+  assert.equal(resolveLocationInput("Turnhout"), "turnhout");
+  assert.equal(resolveLocationInput("Zaal De Roma"), null);
+  assert.equal(resolveLocationInput("St"), null);
   assert.equal(inferKnownCityLabel("St"), null);
   assert.equal(inferKnownCityLabel("St-Niklaas"), "Sint-Niklaas");
   assert.equal(inferKnownCityLabel("Geel"), "Geel");
   assert.equal(inferKnownCityLabel("Bruxelles"), "Brussel");
+  assert.equal(inferKnownCityLabel("Zottegem"), "Zottegem");
+  assert.equal(inferKnownCityLabel("Cyprus"), "Cyprus");
+  assert.equal(inferKnownCityLabel("1000"), null);
 });
 
 check("existing place links stay, unknown places are not rewritten", () => {

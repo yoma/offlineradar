@@ -15,11 +15,10 @@ import { Button } from "@/components/ui/button";
 import { ActionButton } from "@/components/ui/action-submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LocationSelect } from "@/components/filters/location-select";
+import { LocationPicker } from "@/components/filters/location-picker";
 import { track } from "@/lib/analytics";
 import { brusselsToday } from "@/lib/dates";
 import { matchingEvents, placeLabel } from "@/lib/filters";
-import { locationOptionsFromEvents } from "@/lib/location-options";
 import { formatMeetPreference } from "@/lib/format";
 import {
   hasAnyStrongPreferenceMatch,
@@ -176,10 +175,6 @@ export function DiscoverView({
   );
   // Global infosstrip: never recompute from filters/age/location/activity.
   const upcoming = useMemo(() => selectUpcomingEvents(events), [events]);
-  const locationOptions = useMemo(
-    () => locationOptionsFromEvents(events, new Date(), state.placeId),
-    [events, state.placeId],
-  );
   const preferenceMiss =
     userHasMeetPreference(state) &&
     visible.length > 0 &&
@@ -259,6 +254,7 @@ export function DiscoverView({
       activities: [],
       price: "any",
       singlesOnly: false,
+      trips: true,
       availability: "any",
       strictOnly: false,
       maxDistanceKm: 100,
@@ -312,16 +308,17 @@ export function DiscoverView({
           <p className="mt-1 text-sm text-muted-foreground">
             {state.placeId === "all"
               ? "Alle locaties"
-              : `Binnen ${state.maxDistanceKm} km van ${placeLabel(state.placeId)}`}
+              : `Binnen ${state.maxDistanceKm} km van ${placeLabel(state.placeId)}${
+                  state.trips ? " + reizen" : ""
+                }`}
             {state.age != null ? ` · ${state.age} jaar` : ""}
           </p>
           <label className="mt-3 block w-full max-w-md">
             <span className="text-xs font-medium text-muted-foreground">
-              Locatie
+              Vertrekpunt
             </span>
-            <LocationSelect
+            <LocationPicker
               value={state.placeId}
-              options={locationOptions}
               onChange={(placeId) => update({ placeId })}
               className="mt-1 h-11 w-full rounded-xl border border-border bg-white px-3 text-base font-semibold text-foreground"
             />
@@ -638,7 +635,6 @@ export function DiscoverView({
           });
         }}
       />
-      <p className="sr-only">{locationOptions.length} locaties</p>
     </div>
   );
 }
@@ -653,6 +649,7 @@ function suggestions(state: SearchState): { id: string; label: string; patch: Pa
     state.activities.length > 0 ||
     state.price !== "any" ||
     state.singlesOnly ||
+    !state.trips ||
     state.availability !== "any" ||
     state.strictOnly ||
     state.maxDistanceKm < 100;
@@ -669,6 +666,7 @@ function suggestions(state: SearchState): { id: string; label: string; patch: Pa
         activities: [],
         price: "any",
         singlesOnly: false,
+        trips: true,
         availability: "any",
         strictOnly: false,
         maxDistanceKm: 100,
