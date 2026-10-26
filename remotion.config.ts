@@ -1,0 +1,6 @@
+/** Settings for `npx remotion studio` (preview the reel template locally). */
+import { Config } from "@remotion/cli/config";
+
+Config.setEntryPoint("remotion/index.ts");
+Config.setPublicDir("remotion/public");
+Config.setVideoImageFormat("jpeg");
