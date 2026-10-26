@@ -266,7 +266,9 @@ export async function publishQueuePost(
 
   const reelConfig = readInstagramReelConfig();
   let fallbackReason: string | null = null;
-  if (reelConfig.enabled) {
+  // The admin ticks "Plaatsen als reel" per post; posts without a reel
+  // (made before reels existed) just go out as a post.
+  if (reelConfig.enabled && post.asReel && post.reelStatus !== "geen") {
     const reel = await publishAsReel({
       post,
       client,
@@ -389,9 +391,7 @@ async function publishAsReel(args: {
     return fallback(
       post.reelStatus === "mislukt"
         ? "de reel kon niet gemaakt worden"
-        : post.reelStatus === "geen"
-          ? "deze post heeft geen reel"
-          : `de reel was nog niet klaar (status ${post.reelStatus})`,
+        : `de reel was nog niet klaar (status ${post.reelStatus})`,
     );
   }
   const media = await getReelMediaIds(post.id);

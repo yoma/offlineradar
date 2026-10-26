@@ -20,9 +20,9 @@ Adminpagina: `/interne-instagram/wachtrij` (zelfde Google-login als `/interne-ev
    gewoon staan en kun je **Verhaal plaatsen** opnieuw proberen.
 5. **Reel:** bij elk nieuw voorstel wordt binnen het uur ook een reel gemaakt
    (zie `docs/instagram-reels.md`). Je ziet de video onder de slides; je keurt
-   slides, reel, caption en verhaal samen goed. Met `INSTAGRAM_REEL_ENABLED=1`
-   gaat de post online als reel (verhaal = dezelfde video); lukt de reel niet,
-   dan gaan automatisch de slides als gewone post.
+   slides, reel, caption en verhaal samen goed. Met het vinkje **Plaatsen als
+   reel** (standaard aan) gaat de post online als reel (verhaal = dezelfde
+   video); lukt de reel niet, dan gaan automatisch de slides als gewone post.
 6. Schakelaar **Automatisch posten zonder goedkeuring** (standaard UIT): als die aan
    staat, gaan ook niet-goedgekeurde voorstellen op hun dag online.
 

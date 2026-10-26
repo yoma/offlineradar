@@ -1,7 +1,8 @@
 /**
  * Reel settings, read from env so nothing is hardcoded.
  *
- *   INSTAGRAM_REEL_ENABLED            "1" = publish reels instead of feed posts (default off)
+ *   INSTAGRAM_REEL_ENABLED            "0" = emergency stop: never publish reels (default on;
+ *                                     per post the admin chooses "Plaatsen als reel")
  *   INSTAGRAM_REEL_FALLBACK_TO_POST   "0" = no feed post when the reel fails (default on)
  *   INSTAGRAM_REEL_COLLABORATORS      "0" = don't invite the organisers as collaborators (default on)
  *   INSTAGRAM_REEL_MIN_SECONDS        default 8
@@ -40,7 +41,7 @@ export function readInstagramReelConfig(
   const minSeconds = num(env.INSTAGRAM_REEL_MIN_SECONDS, 8, HARD_MIN_SECONDS, HARD_MAX_SECONDS);
   const maxSeconds = num(env.INSTAGRAM_REEL_MAX_SECONDS, 15, minSeconds, HARD_MAX_SECONDS);
   return {
-    enabled: env.INSTAGRAM_REEL_ENABLED?.trim() === "1",
+    enabled: env.INSTAGRAM_REEL_ENABLED?.trim() !== "0",
     fallbackToPost: env.INSTAGRAM_REEL_FALLBACK_TO_POST?.trim() !== "0",
     collaborators: env.INSTAGRAM_REEL_COLLABORATORS?.trim() !== "0",
     minSeconds,

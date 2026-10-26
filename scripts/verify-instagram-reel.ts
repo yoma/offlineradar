@@ -32,7 +32,8 @@ function ev(over: Partial<Event>): Event {
 async function main() {
   // --- config ---------------------------------------------------------------
   const defaults = readInstagramReelConfig({});
-  assert.equal(defaults.enabled, false, "reels are off unless switched on");
+  assert.equal(defaults.enabled, true, "reels allowed unless the emergency stop is set");
+  assert.equal(readInstagramReelConfig({ INSTAGRAM_REEL_ENABLED: "0" }).enabled, false);
   assert.equal(defaults.fallbackToPost, true);
   assert.equal(defaults.collaborators, true);
   assert.equal(readInstagramReelConfig({ INSTAGRAM_REEL_COLLABORATORS: "0" }).collaborators, false);
@@ -40,7 +41,6 @@ async function main() {
   assert.equal(defaults.maxSeconds, 15);
   assert.equal(defaults.musicDir, "music");
   const custom = readInstagramReelConfig({
-    INSTAGRAM_REEL_ENABLED: "1",
     INSTAGRAM_REEL_FALLBACK_TO_POST: "0",
     INSTAGRAM_REEL_MIN_SECONDS: "20",
     INSTAGRAM_REEL_MAX_SECONDS: "10",

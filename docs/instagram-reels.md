@@ -6,14 +6,16 @@ caption; lukt de reel niet, dan gaat de gewone post online.
 - **Stap 1** (klaar): videotemplate en lokale testrender.
 - **Stap 2** (klaar): bij elk voorstel wordt een reel gemaakt en in de
   wachtrij getoond.
-- **Stap 3** (klaar, staat uit tot `INSTAGRAM_REEL_ENABLED=1`): reel
-  publiceren, reel-story, terugval op de post, mailmeldingen.
+- **Stap 3** (klaar): reel publiceren, reel-story, terugval op de post,
+  mailmeldingen. Per post te kiezen in de wachtrij.
 
 ## Publiceren als reel (stap 3)
 
-Met `INSTAGRAM_REEL_ENABLED=1` gaat elke post uit de wachtrij online als
-reel, op hetzelfde moment en na dezelfde goedkeuring als nu. Nooit een post
-en een reel samen.
+In de wachtrij heeft elke post met een reel het vinkje **Plaatsen als reel**
+(standaard aan). Aangevinkt gaat de post online als reel, op hetzelfde moment
+en na dezelfde goedkeuring als nu; uitgevinkt als gewone carrousel. Nooit een
+post en een reel samen. Posts zonder reel (van vóór de reels) gaan gewoon als
+post.
 
 1. Is de reel niet *klaar*, dan gaat meteen de gewone post (terugval).
 2. Publicatielimiet nakijken (`content_publishing_limit`, 100 per 24 uur).
@@ -46,12 +48,10 @@ Mail via Resend bij: een reel die na 3 pogingen niet gemaakt kon worden, een
 reel die als gewone post online ging, en een post die mislukte. Ontvangers:
 `INSTAGRAM_ALERT_EMAIL` (komma-gescheiden), anders `OFFLINERADAR_ADMIN_EMAILS`.
 
-### Live zetten
+### Noodstop
 
-1. Zet in Vercel `INSTAGRAM_REEL_ENABLED=1` (en eventueel
-   `INSTAGRAM_ALERT_EMAIL`) en redeploy.
-2. Kijk in de wachtrij of de reel van de eerstvolgende post *klaar* is.
-3. Uitzetten = de variabele weghalen; dan gaan er weer gewone posts.
+`INSTAGRAM_REEL_ENABLED=0` in Vercel: alles gaat als gewone post, wat de
+vinkjes ook zeggen.
 
 ## Hoe een reel gemaakt wordt (stap 2)
 
@@ -122,7 +122,7 @@ reel neemt de volgende track; fade-in en fade-out zitten in de video.
 
 | Naam | Standaard | Betekenis |
 |---|---|---|
-| `INSTAGRAM_REEL_ENABLED` | uit | `1` = reels in plaats van posts |
+| `INSTAGRAM_REEL_ENABLED` | aan | `0` = noodstop, nooit reels (de keuze zelf gebeurt per post in de wachtrij) |
 | `INSTAGRAM_REEL_FALLBACK_TO_POST` | aan | `0` = geen post als de reel mislukt |
 | `INSTAGRAM_REEL_COLLABORATORS` | aan | `0` = organisatoren niet uitnodigen als collaborator |
 | `INSTAGRAM_ALERT_EMAIL` | admins | ontvangers van de meldingen |

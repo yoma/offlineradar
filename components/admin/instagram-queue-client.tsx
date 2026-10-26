@@ -60,7 +60,7 @@ type Setup = {
   tokenLastError: string | null;
   dryRun: boolean;
   publishOff: boolean;
-  /** INSTAGRAM_REEL_ENABLED: posts go out as reels. */
+  /** False only with the emergency stop INSTAGRAM_REEL_ENABLED=0. */
   reelsOn: boolean;
   /** INSTAGRAM_REEL_FALLBACK_TO_POST: a failed reel becomes the normal post. */
   reelFallback: boolean;
@@ -153,22 +153,28 @@ function ReelPreview({
   onRemake,
   pending,
   reelsOn,
+  asReel,
+  onAsReel,
 }: {
   post: InstagramQueuePost;
   locked: boolean;
   onRemake: () => void;
   pending: boolean;
   reelsOn: boolean;
+  asReel: boolean;
+  onAsReel: (value: boolean) => void;
 }) {
   if (post.reelStatus === "geen") return null;
   const plan =
     post.status === "gepost" || !reelsOn
       ? null
-      : post.reelStatus === "klaar"
-        ? "Gaat online als reel (de slides zijn de reserve)."
-        : post.reelStatus === "mislukt"
-          ? null
-          : "Is de reel niet op tijd klaar, dan gaat de gewone post online.";
+      : !asReel
+        ? "Gaat online als gewone post (de slides)."
+        : post.reelStatus === "klaar"
+          ? "Gaat online als reel. Lukt dat niet, dan gaan de slides als gewone post."
+          : post.reelStatus === "mislukt"
+            ? null
+            : "Is de reel niet op tijd klaar, dan gaat de gewone post online.";
   const remake =
     !locked && post.reelStatus !== "te_maken" && post.reelStatus !== "bezig" ? (
       <button
@@ -206,6 +212,18 @@ function ReelPreview({
         </div>
       )}
       {post.reelHook ? <p className="text-xs text-stone-600">Hook: {post.reelHook}</p> : null}
+      {post.status !== "gepost" && reelsOn ? (
+        <label className="flex items-center gap-2 text-sm font-semibold text-stone-800">
+          <input
+            type="checkbox"
+            checked={asReel}
+            disabled={locked || pending}
+            onChange={(e) => onAsReel(e.target.checked)}
+            className="h-4 w-4"
+          />
+          Plaatsen als reel
+        </label>
+      ) : null}
       {plan ? <p className="text-xs font-semibold text-emerald-800">{plan}</p> : null}
       {remake}
     </div>
@@ -227,6 +245,7 @@ function PostCard({
   const [caption, setCaption] = useState(post.caption);
   const [time, setTime] = useState(toBrusselsLocalInput(post.scheduledAt));
   const [postStory, setPostStory] = useState(post.postStory);
+  const [asReel, setAsReel] = useState(post.asReel);
   const locked = post.status === "gepost" || post.publishStartedAt != null;
   const timePassed = Date.parse(post.scheduledAt) < nowMs;
 
@@ -236,6 +255,7 @@ function PostCard({
     fd.set("caption", caption);
     fd.set("scheduledAt", time);
     fd.set("postStory", postStory ? "1" : "0");
+    fd.set("asReel", asReel ? "1" : "0");
     return fd;
   };
 
@@ -249,6 +269,8 @@ function PostCard({
             locked={locked}
             pending={pending}
             reelsOn={reelsOn}
+            asReel={asReel}
+            onAsReel={setAsReel}
             onRemake={() => run(remakeReelAction, form())}
           />
         </div>
@@ -331,7 +353,7 @@ function PostCard({
           <StoryLine
             post={post}
             postStory={postStory}
-            reelsOn={reelsOn}
+            reelsOn={reelsOn && asReel}
             onChange={setPostStory}
             disabled={locked || pending}
             onPublishStory={() => run(publishStoryAction, form())}
@@ -625,8 +647,8 @@ function SetupStatus({ setup }: { setup: Setup }) {
         <span className="font-semibold text-stone-800">Reels:</span>{" "}
         <span className="text-stone-600">
           {setup.reelsOn
-            ? `aan; ${setup.reelFallback ? "lukt de reel niet, dan gaat de gewone post" : "geen gewone post als de reel mislukt"}`
-            : "uit (INSTAGRAM_REEL_ENABLED); er worden gewone posts geplaatst"}
+            ? `per post te kiezen met "Plaatsen als reel"; ${setup.reelFallback ? "lukt de reel niet, dan gaat de gewone post" : "geen gewone post als de reel mislukt"}`
+            : "noodstop actief (INSTAGRAM_REEL_ENABLED=0): alles gaat als gewone post"}
         </span>
       </p>
       {setup.dryRun ? (

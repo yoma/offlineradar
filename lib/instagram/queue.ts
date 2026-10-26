@@ -67,6 +67,8 @@ export type InstagramQueuePost = {
   reelTrack: string | null;
   /** The reel's hook sentence, e.g. "3 singles-events in Gent dit weekend". */
   reelHook: string | null;
+  /** Admin's choice: publish as a reel (when the reel is ready). */
+  asReel: boolean;
   /** Set once publishing starts: 'reel' or 'post' (fallback or reels off). */
   publishedAs: PublishedAs | null;
   source: "auto" | "manual";
@@ -100,6 +102,7 @@ type QueueRow = {
   reel_cover_id?: string | null;
   reel_story_id?: string | null;
   published_as?: PublishedAs | null;
+  as_reel?: boolean | null;
   source: "auto" | "manual";
   format: string | null;
   event_ids: unknown;
@@ -160,6 +163,7 @@ function mapRow(row: QueueRow): InstagramQueuePost {
     reelTrack: row.reel_track ?? null,
     reelHook: reelHookOf(row.reel_props),
     publishedAs: row.published_as ?? null,
+    asReel: row.as_reel !== false,
     source: row.source,
     format: row.format,
     eventIds: stringArray(row.event_ids),
@@ -255,6 +259,8 @@ export async function createQueuePost(input: {
   /** 1080×1920 story JPEG; null when it could not be rendered. */
   storyJpeg?: Buffer | null;
   postStory?: boolean;
+  /** Publish as a reel (default yes). */
+  asReel?: boolean;
   /** Input for the reel render; null/absent = no reel for this post. */
   reelProps?: ReelProps | null;
 }): Promise<InstagramQueuePost | null> {
@@ -269,7 +275,7 @@ export async function createQueuePost(input: {
   const inserted = (await sql`
     INSERT INTO instagram_post_queue (
       id, image_urls, caption, scheduled_at, status, source, format,
-      event_ids, slot_key, post_story, reel_status, reel_props
+      event_ids, slot_key, post_story, as_reel, reel_status, reel_props
     ) VALUES (
       ${id},
       ${JSON.stringify(imageUrls)}::jsonb,
@@ -281,6 +287,7 @@ export async function createQueuePost(input: {
       ${JSON.stringify(input.eventIds ?? [])}::jsonb,
       ${input.slotKey ?? null},
       ${input.postStory !== false},
+      ${input.asReel !== false},
       ${input.reelProps ? "te_maken" : "geen"},
       ${input.reelProps ? JSON.stringify(input.reelProps) : null}::jsonb
     )
@@ -331,7 +338,7 @@ const EDITABLE = ["concept", "te_keuren", "goedgekeurd", "mislukt"] as const;
 
 export async function updateQueuePost(
   id: string,
-  patch: { caption?: string; scheduledAt?: Date; postStory?: boolean },
+  patch: { caption?: string; scheduledAt?: Date; postStory?: boolean; asReel?: boolean },
 ): Promise<boolean> {
   const sql = await queueSql();
   const rows = (await sql`
@@ -339,6 +346,7 @@ export async function updateQueuePost(
       caption = COALESCE(${patch.caption != null ? normalizeCaption(patch.caption) : null}, caption),
       scheduled_at = COALESCE(${patch.scheduledAt?.toISOString() ?? null}::timestamptz, scheduled_at),
       post_story = COALESCE(${patch.postStory ?? null}::boolean, post_story),
+      as_reel = COALESCE(${patch.asReel ?? null}::boolean, as_reel),
       updated_at = now()
     WHERE id = ${id}
       AND status = ANY(${[...EDITABLE]})
@@ -355,6 +363,7 @@ export async function approveQueuePost(
     scheduledAt?: Date;
     approvedBy: string | null;
     postStory?: boolean;
+    asReel?: boolean;
   },
   now = new Date(),
 ): Promise<boolean> {
@@ -364,6 +373,7 @@ export async function approveQueuePost(
     UPDATE instagram_post_queue SET
       caption = ${normalizeCaption(args.caption)},
       post_story = COALESCE(${args.postStory ?? null}::boolean, post_story),
+      as_reel = COALESCE(${args.asReel ?? null}::boolean, as_reel),
       scheduled_at = GREATEST(
         COALESCE(${args.scheduledAt?.toISOString() ?? null}::timestamptz, scheduled_at),
         ${now.toISOString()}::timestamptz
