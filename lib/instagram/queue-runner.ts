@@ -129,6 +129,11 @@ export function upcomingQueueSlots(now = new Date()): QueueSlot[] {
   return out.sort((a, b) => a.at.getTime() - b.at.getTime());
 }
 
+/** Posts planned for a day are due at 17:30 Brussels, just before that evening's runs. */
+export function eveningPostTime(ymd: string): Date {
+  return brusselsWallInstant(ymd, DAILY_POST_TIME);
+}
+
 /** Default time for a post made by hand: this evening's run, or tomorrow's. */
 export function nextDailyPostTime(now = new Date()): Date {
   const today = brusselsToday(now);
