@@ -25,6 +25,7 @@ import {
 } from "@/lib/instagram/queue";
 import { renderDraftJpegs } from "@/lib/instagram/queue-media";
 import {
+  eveningPostTime,
   nextDailyPostTime,
   publishQueuePostNow,
   publishStoryNow,
@@ -70,6 +71,8 @@ function readAsReel(formData: FormData): boolean | undefined {
 function readTime(formData: FormData): Date | null | "invalid" {
   const raw = String(formData.get("scheduledAt") ?? "").trim();
   if (!raw) return null;
+  // A day only ("plannen voor die avond") means that evening's runs.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return eveningPostTime(raw);
   return fromBrusselsLocalInput(raw) ?? "invalid";
 }
 

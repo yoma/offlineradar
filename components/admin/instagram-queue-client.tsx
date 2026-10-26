@@ -243,7 +243,8 @@ function PostCard({
 }) {
   const { pending, result, run } = useAction();
   const [caption, setCaption] = useState(post.caption);
-  const [time, setTime] = useState(toBrusselsLocalInput(post.scheduledAt));
+  // Planning is per day: the post goes out in that evening's runs (18–20 u).
+  const [day, setDay] = useState(toBrusselsLocalInput(post.scheduledAt).slice(0, 10));
   const [postStory, setPostStory] = useState(post.postStory);
   const [asReel, setAsReel] = useState(post.asReel);
   const locked = post.status === "gepost" || post.publishStartedAt != null;
@@ -253,7 +254,7 @@ function PostCard({
     const fd = new FormData();
     fd.set("id", post.id);
     fd.set("caption", caption);
-    fd.set("scheduledAt", time);
+    fd.set("scheduledAt", day);
     fd.set("postStory", postStory ? "1" : "0");
     fd.set("asReel", asReel ? "1" : "0");
     return fd;
@@ -307,8 +308,8 @@ function PostCard({
           {post.status === "te_keuren" && timePassed ? (
             <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
               {autoPost
-                ? "Tijdstip is voorbij; wordt bij de volgende ronde geplaatst."
-                : "Tijdstip is voorbij. Klik Nu plaatsen, of kies een nieuw tijdstip."}
+                ? "Die avond is voorbij; wordt bij de volgende avondronde geplaatst."
+                : "Die avond is voorbij. Klik Nu plaatsen, of kies een andere dag."}
             </p>
           ) : null}
           {post.status === "te_keuren" && autoPost && !timePassed ? (
@@ -318,15 +319,16 @@ function PostCard({
           ) : null}
 
           <label className="text-sm font-semibold text-stone-800">
-            Tijdstip (Brusselse tijd)
+            Plaatsen op de avond van
             <span className="block text-xs font-normal text-stone-500">
-              Geplande posts gaan online bij de dagelijkse ronde tussen 18 en 20 uur.
+              Gaat die dag automatisch online tussen 18 en 20 uur. Is die avond al
+              voorbij, dan de volgende avond. Meteen posten: Nu plaatsen.
             </span>
             <input
-              type="datetime-local"
-              value={time}
+              type="date"
+              value={day}
               disabled={locked || pending}
-              onChange={(e) => setTime(e.target.value)}
+              onChange={(e) => setDay(e.target.value)}
               className="mt-1 block w-full max-w-xs rounded-lg border border-stone-200 px-3 py-2 text-sm font-normal"
             />
           </label>
@@ -382,7 +384,7 @@ function PostCard({
                   disabled={pending || !caption.trim()}
                   onClick={() => run(approveQueuePostAction, form())}
                 >
-                  {post.status === "goedgekeurd" ? "Opslaan" : "Plannen op dit tijdstip"}
+                  {post.status === "goedgekeurd" ? "Opslaan" : "Plannen voor die avond (18–20 u)"}
                 </button>
               ) : null}
               {post.status === "te_keuren" || post.status === "goedgekeurd" ? (

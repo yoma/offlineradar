@@ -8,7 +8,7 @@ Adminpagina: `/interne-instagram/wachtrij` (zelfde Google-login als `/interne-ev
    of *Eén event*. De site maakt de afbeeldingen + caption; er wordt nog niets geplaatst.
 2. Bekijk het voorbeeld, pas eventueel de caption aan en klik:
    - **Nu plaatsen**: meteen op Instagram (±30 seconden), of
-   - **Plannen op dit tijdstip**: gaat online bij de dagelijkse ronde (18–20 uur).
+   - **Plannen voor die avond (18–20 u)**: je kiest een dag; de post gaat die avond automatisch online.
 3. De site stelt daarnaast zelf drie posts per week voor (ma *Deze week*, wo *Nieuw*,
    vr *Binnenkort*). Die verschijnen onder **Te keuren**. Goedkeuren of **Afwijzen**;
    afgewezen posts worden verborgen en nooit geplaatst.
@@ -60,7 +60,7 @@ Het token wordt bij eerste gebruik versleuteld in de database bewaard en daarna
 automatisch vernieuwd (`refresh_access_token`, ±elke 50 dagen). Zet je ooit een
 nieuw token in Vercel, dan neemt de site dat automatisch over.
 
-De geplande ronde is een gewone Vercel-cron (`vercel.json`, dagelijks 17:xx UTC);
+De avondronde is een Vercel-cron die elke avond drie keer loopt (`vercel.json`, 17:00/17:20/17:40 UTC, 18–20 u Belgische tijd);
 op het Hobby-plan kan dat maar één keer per dag. Voor een ander moment: **Nu plaatsen**.
 
 ### Database
