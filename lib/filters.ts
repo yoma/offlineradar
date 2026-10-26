@@ -137,7 +137,13 @@ export function matchingEvents(
   events: Event[],
   state: SearchState,
   now = new Date(),
-): { visible: PreparedEvent[]; hiddenStrict: number; guidelineHidden: number } {
+): {
+  visible: PreparedEvent[];
+  hiddenStrict: number;
+  /** The events counted in hiddenStrict, for an opt-in “toon ze toch”. */
+  ineligible: PreparedEvent[];
+  guidelineHidden: number;
+} {
   const today = brusselsToday(now);
   const selectedActivities = expandActivityFilterSelection(state.activities);
   // A dimension with every chip on restricts nothing (chips toggle off to
@@ -209,9 +215,10 @@ export function matchingEvents(
     return true;
   });
 
-  const hiddenStrict = prepared.filter(
+  const ineligible = prepared.filter(
     (event) => event.participation.status === "ineligible",
-  ).length;
+  );
+  const hiddenStrict = ineligible.length;
 
   const guidelineHidden = state.strictOnly
     ? prepared.filter((event) => event.participation.status === "guideline")
@@ -226,7 +233,7 @@ export function matchingEvents(
     return true;
   });
 
-  return { visible, hiddenStrict, guidelineHidden };
+  return { visible, hiddenStrict, ineligible, guidelineHidden };
 }
 
 /** Guideline age given and the user's age falls outside it (not a hard bar). */

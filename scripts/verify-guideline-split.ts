@@ -55,3 +55,15 @@ const noAge = splitByGuidelineAge(
 );
 assert.equal(noAge.outsideGuideline.length, 0);
 ok("zonder leeftijd: niets in het blok buiten richtleeftijd");
+
+const age22 = matchingEvents(
+  events,
+  { ...defaultSearchState(), age: 22, maxDistanceKm: 100, when: "any" },
+  now,
+);
+assert.equal(age22.ineligible.length, age22.hiddenStrict);
+assert.ok(
+  age22.ineligible.every((e) => e.participation.status === "ineligible"),
+);
+assert.ok(age22.ineligible.every((e) => !age22.visible.includes(e)));
+ok(`leeftijd 22: ${age22.hiddenStrict} verborgen events beschikbaar voor "Toon ze toch"`);
