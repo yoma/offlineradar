@@ -229,4 +229,28 @@ export function matchingEvents(
   return { visible, hiddenStrict, guidelineHidden };
 }
 
+/** Guideline age given and the user's age falls outside it (not a hard bar). */
+export function isOutsideGuidelineAge(event: PreparedEvent): boolean {
+  return (
+    event.participation.status === "guideline" &&
+    event.participation.inRange === false
+  );
+}
+
+/**
+ * Split results so events outside their guideline age can go in a separate,
+ * collapsed block below the main results. Order within each part is kept.
+ */
+export function splitByGuidelineAge<T extends PreparedEvent>(
+  events: T[],
+): { fitting: T[]; outsideGuideline: T[] } {
+  const fitting: T[] = [];
+  const outsideGuideline: T[] = [];
+  for (const event of events) {
+    if (isOutsideGuidelineAge(event)) outsideGuideline.push(event);
+    else fitting.push(event);
+  }
+  return { fitting, outsideGuideline };
+}
+
 export { placeLabel };
