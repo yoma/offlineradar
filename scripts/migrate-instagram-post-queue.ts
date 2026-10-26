@@ -8,7 +8,7 @@ import {
   getEventsSql,
 } from "../lib/events/db";
 import {
-  INSTAGRAM_POST_QUEUE_STORY_MIGRATION_ID as MIGRATION_ID,
+  INSTAGRAM_POST_QUEUE_REEL_MIGRATION_ID as MIGRATION_ID,
   ensureInstagramQueueSchema,
 } from "../lib/instagram/queue-schema";
 

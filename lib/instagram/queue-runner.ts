@@ -47,6 +47,7 @@ import {
   type InstagramQueuePost,
 } from "@/lib/instagram/queue";
 import { renderDraftJpegs } from "@/lib/instagram/queue-media";
+import { prepareReelProps } from "@/lib/instagram/reel/queue-reel";
 import { NEEDS_INSTAGRAM_CHECK } from "@/lib/instagram/queue-messages";
 import { renderStoryJpeg, renderStoryOrNull } from "@/lib/instagram/story";
 import {
@@ -457,6 +458,7 @@ async function proposeNextSlot(
       format: draft.format,
       eventIds: draft.eventIds,
       slotKey: slot.slotKey,
+      reelProps: prepareReelProps(draft, slot.at),
     });
     if (!created) return null;
     await recordConceptEventIds(draft.eventIds);

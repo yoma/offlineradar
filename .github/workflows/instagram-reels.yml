@@ -1,0 +1,58 @@
+# Render Instagram reels for the post queue (/interne-instagram/wachtrij).
+# Every hour: ask the site whether reels are waiting; only then install
+# Remotion and render. Upload goes back to the site (stored in Neon).
+#
+# Repository secrets: CRON_SECRET (same value as in Vercel).
+# Optional repository variable: REEL_SITE_URL (default https://dateofflinehub.be).
+name: Instagram reels
+
+on:
+  schedule:
+    - cron: "20 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: instagram-reels
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      REEL_SITE_URL: ${{ vars.REEL_SITE_URL || 'https://dateofflinehub.be' }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: Check for waiting reels
+        id: pending
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET is not set as a repository secret." >&2
+            exit 1
+          fi
+          body=$(curl -fsS --retry 3 --retry-delay 5 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$REEL_SITE_URL/api/instagram/reels/jobs")
+          pending=$(echo "$body" | jq -r '.pending // 0')
+          echo "Reels waiting: $pending"
+          echo "count=$pending" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        if: steps.pending.outputs.count != '0'
+
+      - uses: actions/setup-node@v4
+        if: steps.pending.outputs.count != '0'
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        if: steps.pending.outputs.count != '0'
+        run: npm ci --no-audit --no-fund
+
+      - name: Render and upload
+        if: steps.pending.outputs.count != '0'
+        run: npx tsx scripts/render-queued-reels.ts
