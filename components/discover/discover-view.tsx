@@ -1,6 +1,6 @@
 "use client";
 
-import { SlidersHorizontal, X } from "lucide-react";
+import { ChevronDown, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { EventCard } from "@/components/events/event-card";
 import { ResultRefinementBar } from "@/components/discover/result-refinement";
@@ -18,7 +18,11 @@ import { Label } from "@/components/ui/label";
 import { LocationSelect } from "@/components/filters/location-select";
 import { track } from "@/lib/analytics";
 import { brusselsToday } from "@/lib/dates";
-import { matchingEvents, placeLabel } from "@/lib/filters";
+import {
+  matchingEvents,
+  placeLabel,
+  splitByGuidelineAge,
+} from "@/lib/filters";
 import { locationOptionsFromEvents } from "@/lib/location-options";
 import { formatMeetPreference } from "@/lib/format";
 import {
@@ -174,6 +178,25 @@ export function DiscoverView({
       }),
     [baseVisible, refinement, today, followedOrganizerIds],
   );
+  const { fitting, outsideGuideline } = useMemo(
+    () => splitByGuidelineAge(visible),
+    [visible],
+  );
+
+  function renderGrid(events: typeof visible) {
+    return (
+      <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 [&>*]:min-w-0">
+        {events.map((event) => (
+          <EventCard
+            key={event.id}
+            event={event}
+            gender={state.gender}
+            hrefBase={eventBasePath}
+          />
+        ))}
+      </div>
+    );
+  }
   // Global infosstrip: never recompute from filters/age/location/activity.
   const upcoming = useMemo(() => selectUpcomingEvents(events), [events]);
   const locationOptions = useMemo(
@@ -599,16 +622,32 @@ export function DiscoverView({
             </div>
           ) : (
             <div className="mt-8 min-w-0">
-              <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 [&>*]:min-w-0">
-                {visible.map((event) => (
-                  <EventCard
-                    key={event.id}
-                    event={event}
-                    gender={state.gender}
-                    hrefBase={eventBasePath}
-                  />
-                ))}
-              </div>
+              {fitting.length > 0 ? (
+                renderGrid(fitting)
+              ) : (
+                <p className="max-w-xl text-sm leading-6 text-muted-foreground">
+                  Geen events binnen je richtleeftijd met deze filters. Hieronder
+                  staan events waarvan de richtleeftijd niet bij je leeftijd
+                  past.
+                </p>
+              )}
+              {outsideGuideline.length > 0 ? (
+                <details
+                  className="group mt-12 border-t border-border pt-6"
+                  open={fitting.length === 0}
+                >
+                  <summary className="flex cursor-pointer list-none items-center gap-2 font-heading-section text-xl text-[var(--brand-bordeaux)] [&::-webkit-details-marker]:hidden">
+                    <ChevronDown className="size-5 transition-transform group-open:rotate-180" />
+                    Buiten je richtleeftijd ({outsideGuideline.length})
+                  </summary>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                    De organisator vermeldt hier een richtleeftijd waar je buiten
+                    valt. Dat is geen strikte grens, dus je bent misschien wel
+                    welkom. Controleer het bij de organisator.
+                  </p>
+                  <div className="mt-6">{renderGrid(outsideGuideline)}</div>
+                </details>
+              ) : null}
             </div>
           )}
           </div>
