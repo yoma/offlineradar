@@ -1,6 +1,10 @@
+import { findBelgianPlace } from "@/lib/be-places";
+
 /**
  * City-center coordinates for distance when edition lat/lng is missing.
  * Never invent Antwerp for a different city.
+ * This hand list wins over the full Belgian place list (lib/be-places), so it
+ * holds organizer spellings, ambiguous names and destinations abroad.
  */
 const CITY_COORDS: Record<string, { lat: number; lng: number }> = {
   // Search places + Flanders (NL + common EN spellings from organizer sites)
@@ -166,6 +170,18 @@ const CITY_LABEL_BY_KEY: Record<string, string> = {
   lovenjoel: "Bierbeek",
   brasschaat: "Brasschaat",
   berchem: "Antwerpen",
+  // Destinations abroad
+  ibiza: "Ibiza",
+  tenerife: "Tenerife",
+  cyprus: "Cyprus",
+  egypte: "Egypte",
+  "costa de la luz": "Costa de la Luz",
+  costadelaluz: "Costa de la Luz",
+  lagos: "Lagos",
+  "gran canaria": "Gran Canaria",
+  grancanaria: "Gran Canaria",
+  kronplatz: "Kronplatz",
+  oostenrijk: "Oostenrijk",
 };
 
 export function coordsForCity(city: string | null | undefined): {
@@ -177,6 +193,8 @@ export function coordsForCity(city: string | null | undefined): {
   const compact = compactCityKey(city);
   if (CITY_COORDS[key]) return CITY_COORDS[key]!;
   if (CITY_COORDS[compact]) return CITY_COORDS[compact]!;
+  const place = findBelgianPlace(city);
+  if (place) return { lat: place.lat, lng: place.lng };
   for (const [name, coords] of Object.entries(CITY_COORDS)) {
     if (
       key === name ||
@@ -221,6 +239,9 @@ export function inferKnownCityLabel(
   const exactCompact = compactCityKey(text);
   if (CITY_LABEL_BY_KEY[exactKey]) return CITY_LABEL_BY_KEY[exactKey]!;
   if (CITY_LABEL_BY_KEY[exactCompact]) return CITY_LABEL_BY_KEY[exactCompact]!;
+  // Any Belgian municipality or deelgemeente, but only as the whole text.
+  const place = /\p{L}/u.test(text) ? findBelgianPlace(text) : null;
+  if (place) return place.name;
 
   const keys = Object.keys(CITY_COORDS).sort((a, b) => b.length - a.length);
   for (const key of keys) {

@@ -39,6 +39,8 @@ export type SearchState = {
   typesMode: TypesFilterMode;
   price: PriceFilter;
   singlesOnly: boolean;
+  /** Show trips (reizen/weekends and destinations abroad). They ignore the radius. */
+  trips: boolean;
   availability: AvailabilityFilter;
   strictOnly: boolean;
   sort: SortKey;

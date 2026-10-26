@@ -364,6 +364,7 @@ function refine(partial: Partial<ResultRefinement>): ResultRefinement {
     typesMode: "all",
     price: "any",
     singlesOnly: false,
+    trips: true,
     availability: "any",
     strictOnly: false,
     sort: "match",

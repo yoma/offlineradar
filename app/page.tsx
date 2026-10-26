@@ -8,11 +8,6 @@ import {
   listEvents,
 } from "@/lib/events";
 import { listPublishedOrganizerOptions } from "@/lib/organizers/published-options";
-import {
-  fallbackLocationOptions,
-  locationOptionsFromEvents,
-  type LocationOption,
-} from "@/lib/location-options";
 import { selectUpcomingEvents } from "@/lib/upcoming";
 import type { Event } from "@/types/event";
 
@@ -28,7 +23,6 @@ export default async function HomePage() {
     ReturnType<typeof listPublishedOrganizerOptions>
   > = [];
   let upcomingEvents: Event[] = [];
-  let locationOptions: LocationOption[] = fallbackLocationOptions();
   let catalogUnavailable = false;
   const today = brusselsToday();
 
@@ -42,7 +36,6 @@ export default async function HomePage() {
     // Only upcoming strip on the homepage - full catalog stays off the HTML
     // (Meer-filters count uses countHomeFilterMatches server action).
     const catalogEvents = await listEvents();
-    locationOptions = locationOptionsFromEvents(catalogEvents);
     upcomingEvents = selectUpcomingEvents(catalogEvents).events;
   } catch (error) {
     if (
@@ -59,7 +52,6 @@ export default async function HomePage() {
       <HomeHero
         organizerOptions={organizerOptions}
         upcomingEvents={upcomingEvents}
-        locationOptions={locationOptions}
         today={today}
       />
       {catalogUnavailable ? (

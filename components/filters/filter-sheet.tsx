@@ -81,6 +81,7 @@ export function FilterSheet({
     onChange({
       price: "any",
       singlesOnly: false,
+      trips: true,
       availability: "any",
       strictOnly: false,
       preferredMeetGender: "anyone",
@@ -224,6 +225,12 @@ export function FilterSheet({
                   description="Events die singles-only of duidelijk singlesgericht zijn."
                   checked={state.singlesOnly}
                   onChange={(checked) => onChange({ singlesOnly: checked })}
+                />
+                <ToggleRow
+                  title="Reizen tonen"
+                  description="Reizen, weekends en bestemmingen in het buitenland. Die tellen niet mee voor de afstand."
+                  checked={state.trips}
+                  onChange={(checked) => onChange({ trips: checked })}
                 />
                 <ToggleRow
                   title="Alleen strikte leeftijdsgrenzen"
