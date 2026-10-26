@@ -88,7 +88,7 @@ npm run reel:test -- --format=deze_week  # deze_week | binnenkort | nieuw | sing
 ```
 
 Resultaat in `out/reels/`: per formaat een MP4 (1080x1920, 30 fps, H.264 +
-AAC 128 kbps, 8 tot 15 s), een coverbeeld, het reserve-verhaalbeeld, de
+AAC 128 kbps, 8 tot 24 s), een coverbeeld, het reserve-verhaalbeeld, de
 caption en de gebruikte props.
 Zonder `.env.local` gebruikt de site de voorbeeld-events; met Neon de echte
 catalogus (`node --env-file=.env.local --import tsx scripts/render-test-reel.ts`).
@@ -105,7 +105,7 @@ Chrome kan via `REMOTION_BROWSER_EXECUTABLE=/pad/naar/chrome-headless-shell`.
    provincie, anders niets.
 2. **Events**, volgens dezelfde logica als de post:
    *Deze week* = één agendapagina, *Binnenkort* en *Nieuw* = één kaart per event,
-   *Eén event* = één uitgebreide kaart. Bij te veel events voor 15 s wordt het
+   *Eén event* = één uitgebreide kaart. Bij te veel events voor 24 s wordt het
    een agendapagina.
 3. **Call-to-action**: logo en dateofflinehub.be.
 
@@ -126,7 +126,7 @@ reel neemt de volgende track; fade-in en fade-out zitten in de video.
 | `INSTAGRAM_REEL_FALLBACK_TO_POST` | aan | `0` = geen post als de reel mislukt |
 | `INSTAGRAM_REEL_COLLABORATORS` | aan | `0` = organisatoren niet uitnodigen als collaborator |
 | `INSTAGRAM_ALERT_EMAIL` | admins | ontvangers van de meldingen |
-| `INSTAGRAM_REEL_MIN_SECONDS` / `_MAX_SECONDS` | 8 / 15 | duur van de reel |
+| `INSTAGRAM_REEL_MIN_SECONDS` / `_MAX_SECONDS` | 8 / 24 | duur van de reel (elke eventkaart 2,5 tot 3,5 s) |
 | `INSTAGRAM_REEL_MUSIC_DIR` | `music` | map in `remotion/public` |
 | `INSTAGRAM_REEL_MUSIC_VOLUME` | 0.6 | volume 0 tot 1 |
 | `INSTAGRAM_REEL_MUSIC_FADE_IN` / `_FADE_OUT` | 0.6 / 1.2 | seconden |

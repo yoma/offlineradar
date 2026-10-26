@@ -38,7 +38,7 @@ async function main() {
   assert.equal(defaults.collaborators, true);
   assert.equal(readInstagramReelConfig({ INSTAGRAM_REEL_COLLABORATORS: "0" }).collaborators, false);
   assert.equal(defaults.minSeconds, 8);
-  assert.equal(defaults.maxSeconds, 15);
+  assert.equal(defaults.maxSeconds, 24);
   assert.equal(defaults.musicDir, "music");
   const custom = readInstagramReelConfig({
     INSTAGRAM_REEL_FALLBACK_TO_POST: "0",
@@ -73,13 +73,16 @@ async function main() {
   );
   assert.equal(noEmDash("Gent — Aalst"), "Gent, Aalst");
 
-  // --- timing: always 8 to 15 s ----------------------------------------------
+  // --- timing: always 8 to 24 s, cards readable (>= 2.5 s each) -------------
   for (const layout of ["single", "cards", "listing"] as const) {
     for (let n = 1; n <= 7; n++) {
       if (layout === "single" && n > 1) continue;
       const t = buildReelTiming(layout, n, defaults);
       const seconds = reelDurationInFrames(t.timing, t.layout, n) / REEL_FPS;
-      assert.ok(seconds >= 8 && seconds <= 15, `${layout} x${n}: ${seconds}s`);
+      assert.ok(seconds >= 8 && seconds <= 24, `${layout} x${n}: ${seconds}s`);
+      if (t.layout === "cards") {
+        assert.ok(t.timing.bodyFrames >= 75, `${layout} x${n}: card ${t.timing.bodyFrames} frames`);
+      }
     }
   }
 

@@ -846,6 +846,17 @@ export async function markReelFailed(
 }
 
 /** Admin "Reel opnieuw maken", or new props after a change of date. */
+/** Stored reel props of a post (null when it has none). */
+export async function getReelProps(postId: string): Promise<ReelProps | null> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    SELECT reel_props FROM instagram_post_queue WHERE id = ${postId}
+  `) as { reel_props: unknown }[];
+  const raw = rows[0]?.reel_props;
+  if (!raw) return null;
+  return (typeof raw === "string" ? JSON.parse(raw) : raw) as ReelProps;
+}
+
 export async function requestReelRender(
   postId: string,
   props?: ReelProps,

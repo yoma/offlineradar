@@ -17,6 +17,7 @@ import {
   createQueuePost,
   deleteQueuePost,
   rejectQueuePost,
+  getReelProps,
   requestReelRender,
   resetFailedQueuePost,
   setAutoPostWithoutApproval,
@@ -35,6 +36,8 @@ import {
   refreshReelAfterReschedule,
 } from "@/lib/instagram/reel/queue-reel";
 import { renderStoryOrNull } from "@/lib/instagram/story";
+import { readInstagramReelConfig } from "@/lib/instagram/reel/config";
+import { buildReelTiming } from "@/lib/instagram/reel/props";
 import { fromBrusselsLocalInput } from "@/lib/instagram/queue-time";
 import { scrubSecrets } from "@/lib/instagram/token-store";
 import { resolveTipsAdminAccess } from "@/lib/tips/admin-auth";
@@ -326,7 +329,16 @@ export async function remakeReelAction(
 ): Promise<QueueActionResult> {
   if (!(await guard())) return UNAUTHORIZED;
   try {
-    const ok = await requestReelRender(String(formData.get("id")));
+    const id = String(formData.get("id"));
+    // Re-time the stored reel so a remake picks up the current pacing.
+    const stored = await getReelProps(id);
+    const retimed = stored
+      ? (() => {
+          const t = buildReelTiming(stored.layout, stored.events.length, readInstagramReelConfig());
+          return { ...stored, layout: t.layout, timing: t.timing };
+        })()
+      : undefined;
+    const ok = await requestReelRender(id, retimed);
     return done(
       ok,
       "De reel wordt opnieuw gemaakt. Dat duurt tot een uur.",

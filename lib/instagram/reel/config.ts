@@ -6,7 +6,7 @@
  *   INSTAGRAM_REEL_FALLBACK_TO_POST   "0" = no feed post when the reel fails (default on)
  *   INSTAGRAM_REEL_COLLABORATORS      "0" = don't invite the organisers as collaborators (default on)
  *   INSTAGRAM_REEL_MIN_SECONDS        default 8
- *   INSTAGRAM_REEL_MAX_SECONDS        default 15
+ *   INSTAGRAM_REEL_MAX_SECONDS        default 24
  *   INSTAGRAM_REEL_MUSIC_DIR          folder inside remotion/public, default "music"
  *   INSTAGRAM_REEL_MUSIC_VOLUME       0..1, default 0.6
  *   INSTAGRAM_REEL_MUSIC_FADE_IN      seconds, default 0.6
@@ -25,7 +25,7 @@ export type InstagramReelConfig = {
   musicFadeOutSeconds: number;
 };
 
-/** Meta Reels accept 3 s to 15 min; we keep to a short 8 to 15 s window. */
+/** Meta Reels accept 3 s to 15 min; we keep to a short 8 to 24 s window. */
 const HARD_MIN_SECONDS = 3;
 const HARD_MAX_SECONDS = 90;
 
@@ -39,7 +39,7 @@ export function readInstagramReelConfig(
   env: Record<string, string | undefined> = process.env,
 ): InstagramReelConfig {
   const minSeconds = num(env.INSTAGRAM_REEL_MIN_SECONDS, 8, HARD_MIN_SECONDS, HARD_MAX_SECONDS);
-  const maxSeconds = num(env.INSTAGRAM_REEL_MAX_SECONDS, 15, minSeconds, HARD_MAX_SECONDS);
+  const maxSeconds = num(env.INSTAGRAM_REEL_MAX_SECONDS, 24, minSeconds, HARD_MAX_SECONDS);
   return {
     enabled: env.INSTAGRAM_REEL_ENABLED?.trim() !== "0",
     fallbackToPost: env.INSTAGRAM_REEL_FALLBACK_TO_POST?.trim() !== "0",
