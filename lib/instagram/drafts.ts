@@ -226,6 +226,26 @@ export function listSingleEventCandidates(
     );
 }
 
+/**
+ * Event for the weekly "in de kijker" post: not in a recent post, and
+ * preferably 2–28 days after the post so there is time to sign up.
+ */
+export function pickSpotlightEvent(
+  catalog: Event[],
+  postAt: Date,
+  recentlyUsedIds: ReadonlySet<string>,
+): Event | null {
+  const fresh = listSingleEventCandidates(catalog, postAt).filter(
+    (e) => !recentlyUsedIds.has(e.id),
+  );
+  const postDay = brusselsToday(postAt);
+  const inWindow = fresh.filter((e) => {
+    const days = (Date.parse(e.startDate) - Date.parse(postDay)) / 86_400_000;
+    return days >= 2 && days <= 28;
+  });
+  return inWindow[0] ?? fresh[0] ?? null;
+}
+
 /** One-slide post about a single event. */
 export function buildSingleEventDraft(event: Event): InstagramDraft {
   const caption = buildSingleEventCaption(event);
