@@ -15,8 +15,9 @@ function looksLikeJpeg(bytes: Buffer): boolean {
 }
 
 /**
- * Upload the rendered MP4 (?kind=reel) or its cover JPEG (?kind=reel_cover)
- * for a post whose reel is being rendered. Auth: Bearer $CRON_SECRET.
+ * Upload the rendered MP4 (?kind=reel), its cover JPEG (?kind=reel_cover)
+ * or the story still JPEG (?kind=reel_story) for a post whose reel is being
+ * rendered. Auth: Bearer $CRON_SECRET.
  */
 export async function PUT(
   request: Request,
@@ -27,7 +28,7 @@ export async function PUT(
   }
   const { id } = await context.params;
   const kind = new URL(request.url).searchParams.get("kind");
-  if (kind !== "reel" && kind !== "reel_cover") {
+  if (kind !== "reel" && kind !== "reel_cover" && kind !== "reel_story") {
     return NextResponse.json({ ok: false, error: "bad_kind" }, { status: 400 });
   }
   const bytes = Buffer.from(await request.arrayBuffer());

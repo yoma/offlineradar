@@ -36,9 +36,25 @@ export type MetaClient = {
   ) => Promise<MetaClientResult<{ id: string }>>;
   /** Optional so older test doubles stay valid; the real client has it. */
   createStoryContainer?: (
-    args: { imageUrl: string },
+    args: { imageUrl: string } | { videoUrl: string },
     opts?: MetaRequestOptions,
   ) => Promise<MetaClientResult<{ id: string }>>;
+  /** REELS container (video processed by Meta; poll until FINISHED). */
+  createReelContainer?: (
+    args: {
+      videoUrl: string;
+      caption: string;
+      coverUrl?: string | null;
+      shareToFeed?: boolean;
+      /** Instagram usernames, max 3; they get an invite to co-author. */
+      collaborators?: string[];
+    },
+    opts?: MetaRequestOptions,
+  ) => Promise<MetaClientResult<{ id: string }>>;
+  /** Posts left in the rolling 24 h publishing window. */
+  getPublishingLimit?: (
+    opts?: MetaRequestOptions,
+  ) => Promise<MetaClientResult<{ used: number; total: number }>>;
   createCarouselContainer: (
     args: {
       children: string[];
@@ -234,12 +250,43 @@ export function createMetaClient(options: MetaClientOptions): MetaClient {
       if (isCarouselItem) body.is_carousel_item = "true";
       return graphPost(`/${options.igUserId}/media`, body, opts);
     },
-    createStoryContainer: ({ imageUrl }, opts) =>
+    createStoryContainer: (args, opts) =>
       graphPost(
         `/${options.igUserId}/media`,
-        { media_type: "STORIES", image_url: imageUrl },
+        "videoUrl" in args
+          ? { media_type: "STORIES", video_url: args.videoUrl }
+          : { media_type: "STORIES", image_url: args.imageUrl },
         opts,
       ),
+    createReelContainer: ({ videoUrl, caption, coverUrl, shareToFeed, collaborators }, opts) => {
+      const body: Record<string, string> = {
+        media_type: "REELS",
+        video_url: videoUrl,
+        caption,
+        share_to_feed: shareToFeed === false ? "false" : "true",
+      };
+      if (coverUrl) body.cover_url = coverUrl;
+      if (collaborators && collaborators.length > 0) {
+        body.collaborators = JSON.stringify(collaborators.slice(0, 3));
+      }
+      return graphPost(`/${options.igUserId}/media`, body, opts);
+    },
+    getPublishingLimit: async (opts) => {
+      const res = await graphGet(
+        `/${options.igUserId}/content_publishing_limit`,
+        "config,quota_usage",
+        opts,
+      );
+      if (!res.ok) return res;
+      // { data: [{ quota_usage: 2, config: { quota_total: 100, ... } }] }
+      const row = (Array.isArray(res.data.data) ? res.data.data[0] : res.data) as
+        | { quota_usage?: unknown; config?: { quota_total?: unknown } }
+        | undefined;
+      const used = typeof row?.quota_usage === "number" ? row.quota_usage : 0;
+      const total =
+        typeof row?.config?.quota_total === "number" ? row.config.quota_total : 100;
+      return { ok: true, data: { used, total } };
+    },
     createCarouselContainer: ({ children, caption }, opts) =>
       graphPost(
         `/${options.igUserId}/media`,
@@ -313,7 +360,7 @@ export async function waitForContainerFinished(
           ok: false,
           error: {
             code: "meta_container_timeout",
-            message: `Media-container niet klaar binnen carrousel-budget (laatste status: ${last}).`,
+            message: `Media-container niet klaar binnen het tijdsbudget (laatste status: ${last}).`,
           },
         };
       }
@@ -353,7 +400,7 @@ export async function waitForContainerFinished(
           ok: false,
           error: {
             code: "meta_container_timeout",
-            message: `Media-container niet klaar binnen carrousel-budget (laatste status: ${last}).`,
+            message: `Media-container niet klaar binnen het tijdsbudget (laatste status: ${last}).`,
           },
         };
       }
@@ -404,6 +451,7 @@ export function humanMetaPublishError(code: string, detail?: string): string {
     meta_media_format:
       "Afbeeldingsformaat geweigerd door Meta (JPEG vereist).",
     meta_container_failed: "Meta wees de media-container af.",
+    meta_publish_limit: "Instagram-publicatielimiet (24 uur) bereikt.",
     meta_container_timeout: "Meta media-container werd niet op tijd klaar.",
     meta_already_published:
       "Meta meldt dat deze container al gepubliceerd is (geen dubbele post).",

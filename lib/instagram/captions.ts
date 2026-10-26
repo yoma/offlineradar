@@ -2,6 +2,7 @@
  * Nederlandstalige Instagram-captions.
  * Feiten komen uitsluitend uit Event; geen verzinnen.
  * Feed-links zijn niet betrouwbaar klikbaar → verwijs naar bio / website.
+ * Nooit em-dashes; 3 tot 5 hashtags, waarvan minstens één lokaal.
  */
 
 import { formatAgeRange, formatPrice, formatPriceFrom } from "@/lib/format";
@@ -63,14 +64,37 @@ function eventBullet(event: Event): string {
   return `${when} · ${event.title}${city && !titleHasCity ? ` (${city})` : ""}`;
 }
 
-const HASHTAGS_BASE = [
-  "#DateOfflineHub",
-  "#singlesBelgie",
-  "#offline",
-  "#echteconnecties",
-];
+/** Em-dashes read as machine text; a comma does the same job. */
+export function noEmDash(text: string): string {
+  return text.replace(/\s*—\s*/g, ", ");
+}
 
-function hashtagsFor(events: Event[]): string {
+const HASHTAGS_BASE = ["#DateOfflineHub", "#singlesBelgie"];
+export const HASHTAGS_MAX = 5;
+
+/** "Sint-Niklaas" → "sintniklaas", "Oost-Vlaanderen" → "oostvlaanderen". */
+function tagSlug(raw: string): string {
+  return raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+/** Local tags: the shared city, else the shared province, else Vlaanderen. */
+function localHashtags(events: Event[]): string[] {
+  const cities = new Set(events.map((e) => tagSlug(e.city ?? "")));
+  const regions = new Set(events.map((e) => tagSlug(e.region ?? "")));
+  const city = cities.size === 1 ? [...cities][0]! : "";
+  const region = regions.size === 1 ? [...regions][0]! : "";
+  const out: string[] = [];
+  if (city) out.push(`#singles${city}`);
+  if (region && region !== city) out.push(city ? `#${region}` : `#singles${region}`);
+  if (out.length === 0) out.push("#singlesvlaanderen");
+  return out;
+}
+
+export function hashtagsFor(events: Event[]): string {
   const extra: string[] = [];
   const activities = new Set(events.flatMap((e) => e.activities));
   if (activities.has("speeddate")) extra.push("#speeddate");
@@ -89,7 +113,9 @@ function hashtagsFor(events: Event[]): string {
   if (activities.has("sport") || activities.has("padel")) {
     extra.push("#singlessport");
   }
-  return [...HASHTAGS_BASE, ...extra.slice(0, 3)].join(" ");
+  return [...HASHTAGS_BASE, ...localHashtags(events), ...extra]
+    .slice(0, HASHTAGS_MAX)
+    .join(" ");
 }
 
 export type InstagramCaption = {
@@ -131,7 +157,7 @@ export function buildInstagramCaption(
     ].join("\n");
     return {
       format,
-      text,
+      text: noEmDash(text),
       altHint: `Deze week op DateOfflineHub: ${events.length} activiteiten`,
     };
   }
@@ -157,7 +183,7 @@ export function buildInstagramCaption(
     ].join("\n");
     return {
       format,
-      text,
+      text: noEmDash(text),
       altHint: `Nieuw op DateOfflineHub: ${events[0].title}`,
     };
   }
@@ -179,7 +205,7 @@ export function buildInstagramCaption(
 
   return {
     format,
-    text,
+    text: noEmDash(text),
     altHint: `Binnenkort te beleven: ${events.length} activiteiten`,
   };
 }
@@ -208,7 +234,7 @@ export function buildSingleEventCaption(event: Event): InstagramCaption {
   ].join("\n");
   return {
     format: "binnenkort",
-    text,
+    text: noEmDash(text),
     altHint: `${event.title}${city ? ` in ${city}` : ""}`,
   };
 }

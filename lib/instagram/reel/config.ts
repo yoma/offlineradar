@@ -3,6 +3,7 @@
  *
  *   INSTAGRAM_REEL_ENABLED            "1" = publish reels instead of feed posts (default off)
  *   INSTAGRAM_REEL_FALLBACK_TO_POST   "0" = no feed post when the reel fails (default on)
+ *   INSTAGRAM_REEL_COLLABORATORS      "0" = don't invite the organisers as collaborators (default on)
  *   INSTAGRAM_REEL_MIN_SECONDS        default 8
  *   INSTAGRAM_REEL_MAX_SECONDS        default 15
  *   INSTAGRAM_REEL_MUSIC_DIR          folder inside remotion/public, default "music"
@@ -14,6 +15,7 @@
 export type InstagramReelConfig = {
   enabled: boolean;
   fallbackToPost: boolean;
+  collaborators: boolean;
   minSeconds: number;
   maxSeconds: number;
   musicDir: string;
@@ -40,6 +42,7 @@ export function readInstagramReelConfig(
   return {
     enabled: env.INSTAGRAM_REEL_ENABLED?.trim() === "1",
     fallbackToPost: env.INSTAGRAM_REEL_FALLBACK_TO_POST?.trim() !== "0",
+    collaborators: env.INSTAGRAM_REEL_COLLABORATORS?.trim() !== "0",
     minSeconds,
     maxSeconds,
     musicDir: (env.INSTAGRAM_REEL_MUSIC_DIR?.trim() || "music").replace(/^\/+|\/+$/g, ""),

@@ -62,7 +62,7 @@ async function json<T>(res: Response, what: string): Promise<T> {
   return body;
 }
 
-async function upload(id: string, kind: "reel" | "reel_cover", file: string) {
+async function upload(id: string, kind: "reel" | "reel_cover" | "reel_story", file: string) {
   const bytes = await readFile(file);
   const res = await api(`/api/instagram/reels/${id}/media?kind=${kind}`, {
     method: "PUT",
@@ -127,6 +127,7 @@ async function main() {
           });
           await upload(job.id, "reel", reel.videoPath);
           await upload(job.id, "reel_cover", reel.coverPath);
+          await upload(job.id, "reel_story", reel.storyPath);
           await report(job.id, { ok: true, track: music?.src ?? null });
           lastTrack = music?.src ?? lastTrack;
           log(
