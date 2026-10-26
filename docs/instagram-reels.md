@@ -1,9 +1,39 @@
-# Instagram-reels (stap 1: template en testreel)
+# Instagram-reels
 
-Elke feedpost uit de wachtrij moet later een Reel worden met dezelfde events
-en caption; lukt de reel niet, dan gaat de gewone post online. Deze stap bevat
-alleen het videotemplate en een lokale testrender. Er wordt niets geüpload of
-gepubliceerd.
+Elke feedpost uit de wachtrij moet een Reel worden met dezelfde events en
+caption; lukt de reel niet, dan gaat de gewone post online.
+
+- **Stap 1** (klaar): videotemplate en lokale testrender.
+- **Stap 2** (klaar): bij elk voorstel wordt een reel gemaakt en in de
+  wachtrij getoond. Er wordt nog altijd als gewone post gepubliceerd.
+- **Stap 3** (volgt): reel publiceren, reel-story, terugval op de post, meldingen.
+
+## Hoe een reel gemaakt wordt (stap 2)
+
+1. Bij elk nieuw voorstel (automatisch of via *Maak een post*) bewaart de site
+   de reel-gegevens (`reel_props`): dezelfde events en hetzelfde formaat als de
+   slides. De reel krijgt status *te_maken*.
+2. Elk uur (minuut 20) draait de GitHub Actions-workflow
+   `.github/workflows/instagram-reels.yml`. Die vraagt eerst aan de site of er
+   reels wachten (`GET /api/instagram/reels/jobs`); zo niet, dan stopt hij
+   meteen. Anders installeert hij Remotion, claimt hij de reels
+   (`POST /api/instagram/reels/jobs`), rendert ze en uploadt MP4 en cover
+   (`PUT /api/instagram/reels/<id>/media`), en meldt het resultaat
+   (`POST /api/instagram/reels/<id>/result`).
+3. MP4 en cover worden in Neon bewaard (zoals de JPEG's) en publiek geserveerd
+   via `/api/instagram/media/<id>.mp4` en `.jpg`.
+4. In de wachtrij staat de video onder de slides, met de hook en de knop
+   *Reel opnieuw maken*. Verplaats je een post naar een andere dag en zou de
+   hook anders luiden ("dit weekend", "morgen"), dan wordt de reel automatisch
+   opnieuw gemaakt.
+
+Een render wordt maximaal 3 keer geprobeerd (status *mislukt* daarna; de post
+blijft gewoon bruikbaar). Een mislukte workflow-run kleurt rood en GitHub mailt
+dan de eigenaar van de repo.
+
+Instelling: repository secret `CRON_SECRET` in GitHub (zelfde waarde als in
+Vercel). Optioneel de repository variable `REEL_SITE_URL` (standaard
+`https://dateofflinehub.be`).
 
 ## Testreel maken
 
@@ -61,7 +91,11 @@ reel neemt de volgende track; fade-in en fade-out zitten in de video.
 | `lib/instagram/reel/config.ts` | instellingen uit env |
 | `lib/instagram/reel/music.ts` | trackrotatie |
 | `remotion/Reel.tsx` | het videotemplate |
+| `lib/instagram/reel/queue-reel.ts` | props bij een nieuw voorstel, opnieuw bij een nieuwe datum |
+| `lib/instagram/reel/render.ts` | Remotion-render (MP4 + cover, max 4,2 MB) |
 | `scripts/render-test-reel.ts` | lokale testrender |
+| `scripts/render-queued-reels.ts` | renderer voor de wachtrij (GitHub Actions) |
+| `app/api/instagram/reels/` | routes voor de renderer (Bearer `CRON_SECRET`) |
 
 Offline test: `npm run verify:instagram-reel`.
 

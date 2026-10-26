@@ -18,7 +18,10 @@ Adminpagina: `/interne-instagram/wachtrij` (zelfde Google-login als `/interne-ev
    linksticker toe; wil je een klikbare link, klik dan **Download verhaal** en plaats
    het zelf in de app met een linksticker. Mislukt het verhaal, dan blijft de post
    gewoon staan en kun je **Verhaal plaatsen** opnieuw proberen.
-5. Schakelaar **Automatisch posten zonder goedkeuring** (standaard UIT): als die aan
+5. **Reel:** bij elk nieuw voorstel wordt binnen het uur ook een reel gemaakt
+   (zie `docs/instagram-reels.md`). Je ziet de video onder de slides. Voorlopig
+   wordt nog als gewone post geplaatst.
+6. Schakelaar **Automatisch posten zonder goedkeuring** (standaard UIT): als die aan
    staat, gaan ook niet-goedgekeurde voorstellen op hun dag online.
 
 Afbeeldingen worden één keer als JPEG gemaakt en in Neon bewaard.

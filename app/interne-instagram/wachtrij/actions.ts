@@ -17,6 +17,7 @@ import {
   createQueuePost,
   deleteQueuePost,
   rejectQueuePost,
+  requestReelRender,
   resetFailedQueuePost,
   setAutoPostWithoutApproval,
   submitQueuePostForReview,
@@ -28,6 +29,10 @@ import {
   publishQueuePostNow,
   publishStoryNow,
 } from "@/lib/instagram/queue-runner";
+import {
+  prepareReelProps,
+  refreshReelAfterReschedule,
+} from "@/lib/instagram/reel/queue-reel";
 import { renderStoryOrNull } from "@/lib/instagram/story";
 import { fromBrusselsLocalInput } from "@/lib/instagram/queue-time";
 import { scrubSecrets } from "@/lib/instagram/token-store";
@@ -84,6 +89,7 @@ export async function saveQueuePostAction(
       scheduledAt: time ?? undefined,
       postStory: readPostStory(formData),
     });
+    if (ok && time) await refreshReelAfterReschedule(String(formData.get("id")));
     return done(ok, "Opgeslagen.", "Deze post kan niet meer aangepast worden.");
   } catch (error) {
     return failure(error);
@@ -106,6 +112,7 @@ export async function approveQueuePostAction(
       approvedBy: admin.email,
       postStory: readPostStory(formData),
     });
+    if (ok && time) await refreshReelAfterReschedule(String(formData.get("id")));
     return done(
       ok,
       "Goedgekeurd. De post wordt op het geplande tijdstip geplaatst.",
@@ -246,6 +253,7 @@ export async function createPostAction(
       source: "manual",
       format: kind === "event" ? "event" : draft.format,
       eventIds: draft.eventIds,
+      reelProps: prepareReelProps(draft, scheduledAt),
     });
     if (created) await recordConceptEventIds(draft.eventIds);
     return done(
@@ -297,6 +305,23 @@ export async function publishStoryAction(
     return result;
   } catch (error) {
     revalidatePath(PATH);
+    return failure(error);
+  }
+}
+
+/** "Reel opnieuw maken": queue a fresh render (same events, same hook). */
+export async function remakeReelAction(
+  formData: FormData,
+): Promise<QueueActionResult> {
+  if (!(await guard())) return UNAUTHORIZED;
+  try {
+    const ok = await requestReelRender(String(formData.get("id")));
+    return done(
+      ok,
+      "De reel wordt opnieuw gemaakt. Dat duurt tot een uur.",
+      "Voor deze post kan geen reel meer gemaakt worden.",
+    );
+  } catch (error) {
     return failure(error);
   }
 }

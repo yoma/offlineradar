@@ -119,9 +119,39 @@ VALUES ('20261025_instagram_post_queue_story_v2')
 ON CONFLICT (id) DO NOTHING;
 `;
 
+/**
+ * v3: a reel per post. reel_props is the frozen input for the Remotion
+ * render (same events as the slides); the MP4 and its cover are stored as
+ * media kinds 'reel' and 'reel_cover'.
+ *
+ * reel_status: geen (no reel) → te_maken → bezig → klaar | mislukt
+ */
+export const INSTAGRAM_POST_QUEUE_REEL_MIGRATION_ID =
+  "20261026_instagram_post_queue_reel_v3";
+
+export const INSTAGRAM_POST_QUEUE_REEL_SQL = `
+ALTER TABLE instagram_post_queue
+  ADD COLUMN IF NOT EXISTS reel_status TEXT NOT NULL DEFAULT 'geen',
+  ADD COLUMN IF NOT EXISTS reel_props JSONB,
+  ADD COLUMN IF NOT EXISTS reel_error TEXT,
+  ADD COLUMN IF NOT EXISTS reel_track TEXT,
+  ADD COLUMN IF NOT EXISTS reel_attempts INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS reel_started_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS reel_rendered_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS instagram_post_queue_reel_todo_idx
+  ON instagram_post_queue (scheduled_at)
+  WHERE reel_status IN ('te_maken', 'bezig');
+
+INSERT INTO schema_migrations (id)
+VALUES ('20261026_instagram_post_queue_reel_v3')
+ON CONFLICT (id) DO NOTHING;
+`;
+
 const MIGRATIONS: [id: string, sql: string][] = [
   [INSTAGRAM_POST_QUEUE_MIGRATION_ID, INSTAGRAM_POST_QUEUE_SCHEMA_SQL],
   [INSTAGRAM_POST_QUEUE_STORY_MIGRATION_ID, INSTAGRAM_POST_QUEUE_STORY_SQL],
+  [INSTAGRAM_POST_QUEUE_REEL_MIGRATION_ID, INSTAGRAM_POST_QUEUE_REEL_SQL],
 ];
 
 let ensured: Promise<boolean> | null = null;

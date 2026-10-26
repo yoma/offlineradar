@@ -13,6 +13,7 @@ import { randomBytes } from "node:crypto";
 import { appPublicBaseUrl } from "@/lib/email/app-brand";
 import { getEventsSql } from "@/lib/events/db";
 import { ensureInstagramQueueSchema } from "@/lib/instagram/queue-schema";
+import type { ReelProps } from "@/lib/instagram/reel/types";
 
 export const INSTAGRAM_QUEUE_STATUSES = [
   "concept",
@@ -26,6 +27,11 @@ export type InstagramQueueStatus = (typeof INSTAGRAM_QUEUE_STATUSES)[number];
 
 export const INSTAGRAM_CAPTION_MAX = 2200;
 export const INSTAGRAM_MEDIA_PATH = "/api/instagram/media";
+
+export type ReelStatus = "geen" | "te_maken" | "bezig" | "klaar" | "mislukt";
+
+/** Render attempts before a reel counts as failed (the post stays usable). */
+export const REEL_MAX_ATTEMPTS = 3;
 
 export type InstagramQueuePost = {
   id: string;
@@ -45,6 +51,14 @@ export type InstagramQueuePost = {
   /** Instagram media id of the published story. */
   instagramStoryId: string | null;
   storyError: string | null;
+  reelStatus: ReelStatus;
+  reelError: string | null;
+  /** Our media ids of the rendered MP4 and its cover (null until rendered). */
+  reelVideoId: string | null;
+  reelCoverId: string | null;
+  reelTrack: string | null;
+  /** The reel's hook sentence, e.g. "3 singles-events in Gent dit weekend". */
+  reelHook: string | null;
   source: "auto" | "manual";
   format: string | null;
   eventIds: string[];
@@ -68,6 +82,12 @@ type QueueRow = {
   story_media_id?: string | null;
   story_error?: string | null;
   story_image_id?: string | null;
+  reel_status?: ReelStatus | null;
+  reel_error?: string | null;
+  reel_track?: string | null;
+  reel_props?: unknown;
+  reel_video_id?: string | null;
+  reel_cover_id?: string | null;
   source: "auto" | "manual";
   format: string | null;
   event_ids: unknown;
@@ -99,6 +119,12 @@ function safeJson(raw: string): unknown {
   }
 }
 
+function reelHookOf(raw: unknown): string | null {
+  const props = typeof raw === "string" ? safeJson(raw) : raw;
+  const hook = (props as { hookText?: unknown } | null)?.hookText;
+  return typeof hook === "string" ? hook : null;
+}
+
 function mapRow(row: QueueRow): InstagramQueuePost {
   return {
     id: row.id,
@@ -114,6 +140,12 @@ function mapRow(row: QueueRow): InstagramQueuePost {
     storyImageId: row.story_image_id ?? null,
     instagramStoryId: row.story_media_id ?? null,
     storyError: row.story_error ?? null,
+    reelStatus: row.reel_status ?? "geen",
+    reelError: row.reel_error ?? null,
+    reelVideoId: row.reel_video_id ?? null,
+    reelCoverId: row.reel_cover_id ?? null,
+    reelTrack: row.reel_track ?? null,
+    reelHook: reelHookOf(row.reel_props),
     source: row.source,
     format: row.format,
     eventIds: stringArray(row.event_ids),
@@ -140,6 +172,11 @@ export function publicMediaUrl(mediaId: string, baseUrl = appPublicBaseUrl()): s
   return `${baseUrl.replace(/\/$/, "")}${INSTAGRAM_MEDIA_PATH}/${mediaId}.jpg`;
 }
 
+/** Public MP4 URL (Meta fetches reels from here, like the JPEGs). */
+export function publicVideoUrl(mediaId: string, baseUrl = appPublicBaseUrl()): string {
+  return `${baseUrl.replace(/\/$/, "")}${INSTAGRAM_MEDIA_PATH}/${mediaId}.mp4`;
+}
+
 export function normalizeCaption(raw: string): string {
   return raw.replace(/\r\n/g, "\n").trim().slice(0, INSTAGRAM_CAPTION_MAX);
 }
@@ -154,7 +191,11 @@ export async function listQueuePosts(limit = 60): Promise<InstagramQueuePost[]> 
         '[]'::jsonb
       ) AS media_ids,
       (SELECT m.id FROM instagram_post_media m
-       WHERE m.post_id = q.id AND m.kind = 'story' LIMIT 1) AS story_image_id
+       WHERE m.post_id = q.id AND m.kind = 'story' LIMIT 1) AS story_image_id,
+      (SELECT m.id FROM instagram_post_media m
+       WHERE m.post_id = q.id AND m.kind = 'reel' LIMIT 1) AS reel_video_id,
+      (SELECT m.id FROM instagram_post_media m
+       WHERE m.post_id = q.id AND m.kind = 'reel_cover' LIMIT 1) AS reel_cover_id
     FROM instagram_post_queue q
     ORDER BY
       CASE WHEN q.status IN ('te_keuren', 'goedgekeurd', 'mislukt') THEN 0 ELSE 1 END,
@@ -198,6 +239,8 @@ export async function createQueuePost(input: {
   /** 1080×1920 story JPEG; null when it could not be rendered. */
   storyJpeg?: Buffer | null;
   postStory?: boolean;
+  /** Input for the reel render; null/absent = no reel for this post. */
+  reelProps?: ReelProps | null;
 }): Promise<InstagramQueuePost | null> {
   if (input.jpegs.length < 1 || input.jpegs.length > 10) {
     throw new Error("Een post heeft 1 tot 10 afbeeldingen nodig.");
@@ -210,7 +253,7 @@ export async function createQueuePost(input: {
   const inserted = (await sql`
     INSERT INTO instagram_post_queue (
       id, image_urls, caption, scheduled_at, status, source, format,
-      event_ids, slot_key, post_story
+      event_ids, slot_key, post_story, reel_status, reel_props
     ) VALUES (
       ${id},
       ${JSON.stringify(imageUrls)}::jsonb,
@@ -221,7 +264,9 @@ export async function createQueuePost(input: {
       ${input.format ?? null},
       ${JSON.stringify(input.eventIds ?? [])}::jsonb,
       ${input.slotKey ?? null},
-      ${input.postStory !== false}
+      ${input.postStory !== false},
+      ${input.reelProps ? "te_maken" : "geen"},
+      ${input.reelProps ? JSON.stringify(input.reelProps) : null}::jsonb
     )
     ON CONFLICT DO NOTHING
     RETURNING id
@@ -246,13 +291,23 @@ export async function createQueuePost(input: {
 }
 
 export async function getQueueMedia(mediaId: string): Promise<Buffer | null> {
+  return (await getQueueMediaWithKind(mediaId))?.bytes ?? null;
+}
+
+/** Media bytes plus their kind ('feed', 'story', 'reel', 'reel_cover'). */
+export async function getQueueMediaWithKind(
+  mediaId: string,
+): Promise<{ bytes: Buffer; kind: string } | null> {
   const sql = await queueSql();
   const rows = (await sql`
-    SELECT bytes FROM instagram_post_media WHERE id = ${mediaId}
-  `) as { bytes: Buffer | Uint8Array }[];
-  const bytes = rows[0]?.bytes;
-  if (!bytes) return null;
-  return Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+    SELECT bytes, kind FROM instagram_post_media WHERE id = ${mediaId}
+  `) as { bytes: Buffer | Uint8Array; kind: string }[];
+  const row = rows[0];
+  if (!row?.bytes) return null;
+  return {
+    bytes: Buffer.isBuffer(row.bytes) ? row.bytes : Buffer.from(row.bytes),
+    kind: row.kind,
+  };
 }
 
 /** Admin edits are only allowed before publishing starts. */
@@ -603,4 +658,160 @@ export async function setAutoPostWithoutApproval(enabled: boolean) {
     SET auto_post_without_approval = ${enabled}, updated_at = now()
     WHERE id = 1
   `;
+}
+
+// --- reels --------------------------------------------------------------------
+
+/** Posts whose reel may still be (re)made: anything not live or publishing. */
+const REEL_RENDERABLE = ["concept", "te_keuren", "goedgekeurd", "mislukt"] as const;
+
+export type ReelJob = { id: string; scheduledAt: string; props: ReelProps };
+
+/** Number of reels waiting for a render (cheap check for the workflow). */
+export async function countPendingReels(): Promise<number> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    SELECT count(*)::int AS n FROM instagram_post_queue
+    WHERE status = ANY(${[...REEL_RENDERABLE]})
+      AND reel_props IS NOT NULL
+      AND (
+        reel_status = 'te_maken'
+        OR (reel_status = 'bezig' AND reel_started_at < now() - interval '30 minutes')
+      )
+  `) as { n: number }[];
+  return rows[0]?.n ?? 0;
+}
+
+/**
+ * Claim reels to render, soonest first. A claim older than 30 minutes counts
+ * as abandoned (the render job died) and may be taken again.
+ */
+export async function claimReelJobs(limit: number): Promise<ReelJob[]> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    UPDATE instagram_post_queue SET
+      reel_status = 'bezig',
+      reel_started_at = now(),
+      reel_attempts = reel_attempts + 1,
+      updated_at = now()
+    WHERE id IN (
+      SELECT id FROM instagram_post_queue
+      WHERE status = ANY(${[...REEL_RENDERABLE]})
+        AND reel_props IS NOT NULL
+        AND (
+          reel_status = 'te_maken'
+          OR (reel_status = 'bezig' AND reel_started_at < now() - interval '30 minutes')
+        )
+      ORDER BY scheduled_at ASC
+      LIMIT ${limit}
+      FOR UPDATE SKIP LOCKED
+    )
+    RETURNING id, scheduled_at, reel_props
+  `) as { id: string; scheduled_at: string | Date; reel_props: unknown }[];
+  return rows.map((r) => ({
+    id: r.id,
+    scheduledAt: iso(r.scheduled_at)!,
+    props: (typeof r.reel_props === "string" ? safeJson(r.reel_props) : r.reel_props) as ReelProps,
+  }));
+}
+
+/** The track of the most recently rendered reel (for rotation). */
+export async function getLastReelTrack(): Promise<string | null> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    SELECT reel_track FROM instagram_post_queue
+    WHERE reel_track IS NOT NULL AND reel_rendered_at IS NOT NULL
+    ORDER BY reel_rendered_at DESC
+    LIMIT 1
+  `) as { reel_track: string }[];
+  return rows[0]?.reel_track ?? null;
+}
+
+/** Store (or replace) the rendered MP4 or cover of a post being rendered. */
+export async function saveReelMedia(
+  postId: string,
+  kind: "reel" | "reel_cover",
+  bytes: Buffer,
+): Promise<string | null> {
+  const sql = await queueSql();
+  const mediaId = newMediaId();
+  const results = await sql.transaction([
+    sql`
+      DELETE FROM instagram_post_media m
+      USING instagram_post_queue q
+      WHERE m.post_id = q.id AND q.id = ${postId}
+        AND q.reel_status = 'bezig' AND m.kind = ${kind}
+    `,
+    sql`
+      INSERT INTO instagram_post_media (id, post_id, position, bytes, kind)
+      SELECT ${mediaId}, q.id, 0, ${bytes}, ${kind}
+      FROM instagram_post_queue q
+      WHERE q.id = ${postId} AND q.reel_status = 'bezig'
+      RETURNING id
+    `,
+  ]);
+  const inserted = results[1] as unknown[];
+  return inserted.length > 0 ? mediaId : null;
+}
+
+/** Render finished: both files are stored. */
+export async function markReelReady(postId: string, track: string | null): Promise<boolean> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    UPDATE instagram_post_queue q SET
+      reel_status = 'klaar',
+      reel_error = NULL,
+      reel_track = ${track},
+      reel_rendered_at = now(),
+      updated_at = now()
+    WHERE q.id = ${postId}
+      AND q.reel_status = 'bezig'
+      AND EXISTS (SELECT 1 FROM instagram_post_media m WHERE m.post_id = q.id AND m.kind = 'reel')
+      AND EXISTS (SELECT 1 FROM instagram_post_media m WHERE m.post_id = q.id AND m.kind = 'reel_cover')
+    RETURNING q.id
+  `) as unknown[];
+  return rows.length > 0;
+}
+
+/**
+ * Render failed. Below REEL_MAX_ATTEMPTS the reel is queued again; after
+ * that it stays 'mislukt' and the post goes out as a normal feed post.
+ */
+export async function markReelFailed(
+  postId: string,
+  message: string,
+): Promise<{ status: ReelStatus } | null> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    UPDATE instagram_post_queue SET
+      reel_status = CASE WHEN reel_attempts >= ${REEL_MAX_ATTEMPTS} THEN 'mislukt' ELSE 'te_maken' END,
+      reel_error = ${message.slice(0, 1000)},
+      updated_at = now()
+    WHERE id = ${postId} AND reel_status = 'bezig'
+    RETURNING reel_status
+  `) as { reel_status: ReelStatus }[];
+  return rows[0] ? { status: rows[0].reel_status } : null;
+}
+
+/** Admin "Reel opnieuw maken", or new props after a change of date. */
+export async function requestReelRender(
+  postId: string,
+  props?: ReelProps,
+): Promise<boolean> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    UPDATE instagram_post_queue SET
+      reel_props = COALESCE(${props ? JSON.stringify(props) : null}::jsonb, reel_props),
+      reel_status = 'te_maken',
+      reel_error = NULL,
+      reel_attempts = 0,
+      reel_started_at = NULL,
+      updated_at = now()
+    WHERE id = ${postId}
+      AND status = ANY(${[...REEL_RENDERABLE]})
+      AND publish_started_at IS NULL
+      AND (reel_props IS NOT NULL OR ${props ? true : false})
+    RETURNING id
+  `) as unknown[];
+  return rows.length > 0;
 }

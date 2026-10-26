@@ -15,8 +15,6 @@
 
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { bundle } from "@remotion/bundler";
-import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import { listEvents } from "@/lib/events";
 import type { InstagramFormatId } from "@/lib/instagram/constants";
 import {
@@ -26,13 +24,13 @@ import {
   type InstagramDraft,
 } from "@/lib/instagram/drafts";
 import { readInstagramReelConfig } from "@/lib/instagram/reel/config";
-import { pickReelMusic, REMOTION_PUBLIC_DIR } from "@/lib/instagram/reel/music";
+import { pickReelMusic } from "@/lib/instagram/reel/music";
 import { buildReelProps, noEmDash } from "@/lib/instagram/reel/props";
+import { bundleReelTemplate, renderReel } from "@/lib/instagram/reel/render";
 import type { ReelProps } from "@/lib/instagram/reel/types";
 
 type TestFormat = InstagramFormatId | "single";
 const ALL: TestFormat[] = ["deze_week", "binnenkort", "nieuw", "single"];
-const COMPOSITION_ID = "DateOfflineHubReel";
 
 function arg(name: string): string | undefined {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -54,10 +52,7 @@ async function main() {
   log(`${catalog.length} events in de catalogus`);
 
   log("Remotion-bundel maken...");
-  const serveUrl = await bundle({
-    entryPoint: path.resolve("remotion/index.ts"),
-    publicDir: REMOTION_PUBLIC_DIR,
-  });
+  const serveUrl = await bundleReelTemplate();
   const browserExecutable = process.env.REMOTION_BROWSER_EXECUTABLE || null;
 
   let lastTrack: string | null = null;
@@ -85,44 +80,13 @@ async function main() {
     });
     const caption = noEmDash(draft.caption);
 
-    const composition = await selectComposition({
-      serveUrl,
-      id: COMPOSITION_ID,
-      inputProps: props,
-      browserExecutable,
-    });
-    const seconds = (composition.durationInFrames / composition.fps).toFixed(1);
-    log(`${format}: "${props.hookText}", ${props.events.length} events, ${seconds} s, muziek ${music?.src ?? "geen"}`);
-
     const base = path.join(outDir, `reel-${format}`);
     const started = Date.now();
-    await renderMedia({
-      serveUrl,
-      composition,
-      inputProps: props,
-      codec: "h264",
-      audioCodec: "aac",
-      audioBitrate: "192k",
-      crf: 18,
-      pixelFormat: "yuv420p",
-      colorSpace: "bt709",
-      enforceAudioTrack: true,
-      outputLocation: `${base}.mp4`,
-      browserExecutable,
-      overwrite: true,
-    });
-    // Cover: the hook, fully on screen.
-    await renderStill({
-      serveUrl,
-      composition,
-      inputProps: props,
-      frame: Math.max(0, props.timing.hookFrames - 25),
-      output: `${base}-cover.jpg`,
-      imageFormat: "jpeg",
-      jpegQuality: 90,
-      browserExecutable,
-      overwrite: true,
-    });
+    const reel = await renderReel({ serveUrl, props, outBase: base, browserExecutable });
+    log(
+      `${format}: "${props.hookText}", ${props.events.length} events, ${reel.seconds.toFixed(1)} s, ` +
+        `${(reel.bytes / 1e6).toFixed(1)} MB, muziek ${music?.src ?? "geen"}`,
+    );
     await writeFile(`${base}-caption.txt`, `${caption}\n`);
     await writeFile(`${base}-props.json`, `${JSON.stringify(props, null, 2)}\n`);
     log(`${format}: klaar in ${((Date.now() - started) / 1000).toFixed(0)} s → ${base}.mp4`);
