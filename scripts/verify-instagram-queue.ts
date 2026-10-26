@@ -86,6 +86,7 @@ async function main() {
     "2026-10-26T17:30|deze_week",
     "2026-10-28T17:30|nieuw",
     "2026-10-30T17:30|binnenkort",
+    "2026-10-31T17:30|event",
   ]);
   assert.equal(slots[0]!.at.toISOString(), "2026-10-26T16:30:00.000Z", "17:30 CET");
   const tooClose = upcomingQueueSlots(new Date("2026-10-26T15:00:00Z"));
@@ -152,6 +153,35 @@ async function main() {
     deadlineMs: Date.now() + 10_000,
   });
   assert.equal(failed.ok, false, "container error stops before publish");
+
+  // --- Saturday spotlight: fresh event, 2–28 days ahead -------------------
+  const { pickSpotlightEvent } = await import("../lib/instagram/drafts");
+  const spot = (id: string, startDate: string) =>
+    ({
+      id,
+      slug: id,
+      title: id,
+      startDate,
+      startTime: "19:00",
+      city: "Gent",
+      region: "Oost-Vlaanderen",
+      capacityStatus: "available",
+      activities: [],
+    }) as unknown as Parameters<typeof pickSpotlightEvent>[0][number];
+  const postAt = new Date("2026-10-31T16:30:00Z");
+  const pool = [
+    spot("tomorrow", "2026-11-01"),
+    spot("used", "2026-11-04"),
+    spot("good", "2026-11-06"),
+    spot("later", "2026-11-10"),
+  ];
+  assert.equal(pickSpotlightEvent(pool, postAt, new Set(["used"]))?.id, "good");
+  assert.equal(
+    pickSpotlightEvent([spot("tomorrow", "2026-11-01")], postAt, new Set())?.id,
+    "tomorrow",
+    "falls back to any fresh event",
+  );
+  assert.equal(pickSpotlightEvent(pool.slice(1, 2), postAt, new Set(["used"])), null);
 
   // --- captions send people to the website ---------------------------------
   const { buildInstagramCaption, buildSingleEventCaption } = await import(

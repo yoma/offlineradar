@@ -11,7 +11,12 @@ import { brusselsWallInstant } from "@/lib/event-visibility";
 import { addDays, brusselsToday, weekdayIndex } from "@/lib/dates";
 import { listEvents } from "@/lib/events";
 import type { InstagramFormatId } from "@/lib/instagram/constants";
-import { buildInstagramDraft } from "@/lib/instagram/drafts";
+import {
+  buildInstagramDraft,
+  buildSingleEventDraft,
+  pickSpotlightEvent,
+  type InstagramDraft,
+} from "@/lib/instagram/drafts";
 import {
   getRecentlyUsedEventIds,
   recordConceptEventIds,
@@ -67,19 +72,24 @@ import type { Event } from "@/types/event";
 /**
  * Weekly proposal slots (Brussels time). weekday: 0 = Sunday.
  * Monday: what's on this week. Wednesday: new on the site. Friday: coming up.
+ * Saturday: one event in the spotlight ("event").
  * 17:30 is just before the daily cron (17:xx UTC = 18–19h Brussels), so the
  * post goes out in that evening's run.
  */
 const DAILY_POST_TIME = "17:30";
 
+/** A post format, or "event" for a post about one event. */
+export type QueueSlotFormat = InstagramFormatId | "event";
+
 export const INSTAGRAM_WEEKLY_SLOTS: {
   weekday: number;
   time: string;
-  format: InstagramFormatId;
+  format: QueueSlotFormat;
 }[] = [
   { weekday: 1, time: DAILY_POST_TIME, format: "deze_week" },
   { weekday: 3, time: DAILY_POST_TIME, format: "nieuw" },
   { weekday: 5, time: DAILY_POST_TIME, format: "binnenkort" },
+  { weekday: 6, time: DAILY_POST_TIME, format: "event" },
 ];
 
 /** Propose posts this far ahead, so there is time to review them. */
@@ -108,7 +118,7 @@ const CRON_TOTAL_MS = 285_000;
 export type QueueSlot = {
   slotKey: string;
   at: Date;
-  format: InstagramFormatId;
+  format: QueueSlotFormat;
 };
 
 export function upcomingQueueSlots(now = new Date()): QueueSlot[] {
@@ -716,10 +726,16 @@ async function proposeNextSlot(
   const catalog = await listEvents();
   const recentlyUsed = await getRecentlyUsedEventIds(21);
   for (const slot of open) {
-    const draft = buildInstagramDraft(slot.format, catalog, {
-      now: slot.at,
-      recentlyUsedIds: recentlyUsed,
-    });
+    let draft: InstagramDraft | null;
+    if (slot.format === "event") {
+      const event = pickSpotlightEvent(catalog, slot.at, recentlyUsed);
+      draft = event ? buildSingleEventDraft(event) : null;
+    } else {
+      draft = buildInstagramDraft(slot.format, catalog, {
+        now: slot.at,
+        recentlyUsedIds: recentlyUsed,
+      });
+    }
     if (!draft) {
       notes.push(`${slot.slotKey}: te weinig geschikte events voor een voorstel.`);
       continue;
@@ -734,7 +750,7 @@ async function proposeNextSlot(
       scheduledAt: slot.at,
       status: "te_keuren",
       source: "auto",
-      format: draft.format,
+      format: slot.format === "event" ? "event" : draft.format,
       eventIds: draft.eventIds,
       slotKey: slot.slotKey,
       reelProps: prepareReelProps(draft, slot.at),

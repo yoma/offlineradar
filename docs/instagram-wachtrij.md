@@ -9,8 +9,9 @@ Adminpagina: `/interne-instagram/wachtrij` (zelfde Google-login als `/interne-ev
 2. Bekijk het voorbeeld, pas eventueel de caption aan en klik:
    - **Nu plaatsen**: meteen op Instagram (±30 seconden), of
    - **Plannen voor die avond (18–20 u)**: je kiest een dag; de post gaat die avond automatisch online.
-3. De site stelt daarnaast zelf drie posts per week voor (ma *Deze week*, wo *Nieuw*,
-   vr *Binnenkort*). Die verschijnen onder **Te keuren**. Goedkeuren of **Afwijzen**;
+3. De site stelt daarnaast zelf vier posts per week voor (ma *Deze week*, wo *Nieuw*,
+   vr *Binnenkort*, za één event in de kijker dat de laatste 3 weken nog niet in een
+   post stond). Die verschijnen onder **Te keuren**. Goedkeuren of **Afwijzen**;
    afgewezen posts worden verborgen en nooit geplaatst.
 4. **Verhaal (story):** vinkje "Ook als verhaal" (standaard aan). Na de feedpost
    plaatst de site een staand beeld (1080×1920): de eerste slide met
