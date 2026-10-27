@@ -7,6 +7,7 @@ import Link from "next/link";
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
   type FormEvent,
@@ -48,9 +49,7 @@ const AdminChatPanel = dynamic(
     import("@/components/admin/admin-chat-panel").then((m) => m.AdminChatPanel),
   {
     ssr: false,
-    loading: () => (
-      <p className="text-sm text-stone-500">Assistent laden…</p>
-    ),
+    loading: () => <p className="text-sm text-stone-500">Assistent laden…</p>,
   },
 );
 
@@ -192,11 +191,21 @@ export function AanvoerCockpit({
 
   const [highlightSource, setHighlightSource] = useState(highlightSourceId);
   const [highlightEdition, setHighlightEdition] = useState(highlightEditionId);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const scrollToContent = useRef(false);
+
+  // After a tab switch, bring its content into view (it sits below the assistant).
+  useEffect(() => {
+    if (!scrollToContent.current) return;
+    scrollToContent.current = false;
+    contentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [tab]);
 
   function setTab(
     next: TabId,
     opts?: { sourceId?: string; editionId?: string; refresh?: boolean },
   ) {
+    scrollToContent.current = true;
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", next);
     if (opts?.sourceId) {
@@ -221,7 +230,7 @@ export function AanvoerCockpit({
     <div className="space-y-5">
       <nav
         aria-label="Aanvoer menu"
-        className="mobile-scroll-x -mx-1 px-1 pb-1"
+        className="mobile-scroll-x sticky top-16 z-30 -mx-1 px-1 pb-1"
       >
         <div
           className="flex min-w-max gap-1.5 rounded-2xl border border-stone-300/80 bg-white p-1.5 shadow-md sm:min-w-0"
@@ -297,41 +306,41 @@ export function AanvoerCockpit({
       {data.autoPublishedIds.length > 0 ? (
         <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
           {data.autoPublishedIds.length} event
-          {data.autoPublishedIds.length === 1 ? "" : "s"} automatisch
-          toegevoegd (gate geslaagd).
+          {data.autoPublishedIds.length === 1 ? "" : "s"} automatisch toegevoegd
+          (gate geslaagd).
         </p>
       ) : null}
 
       <AdminChatPanel />
 
-      {tab === "nieuw" ? (
-        <AanvoerClient
-          onSavedSource={(sourceId) => setTab("bronnen", { sourceId })}
-          onSavedCandidate={(editionId) =>
-            setTab("aandacht", { editionId })
-          }
-          onApprovedPublished={(editionId) =>
-            setTab("toegevoegd", { editionId })
-          }
-        />
-      ) : null}
-      {tab === "bronnen" ? (
-        <SourcesPanel
-          key={highlightSource ?? "bronnen"}
-          sources={data.sources}
-          highlightId={highlightSource}
-        />
-      ) : null}
-      {tab === "aandacht" ||
-      tab === "toegevoegd" ||
-      tab === "niet_toegevoegd" ? (
-        <EventsPanel
-          key={`${tab}-${highlightEdition ?? "list"}`}
-          candidates={data.candidates}
-          highlightId={highlightEdition}
-          bucket={tab}
-        />
-      ) : null}
+      <div ref={contentRef} className="scroll-mt-36 space-y-5">
+        {tab === "nieuw" ? (
+          <AanvoerClient
+            onSavedSource={(sourceId) => setTab("bronnen", { sourceId })}
+            onSavedCandidate={(editionId) => setTab("aandacht", { editionId })}
+            onApprovedPublished={(editionId) =>
+              setTab("toegevoegd", { editionId })
+            }
+          />
+        ) : null}
+        {tab === "bronnen" ? (
+          <SourcesPanel
+            key={highlightSource ?? "bronnen"}
+            sources={data.sources}
+            highlightId={highlightSource}
+          />
+        ) : null}
+        {tab === "aandacht" ||
+        tab === "toegevoegd" ||
+        tab === "niet_toegevoegd" ? (
+          <EventsPanel
+            key={`${tab}-${highlightEdition ?? "list"}`}
+            candidates={data.candidates}
+            highlightId={highlightEdition}
+            bucket={tab}
+          />
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -764,10 +773,12 @@ function EventsPanel({
   const [pasteId, setPasteId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [searchingId, setSearchingId] = useState<string | null>(null);
-  const [searchFeedback, setSearchFeedback] = useState<Record<
-    string,
-    { kind: "loading" | "new_info" | "no_new_info" | "failed"; text: string }
-  >>({});
+  const [searchFeedback, setSearchFeedback] = useState<
+    Record<
+      string,
+      { kind: "loading" | "new_info" | "no_new_info" | "failed"; text: string }
+    >
+  >({});
   /** Keep just-published cards visible in aandacht until the success message is readable. */
   const [heldAandacht, setHeldAandacht] = useState<
     Record<string, CockpitCandidateRow>
@@ -803,12 +814,18 @@ function EventsPanel({
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return candidatesWithLocal.filter((c) => {
-      if (bucket === "aandacht" && c.adminStatus !== "aandacht_nodig") return false;
-      if (bucket === "toegevoegd" && c.adminStatus !== "toegevoegd") return false;
+      if (bucket === "aandacht" && c.adminStatus !== "aandacht_nodig")
+        return false;
+      if (bucket === "toegevoegd" && c.adminStatus !== "toegevoegd")
+        return false;
       if (bucket === "niet_toegevoegd" && c.adminStatus !== "niet_toegevoegd") {
         return false;
       }
-      if (bucket === "aandacht" && queueFilter === "klaar" && !c.readyToPublish) {
+      if (
+        bucket === "aandacht" &&
+        queueFilter === "klaar" &&
+        !c.readyToPublish
+      ) {
         return false;
       }
       if (
@@ -953,10 +970,9 @@ function EventsPanel({
           if (result.attachedSourceUrl) {
             patch.sourceUrl = result.attachedSourceUrl;
             try {
-              patch.sourceDomain = new URL(result.attachedSourceUrl).hostname.replace(
-                /^www\./,
-                "",
-              );
+              patch.sourceDomain = new URL(
+                result.attachedSourceUrl,
+              ).hostname.replace(/^www\./, "");
             } catch {
               /* ignore */
             }
@@ -967,8 +983,7 @@ function EventsPanel({
             location:
               existing.checks.location ||
               Boolean(after.city || after.venue || after.location),
-            source:
-              existing.checks.source || Boolean(result.attachedSourceUrl),
+            source: existing.checks.source || Boolean(result.attachedSourceUrl),
             singles:
               existing.checks.singles ||
               after.singlesOriented === "true" ||
@@ -1262,8 +1277,7 @@ function AdminEventCard({
   ]
     .filter(Boolean)
     .join(" · ");
-  const cityLabel =
-    c.city && !isWeakLocationCity(c.city) ? c.city : null;
+  const cityLabel = c.city && !isWeakLocationCity(c.city) ? c.city : null;
   const place = [c.venueName, cityLabel].filter(Boolean).join(" · ");
 
   return (
@@ -1545,7 +1559,8 @@ function AdminEventCard({
               formData.set("startTime", editTime);
               if (editPrice.trim()) formData.set("priceAmount", editPrice);
               startEditTransition(async () => {
-                const result = await patchAanvoerCandidateFieldsAction(formData);
+                const result =
+                  await patchAanvoerCandidateFieldsAction(formData);
                 if (!result.ok) {
                   onPatchError(result.error);
                   return;
@@ -1700,7 +1715,8 @@ function AdminEventCard({
 function ImageWhyBlock({ candidate: c }: { candidate: CockpitCandidateRow }) {
   const resolved = resolvePublicEventImage(
     {
-      category: (c.category as "dating" | "meet_new_people" | "social") || "social",
+      category:
+        (c.category as "dating" | "meet_new_people" | "social") || "social",
       activities: [],
       tags: c.tags,
       title: c.title,
