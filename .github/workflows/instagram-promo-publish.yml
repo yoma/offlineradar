@@ -1,0 +1,42 @@
+# Publish the weekly promo reel at its own time (config/promo-reels.ts,
+# default Sunday 11:00 Brussels). The Vercel cron only runs in the evening,
+# so this asks the site every hour whether a promo reel is due; the site
+# publishes it (approved, or "te keuren" with automatic posting on).
+#
+# Repository secrets: CRON_SECRET (same value as in Vercel).
+# Optional repository variable: REEL_SITE_URL (default https://dateofflinehub.be).
+name: Instagram promo publish
+
+on:
+  schedule:
+    - cron: "5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: instagram-promo-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      REEL_SITE_URL: ${{ vars.REEL_SITE_URL || 'https://dateofflinehub.be' }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: Publish due promo reel
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET is not set as a repository secret." >&2
+            exit 1
+          fi
+          body=$(curl -fsS --retry 2 --retry-delay 10 --max-time 310 -X POST \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$REEL_SITE_URL/api/instagram/promo/publish")
+          echo "$body" | jq .
+          if [ "$(echo "$body" | jq '[.published[]? | select(.ok == false)] | length')" != "0" ]; then
+            exit 1
+          fi

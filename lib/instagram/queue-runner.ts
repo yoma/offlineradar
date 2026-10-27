@@ -7,6 +7,7 @@
  *   3. propose one post for an empty weekly slot
  */
 
+import { PROMO_REELS_CONFIG } from "@/config/promo-reels";
 import { brusselsWallInstant } from "@/lib/event-visibility";
 import { addDays, brusselsToday, weekdayIndex } from "@/lib/dates";
 import { listEvents } from "@/lib/events";
@@ -46,8 +47,10 @@ import {
   markStoryPosted,
   publicMediaUrl,
   publicVideoUrl,
+  createPromoQueuePost,
   createQueuePost,
   getAutoPostWithoutApproval,
+  PROMO_FORMAT,
   hasPostForSlot,
   markQueueFailed,
   markQueuePosted,
@@ -78,8 +81,8 @@ import type { Event } from "@/types/event";
  */
 const DAILY_POST_TIME = "17:30";
 
-/** A post format, or "event" for a post about one event. */
-export type QueueSlotFormat = InstagramFormatId | "event";
+/** A post format, "event" for a post about one event, or the weekly promo reel. */
+export type QueueSlotFormat = InstagramFormatId | "event" | typeof PROMO_FORMAT;
 
 export const INSTAGRAM_WEEKLY_SLOTS: {
   weekday: number;
@@ -90,6 +93,9 @@ export const INSTAGRAM_WEEKLY_SLOTS: {
   { weekday: 3, time: DAILY_POST_TIME, format: "nieuw" },
   { weekday: 5, time: DAILY_POST_TIME, format: "binnenkort" },
   { weekday: 6, time: DAILY_POST_TIME, format: "event" },
+  // Promo reel: its own day and time (config/promo-reels.ts). Published by
+  // the hourly GitHub workflow, not the evening cron.
+  { ...PROMO_REELS_CONFIG.schedule, format: PROMO_FORMAT },
 ];
 
 /** Propose posts this far ahead, so there is time to review them. */
@@ -161,6 +167,25 @@ export type QueueTickResult = {
   notes: string[];
 };
 
+/**
+ * Hourly (GitHub workflow): publish promo reels that are due. Event posts
+ * keep going out with the evening cron.
+ */
+export async function runPromoPublishTick(options?: {
+  now?: Date;
+  metaClient?: MetaClient;
+}): Promise<{ published: { id: string; ok: boolean; message: string }[]; notes: string[] }> {
+  const config = readInstagramMetaConfig();
+  if (config.dryRun) return { published: [], notes: ["INSTAGRAM_META_DRY_RUN staat aan."] };
+  if (config.publishExplicitlyOff) {
+    return { published: [], notes: ["INSTAGRAM_META_PUBLISH_ENABLED=0."] };
+  }
+  const autoPost = await getAutoPostWithoutApproval();
+  const post = await claimDueQueuePost({ autoPost, now: options?.now, promoOnly: true });
+  if (!post) return { published: [], notes: [] };
+  return { published: [await publishQueuePost(post, options?.metaClient)], notes: [] };
+}
+
 export async function runInstagramQueueTick(options?: {
   now?: Date;
   metaClient?: MetaClient;
@@ -229,7 +254,8 @@ export async function publishQueuePost(
   if (!config.igUserId || !accessToken) {
     return fail(humanMetaPublishError("missing_credentials"));
   }
-  if (post.imageUrls.length === 0) return fail(humanMetaPublishError("no_slides"));
+  const promo = post.format === PROMO_FORMAT;
+  if (!promo && post.imageUrls.length === 0) return fail(humanMetaPublishError("no_slides"));
 
   let events: Event[] = [];
   if (post.eventIds.length > 0) {
@@ -280,6 +306,24 @@ export async function publishQueuePost(
   }
 
   const reelConfig = readInstagramReelConfig();
+  if (promo) {
+    // A promo reel has no slides: reel or nothing.
+    if (!reelConfig.enabled) {
+      return fail("Promo-reel niet geplaatst: reels staan uit (INSTAGRAM_REEL_ENABLED=0).");
+    }
+    const reel = await publishAsReel({
+      post,
+      client,
+      caption,
+      events,
+      reelConfig,
+      startedMs,
+      postDeadlineMs,
+    });
+    if (reel.kind === "done") return reel.result.ok ? reel.result : fail(reel.result.message);
+    return fail(`Promo-reel niet geplaatst: ${reel.reason}`);
+  }
+
   let fallbackReason: string | null = null;
   // The admin ticks "Plaatsen als reel" per post; posts without a reel
   // (made before reels existed) just go out as a post.
@@ -726,6 +770,15 @@ async function proposeNextSlot(
   const catalog = await listEvents();
   const recentlyUsed = await getRecentlyUsedEventIds(21);
   for (const slot of open) {
+    if (slot.format === PROMO_FORMAT) {
+      // Cheap here: script, clips and video are made by the hourly renderer.
+      const created = await createPromoQueuePost({
+        scheduledAt: slot.at,
+        source: "auto",
+        slotKey: slot.slotKey,
+      });
+      return created ? { id: created.id, slotKey: slot.slotKey } : null;
+    }
     let draft: InstagramDraft | null;
     if (slot.format === "event") {
       const event = pickSpotlightEvent(catalog, slot.at, recentlyUsed);

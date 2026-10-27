@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { listEvents } from "@/lib/events";
+import { countEventsThisWeek } from "@/lib/instagram/promo/schedule";
 import {
   claimReelJobs,
   countPendingReels,
   getLastReelTrack,
+  getPromoHistory,
+  type ReelJob,
 } from "@/lib/instagram/queue";
 import { isCronRequestAuthorized } from "@/lib/source-refresh/cron-auth";
 
@@ -12,7 +16,11 @@ export const dynamic = "force-dynamic";
 /**
  * Reel render queue for the GitHub Actions renderer.
  * GET  → { pending } (cheap check before installing Remotion)
- * POST → claims up to `limit` reels: { jobs: [{ id, scheduledAt, props }], lastTrack }
+ * POST → claims up to `limit` reels: { jobs, lastTrack, lastPromoTrack }.
+ *        A job is { kind: "reel", id, scheduledAt, props } or a promo reel
+ *        { kind: "promo", ..., plan, redo }; a promo job that needs a (new)
+ *        plan also gets `history` (what earlier promo reels used) and
+ *        `eventCount` (events in the 7 days from its publish date).
  * Auth: Authorization: Bearer $CRON_SECRET.
  */
 export async function GET(request: Request) {
@@ -34,14 +42,36 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as { limit?: unknown };
   const limit = Math.min(10, Math.max(1, Number(body.limit) || 3));
   try {
-    const jobs = await claimReelJobs(limit);
-    const lastTrack = await getLastReelTrack();
+    const claimed = await claimReelJobs(limit);
+    const jobs = await withPromoContext(claimed);
+    const lastTrack = await getLastReelTrack("reel");
+    const lastPromoTrack = await getLastReelTrack("promo");
     if (jobs.length > 0) {
       console.info(`[instagram/reels] ${jobs.length} reel(s) geclaimd: ${jobs.map((j) => j.id).join(", ")}`);
     }
-    return NextResponse.json({ ok: true, jobs, lastTrack });
+    return NextResponse.json({ ok: true, jobs, lastTrack, lastPromoTrack });
   } catch (error) {
     console.error("[instagram/reels] claim", error instanceof Error ? error.message : error);
     return NextResponse.json({ ok: false, error: "unavailable" }, { status: 503 });
   }
+}
+
+/** History and event count for promo jobs that get a new plan. */
+async function withPromoContext(jobs: ReelJob[]) {
+  const needPlan = jobs.some((j) => j.kind === "promo" && (j.redo || !j.props));
+  if (!needPlan) return jobs;
+  const history = await getPromoHistory();
+  const catalog = await listEvents().catch((error) => {
+    console.warn("[instagram/reels] catalogus voor promo", error instanceof Error ? error.message : error);
+    return null;
+  });
+  return jobs.map((j) =>
+    j.kind === "promo" && (j.redo || !j.props)
+      ? {
+          ...j,
+          history,
+          eventCount: catalog ? countEventsThisWeek(catalog, new Date(j.scheduledAt)) : null,
+        }
+      : j,
+  );
 }

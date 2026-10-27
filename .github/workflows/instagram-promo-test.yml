@@ -1,0 +1,95 @@
+# Test renders of the weekly promo reels (config/promo-reels.ts).
+# Start by hand: Actions > "Instagram promo test" > Run workflow, or push a
+# change to the promo code on a claude/ branch. Nothing is published; the
+# videos, covers and captions are attached to the run as the artifact
+# "promo-reels".
+#
+# Repository secrets: ANTHROPIC_API_KEY, PIXABAY_API_KEY; PEXELS_API_KEY optional.
+name: Instagram promo test
+
+on:
+  push:
+    branches: ["claude/**"]
+    paths:
+      - "config/promo-reels.ts"
+      - "lib/instagram/promo/**"
+      - "remotion/promo/**"
+      - "scripts/render-test-promo.ts"
+      - ".github/workflows/instagram-promo-test.yml"
+  workflow_dispatch:
+    inputs:
+      template:
+        description: "terras, magazine, ondertitel, of leeg voor alle drie"
+        required: false
+        default: ""
+      theme:
+        description: "Thema-id uit config/promo-reels.ts (leeg = willekeurig)"
+        required: false
+        default: ""
+      count:
+        description: "Aantal reels per template"
+        required: false
+        default: "1"
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+      PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+      TEMPLATE: ${{ inputs.template }}
+      THEME: ${{ inputs.theme }}
+      COUNT: ${{ inputs.count }}
+    steps:
+      - name: Check keys
+        id: keys
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ] || { [ -z "$PIXABAY_API_KEY" ] && [ -z "$PEXELS_API_KEY" ]; }; then
+            echo "::notice::ANTHROPIC_API_KEY en PIXABAY_API_KEY (of PEXELS_API_KEY) nodig als repository secret; geen testrender."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.keys.outputs.ok == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.keys.outputs.ok == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      # Pixabay asks to cache search results for 24 hours (lib/instagram/promo/stock.ts).
+      - name: Stock search cache
+        if: steps.keys.outputs.ok == 'true'
+        uses: actions/cache@v4
+        with:
+          path: .cache/promo-stock
+          key: promo-stock-${{ github.run_id }}
+          restore-keys: promo-stock-
+
+      - name: Install
+        if: steps.keys.outputs.ok == 'true'
+        run: npm ci --no-audit --no-fund
+
+      - name: Render
+        if: steps.keys.outputs.ok == 'true'
+        run: |
+          args=(--out=out/promo "--count=${COUNT:-1}")
+          [ -n "$TEMPLATE" ] && args+=("--template=$TEMPLATE")
+          [ -n "$THEME" ] && args+=("--theme=$THEME")
+          npx tsx scripts/render-test-promo.ts "${args[@]}"
+
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.keys.outputs.ok == 'true'
+        with:
+          name: promo-reels
+          path: out/promo/
+          if-no-files-found: warn
+          retention-days: 14

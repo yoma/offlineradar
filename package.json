@@ -126,6 +126,8 @@
     "verify:instagram-publishes-neon": "node --env-file=.env.local --import tsx scripts/verify-instagram-publishes-neon.ts",
     "reel:test": "npx tsx scripts/render-test-reel.ts",
     "reel:studio": "remotion studio",
+    "promo:test": "npx tsx scripts/render-test-promo.ts",
+    "verify:instagram-promo": "npx tsx scripts/verify-instagram-promo.ts",
     "verify:instagram-reel": "npx tsx scripts/verify-instagram-reel.ts"
   },
   "dependencies": {

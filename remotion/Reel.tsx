@@ -372,7 +372,7 @@ function CtaScene({ props, fadeIn }: { props: ReelProps; fadeIn: number }) {
 }
 
 /** 👀 drawn inline, so the still does not depend on an emoji font. */
-function Eyes({ size }: { size: number }) {
+export function Eyes({ size }: { size: number }) {
   const eye = (cx: number) => (
     <g key={cx}>
       <ellipse cx={cx} cy={50} rx={21} ry={30} fill="#ffffff" stroke="#2F3035" strokeWidth={4} />
@@ -436,7 +436,7 @@ export function ReelStoryStill(props: ReelProps) {
 /* Composition                                                        */
 /* ------------------------------------------------------------------ */
 
-function Music({ music }: { music: NonNullable<ReelProps["music"]> }) {
+export function Music({ music }: { music: NonNullable<ReelProps["music"]> }) {
   const { fps, durationInFrames } = useVideoConfig();
   const fadeIn = Math.max(1, Math.round(music.fadeInSeconds * fps));
   const fadeOut = Math.max(1, Math.round(music.fadeOutSeconds * fps));

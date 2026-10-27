@@ -14,6 +14,12 @@ import { appPublicBaseUrl } from "@/lib/email/app-brand";
 import { getEventsSql } from "@/lib/events/db";
 import { ensureInstagramQueueSchema } from "@/lib/instagram/queue-schema";
 import type { ReelProps } from "@/lib/instagram/reel/types";
+import {
+  clipKey,
+  type PromoPlanRecord,
+  type PromoRedo,
+  type PromoReelProps,
+} from "@/lib/instagram/promo/types";
 
 export const INSTAGRAM_QUEUE_STATUSES = [
   "concept",
@@ -38,6 +44,18 @@ export type ReelMediaKind = "reel" | "reel_cover" | "reel_story";
 
 /** Render attempts before a reel counts as failed (the post stays usable). */
 export const REEL_MAX_ATTEMPTS = 3;
+
+/** Format of the weekly promo reels: a reel only, no slides. */
+export const PROMO_FORMAT = "promo";
+
+/** What the admin sees of a promo reel's plan. */
+export type PromoSummary = {
+  themeId: string | null;
+  template: string | null;
+  /** Set while a new version is on its way. */
+  redo: PromoRedo | null;
+  clips: { source: string; kind: string; author: string; pageUrl: string }[];
+};
 
 export type InstagramQueuePost = {
   id: string;
@@ -71,6 +89,8 @@ export type InstagramQueuePost = {
   asReel: boolean;
   /** Set once publishing starts: 'reel' or 'post' (fallback or reels off). */
   publishedAs: PublishedAs | null;
+  /** Weekly promo reel (format 'promo'); null for the other posts. */
+  promo: PromoSummary | null;
   source: "auto" | "manual";
   format: string | null;
   eventIds: string[];
@@ -103,6 +123,8 @@ type QueueRow = {
   reel_story_id?: string | null;
   published_as?: PublishedAs | null;
   as_reel?: boolean | null;
+  promo_plan?: unknown;
+  promo_redo?: PromoRedo | null;
   source: "auto" | "manual";
   format: string | null;
   event_ids: unknown;
@@ -134,10 +156,31 @@ function safeJson(raw: string): unknown {
   }
 }
 
+function json<T>(raw: unknown): T | null {
+  return ((typeof raw === "string" ? safeJson(raw) : raw) ?? null) as T | null;
+}
+
+/** Event reels keep their hook in hookText, promo reels in hook. */
 function reelHookOf(raw: unknown): string | null {
-  const props = typeof raw === "string" ? safeJson(raw) : raw;
-  const hook = (props as { hookText?: unknown } | null)?.hookText;
+  const props = json<{ hookText?: unknown; hook?: unknown }>(raw);
+  const hook = props?.hookText ?? props?.hook;
   return typeof hook === "string" ? hook : null;
+}
+
+function promoSummaryOf(row: QueueRow): PromoSummary | null {
+  if (row.format !== PROMO_FORMAT) return null;
+  const plan = json<PromoPlanRecord>(row.promo_plan);
+  return {
+    themeId: plan?.script?.themeId ?? null,
+    template: plan?.template ?? null,
+    redo: row.promo_redo ?? null,
+    clips: (plan?.clips ?? []).map((c) => ({
+      source: c.source,
+      kind: c.kind,
+      author: c.author,
+      pageUrl: c.pageUrl,
+    })),
+  };
 }
 
 function mapRow(row: QueueRow): InstagramQueuePost {
@@ -164,6 +207,7 @@ function mapRow(row: QueueRow): InstagramQueuePost {
     reelHook: reelHookOf(row.reel_props),
     publishedAs: row.published_as ?? null,
     asReel: row.as_reel !== false,
+    promo: promoSummaryOf(row),
     source: row.source,
     format: row.format,
     eventIds: stringArray(row.event_ids),
@@ -313,6 +357,42 @@ export async function createQueuePost(input: {
   return getQueuePost(id);
 }
 
+/**
+ * Insert a promo reel post. It has no slides: the renderer writes the script,
+ * picks the clips and renders the reel (promo_redo 'alles').
+ * Returns null when the slot was taken by a concurrent run.
+ */
+export async function createPromoQueuePost(input: {
+  scheduledAt: Date;
+  source: "auto" | "manual";
+  slotKey?: string | null;
+  postStory?: boolean;
+}): Promise<InstagramQueuePost | null> {
+  const sql = await queueSql();
+  const id = `igq_${randomBytes(9).toString("hex")}`;
+  const inserted = (await sql`
+    INSERT INTO instagram_post_queue (
+      id, caption, scheduled_at, status, source, format, slot_key,
+      post_story, as_reel, reel_status, promo_redo
+    ) VALUES (
+      ${id},
+      '',
+      ${input.scheduledAt.toISOString()}::timestamptz,
+      'te_keuren',
+      ${input.source},
+      ${PROMO_FORMAT},
+      ${input.slotKey ?? null},
+      ${input.postStory !== false},
+      true,
+      'te_maken',
+      'alles'
+    )
+    ON CONFLICT DO NOTHING
+    RETURNING id
+  `) as { id: string }[];
+  return inserted.length > 0 ? getQueuePost(id) : null;
+}
+
 export async function getQueueMedia(mediaId: string): Promise<Buffer | null> {
   return (await getQueueMediaWithKind(mediaId))?.bytes ?? null;
 }
@@ -386,6 +466,8 @@ export async function approveQueuePost(
     WHERE id = ${id}
       AND status IN ('te_keuren', 'goedgekeurd')
       AND publish_started_at IS NULL
+      -- A promo reel is the whole post: approve only what can be seen.
+      AND (format IS DISTINCT FROM ${PROMO_FORMAT} OR (reel_status = 'klaar' AND promo_redo IS NULL))
     RETURNING id
   `) as unknown[];
   return rows.length > 0;
@@ -466,9 +548,12 @@ export async function deleteQueuePost(id: string): Promise<boolean> {
 export async function claimDueQueuePost(args: {
   autoPost: boolean;
   now?: Date;
+  /** Only promo reels (the hourly promo run). */
+  promoOnly?: boolean;
 }): Promise<InstagramQueuePost | null> {
   const sql = await queueSql();
   const now = (args.now ?? new Date()).toISOString();
+  const promoOnly = args.promoOnly === true;
   const rows = (await sql`
     UPDATE instagram_post_queue SET
       publish_started_at = now(),
@@ -481,6 +566,9 @@ export async function claimDueQueuePost(args: {
           status = 'goedgekeurd'
           OR (status = 'te_keuren' AND ${args.autoPost})
         )
+        -- A promo reel waits until its video is there (no slides to fall back on).
+        AND (format IS DISTINCT FROM ${PROMO_FORMAT} OR (reel_status = 'klaar' AND promo_redo IS NULL))
+        AND (NOT ${promoOnly} OR format = ${PROMO_FORMAT})
       ORDER BY scheduled_at ASC
       LIMIT 1
       FOR UPDATE SKIP LOCKED
@@ -717,7 +805,18 @@ export async function setAutoPostWithoutApproval(enabled: boolean) {
 /** Posts whose reel may still be (re)made: anything not live or publishing. */
 const REEL_RENDERABLE = ["concept", "te_keuren", "goedgekeurd", "mislukt"] as const;
 
-export type ReelJob = { id: string; scheduledAt: string; props: ReelProps };
+export type ReelJob =
+  | { kind: "reel"; id: string; scheduledAt: string; props: ReelProps }
+  | {
+      kind: "promo";
+      id: string;
+      scheduledAt: string;
+      /** Null until the first plan is made. */
+      props: PromoReelProps | null;
+      plan: PromoPlanRecord | null;
+      /** Set: plan (again) before rendering. */
+      redo: PromoRedo | null;
+    };
 
 /** Number of reels waiting for a render (cheap check for the workflow). */
 export async function countPendingReels(): Promise<number> {
@@ -725,7 +824,7 @@ export async function countPendingReels(): Promise<number> {
   const rows = (await sql`
     SELECT count(*)::int AS n FROM instagram_post_queue
     WHERE status = ANY(${[...REEL_RENDERABLE]})
-      AND reel_props IS NOT NULL
+      AND (reel_props IS NOT NULL OR promo_redo IS NOT NULL)
       AND (
         reel_status = 'te_maken'
         OR (reel_status = 'bezig' AND reel_started_at < now() - interval '30 minutes')
@@ -749,7 +848,7 @@ export async function claimReelJobs(limit: number): Promise<ReelJob[]> {
     WHERE id IN (
       SELECT id FROM instagram_post_queue
       WHERE status = ANY(${[...REEL_RENDERABLE]})
-        AND reel_props IS NOT NULL
+        AND (reel_props IS NOT NULL OR promo_redo IS NOT NULL)
         AND (
           reel_status = 'te_maken'
           OR (reel_status = 'bezig' AND reel_started_at < now() - interval '30 minutes')
@@ -758,21 +857,41 @@ export async function claimReelJobs(limit: number): Promise<ReelJob[]> {
       LIMIT ${limit}
       FOR UPDATE SKIP LOCKED
     )
-    RETURNING id, scheduled_at, reel_props
-  `) as { id: string; scheduled_at: string | Date; reel_props: unknown }[];
-  return rows.map((r) => ({
-    id: r.id,
-    scheduledAt: iso(r.scheduled_at)!,
-    props: (typeof r.reel_props === "string" ? safeJson(r.reel_props) : r.reel_props) as ReelProps,
-  }));
+    RETURNING id, scheduled_at, format, reel_props, promo_plan, promo_redo
+  `) as {
+    id: string;
+    scheduled_at: string | Date;
+    format: string | null;
+    reel_props: unknown;
+    promo_plan: unknown;
+    promo_redo: PromoRedo | null;
+  }[];
+  return rows.map((r): ReelJob => {
+    const base = { id: r.id, scheduledAt: iso(r.scheduled_at)! };
+    if (r.format !== PROMO_FORMAT) {
+      return { ...base, kind: "reel", props: json<ReelProps>(r.reel_props)! };
+    }
+    return {
+      ...base,
+      kind: "promo",
+      props: json<PromoReelProps>(r.reel_props),
+      plan: json<PromoPlanRecord>(r.promo_plan),
+      redo: r.promo_redo,
+    };
+  });
 }
 
-/** The track of the most recently rendered reel (for rotation). */
-export async function getLastReelTrack(): Promise<string | null> {
+/**
+ * The track of the most recently rendered reel (for rotation). Promo reels
+ * and event reels rotate apart: they use their own music folders.
+ */
+export async function getLastReelTrack(kind: "reel" | "promo" = "reel"): Promise<string | null> {
   const sql = await queueSql();
+  const promo = kind === "promo";
   const rows = (await sql`
     SELECT reel_track FROM instagram_post_queue
     WHERE reel_track IS NOT NULL AND reel_rendered_at IS NOT NULL
+      AND (COALESCE(format, '') = ${PROMO_FORMAT}) = ${promo}
     ORDER BY reel_rendered_at DESC
     LIMIT 1
   `) as { reel_track: string }[];
@@ -832,7 +951,7 @@ export async function markReelReady(postId: string, track: string | null): Promi
 export async function markReelFailed(
   postId: string,
   message: string,
-): Promise<{ status: ReelStatus } | null> {
+): Promise<{ status: ReelStatus; promo: boolean } | null> {
   const sql = await queueSql();
   const rows = (await sql`
     UPDATE instagram_post_queue SET
@@ -840,9 +959,9 @@ export async function markReelFailed(
       reel_error = ${message.slice(0, 1000)},
       updated_at = now()
     WHERE id = ${postId} AND reel_status = 'bezig'
-    RETURNING reel_status
-  `) as { reel_status: ReelStatus }[];
-  return rows[0] ? { status: rows[0].reel_status } : null;
+    RETURNING reel_status, format
+  `) as { reel_status: ReelStatus; format: string | null }[];
+  return rows[0] ? { status: rows[0].reel_status, promo: rows[0].format === PROMO_FORMAT } : null;
 }
 
 /** Admin "Reel opnieuw maken", or new props after a change of date. */
@@ -873,8 +992,89 @@ export async function requestReelRender(
     WHERE id = ${postId}
       AND status = ANY(${[...REEL_RENDERABLE]})
       AND publish_started_at IS NULL
-      AND (reel_props IS NOT NULL OR ${props ? true : false})
+      AND (reel_props IS NOT NULL OR promo_redo IS NOT NULL OR ${props ? true : false})
     RETURNING id
   `) as unknown[];
   return rows.length > 0;
+}
+
+// --- promo reels -------------------------------------------------------------
+
+/**
+ * Admin turned a promo reel down but wants another one: new text, new clips
+ * or both. Back to "te keuren"; the renderer makes the new version within
+ * the hour.
+ */
+export async function requestPromoRedo(postId: string, redo: PromoRedo): Promise<boolean> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    UPDATE instagram_post_queue SET
+      promo_redo = ${redo},
+      status = 'te_keuren',
+      error_message = NULL,
+      approved_by = NULL,
+      approved_at = NULL,
+      reel_status = 'te_maken',
+      reel_error = NULL,
+      reel_attempts = 0,
+      reel_started_at = NULL,
+      updated_at = now()
+    WHERE id = ${postId}
+      AND format = ${PROMO_FORMAT}
+      AND status IN ('concept', 'te_keuren', 'goedgekeurd', 'mislukt')
+      AND publish_started_at IS NULL
+      AND container_id IS NULL
+    RETURNING id
+  `) as unknown[];
+  return rows.length > 0;
+}
+
+/**
+ * The renderer made a new plan: store it with the props (without music) and
+ * the caption, and clear promo_redo. Only while the post is being rendered.
+ */
+export async function savePromoPlan(
+  postId: string,
+  input: { plan: PromoPlanRecord; props: PromoReelProps; caption: string },
+): Promise<boolean> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    UPDATE instagram_post_queue SET
+      promo_plan = ${JSON.stringify(input.plan)}::jsonb,
+      reel_props = ${JSON.stringify({ ...input.props, music: null })}::jsonb,
+      caption = ${normalizeCaption(input.caption)},
+      promo_redo = NULL,
+      updated_at = now()
+    WHERE id = ${postId}
+      AND format = ${PROMO_FORMAT}
+      AND reel_status = 'bezig'
+      AND publish_started_at IS NULL
+    RETURNING id
+  `) as unknown[];
+  return rows.length > 0;
+}
+
+/** What earlier promo reels used (newest first), so a new one does not repeat it. */
+export async function getPromoHistory(limit = 60): Promise<{
+  recentHooks: string[];
+  usedClipKeys: string[];
+  lastThemeId: string | null;
+  lastTemplate: string | null;
+}> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    SELECT promo_plan FROM instagram_post_queue
+    WHERE format = ${PROMO_FORMAT} AND promo_plan IS NOT NULL
+    ORDER BY scheduled_at DESC
+    LIMIT ${limit}
+  `) as { promo_plan: unknown }[];
+  const plans = rows
+    .map((r) => json<PromoPlanRecord>(r.promo_plan))
+    .filter((p): p is PromoPlanRecord => Boolean(p?.script));
+  return {
+    recentHooks: plans.flatMap((p) => [p.script.hook, ...(p.rejectedHooks ?? [])]),
+    usedClipKeys: plans.flatMap((p) => [...p.clips.map(clipKey), ...(p.rejectedClipKeys ?? [])]),
+    lastThemeId: plans[0]?.script.themeId ?? null,
+    lastTemplate: plans[0]?.template ?? null,
+  };
 }

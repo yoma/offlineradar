@@ -14,10 +14,14 @@ import {
 } from "@/lib/instagram/history";
 import {
   approveQueuePost,
+  createPromoQueuePost,
   createQueuePost,
   deleteQueuePost,
+  getQueuePost,
+  PROMO_FORMAT,
   rejectQueuePost,
   getReelProps,
+  requestPromoRedo,
   requestReelRender,
   resetFailedQueuePost,
   setAutoPostWithoutApproval,
@@ -35,6 +39,8 @@ import {
   prepareReelProps,
   refreshReelAfterReschedule,
 } from "@/lib/instagram/reel/queue-reel";
+import { nextPromoTime } from "@/lib/instagram/promo/schedule";
+import { PROMO_REDOS, type PromoRedo } from "@/lib/instagram/promo/types";
 import { renderStoryOrNull } from "@/lib/instagram/story";
 import { readInstagramReelConfig } from "@/lib/instagram/reel/config";
 import { buildReelTiming } from "@/lib/instagram/reel/props";
@@ -230,6 +236,22 @@ export async function createPostAction(
   const kind = String(formData.get("kind") ?? "");
   const time = readTime(formData);
   if (time === "invalid") return { ok: false, message: "Ongeldig tijdstip." };
+  if (kind === PROMO_FORMAT) {
+    try {
+      const created = await createPromoQueuePost({
+        scheduledAt: time ?? nextPromoTime(),
+        source: "manual",
+        postStory: String(formData.get("postStory") ?? "1") === "1",
+      });
+      return done(
+        Boolean(created),
+        "Promo-reel aangevraagd. Tekst, beelden en video worden binnen het uur gemaakt; ververs de pagina dan.",
+        "Promo-reel aanvragen lukte niet.",
+      );
+    } catch (error) {
+      return failure(error);
+    }
+  }
   const scheduledAt = time ?? nextDailyPostTime();
   try {
     const catalog = await listEvents();
@@ -330,6 +352,15 @@ export async function remakeReelAction(
   if (!(await guard())) return UNAUTHORIZED;
   try {
     const id = String(formData.get("id"));
+    if ((await getQueuePost(id))?.format === PROMO_FORMAT) {
+      // Same text and clips, rendered again (e.g. after new music).
+      const ok = await requestReelRender(id);
+      return done(
+        ok,
+        "De promo-reel wordt opnieuw gerenderd. Dat duurt tot een uur.",
+        "Deze promo-reel kan niet meer opnieuw gemaakt worden.",
+      );
+    }
     // Re-time the stored reel so a remake picks up the current pacing.
     const stored = await getReelProps(id);
     const retimed = stored
@@ -343,6 +374,31 @@ export async function remakeReelAction(
       ok,
       "De reel wordt opnieuw gemaakt. Dat duurt tot een uur.",
       "Voor deze post kan geen reel meer gemaakt worden.",
+    );
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+const REDO_MESSAGE: Record<PromoRedo, string> = {
+  alles: "Er komt een volledig nieuwe promo-reel (tekst en beelden).",
+  tekst: "Er komt een nieuwe tekst op dezelfde beelden.",
+  beelden: "Er komen nieuwe beelden onder dezelfde tekst.",
+};
+
+/** Promo reel turned down, with a choice: new text, new clips or both. */
+export async function promoRedoAction(
+  formData: FormData,
+): Promise<QueueActionResult> {
+  if (!(await guard())) return UNAUTHORIZED;
+  const redo = String(formData.get("redo") ?? "") as PromoRedo;
+  if (!PROMO_REDOS.includes(redo)) return { ok: false, message: "Kies wat er nieuw moet." };
+  try {
+    const ok = await requestPromoRedo(String(formData.get("id")), redo);
+    return done(
+      ok,
+      `${REDO_MESSAGE[redo]} Dat duurt tot een uur; daarna staat hij hier opnieuw te keuren.`,
+      "Deze promo-reel kan niet meer aangepast worden.",
     );
   } catch (error) {
     return failure(error);

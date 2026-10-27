@@ -6,6 +6,7 @@ import {
   approveQueuePostAction,
   createPostAction,
   deleteQueuePostAction,
+  promoRedoAction,
   publishNowAction,
   publishStoryAction,
   rejectQueuePostAction,
@@ -49,6 +50,24 @@ const FORMAT_LABEL: Record<string, string> = {
   deze_week: "Deze week",
   nieuw: "Nieuw op DateOfflineHub",
   event: "Eén event",
+  promo: "Promo-reel",
+};
+
+/** Format of the weekly promo reels (PROMO_FORMAT in lib/instagram/queue). */
+const PROMO = "promo";
+
+const THEME_LABEL: Record<string, string> = {
+  "offline-event": "liever offline",
+  "swipen-beu": "swipen beu",
+  "anders-daten": "anders daten",
+  "deze-week": "events deze week",
+  "samen-doen": "samen iets doen",
+};
+
+const REDO_LABEL: Record<string, string> = {
+  alles: "nieuwe tekst en beelden",
+  tekst: "nieuwe tekst",
+  beelden: "nieuwe beelden",
 };
 
 type Setup = {
@@ -165,6 +184,9 @@ function ReelPreview({
   onAsReel: (value: boolean) => void;
 }) {
   if (post.reelStatus === "geen") return null;
+  if (post.format === PROMO) {
+    return <PromoPreview post={post} locked={locked} onRemake={onRemake} pending={pending} />;
+  }
   const plan =
     post.status === "gepost" || !reelsOn
       ? null
@@ -230,16 +252,131 @@ function ReelPreview({
   );
 }
 
+function PromoPreview({
+  post,
+  locked,
+  onRemake,
+  pending,
+}: {
+  post: InstagramQueuePost;
+  locked: boolean;
+  onRemake: () => void;
+  pending: boolean;
+}) {
+  const promo = post.promo;
+  const busy = post.reelStatus === "te_maken" || post.reelStatus === "bezig";
+  return (
+    <div className="space-y-2">
+      {busy || promo?.redo ? (
+        <div className="flex aspect-[9/16] w-full items-center justify-center rounded-xl border border-dashed border-stone-200 bg-stone-50 p-4 text-center text-xs text-stone-500">
+          {promo?.redo
+            ? `Promo-reel wordt gemaakt (${REDO_LABEL[promo.redo] ?? promo.redo}): tekst, beelden en video. Dat gebeurt elk uur; ververs de pagina straks.`
+            : "Reel wordt gerenderd. Dat gebeurt elk uur; ververs de pagina straks."}
+        </div>
+      ) : post.reelStatus === "klaar" && post.reelVideoId ? (
+        <video
+          controls
+          playsInline
+          preload="metadata"
+          poster={post.reelCoverId ? `/api/instagram/media/${post.reelCoverId}.jpg` : undefined}
+          src={`/api/instagram/media/${post.reelVideoId}.mp4`}
+          className="aspect-[9/16] w-full rounded-xl border border-stone-200 bg-stone-900"
+        />
+      ) : post.reelStatus === "mislukt" ? (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-800">
+          Promo-reel mislukt{post.reelError ? `: ${post.reelError}` : "."} Zonder video gaat
+          er niets online; laat hem hieronder opnieuw maken.
+        </p>
+      ) : (
+        <p className="text-xs text-stone-500">Video opgeruimd (ouder dan 30 dagen).</p>
+      )}
+      {post.reelHook && !promo?.redo ? (
+        <p className="text-xs text-stone-600">Hook: {post.reelHook}</p>
+      ) : null}
+      {promo?.themeId && !promo.redo ? (
+        <p className="text-xs text-stone-500">
+          Thema: {THEME_LABEL[promo.themeId] ?? promo.themeId}
+        </p>
+      ) : null}
+      {promo && promo.clips.length > 0 && !promo.redo ? (
+        <p className="text-xs text-stone-500">
+          Beelden:{" "}
+          {promo.clips.map((c, i) => (
+            <span key={c.pageUrl}>
+              {i > 0 ? " · " : ""}
+              <a
+                href={c.pageUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="underline-offset-2 hover:underline"
+              >
+                {c.source === "pexels" ? "Pexels" : "Pixabay"}
+                {c.kind === "photo" ? " (foto)" : ""}, {c.author || "onbekend"}
+              </a>
+            </span>
+          ))}
+        </p>
+      ) : null}
+      {post.status !== "gepost" ? (
+        <p className="text-xs font-semibold text-emerald-800">
+          Gaat online als reel, met de video ook als verhaal. Mensen in beeld zijn stockmodellen.
+        </p>
+      ) : null}
+      {!locked && !busy && !promo?.redo && post.reelStatus !== "mislukt" ? (
+        <button
+          type="button"
+          className="text-xs font-semibold text-[var(--brand-gold-ink)] underline-offset-2 hover:underline disabled:opacity-50"
+          disabled={pending}
+          onClick={onRemake}
+        >
+          Zelfde reel opnieuw renderen (bv. andere muziek)
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function PromoRedoButtons({
+  disabled,
+  onRedo,
+}: {
+  disabled: boolean;
+  onRedo: (redo: "tekst" | "beelden" | "alles") => void;
+}) {
+  return (
+    <div className="space-y-2 rounded-xl border border-stone-200 bg-stone-50 p-3">
+      <p className="text-sm font-semibold text-stone-800">Niet goed? Laat een nieuwe versie maken</p>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className={secondaryBtn} disabled={disabled} onClick={() => onRedo("tekst")}>
+          Nieuwe tekst
+        </button>
+        <button type="button" className={secondaryBtn} disabled={disabled} onClick={() => onRedo("beelden")}>
+          Nieuwe beelden
+        </button>
+        <button type="button" className={secondaryBtn} disabled={disabled} onClick={() => onRedo("alles")}>
+          Allebei nieuw
+        </button>
+      </div>
+      <p className="text-xs text-stone-500">
+        De nieuwe versie staat binnen het uur weer hier te keuren. Afgekeurde hooks en beelden komen niet terug.
+      </p>
+    </div>
+  );
+}
+
 function PostCard({
   post,
   autoPost,
   nowMs,
   reelsOn,
+  promoTime,
 }: {
   post: InstagramQueuePost;
   autoPost: boolean;
   nowMs: number;
   reelsOn: boolean;
+  /** Time of day promo reels go out (HH:mm, Brussels). */
+  promoTime: string;
 }) {
   const { pending, result, run } = useAction();
   const [caption, setCaption] = useState(post.caption);
@@ -249,12 +386,15 @@ function PostCard({
   const [asReel, setAsReel] = useState(post.asReel);
   const locked = post.status === "gepost" || post.publishStartedAt != null;
   const timePassed = Date.parse(post.scheduledAt) < nowMs;
+  const isPromo = post.format === PROMO;
+  // A promo reel can only be approved once its video is there.
+  const promoReady = !isPromo || (post.reelStatus === "klaar" && !post.promo?.redo);
 
   const form = () => {
     const fd = new FormData();
     fd.set("id", post.id);
     fd.set("caption", caption);
-    fd.set("scheduledAt", day);
+    fd.set("scheduledAt", isPromo ? `${day}T${promoTime}` : day);
     fd.set("postStory", postStory ? "1" : "0");
     fd.set("asReel", asReel ? "1" : "0");
     return fd;
@@ -264,7 +404,7 @@ function PostCard({
     <article className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="grid gap-5 md:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
         <div>
-          <SlidePreview post={post} />
+          {isPromo ? null : <SlidePreview post={post} />}
           <ReelPreview
             post={post}
             locked={locked}
@@ -305,7 +445,11 @@ function PostCard({
               {post.errorMessage}
             </p>
           ) : null}
-          {post.status === "te_keuren" && timePassed ? (
+          {post.status === "te_keuren" && timePassed && isPromo ? (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              Het geplande tijdstip is voorbij. Kies een andere dag, of klik Nu plaatsen.
+            </p>
+          ) : post.status === "te_keuren" && timePassed ? (
             <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
               {autoPost
                 ? "Die avond is voorbij; wordt bij de volgende avondronde geplaatst."
@@ -319,10 +463,11 @@ function PostCard({
           ) : null}
 
           <label className="text-sm font-semibold text-stone-800">
-            Plaatsen op de avond van
+            {isPromo ? "Plaatsen op" : "Plaatsen op de avond van"}
             <span className="block text-xs font-normal text-stone-500">
-              Gaat die dag automatisch online tussen 18 en 20 uur. Is die avond al
-              voorbij, dan de volgende avond. Meteen posten: Nu plaatsen.
+              {isPromo
+                ? `Gaat die dag om ${promoTime} online (binnen het kwartier). Meteen posten: Nu plaatsen.`
+                : "Gaat die dag automatisch online tussen 18 en 20 uur. Is die avond al voorbij, dan de volgende avond. Meteen posten: Nu plaatsen."}
             </span>
             <input
               type="date"
@@ -352,10 +497,14 @@ function PostCard({
             />
           </label>
 
+          {isPromo && !caption && post.promo?.redo ? (
+            <p className="text-xs text-stone-500">De caption komt samen met de video.</p>
+          ) : null}
+
           <StoryLine
             post={post}
             postStory={postStory}
-            reelsOn={reelsOn && asReel}
+            reelsOn={reelsOn && (asReel || isPromo)}
             onChange={setPostStory}
             disabled={locked || pending}
             onPublishStory={() => run(publishStoryAction, form())}
@@ -367,7 +516,7 @@ function PostCard({
                 <button
                   type="button"
                   className={primaryBtn}
-                  disabled={pending || !caption.trim()}
+                  disabled={pending || !caption.trim() || !promoReady}
                   onClick={() => {
                     if (window.confirm("Deze post nu op Instagram zetten?")) {
                       run(publishNowAction, form());
@@ -381,10 +530,14 @@ function PostCard({
                 <button
                   type="button"
                   className={secondaryBtn}
-                  disabled={pending || !caption.trim()}
+                  disabled={pending || !caption.trim() || !promoReady}
                   onClick={() => run(approveQueuePostAction, form())}
                 >
-                  {post.status === "goedgekeurd" ? "Opslaan" : "Plannen voor die avond (18–20 u)"}
+                  {post.status === "goedgekeurd"
+                    ? "Opslaan"
+                    : isPromo
+                      ? `Plannen voor die dag (${promoTime})`
+                      : "Plannen voor die avond (18–20 u)"}
                 </button>
               ) : null}
               {post.status === "te_keuren" || post.status === "goedgekeurd" ? (
@@ -394,7 +547,7 @@ function PostCard({
                   disabled={pending}
                   onClick={() => run(rejectQueuePostAction, form())}
                 >
-                  Afwijzen
+                  {isPromo ? "Deze week geen promo-reel" : "Afwijzen"}
                 </button>
               ) : null}
               {post.status === "te_keuren" || post.status === "concept" ? (
@@ -464,6 +617,16 @@ function PostCard({
             </div>
           ) : post.status !== "gepost" ? (
             <p className="text-sm text-stone-600">Wordt nu geplaatst…</p>
+          ) : null}
+          {isPromo && !locked && !post.promo?.redo ? (
+            <PromoRedoButtons
+              disabled={pending}
+              onRedo={(redo) => {
+                const fd = form();
+                fd.set("redo", redo);
+                run(promoRedoAction, fd);
+              }}
+            />
           ) : null}
           {pending ? <p className="text-sm text-stone-500">Bezig… (plaatsen duurt tot een halve minuut)</p> : null}
           <ResultLine result={result} />
@@ -665,13 +828,14 @@ function SetupStatus({ setup }: { setup: Setup }) {
   );
 }
 
-type PostKind = "binnenkort" | "deze_week" | "nieuw" | "event";
+type PostKind = "binnenkort" | "deze_week" | "nieuw" | "event" | "promo";
 
 const KIND_OPTIONS: { value: PostKind; label: string; hint: string }[] = [
   { value: "binnenkort", label: "Binnenkort te beleven", hint: "carrousel met een paar events" },
   { value: "deze_week", label: "Deze week", hint: "overzicht van deze week" },
   { value: "nieuw", label: "Nieuw op de site", hint: "recent toegevoegde events" },
   { value: "event", label: "Eén event", hint: "jij kiest welk" },
+  { value: "promo", label: "Promo-reel", hint: "sfeerbeelden, naar de site" },
 ];
 
 function MakePostCard({ eventOptions }: { eventOptions: { id: string; label: string }[] }) {
@@ -691,7 +855,7 @@ function MakePostCard({ eventOptions }: { eventOptions: { id: string; label: str
           run(createPostAction, fd);
         }}
       >
-        <div className="grid gap-2 sm:grid-cols-4">
+        <div className="grid gap-2 sm:grid-cols-5">
           {KIND_OPTIONS.map((option) => (
             <button
               key={option.value}
@@ -741,10 +905,18 @@ function MakePostCard({ eventOptions }: { eventOptions: { id: string; label: str
         </label>
 
         <button type="submit" className={primaryBtn} disabled={pending}>
-          {pending ? "Afbeeldingen maken… (± 20 sec)" : "Maak post"}
+          {pending
+            ? kind === "promo"
+              ? "Aanvragen…"
+              : "Afbeeldingen maken… (± 20 sec)"
+            : kind === "promo"
+              ? "Vraag promo-reel aan"
+              : "Maak post"}
         </button>
         <p className="text-xs text-stone-500">
-          Er wordt nog niets geplaatst: je krijgt eerst een voorbeeld te zien.
+          {kind === "promo"
+            ? "Voor de volgende promo-dag. Tekst, beelden en video komen binnen het uur; er wordt niets geplaatst zonder dat je het ziet."
+            : "Er wordt nog niets geplaatst: je krijgt eerst een voorbeeld te zien."}
         </p>
         <ResultLine result={result} />
       </form>
@@ -760,6 +932,7 @@ export function InstagramQueueClient({
   eventOptions,
   setup,
   renderedAt,
+  promoTime,
 }: {
   posts: InstagramQueuePost[];
   autoPost: boolean;
@@ -769,6 +942,8 @@ export function InstagramQueueClient({
   setup: Setup;
   /** Server render time, so "time passed" is stable across re-renders. */
   renderedAt: string;
+  /** Time of day promo reels go out (HH:mm, Brussels). */
+  promoTime: string;
 }) {
   const nowMs = Date.parse(renderedAt);
   const open = posts.filter((p) => p.status === "te_keuren");
@@ -824,21 +999,21 @@ export function InstagramQueueClient({
             Niets te keuren. Nieuwe voorstellen verschijnen hier automatisch.
           </p>
         ) : (
-          open.map((p) => <PostCard key={p.id} post={p} autoPost={autoPost} nowMs={nowMs} reelsOn={setup.reelsOn} />)
+          open.map((p) => <PostCard key={p.id} post={p} autoPost={autoPost} nowMs={nowMs} reelsOn={setup.reelsOn} promoTime={promoTime} />)
         )}
       </section>
 
       {planned.length > 0 ? (
         <section className="space-y-4">
           <h2 className="text-lg font-semibold text-stone-900">Gepland en mislukt</h2>
-          {planned.map((p) => <PostCard key={p.id} post={p} autoPost={autoPost} nowMs={nowMs} reelsOn={setup.reelsOn} />)}
+          {planned.map((p) => <PostCard key={p.id} post={p} autoPost={autoPost} nowMs={nowMs} reelsOn={setup.reelsOn} promoTime={promoTime} />)}
         </section>
       ) : null}
 
       {posted.length > 0 ? (
         <section className="space-y-4">
           <h2 className="text-lg font-semibold text-stone-900">Geplaatst</h2>
-          {posted.map((p) => <PostCard key={p.id} post={p} autoPost={autoPost} nowMs={nowMs} reelsOn={setup.reelsOn} />)}
+          {posted.map((p) => <PostCard key={p.id} post={p} autoPost={autoPost} nowMs={nowMs} reelsOn={setup.reelsOn} promoTime={promoTime} />)}
         </section>
       ) : null}
 
@@ -848,7 +1023,7 @@ export function InstagramQueueClient({
             Afgewezen ({rejected.length}): verborgen, open om er toch één te gebruiken
           </summary>
           <div className="mt-4 space-y-4">
-            {rejected.map((p) => <PostCard key={p.id} post={p} autoPost={autoPost} nowMs={nowMs} reelsOn={setup.reelsOn} />)}
+            {rejected.map((p) => <PostCard key={p.id} post={p} autoPost={autoPost} nowMs={nowMs} reelsOn={setup.reelsOn} promoTime={promoTime} />)}
           </div>
         </details>
       ) : null}
