@@ -6,7 +6,8 @@
 # Claude writes the text and picks stock clips before the render.
 #
 # Repository secrets: CRON_SECRET (same value as in Vercel); for promo reels
-# ANTHROPIC_API_KEY and PIXABAY_API_KEY (PEXELS_API_KEY optional).
+# ANTHROPIC_API_KEY and PIXABAY_API_KEY (PEXELS_API_KEY optional); event reels
+# use them too, for the atmosphere footage behind hook and CTA.
 # Optional repository variable: REEL_SITE_URL (default https://dateofflinehub.be).
 name: Instagram reels
 

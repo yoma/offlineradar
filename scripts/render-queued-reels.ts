@@ -10,7 +10,9 @@
  * Env:
  *   REEL_SITE_URL   site to talk to (default https://dateofflinehub.be)
  *   CRON_SECRET     same secret as the Vercel crons
- *   ANTHROPIC_API_KEY, PIXABAY_API_KEY (PEXELS_API_KEY optional)  promo reels
+ *   ANTHROPIC_API_KEY, PIXABAY_API_KEY (PEXELS_API_KEY optional)  promo reels,
+ *                   and the atmosphere footage behind event reels (without
+ *                   them event reels keep their plain colour scenes)
  *   REMOTION_BROWSER_EXECUTABLE  optional local Chrome headless shell
  *
  * Exit code 1 when a render or upload failed, so the workflow run turns red
@@ -24,6 +26,7 @@ import { replanPromoReel, type PromoHistory } from "@/lib/instagram/promo/genera
 import { pickPromoMusic } from "@/lib/instagram/promo/music";
 import { renderPromoReel } from "@/lib/instagram/promo/render";
 import type { PromoPlanRecord, PromoRedo, PromoReelProps } from "@/lib/instagram/promo/types";
+import { pickReelBackdrops } from "@/lib/instagram/reel/backdrop";
 import { readInstagramReelConfig } from "@/lib/instagram/reel/config";
 import { pickReelMusic } from "@/lib/instagram/reel/music";
 import { bundleReelTemplate, renderReel, type RenderedReel } from "@/lib/instagram/reel/render";
@@ -187,7 +190,12 @@ async function main() {
           lastPromoTrack = prepared.track ?? lastPromoTrack;
         } else {
           const music = await pickReelMusic(config, lastTrack);
-          const props: ReelProps = { ...job.props, music };
+          const backdrops = await pickReelBackdrops({
+            seed: job.id,
+            props: job.props,
+            log: (m) => log(`${job.id}: ${m}`),
+          });
+          const props: ReelProps = { ...job.props, music, backdrops };
           prepared = {
             label: `"${props.hookText}"`,
             track: music?.src ?? null,

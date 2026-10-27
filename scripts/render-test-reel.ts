@@ -10,7 +10,10 @@
  *   npm run reel:test -- --format=deze_week # one of deze_week|binnenkort|nieuw|single
  *   npm run reel:test -- --out=out/reels
  *
- * Optional env: REMOTION_BROWSER_EXECUTABLE (use a local Chrome headless shell).
+ *   npm run reel:test -- --plain            # without atmosphere footage
+ *
+ * Optional env: REMOTION_BROWSER_EXECUTABLE (use a local Chrome headless shell);
+ * PIXABAY_API_KEY + ANTHROPIC_API_KEY for the footage behind hook and CTA.
  */
 
 import { mkdir, writeFile } from "node:fs/promises";
@@ -23,6 +26,7 @@ import {
   listSingleEventCandidates,
   type InstagramDraft,
 } from "@/lib/instagram/drafts";
+import { pickReelBackdrops } from "@/lib/instagram/reel/backdrop";
 import { readInstagramReelConfig } from "@/lib/instagram/reel/config";
 import { pickReelMusic } from "@/lib/instagram/reel/music";
 import { buildReelProps, noEmDash } from "@/lib/instagram/reel/props";
@@ -71,13 +75,23 @@ async function main() {
 
     const music = await pickReelMusic(config, lastTrack);
     lastTrack = music?.src ?? lastTrack;
-    const props: ReelProps = buildReelProps({
+    const plainProps: ReelProps = buildReelProps({
       format: draft.format,
       events: draft.events,
       publishAt: now,
       config,
       music,
     });
+    const props: ReelProps = process.argv.includes("--plain")
+      ? plainProps
+      : {
+          ...plainProps,
+          backdrops: await pickReelBackdrops({
+            seed: `${format}-${now.toISOString()}`,
+            props: plainProps,
+            log: (m) => log(`${format}: ${m}`),
+          }),
+        };
     const caption = noEmDash(draft.caption);
 
     const base = path.join(outDir, `reel-${format}`);

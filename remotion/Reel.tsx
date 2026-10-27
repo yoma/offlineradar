@@ -5,6 +5,10 @@
  * uitgelicht event) → call to action. Same "agenda" look as the feed slides:
  * solid colour, a strict left edge, large type, hairline rules. Scenes
  * cross-fade; elements only fade and rise a little.
+ *
+ * With `backdrops`, the hook and the call to action play over warm stock
+ * footage under a bordeaux wash, credited in small type; the event scenes
+ * stay plain so the facts read easily.
  */
 
 import type { CSSProperties, ReactNode } from "react";
@@ -18,7 +22,8 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import type { ReelEvent, ReelProps } from "../lib/instagram/reel/types";
+import type { ReelBackdrop, ReelEvent, ReelProps } from "../lib/instagram/reel/types";
+import { Footage } from "./footage";
 import {
   BODY,
   HEADING,
@@ -88,12 +93,46 @@ function Masthead({ tone, right, frame }: { tone: Tone; right?: string; frame: n
   );
 }
 
+/** Footage behind a bordeaux scene: dark enough at every height for cream type. */
+function Backdrop({ backdrop, frames }: { backdrop: ReelBackdrop; frames: number }) {
+  const bg = palette("bordeaux").bg;
+  return (
+    <AbsoluteFill>
+      <Footage clip={backdrop} frames={frames} index={0} />
+      <AbsoluteFill
+        style={{
+          background: `linear-gradient(180deg, ${bg}cc 0%, ${bg}99 38%, ${bg}a6 62%, ${bg}e6 100%)`,
+        }}
+      />
+    </AbsoluteFill>
+  );
+}
+
+const SOURCE_NAME: Record<ReelBackdrop["source"], string> = { pixabay: "Pixabay", pexels: "Pexels" };
+
 /** Full-bleed scene with the safe margins; fades in when it is not the first. */
-function Scene({ tone, fadeIn, children }: { tone: Tone; fadeIn: number; children: ReactNode }) {
+function Scene({ tone, fadeIn, backdrop, frames = 0, children }: {
+  tone: Tone;
+  fadeIn: number;
+  /** Only for bordeaux scenes. */
+  backdrop?: ReelBackdrop | null;
+  frames?: number;
+  children: ReactNode;
+}) {
   const frame = useCurrentFrame();
   const opacity = fadeIn > 0 ? progress(frame, 0, fadeIn) : 1;
   return (
     <AbsoluteFill style={{ background: palette(tone).bg, opacity }}>
+      {backdrop ? <Backdrop backdrop={backdrop} frames={frames} /> : null}
+      {backdrop ? (
+        <Label
+          color={palette(tone).inkFaint}
+          size={18}
+          style={{ position: "absolute", left: MARGIN, bottom: SAFE_BOTTOM }}
+        >
+          {`Beeld: ${SOURCE_NAME[backdrop.source]}`}
+        </Label>
+      ) : null}
       <div
         style={{
           position: "absolute",
@@ -128,7 +167,7 @@ function HookScene({ props }: { props: ReelProps }) {
   const leadSize = fitSize([lead], 128);
   const restSize = Math.min(leadSize, fitSize(rest, 80));
   return (
-    <Scene tone="bordeaux" fadeIn={0}>
+    <Scene tone="bordeaux" fadeIn={0} backdrop={props.backdrops?.hook} frames={props.timing.hookFrames}>
       <Masthead tone="bordeaux" frame={frame} />
       <div style={{ display: "flex", flexDirection: "column", marginTop: "auto", marginBottom: "auto" }}>
         <Label color={p.accent} size={28} style={rise(frame, 0, 18, 12)}>
@@ -336,7 +375,7 @@ function CtaScene({ props, fadeIn }: { props: ReelProps; fadeIn: number }) {
   const frame = useCurrentFrame();
   const p = palette("bordeaux");
   return (
-    <Scene tone="bordeaux" fadeIn={fadeIn}>
+    <Scene tone="bordeaux" fadeIn={fadeIn} backdrop={props.backdrops?.cta} frames={props.timing.ctaFrames}>
       <div style={{ display: "flex", flexDirection: "column", marginTop: "auto", marginBottom: "auto" }}>
         <Img
           src={MARK}
