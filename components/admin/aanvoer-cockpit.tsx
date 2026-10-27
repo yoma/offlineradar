@@ -10,6 +10,7 @@ import {
   useState,
   useTransition,
   type FormEvent,
+  type ReactNode,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AanvoerClient } from "@/app/interne-aanvoer/aanvoer-client";
@@ -175,11 +176,14 @@ export function AanvoerCockpit({
   initialTab = "nieuw",
   highlightSourceId = null,
   highlightEditionId = null,
+  notice = null,
 }: {
   data: AanvoerCockpitData;
   initialTab?: TabId | "klaar" | "controle" | "kandidaten" | "te_bekijken";
   highlightSourceId?: string | null;
   highlightEditionId?: string | null;
+  /** Rendered right under the tab menu (e.g. the nightly-check banner). */
+  notice?: ReactNode;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -215,6 +219,60 @@ export function AanvoerCockpit({
 
   return (
     <div className="space-y-5">
+      <nav
+        aria-label="Aanvoer menu"
+        className="mobile-scroll-x -mx-1 px-1 pb-1"
+      >
+        <div
+          className="flex min-w-max gap-1.5 rounded-2xl border border-stone-300/80 bg-white p-1.5 shadow-md sm:min-w-0"
+          role="tablist"
+          aria-label="Aanvoer tabs"
+        >
+          {TABS.map((item) => {
+            const active = tab === item.id;
+            const count =
+              item.id === "aandacht"
+                ? data.counts.aandacht
+                : item.id === "toegevoegd"
+                  ? data.counts.added
+                  : item.id === "niet_toegevoegd"
+                    ? data.counts.dismissed
+                    : item.id === "bronnen"
+                      ? data.counts.sources
+                      : null;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setTab(item.id)}
+                className={`flex shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-[15px] font-semibold transition sm:flex-1 ${
+                  active
+                    ? "bg-stone-900 text-white shadow"
+                    : "text-stone-700 hover:bg-stone-100 hover:text-stone-900"
+                }`}
+              >
+                {item.label}
+                {count != null ? (
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ${
+                      active
+                        ? "bg-white/20 text-white"
+                        : "bg-stone-100 text-stone-600"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      {notice ? <div className="[&>*]:mb-0">{notice}</div> : null}
+
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
           { label: "Klaar voor publicatie", value: data.counts.klaar },
@@ -245,47 +303,6 @@ export function AanvoerCockpit({
       ) : null}
 
       <AdminChatPanel />
-
-      <div className="mobile-scroll-x">
-        <div
-          className="inline-flex min-w-full gap-1 rounded-2xl border border-stone-200/80 bg-white/70 p-1 shadow-sm backdrop-blur sm:min-w-0"
-          role="tablist"
-          aria-label="Aanvoer tabs"
-        >
-          {TABS.map((item) => {
-            const active = tab === item.id;
-            const count =
-              item.id === "aandacht"
-                ? data.counts.aandacht
-                : item.id === "toegevoegd"
-                  ? data.counts.added
-                  : item.id === "niet_toegevoegd"
-                    ? data.counts.dismissed
-                    : item.id === "bronnen"
-                      ? data.counts.sources
-                      : null;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setTab(item.id)}
-                className={`shrink-0 rounded-xl px-3.5 py-2 text-sm font-semibold transition ${
-                  active
-                    ? "bg-stone-900 text-white shadow"
-                    : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"
-                }`}
-              >
-                {item.label}
-                {count != null ? (
-                  <span className="ml-1.5 opacity-70">{count}</span>
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
       {tab === "nieuw" ? (
         <AanvoerClient
