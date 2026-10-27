@@ -10,12 +10,16 @@ import {
   OffthreadVideo,
   interpolate,
   useCurrentFrame,
+  staticFile,
   useVideoConfig,
 } from "remotion";
 import type { PromoClip } from "../lib/instagram/promo/types";
 
-export /** One clip, cover-cropped, with a slow push-in; photos get a Ken Burns move. */
-function Footage({ clip, frames, index }: { clip: PromoClip; frames: number; index: number }) {
+/** A clip whose file was downloaded into the bundle's public folder before the render. */
+export type FootageClip = PromoClip & { localFile?: string };
+
+/** One clip, cover-cropped, with a slow push-in; photos get a Ken Burns move. */
+export function Footage({ clip, frames, index }: { clip: FootageClip; frames: number; index: number }) {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const t = frame / Math.max(1, frames);
@@ -31,6 +35,10 @@ function Footage({ clip, frames, index }: { clip: PromoClip; frames: number; ind
     );
   }
 
+  // Local copy first: stock sites refuse (HTTP 429) the many parallel
+  // requests of a render, and their photo links expire.
+  const src = clip.localFile ? staticFile(clip.localFile) : clip.url;
+
   if (clip.kind === "photo") {
     // Alternate the direction so consecutive stills do not drift the same way.
     const dir = index % 2 === 0 ? 1 : -1;
@@ -39,7 +47,7 @@ function Footage({ clip, frames, index }: { clip: PromoClip; frames: number; ind
     const y = interpolate(t, [0, 1], [10, -14]);
     return (
       <AbsoluteFill style={{ overflow: "hidden" }}>
-        <Img src={clip.url} style={{ ...style, transform: `scale(${scale}) translate(${x}px, ${y}px)` }} />
+        <Img src={src} style={{ ...style, transform: `scale(${scale}) translate(${x}px, ${y}px)` }} />
       </AbsoluteFill>
     );
   }
@@ -51,7 +59,7 @@ function Footage({ clip, frames, index }: { clip: PromoClip; frames: number; ind
   return (
     <AbsoluteFill style={{ overflow: "hidden" }}>
       <OffthreadVideo
-        src={clip.url}
+        src={src}
         muted
         trimBefore={trimBefore}
         style={{ ...style, transform: `scale(${scale})` }}
