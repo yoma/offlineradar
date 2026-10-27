@@ -146,13 +146,13 @@ export default async function InterneAanvoerPage({
             : "Plak een link of screenshot. AI analyseert. Jij zegt ja of nee. Klaar."}
         </p>
       </header>
-      <ScheduledRefreshBanner />
       <Suspense fallback={<p className="text-sm text-stone-500">Laden…</p>}>
         <AanvoerCockpit
           data={data}
           initialTab={initialTab}
           highlightSourceId={highlightSourceId}
           highlightEditionId={highlightEditionId}
+          notice={<ScheduledRefreshBanner />}
         />
       </Suspense>
     </InterneAdminShell>
