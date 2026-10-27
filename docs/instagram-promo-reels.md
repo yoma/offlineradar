@@ -1,7 +1,7 @@
 # Instagram promo-reels
 
 Eén keer per week een reel die mensen naar dateofflinehub.be trekt: echte
-sfeerbeelden (Pexels, Pixabay als aanvulling), een korte hook, per clip een
+sfeerbeelden (Pixabay, Pexels als aanvulling als er een sleutel is), een korte hook, per clip een
 korte zin en een call-to-action. Events zijn hooguit een bijzaak.
 
 - **Stap 1** (deze branch): config, tekst via Claude, clipselectie, 3
@@ -29,12 +29,15 @@ templates, lengte en aantal clips, en het Claude-model.
    via de site vonden. Faalt een controle, dan schrijft Claude opnieuw (max. 3
    keer).
 3. **Beelden** (`lib/instagram/promo/select-clips.ts`): per scène zoeken op
-   Pexels, Pixabay erbij als Pexels weinig vindt. Alleen clips die scherp genoeg
+   Pixabay; Pexels erbij als Pixabay weinig vindt en `PEXELS_API_KEY` gezet is
+   (Pexels geeft sinds oktober 2026 tijdelijk geen nieuwe sleutels). Vindt
+   Pixabay weinig, dan nog eens met de eerste twee woorden van de zoekterm. Alleen clips die scherp genoeg
    zijn voor 1080x1920 (staand, of 4K liggend om bij te snijden) en lang genoeg.
    Al gebruikte clips vallen af. Claude bekijkt de voorbeeldbeelden en geeft
    scores op sfeer (warm licht, duo's of groepjes, niet geposeerd, geen tekst of
    logo's). Onder 6/10: volgende zoekterm uit het thema. Niets bruikbaar: een
-   Pexels-foto met een trage zoom (Ken Burns).
+   stockfoto met een trage zoom (Ken Burns). Pixabay-foto's zijn via de API
+   hoogstens 1280 px, dus iets zachter dan video; daarom alleen als back-up.
 4. **Render** (`remotion/promo/PromoReel.tsx`): 2 tot 4 clips met crossfades,
    10 tot 20 s, een zachte warme kleurcorrectie zodat clips van verschillende
    bronnen bij elkaar passen, muziek uit `remotion/public/music/promo/`
@@ -61,7 +64,7 @@ npm run promo:test -- --count=2             # meer per template
 npm run promo:test -- --clips-dir=pad/naar/clips  # eigen mp4/jpg, zonder API's
 ```
 
-Nodig: `ANTHROPIC_API_KEY` en `PEXELS_API_KEY` (`PIXABAY_API_KEY` optioneel),
+Nodig: `ANTHROPIC_API_KEY` en `PIXABAY_API_KEY` (`PEXELS_API_KEY` optioneel),
 behalve met `--clips-dir`. Resultaat in `out/promo/`: per reel de MP4, cover,
 reserve-verhaalbeeld, caption en `-plan.json` met het script en de bron van elke
 clip. `out/promo/history.json` onthoudt hooks en clips zodat een volgende run
@@ -79,16 +82,16 @@ Offline controles: `npm run verify:instagram-promo`.
 | Naam | Waar | Betekenis |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | Vercel, GitHub secret | tekst en beeldkeuze |
-| `PEXELS_API_KEY` | Vercel, GitHub secret | stockvideo en foto's (verplicht) |
-| `PIXABAY_API_KEY` | Vercel, GitHub secret | extra stockvideo (optioneel) |
+| `PIXABAY_API_KEY` | Vercel, GitHub secret | stockvideo en foto's (verplicht) |
+| `PEXELS_API_KEY` | Vercel, GitHub secret | extra stockvideo en scherpere foto's (optioneel) |
 
 ## Licenties
 
 - **Remotion**: gratis voor individuen en bedrijven tot 3 medewerkers; een
   eenmanszaak valt daaronder. Daarboven is een bedrijfslicentie nodig.
-- **Pexels** en **Pixabay**: gratis, ook commercieel, bewerken mag, vermelding
+- **Pixabay** en **Pexels**: gratis, ook commercieel, bewerken mag, vermelding
   niet verplicht. Niet toegestaan: suggereren dat herkenbare personen iets
   aanbevelen of ergens bij horen (daarom de controle in stap 2 hierboven). We
-  vermelden de bron toch onderaan de caption ("Beelden: Pexels"). Per clip
+  vermelden de bron toch onderaan de caption ("Beelden: Pixabay"). Per clip
   wordt bron, id, maker en pagina bewaard.
 - **Muziek**: alleen rechtenvrije tracks die je zelf in de muziekmap zet.

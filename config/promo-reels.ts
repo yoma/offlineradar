@@ -18,7 +18,7 @@ export type PromoTheme = {
   brief: string;
   /** Voorbeelden van de toon; Claude schrijft telkens een nieuwe variatie. */
   exampleHooks: string[];
-  /** Ideeën voor de beelden (Engels, want zo zoekt Pexels het best). */
+  /** Ideeën voor de beelden (Engels, 2 à 3 woorden: zo zoekt Pixabay het best). */
   visualIdeas: string[];
   /** true = de reel noemt het echte aantal events van deze week. */
   useEventCount?: boolean;

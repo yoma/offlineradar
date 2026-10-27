@@ -141,7 +141,7 @@ function systemPrompt(): string {
     "Wat je teruggeeft:",
     "- hook: de openingszin op het scherm, hoogstens 8 woorden, leesbaar in één seconde.",
     "- lines: per volgende clip een korte zin (hoogstens 6 woorden) die het verhaal verderzet. De laatste regel leidt naar de site, maar de url zelf komt er automatisch onder.",
-    "- searchQueries: per clip een Engelse zoekterm (3 à 5 woorden) voor Pexels die past bij die zin: warme, natuurlijke beelden van duo's of groepjes (bv. 'friends laughing terrace', 'couple talking cafe', 'people walking city evening'). Geen close-ups van één persoon, geen kantoor, geen telefoons.",
+    "- searchQueries: per clip een Engelse zoekterm van 2 à 3 woorden voor een stockbibliotheek (Pixabay), die past bij die zin: warme, natuurlijke beelden van duo's of groepjes (bv. 'friends laughing terrace', 'couple talking cafe', 'people walking city evening'). Geen close-ups van één persoon, geen kantoor, geen telefoons.",
     `- caption: 2 à 4 korte zinnen in dezelfde toon, met dateofflinehub.be (of 'link in bio'), en daarna een regel met deze hashtags: ${c.fixedHashtags.join(" ")} plus 2 à 3 passende Vlaamse hashtags. Geen emoji-overdaad (hoogstens één).`,
   ].join("\n");
 }

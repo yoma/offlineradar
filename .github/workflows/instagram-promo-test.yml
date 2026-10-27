@@ -4,7 +4,7 @@
 # videos, covers and captions are attached to the run as the artifact
 # "promo-reels".
 #
-# Repository secrets: ANTHROPIC_API_KEY, PEXELS_API_KEY, PIXABAY_API_KEY (optional).
+# Repository secrets: ANTHROPIC_API_KEY, PIXABAY_API_KEY; PEXELS_API_KEY optional.
 name: Instagram promo test
 
 on:
@@ -49,8 +49,8 @@ jobs:
       - name: Check keys
         id: keys
         run: |
-          if [ -z "$PEXELS_API_KEY" ] || [ -z "$ANTHROPIC_API_KEY" ]; then
-            echo "::notice::PEXELS_API_KEY of ANTHROPIC_API_KEY ontbreekt als repository secret; geen testrender."
+          if [ -z "$ANTHROPIC_API_KEY" ] || { [ -z "$PIXABAY_API_KEY" ] && [ -z "$PEXELS_API_KEY" ]; }; then
+            echo "::notice::ANTHROPIC_API_KEY en PIXABAY_API_KEY (of PEXELS_API_KEY) nodig als repository secret; geen testrender."
             echo "ok=false" >> "$GITHUB_OUTPUT"
           else
             echo "ok=true" >> "$GITHUB_OUTPUT"

@@ -1,15 +1,15 @@
 /**
  * Choose the clips for one promo reel. Per scene: search stock footage for
- * Claude's query, drop clips used before, and let Claude look at the preview
+ * Claude's query (Pixabay, plus Pexels when its key is set), drop clips used before, and let Claude look at the preview
  * frames and pick the one with the right mood (warm, natural light, duos or
- * small groups, not posed, no text or logos). No good clip: a Pexels photo
+ * small groups, not posed, no text or logos). No good clip: a stock photo
  * for a slow Ken Burns move instead.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
 import { PROMO_REELS_CONFIG } from "@/config/promo-reels";
 import {
-  searchPexelsPhotos,
+  searchStockPhotos,
   searchStockVideos,
   type StockCandidate,
 } from "@/lib/instagram/promo/stock";
@@ -129,7 +129,7 @@ export async function selectPromoClips(args: SelectClipsArgs): Promise<PromoClip
     // Back-up: a photo with a slow zoom.
     if (!pick) {
       for (const query of queries.slice(0, 2)) {
-        const photos = (await searchPexelsPhotos(query))
+        const photos = (await searchStockPhotos(query))
           .filter((c) => !taken.has(clipKey(c)))
           .slice(0, MAX_CANDIDATES);
         const best = (await scoreCandidates(client, scene, photos)).find((c) => c.score >= MIN_SCORE);

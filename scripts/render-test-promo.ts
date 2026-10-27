@@ -8,7 +8,7 @@
  *   npm run promo:test -- --count=2             # reels per template
  *   npm run promo:test -- --clips-dir=pad/naar/clips  # own mp4/jpg files, no APIs
  *
- * Needs ANTHROPIC_API_KEY and PEXELS_API_KEY (PIXABAY_API_KEY optional),
+ * Needs ANTHROPIC_API_KEY and PIXABAY_API_KEY (PEXELS_API_KEY optional extra),
  * except with --clips-dir. Output in out/promo/: per reel an MP4, cover,
  * story still, caption and a JSON with the script and the clip sources
  * (licence record). out/promo/history.json keeps hooks and clips so the next
@@ -170,9 +170,9 @@ async function main() {
     log(`${local.files.length} eigen clips uit ${clipsDir} (geen API's)`);
   } else {
     const sources = stockSourcesAvailable();
-    if (!sources.pexels) throw new Error("PEXELS_API_KEY ontbreekt (of gebruik --clips-dir).");
+    if (!sources.any) throw new Error("PIXABAY_API_KEY (of PEXELS_API_KEY) ontbreekt, of gebruik --clips-dir.");
     if (!process.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY ontbreekt.");
-    if (!sources.pixabay) log("PIXABAY_API_KEY niet gezet: enkel Pexels");
+    log(`beeldbronnen: ${[sources.pixabay && "Pixabay", sources.pexels && "Pexels"].filter(Boolean).join(" + ")}`);
     try {
       eventCount = countEventsThisWeek(await listEvents());
       log(`${eventCount} events in de komende 7 dagen`);
