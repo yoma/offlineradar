@@ -16,9 +16,11 @@ import {
 import { clipKey, type PromoClip } from "@/lib/instagram/promo/types";
 
 /** Candidates shown to Claude per scene (images cost tokens). */
-const MAX_CANDIDATES = 8;
-/** Below this score (0..10) a clip is not used. */
+const MAX_CANDIDATES = 16;
+/** Below this score (0..10) a clip is not used, unless nothing better exists. */
 const MIN_SCORE = 6;
+/** A video this good still beats having no picture at all. */
+const FALLBACK_SCORE = 4;
 
 const PICK_SCHEMA = {
   type: "object",
@@ -51,19 +53,40 @@ const PICK_SYSTEM = [
 
 export type ScoredCandidate = StockCandidate & { score: number; reason: string };
 
+type Preview = { mediaType: "image/jpeg" | "image/png" | "image/webp"; data: string };
+
+async function fetchPreview(url: string): Promise<Preview | null> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+    if (!res.ok) return null;
+    const type = (res.headers.get("content-type") ?? "").split(";")[0]!.trim();
+    const mediaType = type === "image/png" || type === "image/webp" ? type : "image/jpeg";
+    return { mediaType, data: Buffer.from(await res.arrayBuffer()).toString("base64") };
+  } catch {
+    return null;
+  }
+}
+
 export async function scoreCandidates(
   client: Anthropic,
   scene: string,
   candidates: StockCandidate[],
 ): Promise<ScoredCandidate[]> {
   if (candidates.length === 0) return [];
+  // Previews are downloaded here and sent inline: the API's own URL fetcher
+  // is blocked by Pixabay's robots.txt.
+  const previews = await Promise.all(candidates.map((c) => fetchPreview(c.previewUrl)));
+  const usable = candidates.filter((_, i) => previews[i]);
+  const images = previews.filter((p): p is Preview => p !== null);
+  if (usable.length === 0) return [];
   const content: Anthropic.ContentBlockParam[] = [
-    { type: "text", text: `Deze scène hoort bij de tekst: "${scene}". Beoordeel de ${candidates.length} beelden.` },
+    { type: "text", text: `Deze scène hoort bij de tekst: "${scene}". Beoordeel de ${usable.length} beelden.` },
   ];
-  candidates.forEach((c, i) => {
+  usable.forEach((c, i) => {
     content.push({ type: "text", text: `Beeld ${i}: ${c.description}` });
-    content.push({ type: "image", source: { type: "url", url: c.previewUrl } });
+    content.push({ type: "image", source: { type: "base64", media_type: images[i]!.mediaType, data: images[i]!.data } });
   });
+  candidates = usable;
   const response = await client.messages.create({
     model: PROMO_REELS_CONFIG.model,
     max_tokens: 4000,
@@ -109,22 +132,21 @@ export async function selectPromoClips(args: SelectClipsArgs): Promise<PromoClip
     const queries = [args.queries[i]!, ...args.fallbackQueries.filter((q) => q !== args.queries[i])];
     let pick: PromoClip | null = null;
 
-    // Videos: the scene's own query first, then up to two theme queries.
+    // Videos: the scene's own query first, then theme queries, scored together.
+    const pool = new Map<string, StockCandidate>();
     for (const query of queries.slice(0, 3)) {
-      const found = (await searchStockVideos(query))
-        .filter((c) => !taken.has(clipKey(c)) && c.duration >= needSeconds)
-        .slice(0, MAX_CANDIDATES);
-      const scored = await scoreCandidates(client, scene, found);
-      const best = scored.find((c) => c.score >= MIN_SCORE);
-      log(
-        `scène ${i + 1} "${query}": ${found.length} kandidaten` +
-          (best ? `, gekozen ${clipKey(best)} (${best.score}/10: ${best.reason})` : ", niets goed genoeg"),
-      );
-      if (best) {
-        pick = strip(best);
-        break;
+      for (const c of await searchStockVideos(query)) {
+        if (!taken.has(clipKey(c)) && c.duration >= needSeconds && !pool.has(clipKey(c))) pool.set(clipKey(c), c);
       }
+      if (pool.size >= MAX_CANDIDATES) break;
     }
+    const scored = await scoreCandidates(client, scene, [...pool.values()].slice(0, MAX_CANDIDATES));
+    const best = scored[0];
+    log(
+      `scène ${i + 1}: ${scored.length} videokandidaten` +
+        (best ? `, beste ${clipKey(best)} ${best.score}/10 (${best.reason})` : ""),
+    );
+    if (best && best.score >= MIN_SCORE) pick = strip(best);
 
     // Back-up: a photo with a slow zoom.
     if (!pick) {
@@ -132,13 +154,19 @@ export async function selectPromoClips(args: SelectClipsArgs): Promise<PromoClip
         const photos = (await searchStockPhotos(query))
           .filter((c) => !taken.has(clipKey(c)))
           .slice(0, MAX_CANDIDATES);
-        const best = (await scoreCandidates(client, scene, photos)).find((c) => c.score >= MIN_SCORE);
-        log(`scène ${i + 1} foto "${query}": ${best ? `gekozen ${clipKey(best)}` : "niets goed genoeg"}`);
-        if (best) {
-          pick = strip(best);
+        const photo = (await scoreCandidates(client, scene, photos)).find((c) => c.score >= MIN_SCORE);
+        log(`scène ${i + 1} foto "${query}": ${photo ? `gekozen ${clipKey(photo)} ${photo.score}/10` : "niets goed genoeg"}`);
+        if (photo) {
+          pick = strip(photo);
           break;
         }
       }
+    }
+
+    // Last resort: the best video if it is at least acceptable.
+    if (!pick && best && best.score >= FALLBACK_SCORE) {
+      log(`scène ${i + 1}: geen beter beeld, video ${clipKey(best)} (${best.score}/10) toch gebruikt`);
+      pick = strip(best);
     }
 
     if (!pick) throw new Error(`Geen geschikt beeld gevonden voor scène ${i + 1} ("${args.queries[i]}").`);
