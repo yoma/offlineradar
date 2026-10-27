@@ -46,8 +46,8 @@ const PICK_SCHEMA = {
 const PICK_SYSTEM = [
   "Je kiest stockbeelden voor een Instagram-reel van DateOfflineHub.be, een Vlaamse site met singles-events.",
   "Je krijgt genummerde voorbeeldbeelden. Geef elk beeld een score van 0 tot 10.",
-  "Hoog scoren: warm en natuurlijk licht, echte sfeer, duo's of kleine groepjes die praten, lachen, wandelen, iets drinken, op een terras of in een café.",
-  "Laag scoren (0 tot 3): geposeerd of overdreven commercieel, recht in de camera kijken, één persoon alleen, kantoor of zakelijke setting, telefoons centraal, kinderen, tekst, logo's of watermerken in beeld, donker of koud licht, wazig.",
+  "Hoog scoren: warm en natuurlijk licht, echte sfeer, duo's of kleine groepjes die praten, lachen, wandelen, iets drinken, op een terras of in een café. Volwassenen van ongeveer 25 tot 55 jaar, zoals de bezoekers van de events.",
+  "Laag scoren (0 tot 3): geposeerd of overdreven commercieel, recht in de camera kijken, één persoon alleen, kantoor of zakelijke setting, telefoons centraal, kinderen of tieners, duidelijk oudere mensen (grijs haar, bejaard, ouder dan ongeveer 60), tekst, logo's of watermerken in beeld, donker of koud licht, wazig.",
   "Let op: de tekst van de reel komt bovenaan en onderaan in beeld, dus rustige zones daar zijn een plus.",
 ].join("\n");
 
