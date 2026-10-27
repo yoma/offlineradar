@@ -41,10 +41,68 @@ export function stockSourcesAvailable(): { pexels: boolean; pixabay: boolean; an
   return { pexels, pixabay, any: pexels || pixabay };
 }
 
+/**
+ * Pixabay asks that search results be cached for 24 hours. Responses are kept
+ * in memory and, in Node, as files in PROMO_STOCK_CACHE_DIR (default
+ * .cache/promo-stock; the GitHub workflows keep that folder between runs).
+ * The cache key never contains the API key.
+ */
+const CACHE_TTL_MS = 24 * 3_600_000;
+const memoryCache = new Map<string, { at: number; body: unknown }>();
+
+function cacheKey(url: string): string {
+  const u = new URL(url);
+  u.searchParams.delete("key");
+  u.searchParams.sort();
+  return u.toString();
+}
+
+async function cacheFile(keyText: string): Promise<string | null> {
+  const dir = process.env.PROMO_STOCK_CACHE_DIR?.trim() || ".cache/promo-stock";
+  try {
+    const { createHash } = await import("node:crypto");
+    const path = await import("node:path");
+    return path.join(dir, `${createHash("sha256").update(keyText).digest("hex").slice(0, 32)}.json`);
+  } catch {
+    return null;
+  }
+}
+
 async function getJson<T>(url: string, headers: Record<string, string> = {}): Promise<T> {
+  const keyText = cacheKey(url);
+  const now = Date.now();
+  const hit = memoryCache.get(keyText);
+  if (hit && now - hit.at < CACHE_TTL_MS) return hit.body as T;
+
+  const file = await cacheFile(keyText);
+  if (file) {
+    try {
+      const { readFile } = await import("node:fs/promises");
+      const cached = JSON.parse(await readFile(file, "utf8")) as { at: number; body: T };
+      if (now - cached.at < CACHE_TTL_MS) {
+        memoryCache.set(keyText, cached);
+        return cached.body;
+      }
+    } catch {
+      // Not cached yet.
+    }
+  }
+
   const res = await fetch(url, { headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (!res.ok) throw new Error(`${new URL(url).host}: HTTP ${res.status}`);
-  return (await res.json()) as T;
+  const body = (await res.json()) as T;
+  memoryCache.set(keyText, { at: now, body });
+  if (file) {
+    try {
+      const { mkdir, writeFile } = await import("node:fs/promises");
+      const path = await import("node:path");
+      await mkdir(path.dirname(file), { recursive: true });
+      await writeFile(file, JSON.stringify({ at: now, body }));
+    } catch {
+      // Read-only file system (e.g. serverless): the memory cache still applies.
+    }
+  }
+  return body;
 }
 
 /** Can this frame be cropped to 9:16 at 1080x1920 without looking soft? */

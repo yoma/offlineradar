@@ -65,6 +65,15 @@ jobs:
           node-version: 22
           cache: npm
 
+      # Pixabay asks to cache search results for 24 hours (lib/instagram/promo/stock.ts).
+      - name: Stock search cache
+        if: steps.keys.outputs.ok == 'true'
+        uses: actions/cache@v4
+        with:
+          path: .cache/promo-stock
+          key: promo-stock-${{ github.run_id }}
+          restore-keys: promo-stock-
+
       - name: Install
         if: steps.keys.outputs.ok == 'true'
         run: npm ci --no-audit --no-fund

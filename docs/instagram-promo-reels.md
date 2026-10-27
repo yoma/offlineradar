@@ -94,4 +94,8 @@ Offline controles: `npm run verify:instagram-promo`.
   aanbevelen of ergens bij horen (daarom de controle in stap 2 hierboven). We
   vermelden de bron toch onderaan de caption ("Beelden: Pixabay"). Per clip
   wordt bron, id, maker en pagina bewaard.
+- **Pixabay-API**: zoekresultaten worden 24 uur bewaard, zoals Pixabay vraagt
+  (`.cache/promo-stock`, in GitHub Actions bewaard tussen runs). Bestanden
+  worden enkel tijdens het renderen opgehaald en in de MP4 verwerkt, nooit
+  rechtstreeks vanaf Pixabay op de site getoond.
 - **Muziek**: alleen rechtenvrije tracks die je zelf in de muziekmap zet.
