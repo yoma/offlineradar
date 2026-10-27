@@ -13,6 +13,7 @@ import { randomBytes } from "node:crypto";
 import { appPublicBaseUrl } from "@/lib/email/app-brand";
 import { getEventsSql } from "@/lib/events/db";
 import { ensureInstagramQueueSchema } from "@/lib/instagram/queue-schema";
+import { kickReelRenderer } from "@/lib/instagram/reel/kick";
 import type { ReelProps } from "@/lib/instagram/reel/types";
 import {
   clipKey,
@@ -354,6 +355,7 @@ export async function createQueuePost(input: {
     );
     throw error;
   }
+  if (input.reelProps) await kickReelRenderer(`nieuwe post ${id}`);
   return getQueuePost(id);
 }
 
@@ -390,7 +392,9 @@ export async function createPromoQueuePost(input: {
     ON CONFLICT DO NOTHING
     RETURNING id
   `) as { id: string }[];
-  return inserted.length > 0 ? getQueuePost(id) : null;
+  if (inserted.length === 0) return null;
+  await kickReelRenderer(`nieuwe promo ${id}`);
+  return getQueuePost(id);
 }
 
 export async function getQueueMedia(mediaId: string): Promise<Buffer | null> {
@@ -995,6 +999,7 @@ export async function requestReelRender(
       AND (reel_props IS NOT NULL OR promo_redo IS NOT NULL OR ${props ? true : false})
     RETURNING id
   `) as unknown[];
+  if (rows.length > 0) await kickReelRenderer(`opnieuw maken ${postId}`);
   return rows.length > 0;
 }
 
@@ -1026,6 +1031,7 @@ export async function requestPromoRedo(postId: string, redo: PromoRedo): Promise
       AND container_id IS NULL
     RETURNING id
   `) as unknown[];
+  if (rows.length > 0) await kickReelRenderer(`nieuwe promo-versie ${postId}`);
   return rows.length > 0;
 }
 
