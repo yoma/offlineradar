@@ -30,8 +30,8 @@ export const PROMO_REELS_CONFIG = {
   /** Planning: 0 = zondag, 1 = maandag, ... 6 = zaterdag. Tijd in Brussel. */
   schedule: { weekday: 0, time: "11:00" },
 
-  /** Templates die roteren. Laat er één staan om altijd dezelfde look te hebben. */
-  templates: ["terras", "magazine", "ondertitel"] as PromoTemplateId[],
+  /** Templates die roteren (terras, magazine, ondertitel). Eén = altijd dezelfde look. */
+  templates: ["ondertitel"] as PromoTemplateId[],
 
   /** Lengte van de video in seconden. */
   minSeconds: 10,
