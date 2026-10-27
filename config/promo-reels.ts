@@ -47,8 +47,13 @@ export const PROMO_REELS_CONFIG = {
   /** Muziekmap in remotion/public. Leeg? Dan de gewone reel-muziek. */
   musicDir: "music/promo",
 
-  /** Claude-model voor tekst en beeldkeuze. */
+  /** Claude-model voor de tekst (hook, regels, caption). */
   model: "claude-opus-5-5",
+  /**
+   * Claude-model voor de beeldkeuze (ook de sfeerbeelden van de event-reels).
+   * Beelden scoren is eenvoudig werk; Sonnet kost ongeveer de helft van Opus.
+   */
+  pickModel: "claude-sonnet-5-5",
 
   /** Altijd in de caption (Claude voegt er 2 à 3 passende aan toe). */
   fixedHashtags: ["#dateofflinehub", "#singlesvlaanderen"],

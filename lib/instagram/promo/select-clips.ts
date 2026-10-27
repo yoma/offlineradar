@@ -88,7 +88,7 @@ export async function scoreCandidates(
   });
   candidates = usable;
   const response = await client.messages.create({
-    model: PROMO_REELS_CONFIG.model,
+    model: PROMO_REELS_CONFIG.pickModel,
     max_tokens: 4000,
     output_config: { effort: "low", format: { type: "json_schema", schema: PICK_SCHEMA } },
     system: PICK_SYSTEM,
