@@ -93,7 +93,11 @@ function Masthead({ tone, right, frame }: { tone: Tone; right?: string; frame: n
   );
 }
 
-/** Footage behind a bordeaux scene: dark enough at every height for cream type. */
+/**
+ * Footage behind a bordeaux scene: a light wash so the picture shows, and a
+ * soft bordeaux band only where the text sits (the masthead at the top, the
+ * hook or CTA in the middle, weighted to the left text edge).
+ */
 function Backdrop({ backdrop, frames }: { backdrop: ReelBackdrop; frames: number }) {
   const bg = palette("bordeaux").bg;
   return (
@@ -101,7 +105,10 @@ function Backdrop({ backdrop, frames }: { backdrop: ReelBackdrop; frames: number
       <Footage clip={backdrop} frames={frames} index={0} />
       <AbsoluteFill
         style={{
-          background: `linear-gradient(180deg, ${bg}cc 0%, ${bg}99 38%, ${bg}a6 62%, ${bg}e6 100%)`,
+          background: [
+            `linear-gradient(90deg, ${bg}59 0%, ${bg}26 55%, ${bg}00 100%)`,
+            `linear-gradient(180deg, ${bg}80 0%, ${bg}59 10%, ${bg}1a 20%, ${bg}8c 33%, ${bg}8c 64%, ${bg}1a 78%, ${bg}26 100%)`,
+          ].join(", "),
         }}
       />
     </AbsoluteFill>
@@ -142,6 +149,8 @@ function Scene({ tone, fadeIn, backdrop, frames = 0, children }: {
           bottom: SAFE_BOTTOM,
           display: "flex",
           flexDirection: "column",
+          // Over footage: a soft shadow keeps type readable on bright spots.
+          textShadow: backdrop ? "0 2px 22px rgba(40,10,20,0.45)" : undefined,
         }}
       >
         {children}
