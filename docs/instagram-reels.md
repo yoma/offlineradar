@@ -151,3 +151,9 @@ reel neemt de volgende track; fade-in en fade-out zitten in de video.
 Offline test: `npm run verify:instagram-reel`.
 
 Licentie: Remotion is gratis voor individuen en bedrijven tot 3 medewerkers.
+
+## Promo-reels
+
+De wekelijkse promo-reels (sfeerbeelden, naar de site) lopen door dezelfde
+wachtrij en dezelfde renderworkflow, maar hebben geen slides en een eigen
+moment. Zie `docs/instagram-promo-reels.md`.

@@ -87,7 +87,9 @@ async function main() {
     "2026-10-28T17:30|nieuw",
     "2026-10-30T17:30|binnenkort",
     "2026-10-31T17:30|event",
+    "2026-11-01T11:00|promo",
   ]);
+  assert.equal(slots[4]!.at.toISOString(), "2026-11-01T10:00:00.000Z", "promo 11:00 CET");
   assert.equal(slots[0]!.at.toISOString(), "2026-10-26T16:30:00.000Z", "17:30 CET");
   const tooClose = upcomingQueueSlots(new Date("2026-10-26T15:00:00Z"));
   assert.ok(!tooClose.some((s) => s.slotKey.startsWith("2026-10-26")), "needs 6h lead");

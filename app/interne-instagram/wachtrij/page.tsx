@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { PROMO_REELS_CONFIG } from "@/config/promo-reels";
 import {
   isGoogleAuthConfigured,
   resolveTipsAdminAccess,
@@ -100,6 +101,7 @@ export default async function InstagramWachtrijPage() {
         nextSlots={nextSlots}
         eventOptions={eventOptions}
         renderedAt={new Date().toISOString()}
+        promoTime={PROMO_REELS_CONFIG.schedule.time}
         setup={{
           userIdSet: Boolean(config.igUserId),
           tokenConfigured: token.configured,

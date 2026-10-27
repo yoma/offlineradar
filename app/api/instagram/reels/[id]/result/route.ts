@@ -41,7 +41,16 @@ export async function POST(
         : "Renderen mislukt.",
     );
     const failed = await markReelFailed(id, message);
-    if (failed?.status === "mislukt") {
+    if (failed?.status === "mislukt" && failed.promo) {
+      console.error(`[instagram/reels] ${id}: promo-reel definitief mislukt: ${message}`);
+      await notifyInstagramAdmins({
+        kind: "reel_render_failed",
+        postId: id,
+        message:
+          `De promo-reel ${id} kon na 3 pogingen niet gemaakt worden, dus deze week gaat er geen promo-reel online. ` +
+          `In de wachtrij kan je hem opnieuw laten maken (nieuwe tekst, nieuwe beelden of allebei).\n\nFout: ${message}`,
+      });
+    } else if (failed?.status === "mislukt") {
       console.error(`[instagram/reels] ${id}: reel definitief mislukt, de post gaat als gewone post: ${message}`);
       await notifyInstagramAdmins({
         kind: "reel_render_failed",

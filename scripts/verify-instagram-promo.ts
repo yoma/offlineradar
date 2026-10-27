@@ -4,11 +4,18 @@
  */
 import assert from "node:assert/strict";
 import { PROMO_REELS_CONFIG } from "../config/promo-reels";
-import { countEventsThisWeek } from "../lib/instagram/promo/generate";
+import { replanPromoReel, EMPTY_PROMO_HISTORY, type PromoPlan } from "../lib/instagram/promo/generate";
+import { countEventsThisWeek, nextPromoTime } from "../lib/instagram/promo/schedule";
 import { nextTemplate, promoCaption, promoTiming, sceneSeconds } from "../lib/instagram/promo/props";
 import { checkPromoScript, normalizeHook, pickTheme } from "../lib/instagram/promo/script";
 import { fitsReel, pickRendition } from "../lib/instagram/promo/stock";
-import { promoDurationInFrames, type PromoClip, type PromoScript } from "../lib/instagram/promo/types";
+import {
+  clipKey,
+  promoDurationInFrames,
+  type PromoClip,
+  type PromoPlanRecord,
+  type PromoScript,
+} from "../lib/instagram/promo/types";
 import { REEL_FPS } from "../lib/instagram/reel/types";
 import type { Event } from "../types/event";
 
@@ -23,7 +30,52 @@ const script = (over: Partial<PromoScript> = {}): PromoScript => ({
 const check = (s: PromoScript, eventCount: number | null = null, recentHooks: string[] = []) =>
   checkPromoScript(s, { clipCount: 3, recentHooks, eventCount });
 
-function main() {
+async function verifyReplan() {
+  const clip = (id: string) => ({ source: "pixabay", id, kind: "video" }) as PromoClip;
+  const previous: PromoPlanRecord = {
+    script: script({ hook: "Oude hook" }),
+    clips: [clip("1"), clip("2"), clip("3")],
+    template: "ondertitel",
+    rejectedHooks: ["Nog oudere hook"],
+    rejectedClipKeys: ["pixabay:0"],
+  };
+  type PlanArgs = Parameters<NonNullable<Parameters<typeof replanPromoReel>[0]["planner"]>>[0];
+  const calls: PlanArgs[] = [];
+  const planner = async (a: PlanArgs): Promise<PromoPlan> => {
+    calls.push(a);
+    const s = a.keepScript ?? script({ hook: "Nieuwe hook" });
+    const c = a.keepClips ?? [clip("7"), clip("8"), clip("9")];
+    return { script: s, clips: c, template: "ondertitel", caption: "x", props: {} as PromoPlan["props"] };
+  };
+  const run = (redo: "alles" | "tekst" | "beelden", prev: PromoPlanRecord | null = previous) =>
+    replanPromoReel({ redo, previous: prev, history: EMPTY_PROMO_HISTORY, eventCount: 4, music: null, planner });
+
+  const text = await run("tekst");
+  assert.equal(calls.at(-1)!.keepClips, previous.clips, "new text keeps the clips");
+  assert.equal(calls.at(-1)!.keepScript, undefined);
+  assert.equal(calls.at(-1)!.themeId, previous.script.themeId, "and their theme");
+  assert.deepEqual(text.record.rejectedHooks, ["Oude hook", "Nog oudere hook"]);
+  assert.deepEqual(text.record.rejectedClipKeys, ["pixabay:0"]);
+
+  const footage = await run("beelden");
+  assert.equal(calls.at(-1)!.keepScript, previous.script, "new clips keep the text");
+  assert.equal(calls.at(-1)!.keepClips, undefined);
+  assert.deepEqual(footage.record.rejectedHooks, ["Nog oudere hook"]);
+  assert.deepEqual(footage.record.rejectedClipKeys, [...previous.clips.map(clipKey), "pixabay:0"]);
+
+  const both = await run("alles");
+  assert.equal(calls.at(-1)!.keepScript, undefined);
+  assert.equal(calls.at(-1)!.keepClips, undefined);
+  assert.equal(calls.at(-1)!.themeId, undefined, "new theme");
+  assert.equal(both.record.rejectedHooks[0], "Oude hook");
+  assert.equal(both.record.rejectedClipKeys.length, 4);
+
+  const first = await run("tekst", null);
+  assert.equal(calls.at(-1)!.keepClips, undefined, "no earlier plan: everything new");
+  assert.deepEqual(first.record.rejectedHooks, []);
+}
+
+async function main() {
   // --- config ---------------------------------------------------------------
   const ids = PROMO_REELS_CONFIG.themes.map((t) => t.id);
   assert.equal(new Set(ids).size, ids.length, "theme ids are unique");
@@ -89,7 +141,15 @@ function main() {
     2,
   );
 
+  // --- schedule (Sunday 11:00 Brussels by default) --------------------------
+  if (PROMO_REELS_CONFIG.schedule.weekday === 0 && PROMO_REELS_CONFIG.schedule.time === "11:00") {
+    assert.equal(nextPromoTime(new Date("2026-10-27T10:00:00Z")).toISOString(), "2026-11-01T10:00:00.000Z");
+    assert.equal(nextPromoTime(new Date("2026-11-01T09:59:00Z")).toISOString(), "2026-11-01T10:00:00.000Z");
+    assert.equal(nextPromoTime(new Date("2026-11-01T10:30:00Z")).toISOString(), "2026-11-08T10:00:00.000Z");
+  }
+
+  await verifyReplan();
   console.info("verify:instagram-promo ok");
 }
 
-main();
+void main();

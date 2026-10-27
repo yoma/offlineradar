@@ -4,15 +4,35 @@ Eén keer per week een reel die mensen naar dateofflinehub.be trekt: echte
 sfeerbeelden (Pixabay, Pexels als aanvulling als er een sleutel is), een korte hook, per clip een
 korte zin en een call-to-action. Events zijn hooguit een bijzaak.
 
-- **Stap 1** (deze branch): config, tekst via Claude, clipselectie, 3
-  templates en `npm run promo:test`. Er wordt niets gepubliceerd.
-- **Stap 2**: in de wachtrij met dezelfde goedkeuring, afkeuren met keuze
-  (nieuwe tekst, nieuwe beelden, allebei), publicatie als reel op het eigen
-  tijdstip.
+Template: **Ondertitel** (gekozen in oktober 2026). Tekst, thema, beelden,
+caption en muziek zijn elke week nieuw; de look blijft dezelfde.
+
+## Elke week
+
+1. **Voorstel**: de avondcron van Vercel zet een week vooraf een promo-post in
+   de wachtrij voor het promo-moment (standaard zondag 11:00). Die post heeft
+   nog geen tekst of video.
+2. **Maken**: de uurlijkse GitHub-workflow *Instagram reels* ziet de post,
+   laat Claude de tekst schrijven en de beelden kiezen (zie hieronder), stuurt
+   het plan naar de site en rendert de video. Binnen het uur staat hij onder
+   **Te keuren** op `/interne-instagram/wachtrij`, met video, caption en de
+   bron van elke clip.
+3. **Keuren**: zoals de andere posts: caption aanpassen, *Plannen voor die dag*
+   of *Nu plaatsen*. Niet goed? Kies **Nieuwe tekst** (zelfde beelden),
+   **Nieuwe beelden** (zelfde tekst) of **Allebei nieuw**; binnen het uur staat
+   de nieuwe versie er. Afgekeurde hooks en clips komen niet terug.
+   *Deze week geen promo-reel* parkeert hem.
+4. **Plaatsen**: de GitHub-workflow *Instagram promo publish* vraagt elk uur
+   (om :05) of er een promo-reel klaar staat en plaatst hem als reel, met de
+   video ook als verhaal. Een promo-reel heeft geen slides: lukt de reel niet,
+   dan gaat er niets online en krijg je een mail.
+
+Zelf een extra promo-reel: *Maak een post* → **Promo-reel** (voor het volgende
+promo-moment; de datum kan je daarna aanpassen).
 
 ## Zelf bijsturen
 
-Alles staat in `config/promo-reels.ts`: thema's (briefing, voorbeeldhooks,
+Alles staat in `config/promo-reels.ts`: dag en uur (`schedule`), thema's (briefing, voorbeeldhooks,
 beeldideeën, gewicht), toon, vaste hashtags, call-to-action, dag en uur,
 templates, lengte en aantal clips, en het Claude-model.
 
@@ -81,9 +101,18 @@ Offline controles: `npm run verify:instagram-promo`.
 
 | Naam | Waar | Betekenis |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Vercel, GitHub secret | tekst en beeldkeuze |
-| `PIXABAY_API_KEY` | Vercel, GitHub secret | stockvideo en foto's (verplicht) |
-| `PEXELS_API_KEY` | Vercel, GitHub secret | extra stockvideo en scherpere foto's (optioneel) |
+| `ANTHROPIC_API_KEY` | GitHub secret | tekst en beeldkeuze |
+| `PIXABAY_API_KEY` | GitHub secret | stockvideo en foto's (verplicht) |
+| `PEXELS_API_KEY` | GitHub secret | extra stockvideo en scherpere foto's (optioneel) |
+| `CRON_SECRET` | Vercel, GitHub secret | de workflows praten met de site (bestond al) |
+
+Claude en Pixabay worden alleen vanuit GitHub Actions aangesproken, niet
+vanuit Vercel. In Vercel zijn deze sleutels dus niet nodig.
+
+In de database (Neon, `instagram_post_queue`): `format = 'promo'`,
+`promo_plan` (script, clips, template, afgekeurde hooks en clips) en
+`promo_redo` (`alles`, `tekst` of `beelden` zolang er een nieuwe versie
+gemaakt moet worden). De kolommen komen er vanzelf bij (migratie v5).
 
 ## Licenties
 

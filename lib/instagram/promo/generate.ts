@@ -1,12 +1,11 @@
 /**
  * Everything a promo reel needs before the render: theme, Claude's script,
  * the clips, template, timing and caption. Used by `npm run promo:test` and
- * (later) the weekly proposal. A rejected reel can keep its script or its
- * clips and redo only the other part.
+ * the queue renderer. A rejected reel can keep its script or its clips and
+ * redo only the other part (replanPromoReel).
  */
 
 import { PROMO_REELS_CONFIG, type PromoTemplateId } from "@/config/promo-reels";
-import { addDays, brusselsToday } from "@/lib/dates";
 import {
   buildPromoProps,
   nextTemplate,
@@ -17,9 +16,15 @@ import {
 } from "@/lib/instagram/promo/props";
 import { pickTheme, writePromoScript } from "@/lib/instagram/promo/script";
 import { selectPromoClips } from "@/lib/instagram/promo/select-clips";
-import type { PromoClip, PromoReelProps, PromoScript } from "@/lib/instagram/promo/types";
+import {
+  clipKey,
+  type PromoClip,
+  type PromoPlanRecord,
+  type PromoRedo,
+  type PromoReelProps,
+  type PromoScript,
+} from "@/lib/instagram/promo/types";
 import type { ReelMusic } from "@/lib/instagram/reel/types";
-import type { Event } from "@/types/event";
 
 /** What earlier promo reels used, so nothing repeats. */
 export type PromoHistory = {
@@ -36,12 +41,7 @@ export const EMPTY_PROMO_HISTORY: PromoHistory = {
   lastTemplate: null,
 };
 
-/** Published events starting in the coming 7 days (Brussels dates). */
-export function countEventsThisWeek(catalog: Event[], now = new Date()): number {
-  const from = brusselsToday(now);
-  const to = addDays(from, 6);
-  return catalog.filter((e) => e.startDate >= from && e.startDate <= to).length;
-}
+export { countEventsThisWeek } from "@/lib/instagram/promo/schedule";
 
 export type PromoPlan = {
   script: PromoScript;
@@ -106,5 +106,51 @@ export async function planPromoReel(args: {
     template,
     caption: promoCaption(script, clips),
     props: buildPromoProps({ template, script, clips, timing, music: args.music }),
+  };
+}
+
+/** Turned-down hooks and clips remembered per post. */
+const MAX_REJECTED = 60;
+
+/**
+ * A new version for a promo post in the queue. 'alles' (or no earlier plan)
+ * starts over; 'tekst' keeps the clips and their theme; 'beelden' keeps the
+ * script. What was turned down is remembered, so it does not come back.
+ */
+export async function replanPromoReel(args: {
+  redo: PromoRedo;
+  previous: PromoPlanRecord | null;
+  history: PromoHistory;
+  eventCount: number | null;
+  music: ReelMusic;
+  log?: (message: string) => void;
+  /** For tests. */
+  planner?: typeof planPromoReel;
+}): Promise<{ plan: PromoPlan; record: PromoPlanRecord }> {
+  const prev = args.previous;
+  const newText = !prev || args.redo !== "beelden";
+  const newClips = !prev || args.redo !== "tekst";
+  const plan = await (args.planner ?? planPromoReel)({
+    history: args.history,
+    eventCount: args.eventCount,
+    music: args.music,
+    keepScript: newText ? undefined : prev.script,
+    keepClips: newClips ? undefined : prev.clips,
+    themeId: !newClips && prev ? prev.script.themeId : undefined,
+    log: args.log,
+  });
+  const rejectedHooks = [...(prev?.rejectedHooks ?? [])];
+  const rejectedClipKeys = [...(prev?.rejectedClipKeys ?? [])];
+  if (prev && newText) rejectedHooks.unshift(prev.script.hook);
+  if (prev && newClips) rejectedClipKeys.unshift(...prev.clips.map(clipKey));
+  return {
+    plan,
+    record: {
+      script: plan.script,
+      clips: plan.clips,
+      template: plan.template,
+      rejectedHooks: rejectedHooks.slice(0, MAX_REJECTED),
+      rejectedClipKeys: rejectedClipKeys.slice(0, MAX_REJECTED),
+    },
   };
 }

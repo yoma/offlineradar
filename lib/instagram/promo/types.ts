@@ -71,3 +71,19 @@ export function promoDurationInFrames(timing: PromoTiming): number {
 export function clipKey(clip: Pick<PromoClip, "source" | "id">): string {
   return `${clip.source}:${clip.id}`;
 }
+
+/** What a promo reel needs (again) before the render. */
+export type PromoRedo = "alles" | "tekst" | "beelden";
+
+export const PROMO_REDOS: readonly PromoRedo[] = ["alles", "tekst", "beelden"];
+
+/** Stored per promo post: the current version and what was turned down. */
+export type PromoPlanRecord = {
+  script: PromoScript;
+  clips: PromoClip[];
+  template: PromoTemplateId;
+  /** Hooks of versions the admin turned down for this post. */
+  rejectedHooks: string[];
+  /** clipKey()s of versions the admin turned down for this post. */
+  rejectedClipKeys: string[];
+};

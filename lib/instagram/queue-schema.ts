@@ -167,11 +167,31 @@ VALUES ('20261027_instagram_post_queue_reel_publish_v4b')
 ON CONFLICT (id) DO NOTHING;
 `;
 
+/**
+ * v5: weekly promo reels (format 'promo', no slides). promo_plan is the last
+ * plan (script, clips, template, plus hooks and clips of rejected versions);
+ * promo_redo says what the renderer must (re)make before rendering:
+ * 'alles' (new post or "allebei nieuw"), 'tekst' or 'beelden'.
+ */
+export const INSTAGRAM_POST_QUEUE_PROMO_MIGRATION_ID =
+  "20261027_instagram_post_queue_promo_v5";
+
+export const INSTAGRAM_POST_QUEUE_PROMO_SQL = `
+ALTER TABLE instagram_post_queue
+  ADD COLUMN IF NOT EXISTS promo_plan JSONB,
+  ADD COLUMN IF NOT EXISTS promo_redo TEXT;
+
+INSERT INTO schema_migrations (id)
+VALUES ('20261027_instagram_post_queue_promo_v5')
+ON CONFLICT (id) DO NOTHING;
+`;
+
 const MIGRATIONS: [id: string, sql: string][] = [
   [INSTAGRAM_POST_QUEUE_MIGRATION_ID, INSTAGRAM_POST_QUEUE_SCHEMA_SQL],
   [INSTAGRAM_POST_QUEUE_STORY_MIGRATION_ID, INSTAGRAM_POST_QUEUE_STORY_SQL],
   [INSTAGRAM_POST_QUEUE_REEL_MIGRATION_ID, INSTAGRAM_POST_QUEUE_REEL_SQL],
   [INSTAGRAM_POST_QUEUE_REEL_PUBLISH_MIGRATION_ID, INSTAGRAM_POST_QUEUE_REEL_PUBLISH_SQL],
+  [INSTAGRAM_POST_QUEUE_PROMO_MIGRATION_ID, INSTAGRAM_POST_QUEUE_PROMO_SQL],
 ];
 
 let ensured: Promise<boolean> | null = null;

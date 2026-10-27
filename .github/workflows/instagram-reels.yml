@@ -2,7 +2,11 @@
 # Every hour: ask the site whether reels are waiting; only then install
 # Remotion and render. Upload goes back to the site (stored in Neon).
 #
-# Repository secrets: CRON_SECRET (same value as in Vercel).
+# Promo reels (docs/instagram-promo-reels.md) are planned here as well:
+# Claude writes the text and picks stock clips before the render.
+#
+# Repository secrets: CRON_SECRET (same value as in Vercel); for promo reels
+# ANTHROPIC_API_KEY and PIXABAY_API_KEY (PEXELS_API_KEY optional).
 # Optional repository variable: REEL_SITE_URL (default https://dateofflinehub.be).
 name: Instagram reels
 
@@ -25,6 +29,9 @@ jobs:
     env:
       REEL_SITE_URL: ${{ vars.REEL_SITE_URL || 'https://dateofflinehub.be' }}
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
     steps:
       - name: Check for waiting reels
         id: pending
@@ -48,6 +55,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      # Pixabay asks to cache search results for 24 hours (lib/instagram/promo/stock.ts).
+      - name: Stock search cache
+        if: steps.pending.outputs.count != '0'
+        uses: actions/cache@v4
+        with:
+          path: .cache/promo-stock
+          key: promo-stock-${{ github.run_id }}
+          restore-keys: promo-stock-
 
       - name: Install
         if: steps.pending.outputs.count != '0'
