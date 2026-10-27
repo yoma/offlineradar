@@ -60,6 +60,25 @@ export type ReelMusic = {
   volume: number;
 } | null;
 
+/**
+ * Stock clip or photo behind the hook or the call to action (Pixabay, or
+ * Pexels when its key is set), under a bordeaux wash. Same shape as a promo
+ * clip; chosen in GitHub Actions by lib/instagram/reel/backdrop.ts.
+ */
+export type ReelBackdrop = {
+  source: "pexels" | "pixabay";
+  id: string;
+  kind: "video" | "photo";
+  url: string;
+  width: number;
+  height: number;
+  /** Video length in seconds (0 for a photo). */
+  duration: number;
+  pageUrl: string;
+  author: string;
+  query: string;
+};
+
 export type ReelProps = {
   layout: ReelLayout;
   /** Hook shown in the first second: optional big count + short lines. */
@@ -75,6 +94,8 @@ export type ReelProps = {
   music: ReelMusic;
   website: string;
   slogan: string;
+  /** Atmosphere footage; absent or null = the plain colour scenes. */
+  backdrops?: { hook: ReelBackdrop | null; cta: ReelBackdrop | null } | null;
 };
 
 export function reelDurationInFrames(timing: ReelTiming, layout: ReelLayout, eventCount: number): number {
