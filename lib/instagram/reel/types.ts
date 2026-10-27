@@ -77,6 +77,8 @@ export type ReelBackdrop = {
   pageUrl: string;
   author: string;
   query: string;
+  /** Copy in the render bundle's public folder (set just before the render). */
+  localFile?: string;
 };
 
 export type ReelProps = {

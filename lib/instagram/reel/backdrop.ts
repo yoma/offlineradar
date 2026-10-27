@@ -111,3 +111,53 @@ export async function pickReelBackdrops(args: {
   }
 }
 
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Download with retries on 429/5xx and network errors (2s, 4s, 8s). */
+async function download(url: string): Promise<Buffer> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) await sleep(2_000 * 2 ** (attempt - 1));
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
+      if (res.ok) return Buffer.from(await res.arrayBuffer());
+      lastError = new Error(`HTTP ${res.status}`);
+      if (res.status !== 429 && res.status < 500) break;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+/**
+ * Copy the backdrop files into the render bundle's public folder (`serveUrl`
+ * is the folder bundle() wrote), so the render loads them locally. Loading
+ * them from the stock site during the render fails: Pixabay answers the many
+ * parallel requests with HTTP 429. A file that will not download drops that
+ * backdrop (plain scene) instead of failing the reel.
+ */
+export async function localizeBackdrops(
+  backdrops: ReelProps["backdrops"],
+  serveUrl: string,
+  log: (message: string) => void = () => {},
+): Promise<ReelProps["backdrops"]> {
+  if (!backdrops) return backdrops;
+  const out: NonNullable<ReelProps["backdrops"]> = { hook: null, cta: null };
+  for (const slot of ["hook", "cta"] as const) {
+    const b = backdrops[slot];
+    if (!b) continue;
+    const ext = b.kind === "video" ? "mp4" : (/\.(png|webp)(?:$|\?)/i.exec(b.url)?.[1]?.toLowerCase() ?? "jpg");
+    const localFile = `backdrops/${b.source}-${b.id}.${ext}`.replace(/[^\w./-]/g, "_");
+    const target = path.join(serveUrl, "public", localFile);
+    try {
+      await mkdir(path.dirname(target), { recursive: true });
+      await writeFile(target, await download(b.url));
+      out[slot] = { ...b, localFile };
+    } catch (error) {
+      log(`sfeerbeeld ${slot} niet gedownload, effen scène: ${error instanceof Error ? error.message : error}`);
+    }
+  }
+  return out.hook || out.cta ? out : null;
+}

@@ -26,7 +26,7 @@ import {
   listSingleEventCandidates,
   type InstagramDraft,
 } from "@/lib/instagram/drafts";
-import { pickReelBackdrops } from "@/lib/instagram/reel/backdrop";
+import { localizeBackdrops, pickReelBackdrops } from "@/lib/instagram/reel/backdrop";
 import { readInstagramReelConfig } from "@/lib/instagram/reel/config";
 import { pickReelMusic } from "@/lib/instagram/reel/music";
 import { buildReelProps, noEmDash } from "@/lib/instagram/reel/props";
@@ -86,11 +86,15 @@ async function main() {
       ? plainProps
       : {
           ...plainProps,
-          backdrops: await pickReelBackdrops({
-            seed: `${format}-${now.toISOString()}`,
-            props: plainProps,
-            log: (m) => log(`${format}: ${m}`),
-          }),
+          backdrops: await localizeBackdrops(
+            await pickReelBackdrops({
+              seed: `${format}-${now.toISOString()}`,
+              props: plainProps,
+              log: (m) => log(`${format}: ${m}`),
+            }),
+            serveUrl,
+            (m) => log(`${format}: ${m}`),
+          ),
         };
     const caption = noEmDash(draft.caption);
 

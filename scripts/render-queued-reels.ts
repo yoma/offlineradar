@@ -26,7 +26,7 @@ import { replanPromoReel, type PromoHistory } from "@/lib/instagram/promo/genera
 import { pickPromoMusic } from "@/lib/instagram/promo/music";
 import { renderPromoReel } from "@/lib/instagram/promo/render";
 import type { PromoPlanRecord, PromoRedo, PromoReelProps } from "@/lib/instagram/promo/types";
-import { pickReelBackdrops } from "@/lib/instagram/reel/backdrop";
+import { localizeBackdrops, pickReelBackdrops } from "@/lib/instagram/reel/backdrop";
 import { readInstagramReelConfig } from "@/lib/instagram/reel/config";
 import { pickReelMusic } from "@/lib/instagram/reel/music";
 import { bundleReelTemplate, renderReel, type RenderedReel } from "@/lib/instagram/reel/render";
@@ -57,7 +57,7 @@ type Job =
 type Prepared = {
   label: string;
   track: string | null;
-  render: (outBase: string) => Promise<RenderedReel>;
+  render: (outBase: string, attempt: number) => Promise<RenderedReel>;
 };
 
 function log(message: string) {
@@ -190,16 +190,24 @@ async function main() {
           lastPromoTrack = prepared.track ?? lastPromoTrack;
         } else {
           const music = await pickReelMusic(config, lastTrack);
-          const backdrops = await pickReelBackdrops({
-            seed: job.id,
-            props: job.props,
-            log: (m) => log(`${job.id}: ${m}`),
-          });
+          const jobLog = (m: string) => log(`${job.id}: ${m}`);
+          const backdrops = await localizeBackdrops(
+            await pickReelBackdrops({ seed: job.id, props: job.props, log: jobLog }),
+            serveUrl,
+            jobLog,
+          );
           const props: ReelProps = { ...job.props, music, backdrops };
           prepared = {
             label: `"${props.hookText}"`,
             track: music?.src ?? null,
-            render: (outBase) => renderReel({ serveUrl, props, outBase, browserExecutable }),
+            // A second try goes without footage: the reel matters more than the picture.
+            render: (outBase, attempt) =>
+              renderReel({
+                serveUrl,
+                props: attempt > 1 ? { ...props, backdrops: null } : props,
+                outBase,
+                browserExecutable,
+              }),
           };
           lastTrack = prepared.track ?? lastTrack;
         }
@@ -211,7 +219,7 @@ async function main() {
       }
       for (let attempt = 1; prepared && attempt <= RENDER_TRIES; attempt++) {
         try {
-          const reel = await prepared.render(path.join(workDir, job.id));
+          const reel = await prepared.render(path.join(workDir, job.id), attempt);
           await upload(job.id, "reel", reel.videoPath);
           await upload(job.id, "reel_cover", reel.coverPath);
           await upload(job.id, "reel_story", reel.storyPath);
