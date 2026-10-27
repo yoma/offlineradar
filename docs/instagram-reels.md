@@ -58,8 +58,14 @@ vinkjes ook zeggen.
 1. Bij elk nieuw voorstel (automatisch of via *Maak een post*) bewaart de site
    de reel-gegevens (`reel_props`): dezelfde events en hetzelfde formaat als de
    slides. De reel krijgt status *te_maken*.
-2. Elk uur (minuut 20) draait de GitHub Actions-workflow
-   `.github/workflows/instagram-reels.yml`. Die vraagt eerst aan de site of er
+2. De site start meteen de GitHub Actions-workflow
+   `.github/workflows/instagram-reels.yml` (`lib/instagram/reel/kick.ts`,
+   bij een nieuwe post, *Reel opnieuw maken* en een nieuwe promo-versie, en
+   bij de avondcron als er nog reels wachten). Daarnaast staat de workflow
+   elk uur (minuut 20) ingepland als vangnet, maar GitHub voert ingeplande
+   workflows vaak uren te laat uit of slaat ze over (okt 2026: soms 4 à 5
+   uur ertussen); zonder de directe start bleef een reel dan lang op
+   *Reel wordt gemaakt* staan. Die vraagt eerst aan de site of er
    reels wachten (`GET /api/instagram/reels/jobs`); zo niet, dan stopt hij
    meteen. Anders installeert hij Remotion, claimt hij de reels
    (`POST /api/instagram/reels/jobs`), rendert ze en uploadt MP4, cover en
@@ -79,6 +85,12 @@ dan de eigenaar van de repo.
 Instelling: repository secret `CRON_SECRET` in GitHub (zelfde waarde als in
 Vercel). Optioneel de repository variable `REEL_SITE_URL` (standaard
 `https://dateofflinehub.be`).
+
+Voor de directe start: in Vercel `GITHUB_REELS_TOKEN`, een fine-grained token
+(GitHub > Settings > Developer settings > Fine-grained tokens) met alleen deze
+repository en de permissie *Actions: Read and write*. Optioneel
+`GITHUB_REELS_REPO` (standaard `yoma/offlineradar`). Zonder token blijft
+alleen het uurschema over.
 
 ## Testreel maken
 
@@ -139,6 +151,7 @@ reel neemt de volgende track; fade-in en fade-out zitten in de video.
 | `lib/instagram/reel/config.ts` | instellingen uit env |
 | `lib/instagram/reel/music.ts` | trackrotatie |
 | `remotion/Reel.tsx` | het videotemplate |
+| `lib/instagram/reel/kick.ts` | start de renderer meteen (GitHub workflow_dispatch) |
 | `lib/instagram/reel/queue-reel.ts` | props bij een nieuw voorstel, opnieuw bij een nieuwe datum |
 | `lib/instagram/reel/render.ts` | Remotion-render (MP4 + cover + verhaalbeeld, max 4,2 MB) |
 | `lib/instagram/queue-runner.ts` | publiceren: reel, terugval op de post, verhaal |

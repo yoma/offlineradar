@@ -230,7 +230,7 @@ function ReelPreview({
         <p className="text-xs text-stone-500">Video opgeruimd (ouder dan 30 dagen).</p>
       ) : (
         <div className="flex aspect-[9/16] w-full items-center justify-center rounded-xl border border-dashed border-stone-200 bg-stone-50 p-4 text-center text-xs text-stone-500">
-          Reel wordt gemaakt. Dat gebeurt elk uur; ververs de pagina straks.
+          Reel wordt gemaakt. Dat duurt meestal enkele minuten; ververs de pagina straks.
         </div>
       )}
       {post.reelHook ? <p className="text-xs text-stone-600">Hook: {post.reelHook}</p> : null}

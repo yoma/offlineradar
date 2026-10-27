@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { countPendingReels } from "@/lib/instagram/queue";
 import { runInstagramQueueTick } from "@/lib/instagram/queue-runner";
+import { kickReelRenderer } from "@/lib/instagram/reel/kick";
 import { isCronRequestAuthorized } from "@/lib/source-refresh/cron-auth";
 import { scrubSecrets } from "@/lib/instagram/token-store";
 
@@ -22,6 +24,8 @@ export async function GET(request: Request) {
 
   try {
     const result = await runInstagramQueueTick();
+    // Back-up for reels left waiting (e.g. a retry after a failed render).
+    if ((await countPendingReels().catch(() => 0)) > 0) await kickReelRenderer("cron");
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     const message = scrubSecrets(
