@@ -295,7 +295,7 @@ export async function publishQueuePost(
       ? (status.data.status_code ?? status.data.status ?? "").toUpperCase()
       : "";
     if (code === "PUBLISHED") {
-      await markQueuePosted(post.id, null);
+      await markQueuePosted(post.id, null, post.publishedAs ?? undefined);
       return { id: post.id, ok: true, message: "Stond al op Instagram (vorige poging)." };
     }
     if (code !== "FINISHED") {
@@ -433,6 +433,34 @@ type ReelAttempt =
  * fallback; an unclear media_publish answer is not, since the reel may be
  * live already.
  */
+/** Reel media_publish may take this long before we call it unclear. */
+const REEL_PUBLISH_TIMEOUT_MS = 90_000;
+/** After an unclear answer, keep asking the container this long. */
+const REEL_CONFIRM_MS = 45_000;
+/** Time kept after the reel publish for its story. */
+const REEL_STORY_RESERVE_MS = 25_000;
+
+/**
+ * After a lost media_publish answer: poll the container until it reports
+ * PUBLISHED (true) or the deadline passes (false: still unclear).
+ */
+export async function confirmPublishedLater(
+  client: MetaClient,
+  containerId: string,
+  deadlineMs: number,
+): Promise<boolean> {
+  while (Date.now() < deadlineMs) {
+    const status = await client.getContainerStatus(containerId, {
+      timeoutMs: Math.max(1_000, Math.min(META_HTTP_TIMEOUT_MS, deadlineMs - Date.now())),
+    });
+    const code = status.ok ? (status.data.status_code ?? status.data.status ?? "").toUpperCase() : "";
+    if (code === "PUBLISHED") return true;
+    if (code === "ERROR" || code === "EXPIRED") return false;
+    await new Promise((r) => setTimeout(r, Math.min(5_000, Math.max(0, deadlineMs - Date.now()))));
+  }
+  return false;
+}
+
 async function publishAsReel(args: {
   post: InstagramQueuePost;
   client: MetaClient;
@@ -514,9 +542,24 @@ async function publishAsReel(args: {
   }
 
   await saveQueueContainerId(post.id, container.data.id, "reel");
-  const published = await client.publishContainer(container.data.id, {
-    timeoutMs: Math.max(5_000, Math.min(META_HTTP_TIMEOUT_MS, postDeadlineMs - Date.now())),
+  // Meta often takes 20–60 s to answer media_publish for a reel; leave room
+  // for the story afterwards.
+  const publishWaitMs = Math.min(
+    REEL_PUBLISH_TIMEOUT_MS,
+    Math.max(10_000, postDeadlineMs - Date.now() - REEL_STORY_RESERVE_MS),
+  );
+  let published = await client.publishContainer(container.data.id, {
+    longTimeoutMs: publishWaitMs,
   });
+  if (!published.ok && isAmbiguousPostPublishError(published.error.code)) {
+    // The answer got lost, but the reel may well be live: ask the container.
+    const confirmed = await confirmPublishedLater(
+      client,
+      container.data.id,
+      Math.min(Date.now() + REEL_CONFIRM_MS, postDeadlineMs),
+    );
+    if (confirmed) published = { ok: true, data: { id: "" } };
+  }
   if (!published.ok) {
     if (published.error.code === "meta_already_published") {
       await markQueuePosted(post.id, null, "reel");
@@ -536,7 +579,7 @@ async function publishAsReel(args: {
     return fallback(message);
   }
 
-  await markQueuePosted(post.id, published.data.id, "reel");
+  await markQueuePosted(post.id, published.data.id || null, "reel");
   console.info(
     `[instagram/queue] ${post.id} gepost als reel ${published.data.id}` +
       (collaborators.length > 0 ? ` (collaborators: ${collaborators.join(", ")})` : ""),
