@@ -141,11 +141,14 @@ async function main() {
     2,
   );
 
-  // --- schedule (Sunday 11:00 Brussels by default) --------------------------
-  if (PROMO_REELS_CONFIG.schedule.weekday === 0 && PROMO_REELS_CONFIG.schedule.time === "11:00") {
-    assert.equal(nextPromoTime(new Date("2026-10-27T10:00:00Z")).toISOString(), "2026-11-01T10:00:00.000Z");
-    assert.equal(nextPromoTime(new Date("2026-11-01T09:59:00Z")).toISOString(), "2026-11-01T10:00:00.000Z");
-    assert.equal(nextPromoTime(new Date("2026-11-01T10:30:00Z")).toISOString(), "2026-11-08T10:00:00.000Z");
+  // --- schedule (Tue, Thu, Sun 11:00 Brussels by default) ------------------
+  const { weekdays, time } = PROMO_REELS_CONFIG.schedule;
+  if ([...weekdays].sort().join() === "0,2,4" && time === "11:00") {
+    // Tue 27 Oct 11:00 CET = 10:00 UTC.
+    assert.equal(nextPromoTime(new Date("2026-10-27T09:00:00Z")).toISOString(), "2026-10-27T10:00:00.000Z");
+    assert.equal(nextPromoTime(new Date("2026-10-27T10:30:00Z")).toISOString(), "2026-10-29T10:00:00.000Z");
+    assert.equal(nextPromoTime(new Date("2026-10-30T10:00:00Z")).toISOString(), "2026-11-01T10:00:00.000Z");
+    assert.equal(nextPromoTime(new Date("2026-11-01T10:30:00Z")).toISOString(), "2026-11-03T10:00:00.000Z");
   }
 
   await verifyReplan();

@@ -27,8 +27,11 @@ export type PromoTheme = {
 };
 
 export const PROMO_REELS_CONFIG = {
-  /** Planning: 0 = zondag, 1 = maandag, ... 6 = zaterdag. Tijd in Brussel. */
-  schedule: { weekday: 0, time: "11:00" },
+  /**
+   * Planning: dagen (0 = zondag, 1 = maandag, ... 6 = zaterdag) en tijd in
+   * Brussel. Di, do en zo: de dagen zonder andere post.
+   */
+  schedule: { weekdays: [2, 4, 0], time: "11:00" },
 
   /** Templates die roteren (terras, magazine, ondertitel). Eén = altijd dezelfde look. */
   templates: ["ondertitel"] as PromoTemplateId[],

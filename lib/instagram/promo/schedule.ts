@@ -13,12 +13,12 @@ export function promoPostTime(ymd: string): Date {
   return brusselsWallInstant(ymd, PROMO_REELS_CONFIG.schedule.time);
 }
 
-/** The next weekly promo moment after `now` (for a promo reel made by hand). */
+/** The next promo moment after `now` (for a promo reel made by hand). */
 export function nextPromoTime(now = new Date()): Date {
   const today = brusselsToday(now);
   for (let d = 0; d <= 7; d++) {
     const ymd = addDays(today, d);
-    if (weekdayIndex(ymd) !== PROMO_REELS_CONFIG.schedule.weekday) continue;
+    if (!PROMO_REELS_CONFIG.schedule.weekdays.includes(weekdayIndex(ymd))) continue;
     const at = promoPostTime(ymd);
     if (at.getTime() > now.getTime()) return at;
   }

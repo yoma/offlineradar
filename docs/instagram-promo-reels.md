@@ -1,6 +1,6 @@
 # Instagram promo-reels
 
-Eén keer per week een reel die mensen naar dateofflinehub.be trekt: echte
+Drie keer per week (di, do, zo) een reel die mensen naar dateofflinehub.be trekt: echte
 sfeerbeelden (Pixabay, Pexels als aanvulling als er een sleutel is), een korte hook, per clip een
 korte zin en een call-to-action. Events zijn hooguit een bijzaak.
 
@@ -10,7 +10,7 @@ caption en muziek zijn elke week nieuw; de look blijft dezelfde.
 ## Elke week
 
 1. **Voorstel**: de avondcron van Vercel zet een week vooraf een promo-post in
-   de wachtrij voor het promo-moment (standaard zondag 11:00). Die post heeft
+   de wachtrij voor elk promo-moment (standaard di, do en zo om 11:00). Die post heeft
    nog geen tekst of video.
 2. **Maken**: de uurlijkse GitHub-workflow *Instagram reels* ziet de post,
    laat Claude de tekst schrijven en de beelden kiezen (zie hieronder), stuurt

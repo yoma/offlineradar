@@ -93,9 +93,13 @@ export const INSTAGRAM_WEEKLY_SLOTS: {
   { weekday: 3, time: DAILY_POST_TIME, format: "nieuw" },
   { weekday: 5, time: DAILY_POST_TIME, format: "binnenkort" },
   { weekday: 6, time: DAILY_POST_TIME, format: "event" },
-  // Promo reel: its own day and time (config/promo-reels.ts). Published by
-  // the hourly GitHub workflow, not the evening cron.
-  { ...PROMO_REELS_CONFIG.schedule, format: PROMO_FORMAT },
+  // Promo reels: their own days and time (config/promo-reels.ts). Published
+  // by the hourly GitHub workflow, not the evening cron.
+  ...PROMO_REELS_CONFIG.schedule.weekdays.map((weekday) => ({
+    weekday,
+    time: PROMO_REELS_CONFIG.schedule.time,
+    format: PROMO_FORMAT as QueueSlotFormat,
+  })),
 ];
 
 /** Propose posts this far ahead, so there is time to review them. */
