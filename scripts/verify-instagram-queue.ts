@@ -211,6 +211,49 @@ async function main() {
     assert.ok(!text.includes("/instagram"), `${format}: ${text}`);
   }
 
+  // --- reel publish: long wait allowed, lost answers confirmed -------------
+  const { createMetaClient } = await import("../lib/instagram/meta-client");
+  const slow = createMetaClient({
+    igUserId: "ig",
+    accessToken: "tok",
+    graphApiVersion: "v24.0",
+    graphHost: "graph.instagram.com",
+    timeoutMs: 50,
+    fetchImpl: async (_input, init) => {
+      await new Promise((r, reject) => {
+        const t = setTimeout(r, 150);
+        init?.signal?.addEventListener("abort", () => {
+          clearTimeout(t);
+          reject(Object.assign(new Error("aborted"), { name: "TimeoutError" }));
+        });
+      });
+      return new Response(JSON.stringify({ id: "media1" }), { status: 200 });
+    },
+  });
+  assert.equal((await slow.publishContainer("c1")).ok, false, "default cap still applies");
+  assert.equal((await slow.publishContainer("c1", { longTimeoutMs: 1_000 })).ok, true, "long wait for reels");
+
+  const { confirmPublishedLater } = await import("../lib/instagram/queue-runner");
+  const statusSeq = (codes: string[]): MetaClient => {
+    let i = 0;
+    return {
+      ...fake,
+      getContainerStatus: async () => ({
+        ok: true,
+        data: { status_code: codes[Math.min(i++, codes.length - 1)] },
+      }),
+    };
+  };
+  assert.equal(
+    await confirmPublishedLater(statusSeq(["FINISHED", "PUBLISHED"]), "c", Date.now() + 15_000),
+    true,
+    "lost answer but reel is live",
+  );
+  assert.equal(
+    await confirmPublishedLater(statusSeq(["ERROR"]), "c", Date.now() + 15_000),
+    false,
+  );
+
   // --- public media URL + caption ------------------------------------------
   assert.equal(
     publicMediaUrl("a".repeat(32), "https://dateofflinehub.be/"),

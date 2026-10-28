@@ -23,6 +23,11 @@ export type MetaClientResult<T> =
 export type MetaRequestOptions = {
   /** Cap this single HTTP call (ms). Defaults to client timeout. */
   timeoutMs?: number;
+  /**
+   * Let this call wait longer than the client default (ms). For reel
+   * media_publish, which Meta often answers only after 20–60 s.
+   */
+  longTimeoutMs?: number;
 };
 
 export type MetaClient = {
@@ -118,9 +123,10 @@ function mapMetaError(payload: unknown, httpStatus: number): MetaGraphError {
 
 function resolveCallTimeoutMs(
   defaultMs: number,
-  overrideMs: number | undefined,
+  opts: MetaRequestOptions | undefined,
 ): number {
-  const ms = overrideMs ?? defaultMs;
+  if (opts?.longTimeoutMs) return Math.max(1, Math.floor(opts.longTimeoutMs));
+  const ms = opts?.timeoutMs ?? defaultMs;
   return Math.max(1, Math.min(defaultMs, Math.floor(ms)));
 }
 
@@ -139,7 +145,7 @@ export function createMetaClient(options: MetaClientOptions): MetaClient {
       ...body,
       access_token: options.accessToken,
     });
-    const timeoutMs = resolveCallTimeoutMs(defaultTimeoutMs, opts?.timeoutMs);
+    const timeoutMs = resolveCallTimeoutMs(defaultTimeoutMs, opts);
     try {
       const res = await fetchImpl(url, {
         method: "POST",
@@ -203,7 +209,7 @@ export function createMetaClient(options: MetaClientOptions): MetaClient {
   ): Promise<MetaClientResult<Record<string, unknown>>> {
     const url = new URL(`${base}${path}`);
     url.searchParams.set("fields", fields);
-    const timeoutMs = resolveCallTimeoutMs(defaultTimeoutMs, opts?.timeoutMs);
+    const timeoutMs = resolveCallTimeoutMs(defaultTimeoutMs, opts);
     try {
       const res = await fetchImpl(url.toString(), {
         method: "GET",
