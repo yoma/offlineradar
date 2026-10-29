@@ -170,6 +170,19 @@ export async function countBetaFeedbackByStatus(): Promise<{
   };
 }
 
+/** Opening a "Nieuw" message marks it "Bekeken"; other statuses stay as they are. */
+export async function markBetaFeedbackSeen(id: string): Promise<boolean> {
+  const sql = getEventsSql();
+  if (!sql) return false;
+  const rows = await sql`
+    UPDATE beta_feedback
+    SET status = 'reviewing', updated_at = now()
+    WHERE id = ${id} AND status = 'new'
+    RETURNING id
+  `;
+  return rows.length > 0;
+}
+
 export async function updateBetaFeedbackStatus(
   id: string,
   status: FeedbackStatus,

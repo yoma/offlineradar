@@ -8,6 +8,7 @@ import {
   FEEDBACK_STATUSES,
   type FeedbackCategory,
   type FeedbackStatus,
+  markBetaFeedbackSeen,
   updateBetaFeedbackAdminNote,
   updateBetaFeedbackCategory,
   updateBetaFeedbackStatus,
@@ -41,6 +42,14 @@ export async function updateFeedbackStatusAction(
 
   await updateBetaFeedbackStatus(id, status as FeedbackStatus);
   revalidatePath("/interne-feedback");
+}
+
+export async function markFeedbackSeenAction(id: string): Promise<void> {
+  const gate = await requireAdmin();
+  if (!gate.ok) return;
+  if (!id) return;
+
+  if (await markBetaFeedbackSeen(id)) revalidatePath("/interne-feedback");
 }
 
 export async function updateFeedbackCategoryAction(

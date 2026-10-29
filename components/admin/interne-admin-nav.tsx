@@ -1,12 +1,14 @@
 import Link from "next/link";
+import { countBetaFeedbackByStatus } from "@/lib/feedback/store";
 
 /**
  * Shared internal admin nav.
  * Daily path: Toevoegen → Bronnen → Wachtrij → Live. Secondary tools after.
+ * Loads the "Nieuw" feedback count itself so every admin page shows the same badge.
  */
-export function InterneAdminNav({
+export async function InterneAdminNav({
   active,
-  newFeedbackCount = 0,
+  newFeedbackCount,
 }: {
   active:
     | "dashboard"
@@ -17,8 +19,16 @@ export function InterneAdminNav({
     | "aanvoer"
     | "bronnen"
     | "instagram";
+  /** Pass when the page already has the counts (feedback inbox). */
   newFeedbackCount?: number;
 }) {
+  if (newFeedbackCount === undefined) {
+    try {
+      newFeedbackCount = (await countBetaFeedbackByStatus()).new;
+    } catch {
+      newFeedbackCount = 0;
+    }
+  }
   const items = [
     { href: "/interne-aanvoer", key: "aanvoer" as const, label: "Toevoegen" },
     {

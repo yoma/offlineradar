@@ -41,7 +41,6 @@ import {
   type SourceScheduleState,
 } from "@/lib/source-refresh/store";
 import type { SourceRefreshRunRecord } from "@/lib/source-refresh/types";
-import { countBetaFeedbackByStatus } from "@/lib/feedback/store";
 
 export const dynamic = "force-dynamic";
 
@@ -206,16 +205,9 @@ export default async function InterneEventsPage() {
     reportSummaries = [];
   }
 
-  let newFeedbackCount = 0;
-  try {
-    newFeedbackCount = (await countBetaFeedbackByStatus()).new;
-  } catch {
-    newFeedbackCount = 0;
-  }
-
   return (
     <InterneAdminShell>
-      <InterneAdminNav active="events" newFeedbackCount={newFeedbackCount} />
+      <InterneAdminNav active="events" />
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold tracking-[0.14em] text-rose-700/80 uppercase">

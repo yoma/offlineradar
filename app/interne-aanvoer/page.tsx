@@ -10,7 +10,6 @@ import { InterneAdminShell } from "@/components/admin/interne-admin-shell";
 import { ScheduledRefreshBanner } from "@/components/admin/scheduled-refresh-banner";
 import { loadAanvoerCockpitData } from "@/lib/aanvoer/cockpit-data";
 import { assertOfflineRadarDbConfig } from "@/lib/events/db";
-import { countBetaFeedbackByStatus } from "@/lib/feedback/store";
 import {
   isGoogleAuthConfigured,
   resolveTipsAdminAccess,
@@ -116,23 +115,12 @@ export default async function InterneAanvoerPage({
     );
   }
 
-  let newFeedbackCount = 0;
-  try {
-    const counts = await countBetaFeedbackByStatus();
-    newFeedbackCount = counts.new;
-  } catch {
-    newFeedbackCount = 0;
-  }
-
   const data = await loadAanvoerCockpitData();
   const onBronnen = initialTab === "bronnen";
 
   return (
     <InterneAdminShell>
-      <InterneAdminNav
-        active={onBronnen ? "bronnen" : "aanvoer"}
-        newFeedbackCount={newFeedbackCount}
-      />
+      <InterneAdminNav active={onBronnen ? "bronnen" : "aanvoer"} />
       <header className="mb-6">
         <p className="text-xs font-semibold tracking-[0.14em] text-rose-700/80 uppercase">
           Admin
