@@ -267,3 +267,103 @@ export function splitByGuidelineAge<T extends PreparedEvent>(
 }
 
 export { placeLabel };
+
+export type OutsideFilterHint = {
+  id: "when" | "types" | "price" | "singles" | "availability" | "trips" | "strict";
+  /** Events you would see extra when only this filter is let go. */
+  count: number;
+  /** Short line, e.g. "3 op een andere datum". */
+  label: string;
+  /** Patch that lets this filter go. */
+  patch: Partial<SearchState>;
+};
+
+/**
+ * Per active filter: how many joinable events you would see extra if only
+ * that filter were let go. Distance and age have their own boxes.
+ */
+export function outsideFilterHints(
+  events: Event[],
+  state: SearchState,
+  now = new Date(),
+): OutsideFilterHint[] {
+  const shown = new Set(
+    matchingEvents(events, state, now).visible.map((event) => event.id),
+  );
+  const candidates: Array<{
+    id: OutsideFilterHint["id"];
+    active: boolean;
+    patch: Partial<SearchState>;
+    one: string;
+    many: string;
+  }> = [
+    {
+      id: "when",
+      active: state.when !== "any",
+      patch: { when: "any", date: null },
+      one: "op een andere datum",
+      many: "op een andere datum",
+    },
+    {
+      id: "types",
+      active:
+        state.typesMode !== "all" ||
+        state.categories.length > 0 ||
+        state.activities.length > 0,
+      patch: { typesMode: "all", categories: [], activities: [] },
+      one: "van een andere soort",
+      many: "van een andere soort",
+    },
+    {
+      id: "price",
+      active: state.price !== "any",
+      patch: { price: "any" },
+      one: "in een andere prijsklasse",
+      many: "in een andere prijsklasse",
+    },
+    {
+      id: "singles",
+      active: state.singlesOnly,
+      patch: { singlesOnly: false },
+      one: "niet enkel voor singles",
+      many: "niet enkel voor singles",
+    },
+    {
+      id: "availability",
+      active: state.availability !== "any",
+      patch: { availability: "any" },
+      one: "met een andere beschikbaarheid",
+      many: "met een andere beschikbaarheid",
+    },
+    {
+      id: "trips",
+      active: !state.trips,
+      patch: { trips: true },
+      one: "reis",
+      many: "reizen",
+    },
+    {
+      id: "strict",
+      active: state.strictOnly,
+      patch: { strictOnly: false },
+      one: "met enkel een richtleeftijd",
+      many: "met enkel een richtleeftijd",
+    },
+  ];
+  const hints: OutsideFilterHint[] = [];
+  for (const candidate of candidates) {
+    if (!candidate.active) continue;
+    const relaxed = { ...state, ...candidate.patch };
+    const count = matchingEvents(events, relaxed, now).visible.filter(
+      (event) => !shown.has(event.id),
+    ).length;
+    if (count === 0) continue;
+    hints.push({
+      id: candidate.id,
+      count,
+      label: `${count} ${count === 1 ? candidate.one : candidate.many}`,
+      patch: candidate.patch,
+    });
+  }
+  return hints;
+}

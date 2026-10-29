@@ -7,7 +7,7 @@ import {
   applyCategoryChipPatch,
   CATEGORY_CHIPS,
 } from "../components/filters/category-filter-chips";
-import { matchingEvents } from "../lib/filters";
+import { matchingEvents, outsideFilterHints } from "../lib/filters";
 import { activeFilterChips, removeChipFromState } from "../lib/search-chips";
 import {
   applySearchPatch,
@@ -212,6 +212,34 @@ async function main() {
     );
     assert.equal(all.beyondRadius.length, 0);
     ok("beyond-radius events offered nearest first, other filters still apply");
+  }
+
+  // Per filter: how many extra events letting go of only that filter gives.
+  {
+    const cal = [
+      stub({ id: "sat", slug: "sat", startDate: "2026-10-31", price: 10 }),
+      stub({ id: "sat-dear", slug: "sat-dear", startDate: "2026-10-31", price: 80 }),
+      stub({ id: "nov", slug: "nov", startDate: "2026-11-20", price: 10 }),
+      stub({ id: "nov-dear", slug: "nov-dear", startDate: "2026-11-20", price: 80 }),
+    ];
+    const thursday = new Date("2026-10-29T09:00:00+01:00");
+    const hints = outsideFilterHints(
+      cal,
+      { ...defaultSearchState(), age: 30, when: "weekend", price: "lt25" },
+      thursday,
+    );
+    assert.deepEqual(
+      hints.map((h) => [h.id, h.count, h.label]),
+      [
+        ["when", 1, "1 op een andere datum"],
+        ["price", 1, "1 in een andere prijsklasse"],
+      ],
+    );
+    assert.deepEqual(
+      outsideFilterHints(cal, { ...defaultSearchState(), age: 30 }, thursday),
+      [],
+    );
+    ok("outside-filter hints count per filter, none without filters");
   }
 
   const clearWhen = applySearchPatch(
