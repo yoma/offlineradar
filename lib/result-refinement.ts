@@ -1,4 +1,4 @@
-import { addDays, brusselsToday, weekendRange } from "@/lib/dates";
+import { addDays, brusselsToday, isInWeekend, weekendRange } from "@/lib/dates";
 import { ACTIVITY_LABEL, CATEGORY_LABEL } from "@/lib/format";
 import type { Event } from "@/types/event";
 
@@ -311,7 +311,10 @@ export function applyResultRefinement<T extends Event>(
       matchesOrganizerFilter(event, refinement.organizer, followed),
     );
   }
-  if (range) {
+  if (refinement.datePreset === "weekend") {
+    // Friday evening counts too; see isInWeekend.
+    next = next.filter((event) => isInWeekend(event, today));
+  } else if (range) {
     next = next.filter((event) => eventOverlapsRange(event, range));
   }
   const copy = [...next];

@@ -1,9 +1,9 @@
 import {
   addDays,
   brusselsToday,
+  isInWeekend,
   monthRange,
   nextWeekRange,
-  weekendRange,
 } from "@/lib/dates";
 import {
   distanceOrigin,
@@ -45,11 +45,7 @@ function matchesWhen(event: Event, state: SearchState, today: string): boolean {
     const tomorrow = addDays(today, 1);
     return overlaps(event, tomorrow, tomorrow);
   }
-  if (state.when === "weekend") {
-    const weekend = weekendRange(today);
-    const start = weekend.start < today ? today : weekend.start;
-    return overlaps(event, start, weekend.end);
-  }
+  if (state.when === "weekend") return isInWeekend(event, today);
   if (state.when === "next_week") {
     const next = nextWeekRange(today);
     return overlaps(event, next.start, next.end);

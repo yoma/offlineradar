@@ -79,6 +79,27 @@ export function weekendRange(today: string): { start: string; end: string } {
   };
 }
 
+/** "Dit weekend" also covers Friday events that start from this hour (Brussels). */
+export const WEEKEND_FRIDAY_FROM = "17:00";
+
+/**
+ * Whether an event falls in "dit weekend": the remaining Saturday/Sunday, plus
+ * Friday evening (start at or after WEEKEND_FRIDAY_FROM, or no known time)
+ * while that Friday is not past yet.
+ */
+export function isInWeekend(
+  event: { startDate: string; endDate: string | null; startTime: string | null },
+  today: string,
+): boolean {
+  const weekend = weekendRange(today);
+  const eventEnd = event.endDate ?? event.startDate;
+  const start = weekend.start < today ? today : weekend.start;
+  if (event.startDate <= weekend.end && eventEnd >= start) return true;
+  const friday = addDays(weekend.start, -1);
+  if (friday < today || event.startDate !== friday) return false;
+  return event.startTime == null || event.startTime >= WEEKEND_FRIDAY_FROM;
+}
+
 export function endOfMonth(isoDate: string): string {
   const [year, month] = isoDate.split("-").map(Number);
   const last = new Date(Date.UTC(year, month, 0, 12)); // day 0 of next month
