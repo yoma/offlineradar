@@ -26,6 +26,7 @@ import { safeFetchTipSource } from "@/lib/tips/safe-fetch";
 import { updateTipStatus } from "@/lib/tips/service";
 import {
   INTAKE_MAX_BYTES,
+  applyAdminSinglesTrust,
   proposalToDraft,
   type IntakeEditableDraft,
   type IntakeMatch,
@@ -323,7 +324,8 @@ export async function analyzeIntakeAction(
     proposal = finalized.proposal;
   }
 
-  const draft = proposalToDraft(proposal);
+  // The admin added this themselves: singles by their judgement.
+  const draft = applyAdminSinglesTrust(proposalToDraft(proposal));
   if (url && !draft.sourceUrl) draft.sourceUrl = url;
   if (preferredPasteUrl && !draft.sourceUrl) draft.sourceUrl = preferredPasteUrl;
 

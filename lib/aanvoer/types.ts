@@ -200,3 +200,24 @@ export function proposalToDraft(proposal: IntakeProposal): IntakeEditableDraft {
     routeReason: proposal.routeReason,
   };
 }
+
+/**
+ * An event the admin adds themselves (aanvoer intake, assistant) is
+ * singles-oriented by their own judgement: they only add singles events.
+ * Only the singles check is waived; date, place, price and source checks
+ * stay. Visitor tips and scanned sources never go through this.
+ */
+export function applyAdminSinglesTrust(draft: IntakeEditableDraft): IntakeEditableDraft {
+  if (draft.routeAdvice === "route_a" || draft.routeAdvice === "route_b") return draft;
+  const aiSaid = draft.routeReason.trim();
+  return {
+    ...draft,
+    routeAdvice: "route_a",
+    singlesOriented: "true",
+    routeReason:
+      draft.routeAdvice === "not_suitable" && aiSaid
+        ? `Door jou toegevoegd als singles-event (de AI twijfelde: ${aiSaid})`
+        : "Door jou toegevoegd als singles-event",
+  };
+}
+

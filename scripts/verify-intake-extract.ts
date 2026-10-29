@@ -4,6 +4,8 @@
  */
 import assert from "node:assert/strict";
 import type Anthropic from "@anthropic-ai/sdk";
+import { evaluateIntakeApproval } from "../lib/aanvoer/approval";
+import { applyAdminSinglesTrust, proposalToDraft } from "../lib/aanvoer/types";
 import {
   createIntakeMessage,
   INTAKE_MAX_TOKENS,
@@ -91,6 +93,25 @@ async function main() {
     ),
   );
   assert.equal(sizes.length, 1);
+
+  // Admin-added events count as singles; other checks stay.
+  const doubtful = proposalToDraft(partial);
+  assert.equal(doubtful.routeAdvice, "needs_review");
+  const trusted = applyAdminSinglesTrust(doubtful);
+  assert.equal(trusted.routeAdvice, "route_a");
+  assert.equal(trusted.singlesOriented, "true");
+  const reasons = evaluateIntakeApproval(trusted, null).reviewReasons.join(" | ");
+  assert.ok(!/singlesgericht/i.test(reasons), reasons);
+  assert.ok(/Datum/i.test(reasons), "date check still applies: " + reasons);
+  const routeB = applyAdminSinglesTrust({ ...doubtful, routeAdvice: "route_b" });
+  assert.equal(routeB.routeAdvice, "route_b", "an existing fit is kept");
+  const rejected = applyAdminSinglesTrust({
+    ...doubtful,
+    routeAdvice: "not_suitable",
+    routeReason: "Gewone bar",
+  });
+  assert.equal(rejected.routeAdvice, "route_a");
+  assert.ok(rejected.routeReason.includes("Gewone bar"), "AI doubt stays visible");
 
   console.log("OK: intake extract offline checks passed.");
 }
