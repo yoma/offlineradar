@@ -52,6 +52,7 @@ import {
   getAutoPostWithoutApproval,
   PROMO_FORMAT,
   hasPostForSlot,
+  listUncertainQueuePosts,
   markQueueFailed,
   markQueuePosted,
   saveQueueContainerId,
@@ -184,10 +185,11 @@ export async function runPromoPublishTick(options?: {
   if (config.publishExplicitlyOff) {
     return { published: [], notes: ["INSTAGRAM_META_PUBLISH_ENABLED=0."] };
   }
+  const notes = await reconcileUncertainQueuePosts(options?.metaClient);
   const autoPost = await getAutoPostWithoutApproval();
   const post = await claimDueQueuePost({ autoPost, now: options?.now, promoOnly: true });
-  if (!post) return { published: [], notes: [] };
-  return { published: [await publishQueuePost(post, options?.metaClient)], notes: [] };
+  if (!post) return { published: [], notes };
+  return { published: [await publishQueuePost(post, options?.metaClient)], notes };
 }
 
 export async function runInstagramQueueTick(options?: {
@@ -217,6 +219,7 @@ export async function runInstagramQueueTick(options?: {
   } else if (config.publishExplicitlyOff) {
     notes.push("INSTAGRAM_META_PUBLISH_ENABLED=0: er wordt niets gepost.");
   } else {
+    notes.push(...(await reconcileUncertainQueuePosts(options?.metaClient)));
     // The cron runs once a day, so publish every due post while time allows.
     const autoPost = await getAutoPostWithoutApproval();
     const cronDeadlineMs = startedMs + CRON_TOTAL_MS;
@@ -303,6 +306,11 @@ export async function publishQueuePost(
       return { id: post.id, ok: true, message: "Stond al op Instagram (vorige poging)." };
     }
     if (code !== "FINISHED") {
+      const live = await findLiveByCaption(client, caption, post.publishStartedAt);
+      if (live) {
+        await markQueuePosted(post.id, live, post.publishedAs ?? undefined);
+        return { id: post.id, ok: true, message: "Stond al op Instagram (vorige poging)." };
+      }
       return fail(NEEDS_INSTAGRAM_CHECK);
     }
     // FINISHED = never published. Build fresh containers anyway, so an
@@ -401,7 +409,7 @@ async function publishAsPost(args: {
     );
     return fail(
       isAmbiguousPostPublishError(published.error.code)
-        ? `Onzeker of de post online staat (${message}) Kijk op Instagram voor je opnieuw probeert.`
+        ? `Onzeker of de post online staat (${message}) ${RECHECK_NOTE}`
         : message,
     );
   }
@@ -437,6 +445,102 @@ type ReelAttempt =
  * fallback; an unclear media_publish answer is not, since the reel may be
  * live already.
  */
+/** Shown with an unclear media_publish answer. */
+const RECHECK_NOTE =
+  "De site kijkt de komende uren zelf nog na bij Instagram en zet hem op gepost als hij online staat. Probeer dus niet meteen opnieuw.";
+
+/** Keep only letters and digits, so Instagram's whitespace changes do not matter. */
+function captionFingerprint(caption: string): string {
+  return caption.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "").slice(0, 160);
+}
+
+/**
+ * Look among the account's newest media for one with this caption, posted
+ * after `sinceIso` (minus a few minutes for clock drift). Returns its media
+ * id, or null when it is not there or Instagram cannot be asked.
+ */
+export async function findLiveByCaption(
+  client: MetaClient,
+  caption: string,
+  sinceIso: string | null,
+): Promise<string | null> {
+  if (!client.listRecentMedia) return null;
+  const want = captionFingerprint(caption);
+  if (want.length < 20) return null;
+  const recent = await client.listRecentMedia({ timeoutMs: META_HTTP_TIMEOUT_MS });
+  if (!recent.ok) {
+    console.warn(`[instagram/queue] recente media niet opgehaald: ${recent.error.message}`);
+    return null;
+  }
+  const since = sinceIso ? Date.parse(sinceIso) - 10 * 60_000 : 0;
+  const hit = recent.data.find(
+    (m) =>
+      captionFingerprint(m.caption) === want &&
+      (!m.timestamp || Number.isNaN(since) || Date.parse(m.timestamp) >= since),
+  );
+  return hit?.id ?? null;
+}
+
+/**
+ * Failed posts whose media_publish answer was lost: ask Instagram again
+ * (container status, then the newest media by caption). A post that turns
+ * out to be live is marked posted; its story is left for "Verhaal plaatsen".
+ */
+export async function reconcileUncertainQueuePosts(injectedClient?: MetaClient): Promise<string[]> {
+  const notes: string[] = [];
+  try {
+    const posts = await listUncertainQueuePosts();
+    if (posts.length === 0) return notes;
+    const client = injectedClient ?? (await defaultMetaClient());
+    if (!client) return notes;
+    for (const post of posts) {
+      const status = await client.getContainerStatus(post.containerId!);
+      const code = status.ok ? (status.data.status_code ?? status.data.status ?? "").toUpperCase() : "";
+      if (code === "FINISHED") continue; // ready but never published
+      const mediaId =
+        code === "PUBLISHED"
+          ? ""
+          : await findLiveByCaption(client, noEmDash(post.caption), post.publishStartedAt);
+      if (mediaId == null) continue;
+      await markQueuePosted(post.id, mediaId || null, post.publishedAs ?? undefined);
+      if (post.postStory && !post.instagramStoryId) {
+        await markStoryFailed(
+          post.id,
+          "Het antwoord van Instagram ging verloren, het verhaal is niet geplaatst. Klik op 'Verhaal plaatsen'.",
+        );
+      }
+      const what = post.publishedAs === "reel" ? "reel" : "post";
+      notes.push(`${post.id}: stond toch op Instagram, nu op gepost gezet.`);
+      console.info(`[instagram/queue] ${post.id} stond toch online als ${what}, op gepost gezet`);
+      await notifyInstagramAdmins({
+        kind: "publish_recovered",
+        postId: post.id,
+        message:
+          `De ${what} van ${post.id} stond op mislukt omdat het antwoord van Instagram verloren ging, ` +
+          `maar hij staat wel online. De wachtrij toont hem nu als gepost.` +
+          (post.postStory && !post.instagramStoryId ? " Het verhaal kan je nog plaatsen met 'Verhaal plaatsen'." : ""),
+      });
+    }
+  } catch (error) {
+    console.warn(
+      `[instagram/queue] nakijken onzekere posts mislukt: ${error instanceof Error ? error.message : error}`,
+    );
+  }
+  return notes;
+}
+
+async function defaultMetaClient(): Promise<MetaClient | null> {
+  const config = readInstagramMetaConfig();
+  const accessToken = await getInstagramAccessToken();
+  if (!config.igUserId || !accessToken) return null;
+  return createMetaClient({
+    igUserId: config.igUserId,
+    accessToken,
+    graphApiVersion: config.graphApiVersion,
+    graphHost: config.graphHost,
+  });
+}
+
 /** Reel media_publish may take this long before we call it unclear. */
 const REEL_PUBLISH_TIMEOUT_MS = 90_000;
 /** After an unclear answer, keep asking the container this long. */
@@ -563,6 +667,11 @@ async function publishAsReel(args: {
       Math.min(Date.now() + REEL_CONFIRM_MS, postDeadlineMs),
     );
     if (confirmed) published = { ok: true, data: { id: "" } };
+    else {
+      // The container did not say PUBLISHED in time: look for the reel itself.
+      const live = await findLiveByCaption(client, caption, new Date(args.startedMs).toISOString());
+      if (live) published = { ok: true, data: { id: live } };
+    }
   }
   if (!published.ok) {
     if (published.error.code === "meta_already_published") {
@@ -576,7 +685,7 @@ async function publishAsReel(args: {
         result: {
           id: post.id,
           ok: false,
-          message: `Onzeker of de reel online staat (${message}) Kijk op Instagram voor je opnieuw probeert.`,
+          message: `Onzeker of de reel online staat (${message}) ${RECHECK_NOTE}`,
         },
       };
     }

@@ -11,12 +11,17 @@ import { appPublicBaseUrl } from "@/lib/email/app-brand";
 import { sendViaResend } from "@/lib/email/resend";
 import { getAdminEmailAllowlist } from "@/lib/tips/admin-auth";
 
-export type InstagramAlertKind = "reel_render_failed" | "reel_fallback" | "publish_failed";
+export type InstagramAlertKind =
+  | "reel_render_failed"
+  | "reel_fallback"
+  | "publish_failed"
+  | "publish_recovered";
 
 const SUBJECTS: Record<InstagramAlertKind, string> = {
   reel_render_failed: "Instagram: reel kon niet gemaakt worden",
   reel_fallback: "Instagram: gewone post geplaatst in plaats van reel",
   publish_failed: "Instagram: post niet geplaatst",
+  publish_recovered: "Instagram: post stond toch online",
 };
 
 export function instagramAlertRecipients(env: NodeJS.ProcessEnv = process.env): string[] {

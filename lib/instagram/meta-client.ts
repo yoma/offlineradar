@@ -80,6 +80,20 @@ export type MetaClient = {
       status?: string;
     }>
   >;
+  /**
+   * The account's newest posts and reels, newest first. Used to find a post
+   * whose media_publish answer got lost. Optional for older test doubles.
+   */
+  listRecentMedia?: (
+    opts?: MetaRequestOptions,
+  ) => Promise<MetaClientResult<RecentMedia[]>>;
+};
+
+export type RecentMedia = {
+  id: string;
+  caption: string;
+  /** ISO time Instagram gives the post. */
+  timestamp: string | null;
 };
 
 export type MetaClientOptions = {
@@ -329,6 +343,25 @@ export function createMetaClient(options: MetaClientOptions): MetaClient {
           status:
             typeof res.data.status === "string" ? res.data.status : undefined,
         },
+      };
+    },
+    listRecentMedia: async (opts) => {
+      const res = await graphGet(
+        `/${options.igUserId}/media`,
+        "id,caption,timestamp",
+        opts,
+      );
+      if (!res.ok) return res;
+      const rows = Array.isArray(res.data.data) ? (res.data.data as Record<string, unknown>[]) : [];
+      return {
+        ok: true,
+        data: rows
+          .filter((r) => typeof r.id === "string")
+          .map((r) => ({
+            id: r.id as string,
+            caption: typeof r.caption === "string" ? r.caption : "",
+            timestamp: typeof r.timestamp === "string" ? r.timestamp : null,
+          })),
       };
     },
   };

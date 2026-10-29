@@ -259,6 +259,36 @@ async function main() {
     false,
   );
 
+  // A lost media_publish answer: find the reel among the newest media.
+  const { findLiveByCaption } = await import("../lib/instagram/queue-runner");
+  const caption = "Binnenkort te beleven: 6 singles-events de komende weken.\n\nMeer op dateofflinehub.be";
+  const withMedia = (rows: { id: string; caption: string; timestamp: string | null }[]): MetaClient => ({
+    ...fake,
+    listRecentMedia: async () => ({ ok: true, data: rows }),
+  });
+  assert.equal(
+    await findLiveByCaption(
+      withMedia([
+        { id: "old", caption, timestamp: "2026-10-20T17:00:00+0000" },
+        { id: "m1", caption: caption.replace("\n\n", "\n"), timestamp: "2026-10-29T17:31:00+0000" },
+      ]),
+      caption,
+      "2026-10-29T17:30:00.000Z",
+    ),
+    "m1",
+    "same caption after the attempt (whitespace may differ)",
+  );
+  assert.equal(
+    await findLiveByCaption(
+      withMedia([{ id: "old", caption, timestamp: "2026-10-20T17:00:00+0000" }]),
+      caption,
+      "2026-10-29T17:30:00.000Z",
+    ),
+    null,
+    "an older post with the same text does not count",
+  );
+  assert.equal(await findLiveByCaption(fake, caption, null), null, "client without media list");
+
   // --- public media URL + caption ------------------------------------------
   assert.equal(
     publicMediaUrl("a".repeat(32), "https://dateofflinehub.be/"),

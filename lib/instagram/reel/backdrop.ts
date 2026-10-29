@@ -19,20 +19,27 @@ import { stockSourcesAvailable } from "@/lib/instagram/promo/stock";
 import { clipKey } from "@/lib/instagram/promo/types";
 import { REEL_FPS, type ReelProps } from "@/lib/instagram/reel/types";
 
-/** Queries that suit any time of year: evenings out, warm light, small groups. */
+/**
+ * Queries that suit any time of year: people meeting up, small groups. Kept
+ * on the bright side: dark, red-lit scenes ("candlelight", "city lights")
+ * turned the reel mostly red under the bordeaux wash, or found nothing good.
+ */
 const YEAR_ROUND = [
-  "friends cafe evening",
+  "friends cafe",
   "wine glasses toast",
-  "candlelight dinner table",
-  "cozy bar evening",
   "friends laughing dinner",
   "coffee date cafe",
-  "cocktail bar friends",
-  "city lights evening walk",
+  "friends brunch",
+  "cozy bar evening",
+  "friends cooking together",
   "board game friends",
+  "couple talking cafe",
 ];
 /** Only April to September: outdoor terraces and parks. */
 const SUMMER = ["terrace drinks sunset", "string lights terrace", "picnic park sunset", "friends walking park"];
+
+/** Query windows tried per scene before it stays plain. */
+const SCENE_TRIES = 3;
 
 /** How many clip keys to remember (about two months of reels). */
 const USED_MAX = 120;
@@ -81,6 +88,8 @@ export async function pickReelBackdrops(args: {
   seed: string;
   props: ReelProps;
   at?: Date;
+  /** clipKey()s of recent promo and event reels, from the site. */
+  usedClipKeys?: string[];
   log?: (message: string) => void;
 }): Promise<ReelProps["backdrops"]> {
   const log = args.log ?? (() => {});
@@ -90,17 +99,47 @@ export async function pickReelBackdrops(args: {
   }
   const queries = backdropQueries(args.seed, args.at ?? new Date());
   const { hookFrames, ctaFrames } = args.props.timing;
+  const taken = new Set([...(args.usedClipKeys ?? []), ...(await readUsed())]);
+
+  /**
+   * One scene: a few query windows in turn (scene 0 starts at query 0,
+   * scene 1 at query 1, each retry two further), so one poor query such as
+   * an all-AI result list does not leave the scene plain.
+   */
+  const pickScene = async (scene: number, text: string, seconds: number) => {
+    for (let attempt = 0; attempt < SCENE_TRIES; attempt++) {
+      const start = (scene + attempt * 2) % queries.length;
+      const rotated = [...queries.slice(start), ...queries.slice(0, start)];
+      try {
+        const [clip] = await selectPromoClips({
+          queries: rotated.slice(0, 1),
+          sceneTexts: [text],
+          fallbackQueries: rotated.slice(1, 4),
+          usedClipKeys: taken,
+          sceneSeconds: [seconds],
+          log: (m) => log(`sfeerbeeld ${scene === 0 ? "intro" : "einde"} ${m}`),
+        });
+        if (clip) {
+          taken.add(clipKey(clip));
+          return clip;
+        }
+      } catch (error) {
+        log(`sfeerbeeld ${scene === 0 ? "intro" : "einde"} poging ${attempt + 1}: ${error instanceof Error ? error.message : error}`);
+      }
+    }
+    return null;
+  };
+
   try {
-    const [hook, cta] = await selectPromoClips({
-      queries: queries.slice(0, 2),
-      sceneTexts: [args.props.hookText, `Meer info en inschrijven op ${args.props.website}`],
-      fallbackQueries: queries.slice(2, 5),
-      usedClipKeys: new Set(await readUsed()),
-      sceneSeconds: [hookFrames / REEL_FPS + 0.5, ctaFrames / REEL_FPS + 0.5],
-      log: (m) => log(`sfeerbeeld ${m}`),
-    });
-    const backdrops = { hook: hook ?? null, cta: cta ?? null };
-    await rememberUsed([backdrops.hook, backdrops.cta].filter((b) => b !== null).map(clipKey));
+    const hook = await pickScene(0, args.props.hookText, hookFrames / REEL_FPS + 0.5);
+    const cta = await pickScene(1, `Meer info en inschrijven op ${args.props.website}`, ctaFrames / REEL_FPS + 0.5);
+    if (!hook && !cta) {
+      log("sfeerbeeld: niets goed genoeg gevonden, effen achtergrond");
+      return null;
+    }
+    // One good picture for both beats a plain bordeaux scene.
+    const backdrops = { hook: hook ?? cta, cta: cta ?? hook };
+    await rememberUsed([hook, cta].filter((b) => b !== null).map(clipKey));
     for (const b of [backdrops.hook, backdrops.cta]) {
       if (b) log(`sfeerbeeld: ${b.source} ${b.kind} ${b.pageUrl} (${b.author})`);
     }

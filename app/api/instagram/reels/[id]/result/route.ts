@@ -8,7 +8,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Report a finished render: { ok: true, track } after both uploads, or
+ * Report a finished render: { ok: true, track, clipKeys? } after both uploads
+ * (clipKeys: the stock pictures an event reel used), or
  * { ok: false, message } when rendering failed. Auth: Bearer $CRON_SECRET.
  */
 export async function POST(
@@ -20,7 +21,7 @@ export async function POST(
   }
   const { id } = await context.params;
   const body = (await request.json().catch(() => null)) as
-    | { ok?: unknown; track?: unknown; message?: unknown }
+    | { ok?: unknown; track?: unknown; message?: unknown; clipKeys?: unknown }
     | null;
   if (!body || typeof body.ok !== "boolean") {
     return NextResponse.json({ ok: false, error: "bad_body" }, { status: 400 });
@@ -28,7 +29,10 @@ export async function POST(
   try {
     if (body.ok) {
       const track = typeof body.track === "string" ? body.track.slice(0, 200) : null;
-      const ready = await markReelReady(id, track);
+      const clipKeys = Array.isArray(body.clipKeys)
+        ? body.clipKeys.filter((k): k is string => typeof k === "string").map((k) => k.slice(0, 100))
+        : undefined;
+      const ready = await markReelReady(id, track, clipKeys);
       if (!ready) {
         return NextResponse.json({ ok: false, error: "incomplete" }, { status: 409 });
       }
