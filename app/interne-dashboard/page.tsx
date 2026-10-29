@@ -7,7 +7,6 @@ import {
   loadDashboardData,
   resolveDashboardPeriod,
 } from "@/lib/analytics/dashboard";
-import { countBetaFeedbackByStatus } from "@/lib/feedback/store";
 import {
   isGoogleAuthConfigured,
   resolveTipsAdminAccess,
@@ -69,17 +68,9 @@ export default async function InterneDashboardPage({
   });
   const data = await loadDashboardData(period);
 
-  let newFeedbackCount = 0;
-  try {
-    const counts = await countBetaFeedbackByStatus();
-    newFeedbackCount = counts.new;
-  } catch {
-    newFeedbackCount = 0;
-  }
-
   return (
     <InterneAdminShell wide>
-      <InterneAdminNav active="dashboard" newFeedbackCount={newFeedbackCount} />
+      <InterneAdminNav active="dashboard" />
       <Suspense fallback={<p className="text-sm text-stone-500">Laden…</p>}>
         <DashboardClient data={data} />
       </Suspense>

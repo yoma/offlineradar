@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import {
+  markFeedbackSeenAction,
   updateFeedbackCategoryAction,
   updateFeedbackNoteAction,
   updateFeedbackStatusAction,
@@ -125,7 +126,12 @@ export function FeedbackAdminClient({
                 <button
                   type="button"
                   className="w-full min-w-0 text-left"
-                  onClick={() => setOpenId(open ? null : item.id)}
+                  onClick={() => {
+                    setOpenId(open ? null : item.id);
+                    if (!open && item.status === "new") {
+                      void markFeedbackSeenAction(item.id);
+                    }
+                  }}
                   aria-expanded={open}
                 >
                   <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -180,6 +186,7 @@ export function FeedbackAdminClient({
                       <label className="text-sm">
                         <span className="text-muted-foreground">Status</span>
                         <select
+                          key={item.status}
                           name="status"
                           defaultValue={item.status}
                           className="mt-1 block h-10 rounded-md border border-border bg-white px-2 text-base md:text-sm"

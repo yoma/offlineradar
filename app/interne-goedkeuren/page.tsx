@@ -10,7 +10,6 @@ import { InterneAdminShell } from "@/components/admin/interne-admin-shell";
 import { TipAdminClient } from "@/components/tips/tip-admin-client";
 import { loadAanvoerCockpitData } from "@/lib/aanvoer/cockpit-data";
 import { assertOfflineRadarDbConfig } from "@/lib/events/db";
-import { countBetaFeedbackByStatus } from "@/lib/feedback/store";
 import {
   isGoogleAuthConfigured,
   resolveTipsAdminAccess,
@@ -87,14 +86,6 @@ export default async function InterneGoedkeurenPage() {
     );
   }
 
-  let newFeedbackCount = 0;
-  try {
-    const counts = await countBetaFeedbackByStatus();
-    newFeedbackCount = counts.new;
-  } catch {
-    newFeedbackCount = 0;
-  }
-
   const data = await loadAanvoerCockpitData();
   const items = data.candidates
     .filter((c) => c.adminStatus === "aandacht_nodig")
@@ -118,10 +109,7 @@ export default async function InterneGoedkeurenPage() {
 
   return (
     <InterneAdminShell>
-      <InterneAdminNav
-        active="goedkeuren"
-        newFeedbackCount={newFeedbackCount}
-      />
+      <InterneAdminNav active="goedkeuren" />
       <header className="mb-6">
         <p className="text-xs font-semibold tracking-[0.14em] text-rose-700/80 uppercase">
           Admin
