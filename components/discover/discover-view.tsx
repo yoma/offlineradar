@@ -190,6 +190,25 @@ export function DiscoverView({
     [result.ineligible, refinement, today, followedOrganizerIds],
   );
 
+  const [showBeyondRadius, setShowBeyondRadius] = useState(false);
+  const beyondRadius = useMemo(
+    () =>
+      applyResultRefinement(result.beyondRadius, refinement, today, {
+        followedOrganizerIds,
+      }).sort((a, b) => a.distanceKm - b.distanceKm),
+    [result.beyondRadius, refinement, today, followedOrganizerIds],
+  );
+
+  function revealBeyondRadius() {
+    setShowBeyondRadius(true);
+    track("filter_change", { showBeyondRadius: true });
+    requestAnimationFrame(() => {
+      document
+        .getElementById("buiten-straal")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
   function revealIneligible() {
     setShowIneligible(true);
     track("filter_change", { showIneligible: true });
@@ -552,6 +571,29 @@ export function DiscoverView({
             </div>
           ) : null}
 
+          {beyondRadius.length > 0 ? (
+            <div className="mt-4 rounded-xl border border-border bg-secondary/60 px-4 py-3 text-sm">
+              <p>
+                {beyondRadius.length}{" "}
+                {beyondRadius.length === 1
+                  ? "activiteit valt buiten je straal"
+                  : "activiteiten vallen buiten je straal"}{" "}
+                van {state.maxDistanceKm} km rond {placeLabel(state.placeId)}.
+              </p>
+              <button
+                type="button"
+                onClick={() =>
+                  showBeyondRadius
+                    ? setShowBeyondRadius(false)
+                    : revealBeyondRadius()
+                }
+                className="mt-2 font-semibold text-[var(--brand-bordeaux)] underline-offset-4 hover:underline"
+              >
+                {showBeyondRadius ? "Verberg ze weer" : "Toon ze toch"}
+              </button>
+            </div>
+          ) : null}
+
           {preferenceMiss && preferenceLabel ? (
             <div className="mt-4 rounded-xl border border-border bg-white px-4 py-4 text-sm">
               <p className="font-medium">
@@ -676,6 +718,28 @@ export function DiscoverView({
               ) : null}
             </div>
           )}
+          {showBeyondRadius && beyondRadius.length > 0 ? (
+            <section
+              id="buiten-straal"
+              className="mt-12 scroll-mt-24 border-t border-border pt-6"
+            >
+              <h2 className="font-heading-section text-xl text-[var(--brand-bordeaux)]">
+                Verder dan {state.maxDistanceKm} km ({beyondRadius.length})
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Deze activiteiten passen bij je andere filters, maar liggen
+                buiten je straal. Dichtstbij eerst.{" "}
+                <button
+                  type="button"
+                  onClick={() => setShowBeyondRadius(false)}
+                  className="font-semibold text-[var(--brand-bordeaux)] underline-offset-4 hover:underline"
+                >
+                  Verberg ze weer
+                </button>
+              </p>
+              <div className="mt-6">{renderGrid(beyondRadius)}</div>
+            </section>
+          ) : null}
           {showIneligible && result.hiddenStrict > 0 ? (
             <section
               id="niet-deelnemen"

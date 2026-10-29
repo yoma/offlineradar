@@ -139,6 +139,11 @@ export function matchingEvents(
   /** The events counted in hiddenStrict, for an opt-in “toon ze toch”. */
   ineligible: PreparedEvent[];
   guidelineHidden: number;
+  /**
+   * Events that match every filter except the radius (and that the user may
+   * join), nearest first. Shown on request below the results.
+   */
+  beyondRadius: PreparedEvent[];
 } {
   const today = brusselsToday(now);
   const selectedActivities = expandActivityFilterSelection(state.activities);
@@ -153,6 +158,7 @@ export function matchingEvents(
     : selectedActivities;
   const allLocations = state.placeId === ALL_LOCATIONS_ID;
   const origin = distanceOrigin(state.placeId);
+  const outOfRadius: PreparedEvent[] = [];
   const prepared = prepareEvents(events, state).filter((event) => {
     if (!isCurrentEvent(event, now)) return false;
     if (!matchesWhen(event, state, today)) return false;
@@ -161,13 +167,8 @@ export function matchingEvents(
     const trip = isTripEvent(event);
     if (trip && !state.trips) return false;
     // Alle locaties has no radius. Otherwise unknown/infinite distance stays out.
-    if (
-      !allLocations &&
-      !trip &&
-      !(event.distanceKm <= state.maxDistanceKm)
-    ) {
-      return false;
-    }
+    const outsideRadius =
+      !allLocations && !trip && !(event.distanceKm <= state.maxDistanceKm);
     if (
       state.typesMode === "none" ||
       (state.typesMode === "pick" &&
@@ -208,6 +209,11 @@ export function matchingEvents(
       return false;
     }
     if (!matchesAvailability(event, state)) return false;
+    if (outsideRadius) {
+      // Known place only: an event without coordinates has no distance to show.
+      if (Number.isFinite(event.distanceKm)) outOfRadius.push(event);
+      return false;
+    }
     return true;
   });
 
@@ -229,7 +235,11 @@ export function matchingEvents(
     return true;
   });
 
-  return { visible, hiddenStrict, ineligible, guidelineHidden };
+  const beyondRadius = outOfRadius
+    .filter((event) => event.participation.includedByDefault)
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+
+  return { visible, hiddenStrict, ineligible, guidelineHidden, beyondRadius };
 }
 
 /** Guideline age given and the user's age falls outside it (not a hard bar). */
