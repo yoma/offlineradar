@@ -60,23 +60,29 @@ Screenshot-specifiek (zeer belangrijk):
 
 Rapporteer uitsluitend via de tool report_admin_intake.`;
 
-const TOOL: Anthropic.Tool = {
+export const TOOL: Anthropic.Tool = {
   name: "report_admin_intake",
   description: "Gestructureerd intakevoorstel met veldstatus en evidence.",
   input_schema: {
     type: "object",
     properties: {
-      organizer: { type: "object", properties: fieldProps(), required: ["value", "status"] },
-      title: { type: "object", properties: fieldProps(), required: ["value", "status"] },
-      startDate: { type: "object", properties: fieldProps(), required: ["value", "status"] },
-      startTime: { type: "object", properties: fieldProps(), required: ["value", "status"] },
-      endTime: { type: "object", properties: fieldProps(), required: ["value", "status"] },
-      city: { type: "object", properties: fieldProps(), required: ["value", "status"] },
-      venue: { type: "object", properties: fieldProps(), required: ["value", "status"] },
-      location: { type: "object", properties: fieldProps(), required: ["value", "status"] },
-      ageNotes: { type: "object", properties: fieldProps(), required: ["value", "status"] },
-      priceNotes: { type: "object", properties: fieldProps(), required: ["value", "status"] },
-      currency: { type: "object", properties: fieldProps(), required: ["value", "status"] },
+      // Decisive fields first: when the answer is long, these are written
+      // before any truncation can reach them.
+      sourceKindHint: {
+        type: "string",
+        enum: [
+          "website_first",
+          "social_first",
+          "ticket_platform_first",
+          "manual_only",
+        ],
+      },
+      routeAdvice: {
+        type: "string",
+        enum: ["route_a", "route_b", "not_suitable", "needs_review"],
+      },
+      routeReason: { type: "string" },
+      needsSourceVerification: { type: "boolean" },
       singlesOnly: {
         type: "object",
         properties: {
@@ -95,6 +101,17 @@ const TOOL: Anthropic.Tool = {
         },
         required: ["value", "status"],
       },
+      organizer: { type: "object", properties: fieldProps(), required: ["value", "status"] },
+      title: { type: "object", properties: fieldProps(), required: ["value", "status"] },
+      startDate: { type: "object", properties: fieldProps(), required: ["value", "status"] },
+      startTime: { type: "object", properties: fieldProps(), required: ["value", "status"] },
+      endTime: { type: "object", properties: fieldProps(), required: ["value", "status"] },
+      city: { type: "object", properties: fieldProps(), required: ["value", "status"] },
+      venue: { type: "object", properties: fieldProps(), required: ["value", "status"] },
+      location: { type: "object", properties: fieldProps(), required: ["value", "status"] },
+      ageNotes: { type: "object", properties: fieldProps(), required: ["value", "status"] },
+      priceNotes: { type: "object", properties: fieldProps(), required: ["value", "status"] },
+      currency: { type: "object", properties: fieldProps(), required: ["value", "status"] },
       category: { type: "object", properties: fieldProps(), required: ["value", "status"] },
       sourceUrl: { type: "object", properties: fieldProps(), required: ["value", "status"] },
       organizerUrl: { type: "object", properties: fieldProps(), required: ["value", "status"] },
@@ -106,21 +123,6 @@ const TOOL: Anthropic.Tool = {
         description:
           "Alle websites/domeinen zichtbaar in screenshot of tekst (met of zonder https).",
       },
-      sourceKindHint: {
-        type: "string",
-        enum: [
-          "website_first",
-          "social_first",
-          "ticket_platform_first",
-          "manual_only",
-        ],
-      },
-      routeAdvice: {
-        type: "string",
-        enum: ["route_a", "route_b", "not_suitable", "needs_review"],
-      },
-      routeReason: { type: "string" },
-      needsSourceVerification: { type: "boolean" },
     },
     required: [
       "title",
@@ -141,7 +143,10 @@ function fieldProps() {
   return {
     value: { type: ["string", "null"] },
     status: { type: "string", enum: ["found", "uncertain", "unknown"] },
-    evidence: { type: ["string", "null"] },
+    evidence: {
+      type: ["string", "null"],
+      description: "Kort citaat of bewijs, hoogstens één zin (max. 150 tekens).",
+    },
   };
 }
 
@@ -186,7 +191,7 @@ function parseBoolish(raw: unknown): IntakeField<"true" | "false" | "unknown"> {
   };
 }
 
-function parseProposal(
+export function parseProposal(
   input: unknown,
   meta: { modelHint: string; needsSourceVerificationDefault: boolean },
 ): IntakeProposal {
@@ -206,15 +211,18 @@ function parseProposal(
     "not_suitable",
     "needs_review",
   ];
-  if (!kinds.includes(o.sourceKindHint as IntakeSourceKindHint)) {
-    throw new AiScreenerError("invalid_output", "ongeldige sourceKindHint");
-  }
-  if (!routes.includes(o.routeAdvice as IntakeRouteAdvice)) {
-    throw new AiScreenerError("invalid_output", "ongeldige routeAdvice");
-  }
-  if (typeof o.routeReason !== "string" || !o.routeReason.trim()) {
-    throw new AiScreenerError("invalid_output", "ontbrekende routeReason");
-  }
+  // Fields the model filled are kept even when a route field is missing;
+  // a missing route just means "needs review", not a failed analysis.
+  const sourceKindHint = kinds.includes(o.sourceKindHint as IntakeSourceKindHint)
+    ? (o.sourceKindHint as IntakeSourceKindHint)
+    : "website_first";
+  const routeAdvice = routes.includes(o.routeAdvice as IntakeRouteAdvice)
+    ? (o.routeAdvice as IntakeRouteAdvice)
+    : "needs_review";
+  const routeReason =
+    typeof o.routeReason === "string" && o.routeReason.trim()
+      ? o.routeReason.trim()
+      : "Geen route-advies ontvangen";
 
   return {
     organizer: parseField(o.organizer),
@@ -240,9 +248,9 @@ function parseProposal(
           .filter((u): u is string => typeof u === "string" && Boolean(u.trim()))
           .map((u) => u.trim())
       : [],
-    sourceKindHint: o.sourceKindHint as IntakeSourceKindHint,
-    routeAdvice: o.routeAdvice as IntakeRouteAdvice,
-    routeReason: o.routeReason.trim(),
+    sourceKindHint,
+    routeAdvice,
+    routeReason,
     needsSourceVerification:
       typeof o.needsSourceVerification === "boolean"
         ? o.needsSourceVerification
@@ -251,6 +259,35 @@ function parseProposal(
     aiFailed: false,
     aiError: null,
   };
+}
+
+/** Room for 20 fields with value + evidence; 1800 cut long pages off. */
+export const INTAKE_MAX_TOKENS = [4000, 8000] as const;
+
+/**
+ * One intake call, retried once: with more room when the answer was cut off
+ * (stop_reason max_tokens), or after a short pause on a temporary API error.
+ */
+export async function createIntakeMessage(
+  client: Anthropic,
+  params: Omit<Anthropic.MessageCreateParamsNonStreaming, "max_tokens">,
+): Promise<Anthropic.Message> {
+  let lastError: unknown = null;
+  for (const maxTokens of INTAKE_MAX_TOKENS) {
+    try {
+      const message = await client.messages.create({ ...params, max_tokens: maxTokens });
+      if (message.stop_reason !== "max_tokens") return message;
+      lastError = new AiScreenerError("invalid_output", "antwoord afgekapt (te lang)");
+      if (maxTokens === INTAKE_MAX_TOKENS[INTAKE_MAX_TOKENS.length - 1]) return message;
+    } catch (err) {
+      lastError = err;
+      const status = (err as { status?: number }).status;
+      const temporary = status == null || status === 429 || status >= 500;
+      if (!temporary) throw err;
+      await new Promise((r) => setTimeout(r, 2_000));
+    }
+  }
+  throw lastError;
 }
 
 /**
@@ -337,9 +374,8 @@ export async function runAdminIntakeExtractDetailed(input: {
   let proposal: IntakeProposal;
   let usage: AiUsage | null = null;
   try {
-    const message = await client.messages.create({
+    const message = await createIntakeMessage(client, {
       model,
-      max_tokens: 1800,
       system: SYSTEM_PROMPT,
       tools: [TOOL],
       tool_choice: { type: "tool", name: TOOL.name },
