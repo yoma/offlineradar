@@ -3,6 +3,7 @@ import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { InterneAdminNav } from "@/components/admin/interne-admin-nav";
 import { InterneAdminShell } from "@/components/admin/interne-admin-shell";
 import { DashboardClient } from "@/components/admin/dashboard-client";
+import { loadAudience } from "@/lib/analytics/audience";
 import {
   loadDashboardData,
   resolveDashboardPeriod,
@@ -66,13 +67,16 @@ export default async function InterneDashboardPage({
     from,
     to,
   });
-  const data = await loadDashboardData(period);
+  const [data, audience] = await Promise.all([
+    loadDashboardData(period),
+    loadAudience(period),
+  ]);
 
   return (
     <InterneAdminShell wide>
       <InterneAdminNav active="dashboard" />
       <Suspense fallback={<p className="text-sm text-stone-500">Laden…</p>}>
-        <DashboardClient data={data} />
+        <DashboardClient data={data} audience={audience} />
       </Suspense>
     </InterneAdminShell>
   );

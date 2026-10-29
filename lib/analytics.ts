@@ -3,7 +3,7 @@ import {
   type AnalyticsPayload,
   type AnalyticsProperties,
 } from "@/lib/analytics/types";
-import { getAnonymousSessionId } from "@/lib/analytics/session";
+import { getAnonymousSessionId, isInternalDevice } from "@/lib/analytics/session";
 
 export type {
   AnalyticsEventName,
@@ -26,6 +26,8 @@ function shouldPersistClientSide(): boolean {
 
 function postAnalytics(payload: AnalyticsPayload): void {
   if (!shouldPersistClientSide()) return;
+  // The admin's own devices never count.
+  if (isInternalDevice()) return;
   try {
     const body = JSON.stringify({
       name: payload.name,

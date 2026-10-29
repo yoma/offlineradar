@@ -1,5 +1,7 @@
 "use client";
 
+import { AudiencePanel } from "@/components/admin/audience-panel";
+import type { AudienceData } from "@/lib/analytics/audience";
 import Link from "next/link";
 import { ActionSubmitButton } from "@/components/ui/action-submit-button";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -158,7 +160,13 @@ const PERIODS = [
   { key: "custom", label: "Custom" },
 ] as const;
 
-export function DashboardClient({ data }: { data: DashboardData }) {
+export function DashboardClient({
+  data,
+  audience,
+}: {
+  data: DashboardData;
+  audience: AudienceData;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const period = data.period.key;
@@ -257,6 +265,8 @@ export function DashboardClient({ data }: { data: DashboardData }) {
           ) : null}
         </div>
       </div>
+
+      <AudiencePanel audience={audience} />
 
       {/* Gebruikersblik — plain language */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
