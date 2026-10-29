@@ -122,6 +122,7 @@
     "verify:instagram-blurb-sanitize": "npx tsx scripts/verify-instagram-blurb-sanitize.ts",
     "verify:instagram-approve-newline": "npx tsx scripts/verify-instagram-approve-newline.ts",
     "verify:instagram-history-neon": "node --env-file=.env.local --import tsx scripts/verify-instagram-history-neon.ts",
+    "verify:intake-extract": "npx tsx scripts/verify-intake-extract.ts",
     "verify:instagram-queue": "npx tsx scripts/verify-instagram-queue.ts",
     "verify:instagram-publishes-neon": "node --env-file=.env.local --import tsx scripts/verify-instagram-publishes-neon.ts",
     "reel:test": "npx tsx scripts/render-test-reel.ts",
