@@ -908,7 +908,11 @@ export async function listPublishedEditionBundles(
   const editionRows = (await sql`
     SELECT * FROM event_editions
     WHERE publication_status = 'published'
-    ORDER BY starts_at ASC
+    ORDER BY
+      -- Current and upcoming editions first, so past editions (never deleted)
+      -- can not push upcoming ones out of the limit.
+      (COALESCE(ends_at, starts_at) < now() - interval '1 day') ASC,
+      starts_at ASC
     LIMIT ${limit}
   `) as EditionRow[];
   if (editionRows.length === 0) return [];

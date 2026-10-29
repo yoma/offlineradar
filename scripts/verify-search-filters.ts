@@ -22,6 +22,7 @@ import {
 } from "../lib/public-copy";
 import { eventLabels } from "../lib/event-labels";
 import type { Event } from "../types/event";
+import type { SearchState } from "../types/search";
 import { band } from "../types/event";
 
 function ok(name: string) {
@@ -155,6 +156,37 @@ async function main() {
     "'Deze maand' includes next calendar month",
   );
   ok("matching weekend vs month exclusive");
+
+  // Every date option on Thursday 29 Oct 2026 (Brussels), incl. Friday evening
+  // and a multi-day trip that starts before the period.
+  {
+    const cal = [
+      stub({ id: "thu", slug: "thu", startDate: "2026-10-29", startTime: "20:00" }),
+      stub({ id: "fri-day", slug: "fri-day", startDate: "2026-10-30", startTime: "12:00" }),
+      stub({ id: "fri-eve", slug: "fri-eve", startDate: "2026-10-30", startTime: "19:00" }),
+      stub({ id: "sat", slug: "sat", startDate: "2026-10-31", startTime: "21:00" }),
+      stub({ id: "sun", slug: "sun", startDate: "2026-11-01", startTime: "11:00" }),
+      stub({ id: "multi", slug: "multi", startDate: "2026-10-28", endDate: "2026-11-01", startTime: "10:00" }),
+      stub({ id: "mon", slug: "mon", startDate: "2026-11-02", startTime: "19:00" }),
+      stub({ id: "sun-next", slug: "sun-next", startDate: "2026-11-08", startTime: "19:00" }),
+      stub({ id: "dec", slug: "dec", startDate: "2026-12-01", startTime: "19:00" }),
+    ];
+    const thursday = new Date("2026-10-29T09:00:00+01:00");
+    const ids = (when: SearchState["when"], date: string | null = null) =>
+      matchingEvents(cal, { ...defaultSearchState(), age: 30, when, date }, thursday)
+        .visible.map((e) => e.id)
+        .sort();
+    assert.deepEqual(ids("today"), ["multi", "thu"]);
+    assert.deepEqual(ids("tomorrow"), ["fri-day", "fri-eve", "multi"]);
+    assert.deepEqual(ids("weekend"), ["fri-eve", "multi", "sat", "sun"]);
+    assert.deepEqual(ids("next_week"), ["mon", "sun-next"]);
+    assert.deepEqual(ids("month"), [
+      "fri-day", "fri-eve", "mon", "multi", "sat", "sun", "sun-next", "thu",
+    ]);
+    assert.deepEqual(ids("date", "2026-10-31"), ["multi", "sat"]);
+    assert.equal(ids("any").length, cal.length);
+    ok("every date option on a Thursday, weekend from Friday evening");
+  }
 
   const clearWhen = applySearchPatch(
     { ...defaultSearchState(), when: "month", activities: ["sport"] },
