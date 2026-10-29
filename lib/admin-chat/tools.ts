@@ -657,10 +657,11 @@ export async function toolAssessUrl(input: {
     }
   }
 
-  const { proposalToDraft } = await import("@/lib/aanvoer/types");
+  const { proposalToDraft, applyAdminSinglesTrust } = await import("@/lib/aanvoer/types");
   const { evaluateIntakeApproval } = await import("@/lib/aanvoer/approval");
   const { findIntakeMatches } = await import("@/lib/aanvoer/dedupe");
-  const draft = proposalToDraft(proposal);
+  // The admin pasted this link: singles by their judgement.
+  const draft = applyAdminSinglesTrust(proposalToDraft(proposal));
   if (!draft.sourceUrl) draft.sourceUrl = url;
   const approval = evaluateIntakeApproval(draft, proposal);
   const matches = await findIntakeMatches(draft);
