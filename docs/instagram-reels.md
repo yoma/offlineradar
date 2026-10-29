@@ -129,6 +129,15 @@ Fontsource, logo in `remotion/public/brand`.
 Rechtenvrije tracks in `remotion/public/music/` (mp3, m4a, aac of wav). Elke
 reel neemt de volgende track; fade-in en fade-out zitten in de video.
 `rustig-01.mp3` is een zelf gegenereerde, neutrale track zonder rechten van derden.
+De andere tracks (zonnig, lounge, piano, avond, akoestisch, dromerig, funky,
+zomeravond) maakt `python3 scripts/music/generate-reel-tracks.py`: pure
+synthese met numpy, geen samples, dus ook geen rechten van derden. Een track
+erbij of eraf is gewoon een bestand in de map; de rotatie volgt vanzelf.
+Promo-reels nemen `music/promo/` zodra daar tracks staan, anders deze map.
+
+Muziek uit de Instagram-bibliotheek kan niet via de API. Rechtenvrije tracks
+van elders (bv. Pixabay Music) mogen in de map, maar kies er geen met een
+Content ID-registratie: die geven claims of gedempte reels.
 
 ## Instellingen (env)
 
