@@ -124,7 +124,7 @@ async function loadCanonicalEvents(): Promise<Event[]> {
 async function loadCanonicalEventsUncached(): Promise<Event[]> {
   try {
     // Public catalog must include the full published set (was silently capped at 100).
-    const bundles = await listPublishedEditionBundles(500);
+    const bundles = await listPublishedEditionBundles(1000);
     if (bundles == null) {
       throw new EventsCatalogUnavailableError(
         "Canonical eventdatabase niet bereikbaar.",

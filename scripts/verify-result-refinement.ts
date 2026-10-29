@@ -14,6 +14,7 @@ import {
   serializeResultRefinement,
   type ResultRefinement,
 } from "../lib/result-refinement";
+import { isInWeekend } from "../lib/dates";
 import { profileFromSearch } from "../lib/search-state";
 import type { Event } from "../types/event";
 import { band } from "../types/event";
@@ -379,6 +380,31 @@ function refine(partial: Partial<ResultRefinement>): ResultRefinement {
   const range = refineDateRange(refine({ datePreset: "weekend" }), sat);
   assert.deepEqual(range, { start: "2026-10-03", end: "2026-10-04" });
   ok("18 weekend on Saturday is current weekend");
+}
+
+// 18b Friday evening counts as weekend (Fri 2 Oct 2026)
+{
+  const fri = "2026-10-02";
+  const events = [
+    stub({ id: "fri-day", slug: "fri-day", startDate: fri, startTime: "14:00" }),
+    stub({ id: "fri-eve", slug: "fri-eve", startDate: fri, startTime: "19:30" }),
+    stub({ id: "fri-17", slug: "fri-17", startDate: fri, startTime: "17:00" }),
+    stub({ id: "fri-notime", slug: "fri-notime", startDate: fri, startTime: null }),
+    stub({ id: "thu", slug: "thu", startDate: "2026-10-01", startTime: "20:00" }),
+    stub({ id: "sun", slug: "sun", startDate: "2026-10-04", startTime: "10:00" }),
+    stub({ id: "mon", slug: "mon", startDate: "2026-10-05", startTime: "19:00" }),
+  ];
+  const ids = (today: string) =>
+    applyResultRefinement(events, refine({ datePreset: "weekend" }), today)
+      .map((e) => e.id)
+      .sort();
+  const expected = ["fri-17", "fri-eve", "fri-notime", "sun"];
+  assert.deepEqual(ids(TODAY), expected);
+  assert.deepEqual(ids(fri), expected);
+  assert.deepEqual(ids("2026-10-03"), ["sun"]);
+  assert.deepEqual(ids("2026-10-04"), ["sun"]);
+  assert.equal(isInWeekend(events[1]!, "2026-10-01"), true);
+  ok("18b weekend includes Friday evening until Friday is past");
 }
 
 // 19 Party4singles text + organizer filter

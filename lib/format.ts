@@ -175,7 +175,7 @@ export const WHEN_HINT: Partial<Record<keyof typeof WHEN_LABEL, string>> = {
   any: "Geen datumlimiet: alle toekomstige activiteiten",
   today: "Alleen vandaag",
   tomorrow: "Alleen morgen",
-  weekend: "Komende zaterdag en zondag",
+  weekend: "Vrijdagavond (vanaf 17u), zaterdag en zondag",
   next_week: "Maandag t.e.m. zondag van volgende week",
   month: "Vanaf vandaag t.e.m. eind volgende kalendermaand",
   date: "Eén gekozen dag",
