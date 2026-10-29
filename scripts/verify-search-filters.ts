@@ -188,6 +188,32 @@ async function main() {
     ok("every date option on a Thursday, weekend from Friday evening");
   }
 
+  // Events only outside the radius are offered, nearest first.
+  {
+    const far = [
+      stub({ id: "near", slug: "near", startDate: "2026-10-31" }),
+      stub({ id: "brugge", slug: "brugge", startDate: "2026-10-31", latitude: 51.209, longitude: 3.224 }),
+      stub({ id: "gent", slug: "gent", startDate: "2026-10-31", latitude: 51.054, longitude: 3.717 }),
+      stub({ id: "gent-later", slug: "gent-later", startDate: "2026-11-20", latitude: 51.054, longitude: 3.717 }),
+      stub({ id: "nowhere", slug: "nowhere", startDate: "2026-10-31", latitude: Number.NaN, longitude: Number.NaN }),
+    ];
+    const thursday = new Date("2026-10-29T09:00:00+01:00");
+    const r = matchingEvents(
+      far,
+      { ...defaultSearchState(), age: 30, when: "weekend", maxDistanceKm: 25 },
+      thursday,
+    );
+    assert.deepEqual(r.visible.map((e) => e.id), ["near"]);
+    assert.deepEqual(r.beyondRadius.map((e) => e.id), ["gent", "brugge"]);
+    const all = matchingEvents(
+      far,
+      { ...defaultSearchState(), age: 30, when: "weekend", placeId: "all" },
+      thursday,
+    );
+    assert.equal(all.beyondRadius.length, 0);
+    ok("beyond-radius events offered nearest first, other filters still apply");
+  }
+
   const clearWhen = applySearchPatch(
     { ...defaultSearchState(), when: "month", activities: ["sport"] },
     { when: "any", date: null },
