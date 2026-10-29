@@ -665,9 +665,10 @@ export async function toolAssessUrl(input: {
   if (!draft.sourceUrl) draft.sourceUrl = url;
   const approval = evaluateIntakeApproval(draft, proposal);
   const matches = await findIntakeMatches(draft);
-  const alreadyOnPlatform = matches.some(
-    (m) => m.kind === "event_edition" || m.kind === "catalog_source",
-  );
+  // Only the same event counts as "already there". A known organiser
+  // (catalog source) does not mean this event is on the site.
+  const alreadyOnPlatform = matches.some((m) => m.kind === "event_edition");
+  const organizerKnown = matches.some((m) => m.kind === "catalog_source");
   const fits =
     draft.routeAdvice === "route_a" || draft.routeAdvice === "route_b";
   const createIfFits = input.createIfFits !== false;
@@ -780,8 +781,10 @@ export async function toolAssessUrl(input: {
     alreadyOnPlatform && existingNote.ok
       ? `Al bekend: ${existingNote.summary}`
       : alreadyOnPlatform
-        ? "Al bekend in catalogus."
-        : null,
+        ? "Dit event staat al op de site."
+        : organizerKnown
+          ? "Organisator staat al in je bronnen."
+          : null,
     enriched?.filledFields && enriched.filledFields.length > 0
       ? `Bestaand event bijgewerkt (${enriched.slug}): ${enriched.filledFields.join(", ")}.`
       : enriched?.slug

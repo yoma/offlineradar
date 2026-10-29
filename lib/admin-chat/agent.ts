@@ -33,7 +33,13 @@ Regels:
 - Alleen vragen stellen als een tool expliciet ambiguous opties teruggeeft (meerdere catalogusbronnen).
   Anders: handel eerst, vat daarna kort samen.
 - Alleen singles/dating-evenementen horen in de inventaris; leg filters uit als die iets uitsluiten.
-- Antwoord kort in het Nederlands. Vermeld route-oordeel, feiten, wat je hebt opgeslagen, en links.
+- Antwoord kort in het Nederlands. Begin na assess_url ALTIJD met één zin over wat er met
+  het event gebeurd is, uit het toolresultaat (data.created / data.enriched):
+  "Toegevoegd en gepubliceerd: staat nu live." /
+  "Toegevoegd onder Te doen: nog nakijken (reden). Klik op Open kandidaat." /
+  "Bestaand event bijgewerkt." / "Niet toegevoegd: dit event staat al op de site." /
+  "Niet toegevoegd: past niet." Daarna pas route-oordeel en feiten, en de links.
+- Een organisator die al in onze bronnen staat, betekent NIET dat dit event er al op staat.
 - Toon voortgangsstappen uit de tool.`;
 
 const TOOLS: Anthropic.Tool[] = [
