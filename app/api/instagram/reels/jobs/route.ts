@@ -6,6 +6,8 @@ import {
   countPendingReels,
   getLastReelTrack,
   getPromoHistory,
+  getRecentBackdropKeys,
+  getRecentStockClipKeys,
   type ReelJob,
 } from "@/lib/instagram/queue";
 import { isCronRequestAuthorized } from "@/lib/source-refresh/cron-auth";
@@ -16,7 +18,8 @@ export const dynamic = "force-dynamic";
 /**
  * Reel render queue for the GitHub Actions renderer.
  * GET  → { pending } (cheap check before installing Remotion)
- * POST → claims up to `limit` reels: { jobs, lastTrack, lastPromoTrack }.
+ * POST → claims up to `limit` reels: { jobs, lastTrack, lastPromoTrack,
+ *        usedClipKeys } (stock pictures of recent promo and event reels).
  *        A job is { kind: "reel", id, scheduledAt, props } or a promo reel
  *        { kind: "promo", ..., plan, redo }; a promo job that needs a (new)
  *        plan also gets `history` (what earlier promo reels used) and
@@ -46,10 +49,11 @@ export async function POST(request: Request) {
     const jobs = await withPromoContext(claimed);
     const lastTrack = await getLastReelTrack("reel");
     const lastPromoTrack = await getLastReelTrack("promo");
+    const usedClipKeys = jobs.some((j) => j.kind === "reel") ? await getRecentStockClipKeys() : [];
     if (jobs.length > 0) {
       console.info(`[instagram/reels] ${jobs.length} reel(s) geclaimd: ${jobs.map((j) => j.id).join(", ")}`);
     }
-    return NextResponse.json({ ok: true, jobs, lastTrack, lastPromoTrack });
+    return NextResponse.json({ ok: true, jobs, lastTrack, lastPromoTrack, usedClipKeys });
   } catch (error) {
     console.error("[instagram/reels] claim", error instanceof Error ? error.message : error);
     return NextResponse.json({ ok: false, error: "unavailable" }, { status: 503 });
@@ -60,7 +64,9 @@ export async function POST(request: Request) {
 async function withPromoContext(jobs: ReelJob[]) {
   const needPlan = jobs.some((j) => j.kind === "promo" && (j.redo || !j.props));
   if (!needPlan) return jobs;
-  const history = await getPromoHistory();
+  const [promo, eventKeys] = await Promise.all([getPromoHistory(), getRecentBackdropKeys()]);
+  // Promo clips first (the newest count most), then the event reels' pictures.
+  const history = { ...promo, usedClipKeys: [...promo.usedClipKeys, ...eventKeys] };
   const catalog = await listEvents().catch((error) => {
     console.warn("[instagram/reels] catalogus voor promo", error instanceof Error ? error.message : error);
     return null;

@@ -647,6 +647,24 @@ export async function markQueuePosted(
   `;
 }
 
+/**
+ * Failed posts that got as far as media_publish in the last few days: the
+ * answer may have been lost while the post went live. The runner asks
+ * Instagram about them again (reconcileUncertainQueuePosts).
+ */
+export async function listUncertainQueuePosts(days = 3): Promise<InstagramQueuePost[]> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    SELECT * FROM instagram_post_queue
+    WHERE status = 'mislukt'
+      AND container_id IS NOT NULL
+      AND publish_started_at > now() - make_interval(days => ${days})
+    ORDER BY publish_started_at DESC
+    LIMIT 5
+  `) as QueueRow[];
+  return rows.map(mapRow);
+}
+
 export async function markQueueFailed(id: string, message: string) {
   const sql = await queueSql();
   await sql`
@@ -929,14 +947,27 @@ export async function saveReelMedia(
   return inserted.length > 0 ? mediaId : null;
 }
 
-/** Render finished: both files are stored. */
-export async function markReelReady(postId: string, track: string | null): Promise<boolean> {
+/**
+ * Render finished: both files are stored. `clipKeys` are the stock pictures
+ * behind an event reel (kept in reel_props.usedClipKeys, so later reels can
+ * avoid them; promo reels keep theirs in promo_plan).
+ */
+export async function markReelReady(
+  postId: string,
+  track: string | null,
+  clipKeys?: string[],
+): Promise<boolean> {
   const sql = await queueSql();
+  const keys = clipKeys ? JSON.stringify(clipKeys.slice(0, 8)) : null;
   const rows = (await sql`
     UPDATE instagram_post_queue q SET
       reel_status = 'klaar',
       reel_error = NULL,
       reel_track = ${track},
+      reel_props = CASE
+        WHEN ${keys}::jsonb IS NULL OR q.reel_props IS NULL THEN q.reel_props
+        ELSE jsonb_set(q.reel_props, '{usedClipKeys}', ${keys}::jsonb)
+      END,
       reel_rendered_at = now(),
       updated_at = now()
     WHERE q.id = ${postId}
@@ -1058,6 +1089,28 @@ export async function savePromoPlan(
     RETURNING id
   `) as unknown[];
   return rows.length > 0;
+}
+
+/**
+ * Stock pictures behind recent event reels (newest first). Promo reels and
+ * event reels share these with getPromoHistory, so neither repeats the other.
+ */
+export async function getRecentBackdropKeys(limit = 60): Promise<string[]> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    SELECT reel_props->'usedClipKeys' AS keys FROM instagram_post_queue
+    WHERE format IS DISTINCT FROM ${PROMO_FORMAT}
+      AND reel_props->'usedClipKeys' IS NOT NULL
+    ORDER BY COALESCE(reel_rendered_at, created_at) DESC
+    LIMIT ${limit}
+  `) as { keys: unknown }[];
+  return rows.flatMap((r) => stringArray(r.keys));
+}
+
+/** Clip keys of recent promo and event reels together (newest first per kind). */
+export async function getRecentStockClipKeys(): Promise<string[]> {
+  const [promo, events] = await Promise.all([getPromoHistory(), getRecentBackdropKeys()]);
+  return [...new Set([...events, ...promo.usedClipKeys])];
 }
 
 /** What earlier promo reels used (newest first), so a new one does not repeat it. */

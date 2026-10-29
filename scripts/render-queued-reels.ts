@@ -25,7 +25,7 @@ import path from "node:path";
 import { replanPromoReel, type PromoHistory } from "@/lib/instagram/promo/generate";
 import { pickPromoMusic } from "@/lib/instagram/promo/music";
 import { renderPromoReel } from "@/lib/instagram/promo/render";
-import type { PromoPlanRecord, PromoRedo, PromoReelProps } from "@/lib/instagram/promo/types";
+import { clipKey, type PromoPlanRecord, type PromoRedo, type PromoReelProps } from "@/lib/instagram/promo/types";
 import { localizeBackdrops, pickReelBackdrops } from "@/lib/instagram/reel/backdrop";
 import { readInstagramReelConfig } from "@/lib/instagram/reel/config";
 import { pickReelMusic } from "@/lib/instagram/reel/music";
@@ -57,6 +57,8 @@ type Job =
 type Prepared = {
   label: string;
   track: string | null;
+  /** Stock pictures the render at this attempt uses (event reels). */
+  clipKeys?: (attempt: number) => string[];
   render: (outBase: string, attempt: number) => Promise<RenderedReel>;
 };
 
@@ -103,7 +105,10 @@ async function upload(id: string, kind: "reel" | "reel_cover" | "reel_story", fi
   await json(res, `upload ${kind}`);
 }
 
-async function report(id: string, body: { ok: boolean; track?: string | null; message?: string }) {
+async function report(
+  id: string,
+  body: { ok: boolean; track?: string | null; message?: string; clipKeys?: string[] },
+) {
   const res = await api(`/api/instagram/reels/${id}/result`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -117,6 +122,7 @@ async function preparePromo(
   job: Extract<Job, { kind: "promo" }>,
   music: ReelMusic,
   ctx: { serveUrl: string; browserExecutable: string | null },
+  pickedThisRun: string[],
 ): Promise<Prepared> {
   let props = job.props;
   if (job.redo || !props) {
@@ -124,7 +130,7 @@ async function preparePromo(
     const { plan, record } = await replanPromoReel({
       redo: job.redo ?? "alles",
       previous: job.plan,
-      history: job.history,
+      history: { ...job.history, usedClipKeys: [...pickedThisRun, ...job.history.usedClipKeys] },
       eventCount: job.eventCount ?? null,
       music,
       log: (m) => log(`${job.id}: ${m}`),
@@ -139,6 +145,7 @@ async function preparePromo(
     );
     props = plan.props;
   }
+  pickedThisRun.push(...props.clips.map(clipKey));
   const withMusic: PromoReelProps = { ...props, music };
   return {
     label: `promo "${withMusic.hook}"`,
@@ -166,7 +173,12 @@ async function main() {
   let done = 0;
   let failures = 0;
   while (done < MAX_PER_RUN) {
-    const claim = await json<{ jobs: Job[]; lastTrack: string | null; lastPromoTrack?: string | null }>(
+    const claim = await json<{
+      jobs: Job[];
+      lastTrack: string | null;
+      lastPromoTrack?: string | null;
+      usedClipKeys?: string[];
+    }>(
       await api("/api/instagram/reels/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -177,6 +189,8 @@ async function main() {
     if (claim.jobs.length === 0) break;
     let lastTrack = claim.lastTrack;
     let lastPromoTrack = claim.lastPromoTrack ?? null;
+    // Pictures of recent reels (from the site), plus the ones picked in this run.
+    const usedClipKeys = [...(claim.usedClipKeys ?? [])];
 
     for (const job of claim.jobs) {
       done++;
@@ -186,20 +200,23 @@ async function main() {
       try {
         if (job.kind === "promo") {
           const music = await pickPromoMusic(lastPromoTrack);
-          prepared = await preparePromo(job, music, { serveUrl, browserExecutable });
+          prepared = await preparePromo(job, music, { serveUrl, browserExecutable }, usedClipKeys);
           lastPromoTrack = prepared.track ?? lastPromoTrack;
         } else {
           const music = await pickReelMusic(config, lastTrack);
           const jobLog = (m: string) => log(`${job.id}: ${m}`);
           const backdrops = await localizeBackdrops(
-            await pickReelBackdrops({ seed: job.id, props: job.props, log: jobLog }),
+            await pickReelBackdrops({ seed: job.id, props: job.props, usedClipKeys, log: jobLog }),
             serveUrl,
             jobLog,
           );
           const props: ReelProps = { ...job.props, music, backdrops };
+          const keys = [...new Set([backdrops?.hook, backdrops?.cta].filter((b) => b != null).map(clipKey))];
+          usedClipKeys.push(...keys);
           prepared = {
             label: `"${props.hookText}"`,
             track: music?.src ?? null,
+            clipKeys: (attempt) => (attempt > 1 ? [] : keys),
             // A second try goes without footage: the reel matters more than the picture.
             render: (outBase, attempt) =>
               renderReel({
@@ -223,7 +240,7 @@ async function main() {
           await upload(job.id, "reel", reel.videoPath);
           await upload(job.id, "reel_cover", reel.coverPath);
           await upload(job.id, "reel_story", reel.storyPath);
-          await report(job.id, { ok: true, track: prepared.track });
+          await report(job.id, { ok: true, track: prepared.track, clipKeys: prepared.clipKeys?.(attempt) });
           log(
             `${job.id}: klaar, ${prepared.label}, ${reel.seconds.toFixed(1)} s, ` +
               `${(reel.bytes / 1e6).toFixed(1)} MB, ${((Date.now() - started) / 1000).toFixed(0)} s`,
