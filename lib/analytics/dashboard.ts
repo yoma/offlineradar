@@ -1,6 +1,7 @@
 /**
  * Period helpers + dashboard aggregates for /interne-dashboard (FASE 26.18).
  */
+import { ensureAnalyticsSchemaV2 } from "@/lib/analytics/schema";
 import { ANALYTICS_DATA_SINCE } from "@/lib/analytics/types";
 import { getEventsSql } from "@/lib/events/db";
 
@@ -404,6 +405,10 @@ export async function loadDashboardData(
   };
 
   if (!sql) return empty;
+  // Creates the view that hides the admin's own devices (first run only).
+  await ensureAnalyticsSchemaV2().catch((error) => {
+    console.error("[dashboard] analytics schema v2", error);
+  });
 
   const startIso = period.start.toISOString();
   const endIso = period.end.toISOString();
@@ -461,7 +466,7 @@ export async function loadDashboardData(
             WHERE created_at >= ${d30} AND created_at <= ${endNow}
               AND event_name = 'page_view'
           )::int AS d30
-        FROM analytics_events
+        FROM analytics_events_visible
       `,
       [{ today: 0, d7: 0, d30: 0 }],
     ),
@@ -471,7 +476,7 @@ export async function loadDashboardData(
           count(DISTINCT anonymous_session_id) FILTER (WHERE event_name = 'page_view')::int AS visitors,
           count(*) FILTER (WHERE event_name = 'page_view')::int AS pageviews,
           count(*) FILTER (WHERE event_name = 'external_source_click')::int AS external_clicks
-        FROM analytics_events
+        FROM analytics_events_visible
         WHERE created_at >= ${startIso} AND created_at <= ${endIso}
       `,
       [{ visitors: 0, pageviews: 0, external_clicks: 0 }],
@@ -482,7 +487,7 @@ export async function loadDashboardData(
           count(DISTINCT anonymous_session_id) FILTER (WHERE event_name = 'page_view')::int AS visitors,
           count(*) FILTER (WHERE event_name = 'page_view')::int AS pageviews,
           count(*) FILTER (WHERE event_name = 'external_source_click')::int AS external_clicks
-        FROM analytics_events
+        FROM analytics_events_visible
         WHERE created_at >= ${prevStartIso} AND created_at <= ${prevEndIso}
       `,
       [{ visitors: 0, pageviews: 0, external_clicks: 0 }],
@@ -493,7 +498,7 @@ export async function loadDashboardData(
           to_char(date_trunc('day', created_at AT TIME ZONE 'Europe/Brussels'), 'YYYY-MM-DD') AS day,
           count(DISTINCT anonymous_session_id) FILTER (WHERE event_name = 'page_view')::int AS visitors,
           count(*) FILTER (WHERE event_name = 'page_view')::int AS pageviews
-        FROM analytics_events
+        FROM analytics_events_visible
         WHERE created_at >= ${startIso} AND created_at <= ${endIso}
         GROUP BY 1
         ORDER BY 1 ASC
@@ -556,7 +561,7 @@ export async function loadDashboardData(
           count(*) FILTER (WHERE a.event_name = 'event_view')::int AS views,
           count(*) FILTER (WHERE a.event_name = 'event_saved')::int AS saves,
           count(*) FILTER (WHERE a.event_name = 'external_source_click')::int AS external_clicks
-        FROM analytics_events a
+        FROM analytics_events_visible a
         JOIN event_editions e ON e.id = a.event_edition_id
         LEFT JOIN organizers o ON o.id = e.organizer_id
         WHERE a.created_at >= ${startIso}
@@ -574,7 +579,7 @@ export async function loadDashboardData(
         SELECT
           COALESCE(e.category, a.category, 'onbekend') AS category,
           count(*)::int AS views
-        FROM analytics_events a
+        FROM analytics_events_visible a
         LEFT JOIN event_editions e ON e.id = a.event_edition_id
         WHERE a.created_at >= ${startIso}
           AND a.created_at <= ${endIso}
@@ -590,7 +595,7 @@ export async function loadDashboardData(
         SELECT
           COALESCE(metadata->>'categories', '') AS category,
           count(*)::int AS hits
-        FROM analytics_events
+        FROM analytics_events_visible
         WHERE created_at >= ${startIso}
           AND created_at <= ${endIso}
           AND event_name = 'filter_change'
@@ -606,7 +611,7 @@ export async function loadDashboardData(
         SELECT
           lower(trim(COALESCE(metadata->>'q', metadata->>'query', metadata->>'term', ''))) AS term,
           count(*)::int AS n
-        FROM analytics_events
+        FROM analytics_events_visible
         WHERE created_at >= ${startIso}
           AND created_at <= ${endIso}
           AND event_name = 'discovery_search'
@@ -757,7 +762,7 @@ export async function loadDashboardData(
               AND e2.publication_status = 'published'
               AND e2.starts_at >= now()
           ) AS active_events
-        FROM analytics_events a
+        FROM analytics_events_visible a
         JOIN event_editions e ON e.id = a.event_edition_id
         JOIN organizers o ON o.id = e.organizer_id
         WHERE a.created_at >= ${startIso}
@@ -778,7 +783,7 @@ export async function loadDashboardData(
           count(*) FILTER (WHERE event_name = 'zero_results')::int AS zero_results,
           count(*) FILTER (WHERE event_name = 'event_card_click')::int AS card_clicks,
           count(*) FILTER (WHERE event_name = 'client_error')::int AS client_errors
-        FROM analytics_events
+        FROM analytics_events_visible
         WHERE created_at >= ${startIso} AND created_at <= ${endIso}
       `,
       [
@@ -799,7 +804,7 @@ export async function loadDashboardData(
           SELECT DISTINCT ON (anonymous_session_id)
             anonymous_session_id,
             COALESCE(NULLIF(path, ''), metadata->>'path', '/') AS path
-          FROM analytics_events
+          FROM analytics_events_visible
           WHERE event_name = 'page_view'
             AND created_at >= ${startIso}
             AND created_at <= ${endIso}
@@ -821,7 +826,7 @@ export async function loadDashboardData(
               NULLIF(trim(metadata->>'referrer_host'), ''),
               'direct'
             ) AS host
-          FROM analytics_events
+          FROM analytics_events_visible
           WHERE event_name = 'page_view'
             AND created_at >= ${startIso}
             AND created_at <= ${endIso}
@@ -842,7 +847,7 @@ export async function loadDashboardData(
         SELECT
           COALESCE(NULLIF(path, ''), '/') AS path,
           count(*)::int AS n
-        FROM analytics_events
+        FROM analytics_events_visible
         WHERE event_name = 'page_view'
           AND created_at >= ${startIso}
           AND created_at <= ${endIso}
@@ -861,7 +866,7 @@ export async function loadDashboardData(
             NULLIF(trim(metadata->>'message'), ''),
             'Er ging iets mis'
           ) AS message
-        FROM analytics_events
+        FROM analytics_events_visible
         WHERE event_name = 'client_error'
           AND created_at >= ${startIso}
           AND created_at <= ${endIso}

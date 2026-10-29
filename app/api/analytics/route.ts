@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
+import { excludeAnalyticsSession } from "@/lib/analytics/schema";
 import { insertAnalyticsEvent } from "@/lib/analytics/store";
+import {
+  classifySource,
+  geoFromHeaders,
+  parseDevice,
+} from "@/lib/analytics/visitor-context";
 import { isAllowlistedAdminEmail } from "@/lib/tips/admin-auth";
 
 export const runtime = "nodejs";
@@ -49,19 +55,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, skipped: "bot" });
   }
 
-  // Exclude authenticated admins so internal browsing does not dominate metrics.
-  try {
-    const { auth } = await import("@/auth");
-    const session = await auth();
-    const email =
-      typeof session?.user?.email === "string" ? session.user.email : null;
-    if (isAllowlistedAdminEmail(email)) {
-      return NextResponse.json({ ok: true, skipped: "admin" });
-    }
-  } catch {
-    // Auth unavailable: continue as anonymous.
-  }
-
   let body: unknown;
   try {
     body = await request.json();
@@ -80,7 +73,39 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "missing_fields" }, { status: 400 });
   }
 
+  // Admins never count. Their device is remembered, so earlier visits from it
+  // drop out of the numbers too, and later ones without login stay out.
+  try {
+    const { auth } = await import("@/auth");
+    const session = await auth();
+    const email =
+      typeof session?.user?.email === "string" ? session.user.email : null;
+    if (isAllowlistedAdminEmail(email)) {
+      await excludeAnalyticsSession(anonymousSessionId, "admin").catch(() => undefined);
+      return NextResponse.json({ ok: true, skipped: "admin" });
+    }
+  } catch {
+    // Auth unavailable: continue as anonymous.
+  }
+
   const properties = asMeta(record.properties);
+  if (name === "page_view") {
+    // Visitor context, derived here so the client cannot fake it.
+    const { device, os, browser } = parseDevice(ua);
+    const { country, city } = geoFromHeaders(request.headers);
+    properties.device = device;
+    properties.os = os;
+    properties.browser = browser;
+    properties.country = country;
+    properties.city = city;
+    if (properties.is_landing === true) {
+      properties.src = classifySource({
+        userAgent: ua,
+        referrerHost: typeof properties.referrer_host === "string" ? properties.referrer_host : null,
+        utmSource: typeof properties.utm_source === "string" ? properties.utm_source : null,
+      });
+    }
+  }
   const eventEditionId =
     asString(properties.eventId, 80) ??
     asString(properties.eventEditionId, 80) ??
