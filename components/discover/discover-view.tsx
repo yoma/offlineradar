@@ -20,6 +20,7 @@ import { track } from "@/lib/analytics";
 import { brusselsToday } from "@/lib/dates";
 import {
   matchingEvents,
+  outsideFilterHints,
   placeLabel,
   splitByGuidelineAge,
 } from "@/lib/filters";
@@ -53,6 +54,10 @@ import { readProfile, writeProfile } from "@/lib/storage";
 import { selectUpcomingEvents } from "@/lib/upcoming";
 import type { Event } from "@/types/event";
 import type { SearchState, StoredProfile } from "@/types/search";
+
+/** At or below this many results the "Buiten je filters" box goes on top. */
+const FEW_RESULTS = 5;
+const OUTSIDE_CHIPS_MAX = 3;
 
 export function DiscoverView({
   events,
@@ -190,6 +195,10 @@ export function DiscoverView({
     [result.ineligible, refinement, today, followedOrganizerIds],
   );
 
+  const outsideHints = useMemo(
+    () => outsideFilterHints(events, state),
+    [events, state],
+  );
   const [showBeyondRadius, setShowBeyondRadius] = useState(false);
   const beyondRadius = useMemo(
     () =>
@@ -208,6 +217,85 @@ export function DiscoverView({
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }
+
+  // One box for everything that falls just outside the filters: strict
+  // conditions, radius, and per other filter what letting go of it adds.
+  const outsideChips = [
+    ...(result.hiddenStrict > 0
+      ? [
+          {
+            id: "strict-conditions",
+            count: result.hiddenStrict,
+            label: `${result.hiddenStrict} buiten de deelnamevoorwaarden`,
+            pressed: showIneligible,
+            onClick: () =>
+              showIneligible ? setShowIneligible(false) : revealIneligible(),
+          },
+        ]
+      : []),
+    ...(beyondRadius.length > 0
+      ? [
+          {
+            id: "radius",
+            count: beyondRadius.length,
+            label: `${beyondRadius.length} verder dan ${state.maxDistanceKm} km`,
+            pressed: showBeyondRadius,
+            onClick: () =>
+              showBeyondRadius
+                ? setShowBeyondRadius(false)
+                : revealBeyondRadius(),
+          },
+        ]
+      : []),
+    ...outsideHints.map((hint) => ({
+      id: hint.id,
+      count: hint.count,
+      label: hint.label,
+      pressed: false,
+      onClick: () => update(hint.patch),
+    })),
+  ]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, OUTSIDE_CHIPS_MAX);
+  const fewResults = baseVisible.length <= FEW_RESULTS;
+  const outsideBox =
+    outsideChips.length > 0 ? (
+      <div
+        className={`rounded-xl border border-border bg-secondary/60 px-4 py-3 text-sm ${
+          fewResults ? "mt-4" : "mt-12"
+        }`}
+      >
+        <p className="font-medium">Buiten je filters</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {outsideChips.map((chip) => (
+            <button
+              key={chip.id}
+              type="button"
+              aria-pressed={chip.pressed}
+              onClick={chip.onClick}
+              className={`rounded-full border px-3 py-1.5 font-medium transition ${
+                chip.pressed
+                  ? "border-[var(--brand-bordeaux)] bg-[var(--brand-bordeaux)] text-white"
+                  : "border-border bg-white hover:border-foreground"
+              }`}
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
+        <details className="mt-2 text-xs text-muted-foreground">
+          <summary className="cursor-pointer">Hoe werkt dit?</summary>
+          <p className="mt-1">
+            Elk label telt de activiteiten die je extra zou zien als je enkel
+            dat filter loslaat. Afstand en deelnamevoorwaarden tonen een lijst
+            onder de resultaten, de andere laten het filter los.
+            Deelnamevoorwaarden zijn bekende strikte leeftijds-, gender- of
+            andere voorwaarden van de organisator. Persoonlijke
+            ontmoetingsvoorkeuren verbergen geen activiteiten.
+          </p>
+        </details>
+      </div>
+    ) : null;
 
   function revealIneligible() {
     setShowIneligible(true);
@@ -541,58 +629,7 @@ export function DiscoverView({
             />
           ) : null}
 
-          {result.hiddenStrict > 0 ? (
-            <div className="mt-4 rounded-xl border border-border bg-secondary/60 px-4 py-3 text-sm">
-              <p>
-                {result.hiddenStrict}{" "}
-                {result.hiddenStrict === 1
-                  ? "activiteit verborgen omdat je niet aan de deelnamevoorwaarden voldoet."
-                  : "activiteiten verborgen omdat je niet aan de deelnamevoorwaarden voldoet."}
-              </p>
-              <details className="mt-1">
-                <summary className="cursor-pointer font-medium">Waarom?</summary>
-                <p className="mt-1 text-muted-foreground">
-                  DateOfflineHub controleert bekende leeftijds-, gender- en andere
-                  deelnamevoorwaarden voordat activiteiten worden getoond.
-                  Persoonlijke ontmoetingsvoorkeuren verbergen geen activiteiten.
-                </p>
-              </details>
-              <button
-                type="button"
-                onClick={() =>
-                  showIneligible
-                    ? setShowIneligible(false)
-                    : revealIneligible()
-                }
-                className="mt-2 font-semibold text-[var(--brand-bordeaux)] underline-offset-4 hover:underline"
-              >
-                {showIneligible ? "Verberg ze weer" : "Toon ze toch"}
-              </button>
-            </div>
-          ) : null}
-
-          {beyondRadius.length > 0 ? (
-            <div className="mt-4 rounded-xl border border-border bg-secondary/60 px-4 py-3 text-sm">
-              <p>
-                {beyondRadius.length}{" "}
-                {beyondRadius.length === 1
-                  ? "activiteit valt buiten je straal"
-                  : "activiteiten vallen buiten je straal"}{" "}
-                van {state.maxDistanceKm} km rond {placeLabel(state.placeId)}.
-              </p>
-              <button
-                type="button"
-                onClick={() =>
-                  showBeyondRadius
-                    ? setShowBeyondRadius(false)
-                    : revealBeyondRadius()
-                }
-                className="mt-2 font-semibold text-[var(--brand-bordeaux)] underline-offset-4 hover:underline"
-              >
-                {showBeyondRadius ? "Verberg ze weer" : "Toon ze toch"}
-              </button>
-            </div>
-          ) : null}
+          {fewResults ? outsideBox : null}
 
           {preferenceMiss && preferenceLabel ? (
             <div className="mt-4 rounded-xl border border-border bg-white px-4 py-4 text-sm">
@@ -718,6 +755,7 @@ export function DiscoverView({
               ) : null}
             </div>
           )}
+          {fewResults ? null : outsideBox}
           {showBeyondRadius && beyondRadius.length > 0 ? (
             <section
               id="buiten-straal"
