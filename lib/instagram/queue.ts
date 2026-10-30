@@ -401,6 +401,38 @@ export async function getQueueMedia(mediaId: string): Promise<Buffer | null> {
   return (await getQueueMediaWithKind(mediaId))?.bytes ?? null;
 }
 
+/**
+ * Kind and size only, without the bytes: lets the media route answer a
+ * Range request by reading just that slice from Neon (network transfer
+ * is metered).
+ */
+export async function getQueueMediaInfo(
+  mediaId: string,
+): Promise<{ kind: string; size: number } | null> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    SELECT kind, octet_length(bytes)::int AS size
+    FROM instagram_post_media WHERE id = ${mediaId}
+  `) as { kind: string; size: number }[];
+  return rows[0] ? { kind: rows[0].kind, size: Number(rows[0].size) } : null;
+}
+
+/** Bytes start..end (inclusive, 0-based) of one media file. */
+export async function getQueueMediaSlice(
+  mediaId: string,
+  start: number,
+  end: number,
+): Promise<Buffer | null> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    SELECT substring(bytes FROM ${start + 1}::int FOR ${end - start + 1}::int) AS chunk
+    FROM instagram_post_media WHERE id = ${mediaId}
+  `) as { chunk: Buffer | Uint8Array | null }[];
+  const chunk = rows[0]?.chunk;
+  if (!chunk) return null;
+  return Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+}
+
 /** Media bytes plus their kind ('feed', 'story', 'reel', 'reel_cover'). */
 export async function getQueueMediaWithKind(
   mediaId: string,
