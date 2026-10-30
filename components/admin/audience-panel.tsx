@@ -63,6 +63,8 @@ function LiveVisitors() {
   useEffect(() => {
     let stopped = false;
     async function load() {
+      // Only while the tab is visible: every poll queries Neon.
+      if (document.hidden) return;
       try {
         const res = await fetch("/api/interne-analytics/live", { cache: "no-store" });
         if (!res.ok) throw new Error(String(res.status));

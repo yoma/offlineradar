@@ -216,7 +216,7 @@ function ReelPreview({
         <video
           controls
           playsInline
-          preload="metadata"
+          preload="none"
           poster={post.reelCoverId ? `/api/instagram/media/${post.reelCoverId}.jpg` : undefined}
           src={`/api/instagram/media/${post.reelVideoId}.mp4`}
           className="aspect-[9/16] w-full rounded-xl border border-stone-200 bg-stone-900"
@@ -277,7 +277,7 @@ function PromoPreview({
         <video
           controls
           playsInline
-          preload="metadata"
+          preload="none"
           poster={post.reelCoverId ? `/api/instagram/media/${post.reelCoverId}.jpg` : undefined}
           src={`/api/instagram/media/${post.reelVideoId}.mp4`}
           className="aspect-[9/16] w-full rounded-xl border border-stone-200 bg-stone-900"
