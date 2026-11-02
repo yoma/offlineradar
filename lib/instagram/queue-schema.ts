@@ -186,12 +186,39 @@ VALUES ('20261027_instagram_post_queue_promo_v5')
 ON CONFLICT (id) DO NOTHING;
 `;
 
+/**
+ * v6: a log of the automatic publish rounds (evening Vercel cron and the
+ * hourly GitHub run), so the wachtrij can show when a round last ran and
+ * what it did. Only the newest rows are kept (recordInstagramRun).
+ */
+export const INSTAGRAM_RUNS_MIGRATION_ID = "20261102_instagram_runs_v6";
+
+export const INSTAGRAM_RUNS_SQL = `
+CREATE TABLE IF NOT EXISTS instagram_runs (
+  id BIGSERIAL PRIMARY KEY,
+  ran_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- 'avond' = Vercel cron, 'uur' = hourly GitHub workflow.
+  source TEXT NOT NULL,
+  ok BOOLEAN NOT NULL,
+  published INTEGER NOT NULL DEFAULT 0,
+  failed INTEGER NOT NULL DEFAULT 0,
+  summary TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS instagram_runs_ran_at_idx ON instagram_runs (ran_at DESC);
+
+INSERT INTO schema_migrations (id)
+VALUES ('20261102_instagram_runs_v6')
+ON CONFLICT (id) DO NOTHING;
+`;
+
 const MIGRATIONS: [id: string, sql: string][] = [
   [INSTAGRAM_POST_QUEUE_MIGRATION_ID, INSTAGRAM_POST_QUEUE_SCHEMA_SQL],
   [INSTAGRAM_POST_QUEUE_STORY_MIGRATION_ID, INSTAGRAM_POST_QUEUE_STORY_SQL],
   [INSTAGRAM_POST_QUEUE_REEL_MIGRATION_ID, INSTAGRAM_POST_QUEUE_REEL_SQL],
   [INSTAGRAM_POST_QUEUE_REEL_PUBLISH_MIGRATION_ID, INSTAGRAM_POST_QUEUE_REEL_PUBLISH_SQL],
   [INSTAGRAM_POST_QUEUE_PROMO_MIGRATION_ID, INSTAGRAM_POST_QUEUE_PROMO_SQL],
+  [INSTAGRAM_RUNS_MIGRATION_ID, INSTAGRAM_RUNS_SQL],
 ];
 
 let ensured: Promise<boolean> | null = null;

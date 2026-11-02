@@ -22,7 +22,7 @@ caption en muziek zijn elke week nieuw; de look blijft dezelfde.
    **Nieuwe beelden** (zelfde tekst) of **Allebei nieuw**; binnen het uur staat
    de nieuwe versie er. Afgekeurde hooks en clips komen niet terug.
    *Deze week geen promo-reel* parkeert hem.
-4. **Plaatsen**: de GitHub-workflow *Instagram promo publish* vraagt elk uur
+4. **Plaatsen**: de GitHub-workflow *Instagram publish* (/api/instagram/publish) vraagt elk uur
    (om :05) of er een promo-reel klaar staat en plaatst hem als reel, met de
    video ook als verhaal. Een promo-reel heeft geen slides: lukt de reel niet,
    dan gaat er niets online en krijg je een mail.
