@@ -14,7 +14,9 @@ import { readInstagramReelConfig } from "@/lib/instagram/reel/config";
 import {
   getAutoPostWithoutApproval,
   listQueuePosts,
+  listRecentInstagramRuns,
   type InstagramQueuePost,
+  type InstagramRun,
 } from "@/lib/instagram/queue";
 import { upcomingQueueSlots } from "@/lib/instagram/queue-runner";
 import {
@@ -83,6 +85,13 @@ export default async function InstagramWachtrijPage() {
     eventOptions = [];
   }
 
+  let runs: InstagramRun[] | null = null;
+  try {
+    runs = await listRecentInstagramRuns();
+  } catch {
+    runs = null;
+  }
+
   const config = readInstagramMetaConfig();
   const reelConfig = readInstagramReelConfig();
   const token = await getInstagramTokenStatus();
@@ -96,6 +105,7 @@ export default async function InstagramWachtrijPage() {
       <InterneAdminNav active="instagram" />
       <InstagramQueueClient
         posts={posts}
+        runs={runs}
         autoPost={autoPost}
         loadError={loadError}
         nextSlots={nextSlots}

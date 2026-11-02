@@ -20,6 +20,7 @@ import {
 import type {
   InstagramQueuePost,
   InstagramQueueStatus,
+  InstagramRun,
 } from "@/lib/instagram/queue";
 import { NEEDS_INSTAGRAM_CHECK } from "@/lib/instagram/queue-messages";
 import {
@@ -445,14 +446,14 @@ function PostCard({
               {post.errorMessage}
             </p>
           ) : null}
-          {post.status === "te_keuren" && timePassed && isPromo ? (
+          {post.status === "te_keuren" && timePassed && isPromo && !autoPost ? (
             <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
               Het geplande tijdstip is voorbij. Kies een andere dag, of klik Nu plaatsen.
             </p>
           ) : post.status === "te_keuren" && timePassed ? (
             <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
               {autoPost
-                ? "Die avond is voorbij; wordt bij de volgende avondronde geplaatst."
+                ? "Het tijdstip is voorbij; wordt bij de volgende ronde geplaatst (overdag ongeveer elk uur, en elke avond)."
                 : "Die avond is voorbij. Klik Nu plaatsen, of kies een andere dag."}
             </p>
           ) : null}
@@ -466,8 +467,8 @@ function PostCard({
             {isPromo ? "Plaatsen op" : "Plaatsen op de avond van"}
             <span className="block text-xs font-normal text-stone-500">
               {isPromo
-                ? `Gaat die dag om ${promoTime} online (binnen het kwartier). Meteen posten: Nu plaatsen.`
-                : "Gaat die dag automatisch online tussen 18 en 20 uur. Is die avond al voorbij, dan de volgende avond. Meteen posten: Nu plaatsen."}
+                ? `Gaat die dag vanaf ${promoTime} online, bij de eerstvolgende ronde (GitHub kan wat later zijn). Meteen posten: Nu plaatsen.`
+                : "Gaat die dag vanaf 17:30 online, bij de eerstvolgende ronde (meestal tussen 18 en 20 uur). Is die avond al voorbij, dan bij de volgende ronde. Meteen posten: Nu plaatsen."}
             </span>
             <input
               type="date"
@@ -828,6 +829,53 @@ function SetupStatus({ setup }: { setup: Setup }) {
   );
 }
 
+const RUN_SOURCE_LABEL: Record<InstagramRun["source"], string> = {
+  avond: "avondronde",
+  uur: "uurronde",
+};
+
+/** No evening round for this long means the Vercel cron did not run. */
+const EVENING_STALE_MS = 26 * 3_600_000;
+
+/** What the automatic rounds did lately, so a silent failure shows up here. */
+function RunsPanel({ runs, nowMs }: { runs: InstagramRun[] | null; nowMs: number }) {
+  if (runs === null) {
+    return (
+      <p className="text-sm text-stone-600 md:col-span-2">
+        Automatische rondes: log kon niet geladen worden.
+      </p>
+    );
+  }
+  const lastEvening = runs.find((r) => r.source === "avond");
+  const eveningStale = !lastEvening || nowMs - Date.parse(lastEvening.ranAt) > EVENING_STALE_MS;
+  return (
+    <div className="space-y-1 text-sm md:col-span-2">
+      <p className="font-semibold text-stone-800">Automatische rondes</p>
+      {runs.length === 0 ? (
+        <p className="text-stone-600">
+          Nog geen ronde gelogd. De avondronde draait elke avond tussen 18 en 19 uur; overdag
+          kijkt de site ongeveer elk uur of er iets klaarstaat.
+        </p>
+      ) : eveningStale ? (
+        <p className="font-semibold text-red-700">
+          {lastEvening
+            ? `De avondronde draaide niet meer sinds ${formatBrusselsDateTime(lastEvening.ranAt)}.`
+            : "De avondronde draaide nog niet."}{" "}
+          Kijk in Vercel bij Cron Jobs of /api/cron/instagram nog actief is.
+        </p>
+      ) : null}
+      <ul className="space-y-1">
+        {runs.slice(0, 6).map((r) => (
+          <li key={`${r.source}-${r.ranAt}`} className={r.ok ? "text-stone-600" : "text-red-700"}>
+            <span className="font-semibold">{formatBrusselsDateTime(r.ranAt)}</span>{" "}
+            ({RUN_SOURCE_LABEL[r.source] ?? r.source}): {r.summary}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 type PostKind = "binnenkort" | "deze_week" | "nieuw" | "event" | "promo";
 
 const KIND_OPTIONS: { value: PostKind; label: string; hint: string }[] = [
@@ -933,7 +981,10 @@ export function InstagramQueueClient({
   setup,
   renderedAt,
   promoTime,
+  runs,
 }: {
+  /** Latest automatic rounds, newest first; null when the log failed to load. */
+  runs: InstagramRun[] | null;
   posts: InstagramQueuePost[];
   autoPost: boolean;
   loadError: string | null;
@@ -976,6 +1027,7 @@ export function InstagramQueueClient({
       <section className="grid gap-4 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm md:grid-cols-2">
         <AutoPostToggle enabled={autoPost} />
         <SetupStatus setup={setup} />
+        <RunsPanel runs={runs} nowMs={nowMs} />
         {nextSlots.length > 0 ? (
           <p className="text-xs text-stone-500 md:col-span-2">
             De site stelt zelf ook posts voor, op:{" "}

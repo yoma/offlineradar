@@ -13,6 +13,7 @@ import { toInstagramJpeg } from "../lib/instagram/queue-media";
 import {
   nextDailyPostTime,
   prepareContainers,
+  summarizeInstagramRun,
   upcomingQueueSlots,
 } from "../lib/instagram/queue-runner";
 import type { MetaClient } from "../lib/instagram/meta-client";
@@ -314,6 +315,30 @@ async function main() {
     assert.ok(Math.abs(meta.width! / meta.height! - ratio) < 0.01, `${w}x${h}`);
     assert.ok(jpeg.byteLength < 8 * 1024 * 1024);
   }
+
+  // --- rounds log summary ---------------------------------------------------
+  const idle = summarizeInstagramRun({ published: [] });
+  assert.deepEqual(idle, { ok: true, published: 0, failed: 0, summary: "niets klaar om te plaatsen" });
+  const mixed = summarizeInstagramRun({
+    published: [
+      { id: "igq_a", ok: true, message: "Gepost op Instagram." },
+      { id: "igq_b", ok: false, message: `token ${token} verlopen` },
+    ],
+    notes: ["INSTAGRAM_META_DRY_RUN staat aan."],
+  });
+  assert.equal(mixed.ok, false);
+  assert.equal(mixed.published, 1);
+  assert.equal(mixed.failed, 1);
+  assert.ok(mixed.summary.startsWith("1 geplaatst · igq_b mislukt:"), mixed.summary);
+  assert.ok(!mixed.summary.includes(token), "summary never holds the token");
+  const proposed = summarizeInstagramRun({
+    published: [],
+    proposed: { id: "igq_c", slotKey: "2026-11-06T17:30|binnenkort" },
+  });
+  assert.equal(proposed.summary, "nieuw voorstel 2026-11-06T17:30|binnenkort");
+  const crashed = summarizeInstagramRun({ published: [], error: "neon_unavailable" });
+  assert.equal(crashed.ok, false);
+  assert.equal(crashed.summary, "Ronde mislukt: neon_unavailable");
 
   console.log("OK: Instagram queue offline checks passed.");
 }

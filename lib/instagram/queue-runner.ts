@@ -172,24 +172,58 @@ export type QueueTickResult = {
   notes: string[];
 };
 
+type PublishedItem = { id: string; ok: boolean; message: string };
+
 /**
- * Hourly (GitHub workflow): publish promo reels that are due. Event posts
- * keep going out with the evening cron.
+ * Publish every due post while time allows (approved posts, and "te keuren"
+ * ones when automatic posting is on). Shared by the evening cron and the
+ * hourly run, so a post whose moment passed goes out at the next round.
  */
-export async function runPromoPublishTick(options?: {
+async function publishDuePosts(args: {
+  now: Date;
+  deadlineMs: number;
+  metaClient?: MetaClient;
+}): Promise<PublishedItem[]> {
+  const published: PublishedItem[] = [];
+  const autoPost = await getAutoPostWithoutApproval();
+  while (args.deadlineMs - Date.now() >= NEXT_POST_MIN_REMAINING_MS) {
+    const post = await claimDueQueuePost({ autoPost, now: args.now });
+    if (!post) break;
+    published.push(
+      await publishQueuePost(post, args.metaClient, {
+        deadlineMs: Math.min(Date.now() + POST_TOTAL_MS, args.deadlineMs),
+      }),
+    );
+  }
+  return published;
+}
+
+/**
+ * Hourly (GitHub workflow "Instagram publish"): publish whatever is due,
+ * promo reels at their own time and event posts whose evening round was
+ * missed or that were planned earlier in the day. No proposals here: those
+ * stay with the evening cron.
+ */
+export async function runHourlyPublishTick(options?: {
   now?: Date;
   metaClient?: MetaClient;
-}): Promise<{ published: { id: string; ok: boolean; message: string }[]; notes: string[] }> {
+}): Promise<{ published: PublishedItem[]; notes: string[] }> {
+  const startedMs = Date.now();
+  const now = options?.now ?? new Date();
   const config = readInstagramMetaConfig();
   if (config.dryRun) return { published: [], notes: ["INSTAGRAM_META_DRY_RUN staat aan."] };
   if (config.publishExplicitlyOff) {
     return { published: [], notes: ["INSTAGRAM_META_PUBLISH_ENABLED=0."] };
   }
+  // Mark posts left half-way (function killed) before anything else.
+  await sweepQueue(now);
   const notes = await reconcileUncertainQueuePosts(options?.metaClient);
-  const autoPost = await getAutoPostWithoutApproval();
-  const post = await claimDueQueuePost({ autoPost, now: options?.now, promoOnly: true });
-  if (!post) return { published: [], notes };
-  return { published: [await publishQueuePost(post, options?.metaClient)], notes };
+  const published = await publishDuePosts({
+    now,
+    deadlineMs: startedMs + CRON_TOTAL_MS,
+    metaClient: options?.metaClient,
+  });
+  return { published, notes };
 }
 
 export async function runInstagramQueueTick(options?: {
@@ -220,23 +254,42 @@ export async function runInstagramQueueTick(options?: {
     notes.push("INSTAGRAM_META_PUBLISH_ENABLED=0: er wordt niets gepost.");
   } else {
     notes.push(...(await reconcileUncertainQueuePosts(options?.metaClient)));
-    // The cron runs once a day, so publish every due post while time allows.
-    const autoPost = await getAutoPostWithoutApproval();
-    const cronDeadlineMs = startedMs + CRON_TOTAL_MS;
-    while (cronDeadlineMs - Date.now() >= NEXT_POST_MIN_REMAINING_MS) {
-      const post = await claimDueQueuePost({ autoPost, now });
-      if (!post) break;
-      result.published.push(
-        await publishQueuePost(post, options?.metaClient, {
-          deadlineMs: Math.min(Date.now() + POST_TOTAL_MS, cronDeadlineMs),
-        }),
-      );
-    }
+    result.published = await publishDuePosts({
+      now,
+      deadlineMs: startedMs + CRON_TOTAL_MS,
+      metaClient: options?.metaClient,
+    });
     if (result.published.length > 0) return result;
   }
 
   result.proposed = await proposeNextSlot(now, notes);
   return result;
+}
+
+/** One line for the rounds log on the wachtrij page (Dutch, no secrets). */
+export function summarizeInstagramRun(args: {
+  published: PublishedItem[];
+  proposed?: { id: string; slotKey: string } | null;
+  notes?: string[];
+  error?: string | null;
+}): { ok: boolean; published: number; failed: number; summary: string } {
+  const ok = args.published.filter((p) => p.ok);
+  const failed = args.published.filter((p) => !p.ok);
+  const parts: string[] = [];
+  if (args.error) parts.push(`Ronde mislukt: ${args.error}`);
+  if (ok.length > 0) parts.push(`${ok.length} geplaatst`);
+  for (const f of failed) parts.push(`${f.id} mislukt: ${f.message}`);
+  if (args.proposed) parts.push(`nieuw voorstel ${args.proposed.slotKey}`);
+  if (!args.error && args.published.length === 0 && !args.proposed) {
+    parts.push("niets klaar om te plaatsen");
+  }
+  for (const note of args.notes ?? []) parts.push(note);
+  return {
+    ok: !args.error && failed.length === 0,
+    published: ok.length,
+    failed: failed.length,
+    summary: noEmDash(scrubSecrets(parts.join(" · "))),
+  };
 }
 
 export async function publishQueuePost(

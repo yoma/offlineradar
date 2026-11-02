@@ -847,11 +847,74 @@ export async function getAutoPostWithoutApproval(): Promise<boolean> {
 
 export async function setAutoPostWithoutApproval(enabled: boolean) {
   const sql = await queueSql();
+  // Upsert: an UPDATE alone would silently do nothing without the row.
   await sql`
-    UPDATE instagram_settings
-    SET auto_post_without_approval = ${enabled}, updated_at = now()
-    WHERE id = 1
+    INSERT INTO instagram_settings (id, auto_post_without_approval, updated_at)
+    VALUES (1, ${enabled}, now())
+    ON CONFLICT (id) DO UPDATE
+    SET auto_post_without_approval = EXCLUDED.auto_post_without_approval,
+        updated_at = now()
   `;
+}
+
+// --- automatic rounds log ------------------------------------------------------
+
+export type InstagramRunSource = "avond" | "uur";
+
+export type InstagramRun = {
+  ranAt: string;
+  source: InstagramRunSource;
+  ok: boolean;
+  published: number;
+  failed: number;
+  summary: string;
+};
+
+const RUNS_KEPT = 200;
+
+/** Log one automatic round. Never throws: the log must not break publishing. */
+export async function recordInstagramRun(run: Omit<InstagramRun, "ranAt">): Promise<void> {
+  try {
+    const sql = await queueSql();
+    await sql`
+      INSERT INTO instagram_runs (source, ok, published, failed, summary)
+      VALUES (${run.source}, ${run.ok}, ${run.published}, ${run.failed}, ${run.summary.slice(0, 2000)})
+    `;
+    await sql`
+      DELETE FROM instagram_runs
+      WHERE id < (SELECT id FROM instagram_runs ORDER BY id DESC OFFSET ${RUNS_KEPT - 1} LIMIT 1)
+    `;
+  } catch (error) {
+    console.warn(
+      "[instagram/runs] niet gelogd:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+}
+
+export async function listRecentInstagramRuns(limit = 12): Promise<InstagramRun[]> {
+  const sql = await queueSql();
+  const rows = (await sql`
+    SELECT ran_at, source, ok, published, failed, summary
+    FROM instagram_runs
+    ORDER BY ran_at DESC
+    LIMIT ${limit}
+  `) as {
+    ran_at: string | Date;
+    source: InstagramRunSource;
+    ok: boolean;
+    published: number;
+    failed: number;
+    summary: string;
+  }[];
+  return rows.map((r) => ({
+    ranAt: new Date(r.ran_at).toISOString(),
+    source: r.source,
+    ok: r.ok,
+    published: r.published,
+    failed: r.failed,
+    summary: r.summary,
+  }));
 }
 
 // --- reels --------------------------------------------------------------------
